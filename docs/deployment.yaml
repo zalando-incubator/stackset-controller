@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackset-controller
+  namespace: kube-system
+  labels:
+    application: stackset-controller
+    version: latest
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      application: stackset-controller
+  template:
+    metadata:
+      labels:
+        application: stackset-controller
+        version: latest
+    spec:
+      serviceAccountName: stackset-controller
+      containers:
+      - name: stackset-controller
+        image: zalando-incubator/stackset-controller:v0.0.1
+        resources:
+          limits:
+            cpu: 10m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 100Mi

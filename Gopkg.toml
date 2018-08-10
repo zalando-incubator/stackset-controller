@@ -1,0 +1,31 @@
+[[constraint]]
+  name = "github.com/prometheus/client_golang"
+  version = "0.8.0"
+
+[[constraint]]
+  name = "github.com/sirupsen/logrus"
+  version = "1.0.5"
+
+[[constraint]]
+  name = "gopkg.in/alecthomas/kingpin.v2"
+  version = "2.2.6"
+
+[[constraint]]
+  branch = "master"
+  name = "k8s.io/api"
+
+[[constraint]]
+  revision = "103fd098999dc9c0c88536f5c9ad2e5da39373ae"
+  name = "k8s.io/apimachinery"
+
+[[override]]
+  revision = "f2b4162afba35581b6d4a50d3b8f34e33c144682"
+  name = "github.com/json-iterator/go"
+
+[[constraint]]
+  name = "k8s.io/client-go"
+  version = "8.0.0"
+
+[prune]
+  go-tests = true
+  unused-packages = true

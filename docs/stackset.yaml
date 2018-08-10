@@ -1,0 +1,37 @@
+apiVersion: zalando.org/v1
+kind: StackSet
+metadata:
+  name: my-app
+spec:
+  ingress:
+    hosts: [my-app.example.org, alt.name.org]
+  stackLifecycle:
+    scaledownTTLSeconds: 300
+    limit: 5
+  stackTemplate:
+    spec:
+      version: v2
+      replicas: 3
+      horizontalPodAutoscaler:
+        minReplicas: 3
+        maxReplicas: 10
+        metrics:
+        - type: Resource
+          resource:
+            name: cpu
+            targetAverageUtilization: 50
+      podTemplate:
+        spec:
+          containers:
+          - name: nginx
+            image: nginx
+            ports:
+            - containerPort: 80
+              name: ingress
+            resources:
+              limits:
+                cpu: 10m
+                memory: 50Mi
+              requests:
+                cpu: 10m
+                memory: 50Mi
