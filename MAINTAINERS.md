@@ -1,0 +1,4 @@
+- Mikkel Larsen <mikkel.larsen@zalando.de>
+- Martin Linkhorst <martin.linkhorst@zalando.de>
+- Maksym Aryefyev <maksym.aryefyev@zalando.de>
+- Sandor Szücs <sandor.szuecs@zalando.de>

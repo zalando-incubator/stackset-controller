@@ -1,0 +1,32 @@
+build_pipeline:
+  test:
+    image: golang
+    commands:
+    - go get golang.org/x/lint/golint
+    - make check
+    - make test
+
+  build:
+    image: golang
+    commands:
+    - make build.linux
+
+  # custom push on PRs
+  push-pr:
+    image: registry.opensource.zalan.do/teapot/cdp-toolchain
+    environment:
+    - IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
+    commands:
+    - VERSION=$CDP_BUILD_VERSION make build.push
+    when:
+      branch:
+        exclude: master
+
+  push-master:
+    image: registry.opensource.zalan.do/teapot/cdp-toolchain
+    environment:
+    - IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
+    commands:
+    - VERSION=$CDP_BUILD_VERSION make build.push
+    when:
+      branch: master

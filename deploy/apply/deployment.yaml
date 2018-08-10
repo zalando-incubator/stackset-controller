@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ APPLICATION }}"
+  labels:
+    application: "{{ APPLICATION }}"
+    version: "{{ CDP_BUILD_VERSION }}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      application: "{{ APPLICATION }}"
+  template:
+    metadata:
+      labels:
+        application: "{{ APPLICATION }}"
+        version: "{{ CDP_BUILD_VERSION }}"
+    spec:
+      serviceAccountName: cdp
+      containers:
+      - name: "{{ APPLICATION }}"
+        image: "{{ IMAGE }}:{{ CDP_BUILD_VERSION }}"
+        resources:
+          limits:
+            cpu: 10m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 100Mi
