@@ -1,0 +1,16 @@
+sudo: false
+language: go
+
+go:
+  - 1.10.x
+
+before_install:
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+
+install:
+  - dep ensure --vendor-only -v
+
+script:
+  - make check
+  - make test
+  - make build.docker
