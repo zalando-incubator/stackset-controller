@@ -2,7 +2,7 @@
 
 BINARY        ?= stackset-controller
 VERSION       ?= $(shell git describe --tags --always --dirty)
-IMAGE         ?= teapot/$(BINARY)
+IMAGE         ?= registry-write.opensource.zalan.do/teapot/$(BINARY)
 TAG           ?= $(VERSION)
 SOURCES       = $(shell find . -name '*.go')
 GENERATED     = pkg/client pkg/apis/zalando/v1/zz_generated.deepcopy.go
