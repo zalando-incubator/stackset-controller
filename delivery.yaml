@@ -1,32 +1,27 @@
-build_pipeline:
-  test:
-    image: golang
-    commands:
-    - go get golang.org/x/lint/golint
-    - make check
-    - make test
-
-  build:
-    image: golang
-    commands:
-    - make build.linux
-
-  # custom push on PRs
-  push-pr:
-    image: registry.opensource.zalan.do/teapot/cdp-toolchain
-    environment:
-    - IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
-    commands:
-    - VERSION=$CDP_BUILD_VERSION make build.push
-    when:
-      branch:
-        exclude: master
-
-  push-master:
-    image: registry.opensource.zalan.do/teapot/cdp-toolchain
-    environment:
-    - IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
-    commands:
-    - VERSION=$CDP_BUILD_VERSION make build.push
-    when:
-      branch: master
+version: "2017-09-20"
+pipeline:
+- id: build
+  overlay: machinery/go-overlay
+  type: script
+  env:
+    GOPATH: /go
+  working_dir: /go/src/github.com/zalando-incubator/stackset-controller
+  commands:
+  - desc: install deps
+    cmd: |
+      dep ensure -v -vendor-only
+  - desc: test
+    cmd: |
+      make check
+      make test
+  - desc: build
+    cmd: |
+      make build.docker
+  - desc: push
+    cmd: |
+      if [[ $CDP_TARGET_BRANCH == master && ! $CDP_PULL_REQUEST_NUMBER ]]; then
+        IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
+      else
+        IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
+      fi
+      IMAGE=$IMAGE VERSION=$CDP_BUILD_VERSION make build.push
