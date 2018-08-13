@@ -1,5 +1,5 @@
 # Kubernetes StackSet Controller
-[![Build Status](https://travis-ci.com/zalando-incubator/stackset-controller.svg?branch=master)](https://travis-ci.com/zalando-incubator/stackset-controller)
+[![Build Status](https://travis-ci.org/zalando-incubator/stackset-controller.svg?branch=master)](https://travis-ci.org/zalando-incubator/stackset-controller)
 
 **Consider this alpha quality, things are subject to change, feedback very welcome!**
 
