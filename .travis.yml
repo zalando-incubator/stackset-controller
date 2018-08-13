@@ -11,6 +11,7 @@ install:
   - dep ensure --vendor-only -v
 
 script:
+  - go get golang.org/x/lint/golint
   - make check
   - make test
   - make build.docker
