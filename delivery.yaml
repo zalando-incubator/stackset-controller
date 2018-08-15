@@ -3,17 +3,13 @@ pipeline:
 - id: build
   overlay: machinery/go-overlay
   type: script
-  env:
-    GOPATH: /go
   working_dir: /go/src/github.com/zalando-incubator/stackset-controller
   commands:
   - desc: install deps
     cmd: |
-      go get -u golang.org/x/lint/golint
       dep ensure -v -vendor-only
   - desc: test
     cmd: |
-      export PATH=$GOPATH/bin:$PATH
       make check
       make test
   - desc: build
