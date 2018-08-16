@@ -1,7 +1,7 @@
 version: "2017-09-20"
 pipeline:
 - id: build
-  overlay: machinery/go-overlay
+  overlay: ci/golang
   type: script
   working_dir: /go/src/github.com/zalando-incubator/stackset-controller
   commands:
