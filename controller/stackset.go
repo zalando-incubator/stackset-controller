@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
-	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
