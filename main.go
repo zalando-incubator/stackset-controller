@@ -81,7 +81,6 @@ func main() {
 		config.Interval,
 	)
 
-	ctx, cancel = context.WithCancel(ctx)
 	go handleSigterm(cancel)
 	go serveMetrics(config.MetricsAddress)
 	controller.Run(ctx)
@@ -141,11 +140,11 @@ func configureKubeConfig(apiServerURL *url.URL, timeout time.Duration, stopCh <-
 	// patch TLS config
 	restTransportConfig, err := config.TransportConfig()
 	if err != nil {
-		log.Fatalf("Failed to get TransportConfig from restclient config: %v", err)
+		return nil, err
 	}
 	restTLSConfig, err := transport.TLSConfigFor(restTransportConfig)
 	if err != nil {
-		log.Fatalf("Failed to get TLSConfig from restclient config: %v", err)
+		return nil, err
 	}
 	tr.TLSClientConfig = restTLSConfig
 
