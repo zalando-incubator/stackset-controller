@@ -205,6 +205,20 @@ After the CRDs are install the controller can be deployed:
 $ kubectl apply -f docs/deployment.yaml
 ```
 
+### Custom configuration
+
+## controller-id
+
+There are cases where it might be desirable to run multiple instances of the
+stackset-controller in the same cluster, e.g. for development.
+
+To prevent the controllers from fighting over the same `StackSet` resources
+they can be configured with the flag `--controller-id=<some-id>` which
+indicates that the controller should only manage the `StackSets` which has an
+annotation `stackset-controller.zalando.org/controller=<some-id>` defined.
+If the controller-id is not configured, the controller will manage all
+`StackSets` which does not have the annotation defined.
+
 ## Quick intro
 
 Once you have deployed the controller you can create your first `StackSet`

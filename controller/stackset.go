@@ -26,13 +26,14 @@ import (
 )
 
 const (
-	stacksetHeritageLabelKey            = "stackset"
-	stackVersionLabelKey                = "stack-version"
-	defaultVersion                      = "default"
-	defaultStackLifecycleLimit          = 10
-	stacksetStackFinalizer              = "finalizer.stacks.zalando.org"
-	stacksetFinalizer                   = "finalizer.stacksets.zalando.org" // TODO: implement this
-	stacksetStackOwnerReferenceLabelKey = "stackset-stack-owner-reference"
+	stacksetHeritageLabelKey                  = "stackset"
+	stackVersionLabelKey                      = "stack-version"
+	defaultVersion                            = "default"
+	defaultStackLifecycleLimit                = 10
+	stacksetStackFinalizer                    = "finalizer.stacks.zalando.org"
+	stacksetFinalizer                         = "finalizer.stacksets.zalando.org" // TODO: implement this
+	stacksetStackOwnerReferenceLabelKey       = "stackset-stack-owner-reference"
+	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 )
 
 // StackSetController is the main controller. It watches for changes to
@@ -42,6 +43,7 @@ type StackSetController struct {
 	logger                  *log.Entry
 	kube                    kubernetes.Interface
 	appClient               clientset.Interface
+	controllerID            string
 	interval                time.Duration
 	stacksetStackMinGCAge   time.Duration
 	noTrafficScaledownTTL   time.Duration
@@ -62,11 +64,12 @@ type controllerEntry struct {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client kubernetes.Interface, appClient clientset.Interface, stacksetStackMinGCAge, noTrafficScaledownTTL, noTrafficTerminationTTL, interval time.Duration) *StackSetController {
+func NewStackSetController(client kubernetes.Interface, appClient clientset.Interface, controllerID string, stacksetStackMinGCAge, noTrafficScaledownTTL, noTrafficTerminationTTL, interval time.Duration) *StackSetController {
 	return &StackSetController{
 		logger:                  log.WithFields(log.Fields{"controller": "stackset"}),
 		kube:                    client,
 		appClient:               appClient,
+		controllerID:            controllerID,
 		stacksetStackMinGCAge:   stacksetStackMinGCAge,
 		noTrafficScaledownTTL:   noTrafficScaledownTTL,
 		noTrafficTerminationTTL: noTrafficTerminationTTL,
@@ -103,6 +106,12 @@ func (c *StackSetController) Run(ctx context.Context) {
 			}
 
 			if e.Deleted {
+				continue
+			}
+
+			// check if stackset should be managed by the
+			// controller
+			if !c.shouldManage(&stackset) {
 				continue
 			}
 
@@ -151,6 +160,20 @@ func (c *StackSetController) Run(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// shouldManage returns true if the controller should manage the stackset.
+// Whether it should manage is determined by the value of the
+// 'stackset-controller.zalando.org/controller' annotation. If the value
+// matches the controllerID then it should manage it, or if the controllerID is
+// "" and there's no annotation set.
+func (c *StackSetController) shouldManage(stackset *zv1.StackSet) bool {
+	if stackset.Annotations != nil {
+		if owner, ok := stackset.Annotations[stacksetControllerControllerAnnotationKey]; ok {
+			return owner == c.controllerID
+		}
+	}
+	return c.controllerID == ""
 }
 
 func (c *StackSetController) startWatch(ctx context.Context) {
