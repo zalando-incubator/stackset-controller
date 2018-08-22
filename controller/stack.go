@@ -8,11 +8,11 @@ import (
 	"reflect"
 	"time"
 
-	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
@@ -26,7 +26,6 @@ import (
 )
 
 const (
-	// noTrafficScaledownTTLAnnotationKey = "stacksetstacks.zalando.org/no-traffic-scaledown-ttl"
 	noTrafficSinceAnnotationKey = "stacksetstacks.zalando.org/no-traffic-since"
 )
 
@@ -120,7 +119,7 @@ func getIngressTraffic(client kubernetes.Interface, stackset *zv1.StackSet) (map
 		return nil, err
 	}
 
-	desiredTraffic := make(map[string]float64, 0)
+	desiredTraffic := make(map[string]float64)
 	if weights, ok := ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
 		err := json.Unmarshal([]byte(weights), &desiredTraffic)
 		if err != nil {
@@ -128,7 +127,7 @@ func getIngressTraffic(client kubernetes.Interface, stackset *zv1.StackSet) (map
 		}
 	}
 
-	actualTraffic := make(map[string]float64, 0)
+	actualTraffic := make(map[string]float64)
 	if weights, ok := ingress.Annotations[backendWeightsAnnotationKey]; ok {
 		err := json.Unmarshal([]byte(weights), &actualTraffic)
 		if err != nil {
@@ -518,8 +517,12 @@ func (c *StackController) manageService(stack zv1.Stack, deployment *appsv1.Depl
 
 	service.Labels = stack.Labels
 	service.Spec.Selector = stack.Labels
-	// TODO: iterate on this
-	service.Spec.Ports = servicePortsFromTemplate(stack.Spec.PodTemplate)
+	// get service ports to be used for the service
+	servicePorts, err := getServicePorts(c.stackset.Spec.Ingress.BackendPort, stack)
+	if err != nil {
+		return err
+	}
+	service.Spec.Ports = servicePorts
 
 	if createService {
 		c.logger.Infof(
@@ -597,10 +600,36 @@ func getStackService(kube kubernetes.Interface, deployment appsv1.Deployment) (*
 	return service, nil
 }
 
+// getServicePorts gets the service ports to be used for the stack service.
+func getServicePorts(backendPort intstr.IntOrString, stack zv1.Stack) ([]v1.ServicePort, error) {
+	var servicePorts []v1.ServicePort
+	if stack.Spec.Service == nil || len(stack.Spec.Service.Ports) == 0 {
+		servicePorts = servicePortsFromContainers(stack.Spec.PodTemplate.Spec.Containers)
+	} else if stack.Spec.Service != nil {
+		servicePorts = stack.Spec.Service.Ports
+	}
+
+	// validate that one port in the list map to the backendPort.
+	for _, port := range servicePorts {
+		switch backendPort.Type {
+		case intstr.Int:
+			if port.Port == backendPort.IntVal {
+				return servicePorts, nil
+			}
+		case intstr.String:
+			if port.Name == backendPort.StrVal {
+				return servicePorts, nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("no service ports matching backendPort '%s'", backendPort.String())
+}
+
 // servicePortsFromTemplate gets service port from pod template.
-func servicePortsFromTemplate(template v1.PodTemplateSpec) []v1.ServicePort {
+func servicePortsFromContainers(containers []v1.Container) []v1.ServicePort {
 	ports := make([]v1.ServicePort, 0)
-	for _, container := range template.Spec.Containers {
+	for _, container := range containers {
 		for i, port := range container.Ports {
 			name := fmt.Sprintf("port-%d", i)
 			if port.Name != "" {
