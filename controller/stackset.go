@@ -109,9 +109,8 @@ func (c *StackSetController) Run(ctx context.Context) {
 				continue
 			}
 
-			// check if stackset should be managed by the
-			// controller
-			if !c.shouldManage(&stackset) {
+			// check if stackset should be managed by the controller
+			if !c.hasOwnership(&stackset) {
 				continue
 			}
 
@@ -162,12 +161,12 @@ func (c *StackSetController) Run(ctx context.Context) {
 	}
 }
 
-// shouldManage returns true if the controller should manage the stackset.
-// Whether it should manage is determined by the value of the
+// hasOwnership returns true if the controller is the "owner" of the stackset.
+// Whether it's owner is determined by the value of the
 // 'stackset-controller.zalando.org/controller' annotation. If the value
-// matches the controllerID then it should manage it, or if the controllerID is
+// matches the controllerID then it owns it, or if the controllerID is
 // "" and there's no annotation set.
-func (c *StackSetController) shouldManage(stackset *zv1.StackSet) bool {
+func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 	if stackset.Annotations != nil {
 		if owner, ok := stackset.Annotations[stacksetControllerControllerAnnotationKey]; ok {
 			return owner == c.controllerID
