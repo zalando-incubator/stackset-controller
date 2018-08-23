@@ -38,6 +38,7 @@ var (
 		StackMinGCAge           time.Duration
 		NoTrafficScaledownTTL   time.Duration
 		NoTrafficTerminationTTL time.Duration
+		ControllerID            string
 	}
 )
 
@@ -50,6 +51,7 @@ func main() {
 	kingpin.Flag("no-traffic-scaledown-ttl", "Default TTL for scaling down deployments not getting any traffic.").Default(defaultNoTrafficScaledownTTL.String()).DurationVar(&config.NoTrafficScaledownTTL)
 	kingpin.Flag("no-traffic-termination-ttl", "Default TTL for terminating deployments after they are not getting any traffic.").Default(defaultNoTrafficTerminationTTL.String()).DurationVar(&config.NoTrafficTerminationTTL)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
+	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -75,6 +77,7 @@ func main() {
 	controller := controller.NewStackSetController(
 		client,
 		stacksetClient,
+		config.ControllerID,
 		config.StackMinGCAge,
 		config.NoTrafficScaledownTTL,
 		config.NoTrafficTerminationTTL,
