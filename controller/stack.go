@@ -605,7 +605,7 @@ func getServicePorts(backendPort intstr.IntOrString, stack zv1.Stack) ([]v1.Serv
 	var servicePorts []v1.ServicePort
 	if stack.Spec.Service == nil || len(stack.Spec.Service.Ports) == 0 {
 		servicePorts = servicePortsFromContainers(stack.Spec.PodTemplate.Spec.Containers)
-	} else if stack.Spec.Service != nil {
+	} else {
 		servicePorts = stack.Spec.Service.Ports
 	}
 
