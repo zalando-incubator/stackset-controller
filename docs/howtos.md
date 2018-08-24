@@ -2,10 +2,11 @@
 
 ## Configure port mapping
 
-`StackSets` creates the underlying resource types `Ingress`, `Service` and
-`Deployment`. In order to connect these resources at the port level they must
-be configured to use the same port number or name. For `StackSets` there are a
-number of configuration options possible for setting up this port mapping.
+`StackSets` creates `Stacks` which in turn creates the underlying resource
+types `Ingress`, `Service` and `Deployment`. In order to connect these
+resources at the port level they must be configured to use the same port number
+or name. For `StackSets` there are a number of configuration options possible
+for setting up this port mapping.
 
 ### Configure Ingress backendPort
 
@@ -81,7 +82,8 @@ Which ensures that there is a connection from `Ingress -> Service -> Pods`.
 
 If you have multiple ports or containers defined in a pod it's important that
 exactly one of the ports map to the `backendPort` defined for the ingress
-(default value: `ingress`).
+(default value: `ingress`) i.e. one port of the containers must have the same
+name or port number as the `backendPort`.
 
 ### Configure custom service ports
 
@@ -125,5 +127,7 @@ spec:
               name: metrics
 ```
 
-Here you must make sure that `spec.ingress.backendPort` map to one of the ports
-defined for the service and that the service ports map to container ports.
+Here you must make sure that the value used for `spec.ingress.backendPort` also
+maps to one of the ports in the `Service`, either by name or port number.
+Additionally the service ports should map to corresponding container ports also
+by name or port number.
