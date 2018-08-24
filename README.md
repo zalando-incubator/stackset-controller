@@ -175,6 +175,10 @@ If the `Stack` is deleted the related resources like `Service` and
 * Command line utility (`traffic`) for showing and switching traffic between
   stacks.
 
+## Docs
+
+* [How To's](/docs/howtos.md)
+
 ## How it works
 
 The controller watches for `StackSet` resources and creates `Stack` resources
