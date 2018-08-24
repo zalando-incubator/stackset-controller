@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -34,6 +35,10 @@ const (
 	stacksetFinalizer                         = "finalizer.stacksets.zalando.org" // TODO: implement this
 	stacksetStackOwnerReferenceLabelKey       = "stackset-stack-owner-reference"
 	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
+)
+
+var (
+	defaultBackendPort = intstr.FromString("ingress")
 )
 
 // StackSetController is the main controller. It watches for changes to
@@ -93,6 +98,11 @@ func (c *StackSetController) Run(ctx context.Context) {
 			// https://github.com/kubernetes/client-go/issues/308
 			stackset.APIVersion = "zalando.org/v1"
 			stackset.Kind = "StackSet"
+
+			// set default ingress backend port if not specified.
+			if stackset.Spec.Ingress != nil && intOrStrIsEmpty(stackset.Spec.Ingress.BackendPort) {
+				stackset.Spec.Ingress.BackendPort = defaultBackendPort
+			}
 
 			// clear existing entry
 			if entry, ok := c.controllerTable[stackset.UID]; ok {
@@ -549,6 +559,9 @@ func (c *StackSetController) manageStackSet(stackset *zv1.StackSet) error {
 	stack.Spec.PodTemplate = *stackset.Spec.StackTemplate.Spec.PodTemplate.DeepCopy()
 	stack.Spec.Replicas = stackset.Spec.StackTemplate.Spec.Replicas
 	stack.Spec.HorizontalPodAutoscaler = stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler
+	if stackset.Spec.StackTemplate.Spec.Service != nil {
+		stack.Spec.Service = sanitizeServicePorts(stackset.Spec.StackTemplate.Spec.Service)
+	}
 
 	if createStack {
 		c.logger.Infof(
@@ -578,6 +591,19 @@ func (c *StackSetController) manageStackSet(stackset *zv1.StackSet) error {
 	return nil
 }
 
+// sanitizeServicePorts makes sure the ports has the default fields set if not
+// specified.
+func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
+	for i, port := range service.Ports {
+		// set default protocol if not specified
+		if port.Protocol == "" {
+			port.Protocol = v1.ProtocolTCP
+		}
+		service.Ports[i] = port
+	}
+	return service
+}
+
 func mergeLabels(labelMaps ...map[string]string) map[string]string {
 	labels := make(map[string]string)
 	for _, labelMap := range labelMaps {
@@ -586,4 +612,15 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 		}
 	}
 	return labels
+}
+
+func intOrStrIsEmpty(v intstr.IntOrString) bool {
+	switch v.Type {
+	case intstr.Int:
+		return v.IntVal == 0
+	case intstr.String:
+		return v.StrVal == ""
+	default:
+		return true
+	}
 }

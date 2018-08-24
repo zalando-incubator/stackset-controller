@@ -9,22 +9,20 @@ import (
 	"strings"
 	"time"
 
-	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	stackTrafficWeightsAnnotationKey = "zalando.org/stack-traffic-weights"
 	backendWeightsAnnotationKey      = "zalando.org/backend-weights"
-	ingressPortName                  = "ingress"
 )
 
 // IngressController is a controller that can manage ingresses for an
@@ -330,10 +328,10 @@ func ingressForStack(stackset *zv1.StackSet, stack *zv1.Stack) (*v1beta1.Ingress
 	}
 
 	path := v1beta1.HTTPIngressPath{
-		Path: "", // TODO: support paths
+		Path: stackset.Spec.Ingress.Path,
 		Backend: v1beta1.IngressBackend{
 			ServiceName: stack.Name,
-			ServicePort: intstr.FromString(ingressPortName), // TODO: find a better way for service port mapping.
+			ServicePort: stackset.Spec.Ingress.BackendPort,
 		},
 	}
 	rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, path)
@@ -423,10 +421,10 @@ func ingressForStackSet(stackset *zv1.StackSet, origIngress *v1beta1.Ingress, st
 	for backend, traffic := range availableWeights {
 		if traffic > 0 {
 			path := v1beta1.HTTPIngressPath{
-				Path: "", // TODO: support paths
+				Path: stackset.Spec.Ingress.Path,
 				Backend: v1beta1.IngressBackend{
 					ServiceName: backend,
-					ServicePort: intstr.FromString(ingressPortName), // TODO: find a better way for service port mapping.
+					ServicePort: stackset.Spec.Ingress.BackendPort,
 				},
 			}
 			rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, path)

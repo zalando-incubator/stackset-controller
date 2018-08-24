@@ -133,10 +133,24 @@ type StackSpec struct {
 	// zero and not specified. Defaults to 1.
 	// +optional
 	Replicas                *int32                   `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
-	HorizontalPodAutoscaler *HorizontalPodAutoscaler `json:"horizontalPodAutoscaler"`
+	HorizontalPodAutoscaler *HorizontalPodAutoscaler `json:"horizontalPodAutoscaler,omitempty"`
 	// TODO: Service
+	Service *StackServiceSpec `json:"service,omitempty"`
 	// PodTemplate describes the pods that will be created.
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate" protobuf:"bytes,3,opt,name=template"`
+}
+
+// StackServiceSpec makes it possible to customize the service generated for
+// a stack.
+// +k8s:deepcopy-gen=true
+type StackServiceSpec struct {
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// The list of ports that are exposed by this service.
+	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
+	// +patchMergeKey=port
+	// +patchStrategy=merge
+	Ports []v1.ServicePort `json:"ports,omitempty" patchStrategy:"merge" patchMergeKey:"port" protobuf:"bytes,1,rep,name=ports"`
 }
 
 // StackSpecTemplate is the spec part of the Stack.
