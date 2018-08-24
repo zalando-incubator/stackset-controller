@@ -253,8 +253,8 @@ func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]T
 						)
 					}
 				}
+				return nil
 			}
-			return nil
 
 		} else {
 			deployment.Annotations[noTrafficSinceAnnotationKey] = time.Now().UTC().Format(time.RFC3339)
