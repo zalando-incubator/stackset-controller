@@ -97,7 +97,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			noTrafficScaledownTTL := c.noTrafficScaledownTTL
 			if ttlSec := stackset.Spec.StackLifecycle.ScaledownTTLSeconds; ttlSec != nil {
-				noTrafficScaledownTTL = ttlSec
+				noTrafficScaledownTTL = time.Second * time.Duration(*ttlSec)
 			}
 
 			// set default ingress backend port if not specified.
