@@ -31,18 +31,17 @@ const (
 // StackController is a controller for managing StackSet Stack
 // resources like Deployment and Service.
 type StackController struct {
-	logger                  *log.Entry
-	kube                    kubernetes.Interface
-	appClient               clientset.Interface
-	stackset                zv1.StackSet
-	noTrafficScaledownTTL   time.Duration
-	noTrafficTerminationTTL time.Duration
-	interval                time.Duration
-	done                    chan<- struct{}
+	logger                *log.Entry
+	kube                  kubernetes.Interface
+	appClient             clientset.Interface
+	stackset              zv1.StackSet
+	noTrafficScaledownTTL time.Duration
+	interval              time.Duration
+	done                  chan<- struct{}
 }
 
 // NewStackController initializes a new StackController.
-func NewStackController(client kubernetes.Interface, appClient clientset.Interface, stackset zv1.StackSet, done chan<- struct{}, noTrafficScaledownTTL, noTrafficTerminationTTL, interval time.Duration) *StackController {
+func NewStackController(client kubernetes.Interface, appClient clientset.Interface, stackset zv1.StackSet, done chan<- struct{}, noTrafficScaledownTTL, interval time.Duration) *StackController {
 	return &StackController{
 		logger: log.WithFields(
 			log.Fields{
@@ -51,11 +50,10 @@ func NewStackController(client kubernetes.Interface, appClient clientset.Interfa
 				"namespace":  stackset.Namespace,
 			},
 		),
-		kube:                    client,
-		appClient:               appClient,
-		stackset:                stackset,
-		noTrafficScaledownTTL:   noTrafficScaledownTTL,
-		noTrafficTerminationTTL: noTrafficTerminationTTL,
+		kube:                  client,
+		appClient:             appClient,
+		stackset:              stackset,
+		noTrafficScaledownTTL: noTrafficScaledownTTL,
 		done:     done,
 		interval: interval,
 	}
@@ -214,8 +212,8 @@ func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]T
 
 	deployment.Spec.Template = template
 
-	// if autoscaling is disabled or if autoscaling is ena
-	// check if we need to explicitly set replicas on the deplotment. There
+	// if autoscaling is disabled or if autoscaling is enabled
+	// check if we need to explicitly set replicas on the deployment. There
 	// are two cases:
 	// 1. Autoscaling is disabled and we should rely on the replicas set on
 	//    the stack
@@ -240,7 +238,7 @@ func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]T
 				deployment.Spec.Replicas = &replicas
 			}
 
-			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > c.noTrafficTerminationTTL {
+			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > c.noTrafficScaledownTTL {
 				// delete deployment
 				if !createDeployment {
 					c.logger.Infof("Deleting Deployment %s/%s no longer needed", deployment.Namespace, deployment.Name)
@@ -257,6 +255,7 @@ func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]T
 				}
 				return nil
 			}
+
 		} else {
 			deployment.Annotations[noTrafficSinceAnnotationKey] = time.Now().UTC().Format(time.RFC3339)
 		}

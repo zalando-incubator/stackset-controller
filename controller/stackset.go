@@ -95,6 +95,11 @@ func (c *StackSetController) Run(ctx context.Context) {
 			stackset.APIVersion = "zalando.org/v1"
 			stackset.Kind = "StackSet"
 
+			noTrafficScaledownTTL := c.noTrafficScaledownTTL
+			if ttlSec := stackset.Spec.StackLifecycle.ScaledownTTLSeconds; ttlSec != nil {
+				noTrafficScaledownTTL = time.Second * time.Duration(*ttlSec)
+			}
+
 			// set default ingress backend port if not specified.
 			if stackset.Spec.Ingress != nil && intOrStrIsEmpty(stackset.Spec.Ingress.BackendPort) {
 				stackset.Spec.Ingress.BackendPort = defaultBackendPort
@@ -135,7 +140,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			stackControllerDone := make(chan struct{}, 1)
 			entry.Done = append(entry.Done, stackControllerDone)
-			stackController := NewStackController(c.kube, c.appClient, stackset, stackControllerDone, c.noTrafficScaledownTTL, c.noTrafficTerminationTTL, c.interval)
+			stackController := NewStackController(c.kube, c.appClient, stackset, stackControllerDone, noTrafficScaledownTTL, c.interval)
 			go stackController.Run(ctx)
 
 			ingressControllerDone := make(chan struct{}, 1)
