@@ -1,22 +1,20 @@
 package controller
 
 import (
-	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -25,97 +23,59 @@ const (
 	backendWeightsAnnotationKey      = "zalando.org/backend-weights"
 )
 
-// IngressController is a controller that can manage ingresses for an
-// stackset.
-type IngressController struct {
-	logger    *log.Entry
-	kube      kubernetes.Interface
-	appClient clientset.Interface
-	stackset  zv1.StackSet
-	done      chan<- struct{}
-	interval  time.Duration
+var (
+	errNoPaths = errors.New("invalid ingress, no paths defined")
+)
+
+// ingressReconciler is able to bring Ingresses of a StackSet to the desired
+// state.
+type ingressReconciler struct {
+	logger *log.Entry
+	kube   kubernetes.Interface
 }
 
-// NewIngressController initializes a new IngressController.
-func NewIngressController(client kubernetes.Interface, appClient clientset.Interface, stackset zv1.StackSet, done chan<- struct{}, interval time.Duration) *IngressController {
-	return &IngressController{
+// ReconcileIngress brings Ingresses of a StackSet to the desired state.
+func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
+	ir := &ingressReconciler{
 		logger: log.WithFields(
 			log.Fields{
 				"controller": "ingress",
-				"stackset":   stackset.Name,
-				"namespace":  stackset.Namespace,
+				"stackset":   sc.StackSet.Name,
+				"namespace":  sc.StackSet.Namespace,
 			},
 		),
-		kube:      client,
-		appClient: appClient,
-		stackset:  stackset,
-		done:      done,
-		interval:  interval,
+		kube: c.kube,
 	}
+	return ir.reconcile(sc)
 }
 
-// Run runs the main loop of the IngressController.
-func (c *IngressController) Run(ctx context.Context) {
-	for {
-		err := c.runOnce()
-		if err != nil {
-			c.logger.Error(err)
-		}
-
-		select {
-		case <-time.After(c.interval):
-		case <-ctx.Done():
-			c.logger.Info("Terminating Ingress Controller.")
-			c.done <- struct{}{}
-			return
-		}
-	}
-}
-
-func (c *IngressController) runOnce() error {
-	ing, err := getIngress(c.kube, &c.stackset)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-	}
-
-	heritageLabels := map[string]string{
-		stacksetHeritageLabelKey: c.stackset.Name,
-	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(heritageLabels).String(),
-	}
-
-	stacks, err := c.appClient.ZalandoV1().Stacks(c.stackset.Namespace).List(opts)
-	if err != nil {
-		return fmt.Errorf("failed to list StackSet stacks of StackSet %s/%s: %v", c.stackset.Namespace, c.stackset.Name, err)
-	}
+func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
+	stacks := sc.Stacks()
 
 	// cleanup Ingress if ingress is disabled.
-	if c.stackset.Spec.Ingress == nil {
-		if ing != nil {
+	if sc.StackSet.Spec.Ingress == nil {
+		if sc.Ingress != nil {
 			c.logger.Infof(
 				"Deleting obsolete Ingress %s/%s for StackSet %s/%s",
-				ing.Namespace,
-				ing.Name,
-				c.stackset.Namespace,
-				c.stackset.Name,
+				sc.Ingress.Namespace,
+				sc.Ingress.Name,
+				sc.StackSet.Namespace,
+				sc.StackSet.Name,
 			)
-			err := c.kube.ExtensionsV1beta1().Ingresses(ing.Namespace).Delete(ing.Name, nil)
+			err := c.kube.ExtensionsV1beta1().Ingresses(sc.Ingress.Namespace).Delete(sc.Ingress.Name, nil)
 			if err != nil {
 				return fmt.Errorf(
 					"failed to delete Ingress %s/%s for StackSet %s/%s: %v",
-					ing.Namespace,
-					ing.Name,
-					c.stackset.Namespace,
-					c.stackset.Name,
+					sc.Ingress.Namespace,
+					sc.Ingress.Name,
+					sc.StackSet.Namespace,
+					sc.StackSet.Name,
 					err,
 				)
 			}
 
 			// cleanup any per stack ingresses.
-			for _, stack := range stacks.Items {
+			for _, stack := range stacks {
 				err := c.gcStackIngress(stack)
 				if err != nil {
 					log.Error(err)
@@ -126,27 +86,30 @@ func (c *IngressController) runOnce() error {
 		return nil
 	}
 
-	stackStatuses, err := c.getStackStatuses(stacks.Items)
+	stackStatuses, err := c.getStackStatuses(sc.StackContainers)
 	if err != nil {
-		return fmt.Errorf("failed to get Stack statuses for StackSet %s/%s: %v", c.stackset.Namespace, c.stackset.Name, err)
+		return fmt.Errorf("failed to get Stack statuses for StackSet %s/%s: %v", sc.StackSet.Namespace, sc.StackSet.Name, err)
 	}
 
-	ingress, err := ingressForStackSet(&c.stackset, ing, stackStatuses)
+	ingress, err := ingressForStackSet(&sc.StackSet, sc.Ingress, stackStatuses)
 	if err != nil {
-		return fmt.Errorf("failed to generate Ingress for StackSet %s/%s: %v", c.stackset.Namespace, c.stackset.Name, err)
+		if err == errNoPaths {
+			return nil
+		}
+		return fmt.Errorf("failed to generate Ingress for StackSet %s/%s: %v", sc.StackSet.Namespace, sc.StackSet.Name, err)
 	}
 
-	if ing == nil {
-		c.logger.Infof("Creating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks.Items))
+	if sc.Ingress == nil {
+		c.logger.Infof("Creating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks))
 		_, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
 		if err != nil {
 			return err
 		}
 	} else {
-		ing.Status = v1beta1.IngressStatus{}
-		if !reflect.DeepEqual(ing, ingress) {
-			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(ing, ingress))
-			c.logger.Infof("Updating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks.Items))
+		sc.Ingress.Status = v1beta1.IngressStatus{}
+		if !reflect.DeepEqual(sc.Ingress, ingress) {
+			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(sc.Ingress, ingress))
+			c.logger.Infof("Updating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks))
 			_, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
 			if err != nil {
 				return err
@@ -163,13 +126,8 @@ func (c *IngressController) runOnce() error {
 	// apply to all host rules, even though we don't want traffic switching
 	// for the per stack hostnames. For this reason we must create extra
 	// ingresses per stack.
-	for _, stack := range stacks.Items {
-		// don't manage ingress for terminating stack.
-		if stack.DeletionTimestamp != nil && stack.DeletionTimestamp.Time.Before(time.Now().UTC()) {
-			continue
-		}
-
-		err := c.stackIngress(stack)
+	for _, stack := range stacks {
+		err := c.stackIngress(sc.StackSet, stack)
 		if err != nil {
 			log.Error(err)
 			continue
@@ -184,25 +142,17 @@ type stackStatus struct {
 	Available bool
 }
 
-func (c *IngressController) getStackStatuses(stacks []zv1.Stack) ([]stackStatus, error) {
+func (c *ingressReconciler) getStackStatuses(stacks map[types.UID]*StackContainer) ([]stackStatus, error) {
 	statuses := make([]stackStatus, 0, len(stacks))
 	for _, stack := range stacks {
 		status := stackStatus{
-			Stack: stack,
+			Stack: stack.Stack,
 		}
 
 		// check that service has at least one endpoint, otherwise it
 		// should not get traffic.
-		endpoints, err := c.kube.CoreV1().Endpoints(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
-		if err != nil {
-			if !errors.IsNotFound(err) {
-				return nil, fmt.Errorf(
-					"failed to get Endpoints for stack %s/%s: %v",
-					stack.Namespace,
-					stack.Name,
-					err,
-				)
-			}
+		endpoints := stack.Deployment.Endpoints
+		if endpoints == nil {
 			status.Available = false
 		} else {
 			readyEndpoints := 0
@@ -219,15 +169,15 @@ func (c *IngressController) getStackStatuses(stacks []zv1.Stack) ([]stackStatus,
 	return statuses, nil
 }
 
-func (c *IngressController) stackIngress(stack zv1.Stack) error {
-	ingress, err := ingressForStack(&c.stackset, &stack)
+func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack) error {
+	ingress, err := ingressForStack(&stackset, &stack)
 	if err != nil {
 		return fmt.Errorf("failed generate Ingress for Stack %s/%s: %s", stack.Namespace, stack.Name, err)
 	}
 
 	ing, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Get(ingress.Name, metav1.GetOptions{})
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !apiErrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get Ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
 		}
 		ing = nil
@@ -266,10 +216,10 @@ func (c *IngressController) stackIngress(stack zv1.Stack) error {
 	return nil
 }
 
-func (c *IngressController) gcStackIngress(stack zv1.Stack) error {
+func (c *ingressReconciler) gcStackIngress(stack zv1.Stack) error {
 	ing, err := c.kube.ExtensionsV1beta1().Ingresses(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
 	if err != nil {
-		if !errors.IsNotFound(err) {
+		if !apiErrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get Ingress %s/%s: %s", stack.Namespace, stack.Name, err)
 		}
 		return nil
@@ -431,6 +381,10 @@ func ingressForStackSet(stackset *zv1.StackSet, origIngress *v1beta1.Ingress, st
 		}
 	}
 
+	if len(rule.IngressRuleValue.HTTP.Paths) == 0 {
+		return nil, errNoPaths
+	}
+
 	// sort backends by name to have a consitent generated ingress
 	// resource.
 	sort.Slice(rule.IngressRuleValue.HTTP.Paths, func(i, j int) bool {
@@ -526,27 +480,6 @@ func computeBackendWeights(stacks []stackStatus, traffic map[string]float64) (ma
 	normalizeWeights(availableBackends)
 
 	return availableBackends, backendWeights
-}
-
-func getIngress(client kubernetes.Interface, stackset *zv1.StackSet) (*v1beta1.Ingress, error) {
-	// check for existing ingress object
-	ing, err := client.ExtensionsV1beta1().Ingresses(stackset.Namespace).Get(stackset.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	// check if ingress is owned by the stackset resource
-	if !isOwnedReference(stackset.TypeMeta, stackset.ObjectMeta, ing.ObjectMeta) {
-		return nil, fmt.Errorf(
-			"found Ingress '%s/%s' not managed by the StackSet %s/%s",
-			ing.Namespace,
-			ing.Name,
-			stackset.Namespace,
-			stackset.Name,
-		)
-	}
-
-	return ing, nil
 }
 
 // isOwnedReference returns true of the dependent object is owned by the owner
