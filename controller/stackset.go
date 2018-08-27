@@ -181,10 +181,22 @@ func (c *StackSetController) Run(ctx context.Context) {
 // also contains a set of StackContainers which respresents the full state of
 // the individual Stacks part of the StackSet.
 type StackSetContainer struct {
-	StackSet        zv1.StackSet
+	StackSet zv1.StackSet
+
+	// StackContainers is a set of stacks belonging to the StackSet
+	// including the Stack sub resources like Deployments and Services.
 	StackContainers map[types.UID]*StackContainer
-	Ingress         *v1beta1.Ingress
-	Traffic         map[string]TrafficStatus
+
+	// Ingress defines the current Ingress resource belonging to the
+	// StackSet. This is a reference to the actual resource while
+	// `StackSet.Spec.Ingress` defines the ingress configuration specified
+	// by the user on the StackSet.
+	Ingress *v1beta1.Ingress
+
+	// Traffic is the current traffic distribution across stacks of the
+	// StackSet. The values of this are derived from the related Ingress
+	// resource. The key of the map is the Stack name.
+	Traffic map[string]TrafficStatus
 }
 
 // Stacks returns a slice of Stack resources.
