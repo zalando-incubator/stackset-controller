@@ -57,25 +57,9 @@ type StackSetController struct {
 	sync.Mutex
 }
 
-type controllerEntryV2 struct {
-	StackSet       zv1.StackSet
-	Cancel         context.CancelFunc
-	ControllerRefs []controllerRef
-}
-
-type controllerRef struct {
-	ResourceUpdate chan<- StackSetContainer
-	Done           <-chan struct{}
-}
-
 type stacksetEvent struct {
 	Deleted  bool
 	StackSet *zv1.StackSet
-}
-
-type controllerEntry struct {
-	Cancel context.CancelFunc
-	Done   []<-chan struct{}
 }
 
 // NewStackSetController initializes a new StackSetController.
@@ -205,6 +189,12 @@ func (c *StackSetController) Run(ctx context.Context) {
 	}
 }
 
+// StackSetContainer is a container for storing the full state of a StackSet
+// including the sub-resources which are part of the StackSet. It respresents a
+// snapshot of the resources currently in the Cluster. This includes an
+// optional Ingress resource as well as the current Traffic distribution. It
+// also contains a set of StackContainers which respresents the full state of
+// the individual Stacks part of the StackSet.
 type StackSetContainer struct {
 	StackSet        zv1.StackSet
 	StackContainers map[types.UID]*StackContainer
@@ -212,6 +202,7 @@ type StackSetContainer struct {
 	Traffic         map[string]TrafficStatus
 }
 
+// Stacks returns a slice of Stack resources.
 func (sc StackSetContainer) Stacks() []zv1.Stack {
 	stacks := make([]zv1.Stack, 0, len(sc.StackContainers))
 	for _, stackContainer := range sc.StackContainers {
@@ -220,34 +211,46 @@ func (sc StackSetContainer) Stacks() []zv1.Stack {
 	return stacks
 }
 
-func (sc StackSetContainer) ScaledownTTLSeconds() time.Duration {
+// ScaledownTTL returns the ScaledownTTLSeconds value of a StackSet as a
+// time.Duration.
+func (sc StackSetContainer) ScaledownTTL() time.Duration {
 	if ttlSec := sc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds; ttlSec != nil {
 		return time.Second * time.Duration(*ttlSec)
 	}
 	return 0
 }
 
+// StackContainer is a container for storing the full state of a Stack
+// including all the managed sub-resources. This includes the Stack resource
+// itself and all the sub resources like Deployment, HPA, Service and
+// Endpoints.
 type StackContainer struct {
-	Stack      zv1.Stack
-	Deployment DeploymentContainer
+	Stack     zv1.Stack
+	Resources StackResources
 }
 
-type DeploymentContainer struct {
+// StackResources describes the resources of a stack.
+type StackResources struct {
 	Deployment *appsv1.Deployment
 	HPA        *autoscaling.HorizontalPodAutoscaler
 	Service    *v1.Service
 	Endpoints  *v1.Endpoints
 }
 
+// TrafficStatus represents the traffic status of an Ingress. ActualWeight is
+// the actual traffic a particular backend is getting and DesiredWeight is the
+// user specified value that it should try to achieve.
 type TrafficStatus struct {
 	ActualWeight  float64
 	DesiredWeight float64
 }
 
+// Weight returns the max of ActualWeight and DesiredWeight.
 func (t TrafficStatus) Weight() float64 {
 	return math.Max(t.ActualWeight, t.DesiredWeight)
 }
 
+// getIngressTraffic parses ingress traffic from an Ingress resource.
 func getIngressTraffic(ingress *v1beta1.Ingress) (map[string]TrafficStatus, error) {
 	desiredTraffic := make(map[string]float64)
 	if weights, ok := ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
@@ -376,7 +379,7 @@ func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSe
 		if uid, ok := getOwnerUID(deployment.ObjectMeta); ok {
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
-					s.Deployment = DeploymentContainer{
+					s.Resources = StackResources{
 						Deployment: &deployment,
 					}
 				}
@@ -397,8 +400,8 @@ func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetCo
 		if uid, ok := getOwnerUID(service.ObjectMeta); ok {
 			for _, stackset := range stacksets {
 				for _, stack := range stackset.StackContainers {
-					if stack.Deployment.Deployment != nil && stack.Deployment.Deployment.UID == uid {
-						stack.Deployment.Service = &service
+					if stack.Resources.Deployment != nil && stack.Resources.Deployment.UID == uid {
+						stack.Resources.Service = &service
 					}
 				}
 			}
@@ -418,7 +421,7 @@ func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetC
 		for _, stackset := range stacksets {
 			for _, stack := range stackset.StackContainers {
 				if stack.Stack.Name == endpoint.Name && stack.Stack.Namespace == endpoint.Namespace {
-					stack.Deployment.Endpoints = &endpoint
+					stack.Resources.Endpoints = &endpoint
 				}
 			}
 		}
@@ -437,8 +440,8 @@ func (c *StackSetController) collectHPAs(stacksets map[types.UID]*StackSetContai
 		if uid, ok := getOwnerUID(hpa.ObjectMeta); ok {
 			for _, stackset := range stacksets {
 				for _, stack := range stackset.StackContainers {
-					if stack.Deployment.Deployment != nil && stack.Deployment.Deployment.UID == uid {
-						stack.Deployment.HPA = &hpa
+					if stack.Resources.Deployment != nil && stack.Resources.Deployment.UID == uid {
+						stack.Resources.HPA = &hpa
 					}
 				}
 			}
@@ -544,6 +547,7 @@ func (c *StackSetController) del(obj interface{}) {
 	}
 }
 
+// ReconcileStackSetStatus reconciles the status of a StackSet.
 func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) error {
 	stackset := ssc.StackSet
 	stacks := ssc.Stacks()
@@ -574,6 +578,7 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	return nil
 }
 
+// readyStacks returns the number of ready Stacks given a slice of Stacks.
 func readyStacks(stacks []zv1.Stack) int32 {
 	var readyStacks int32
 	for _, stack := range stacks {
@@ -585,6 +590,8 @@ func readyStacks(stacks []zv1.Stack) int32 {
 	return readyStacks
 }
 
+// StackSetGC garbage collects Stacks for a single StackSet. Whether Stacks
+// should be garbage collected is determined by the StackSet lifecycle limit.
 func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	stackset := ssc.StackSet
 	stacks := ssc.Stacks()
@@ -646,6 +653,8 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	return nil
 }
 
+// ReconcileStack brings the Stack created from the current StackSet definition
+// to the desired state.
 func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 	stackset := ssc.StackSet
 	heritageLabels := map[string]string{

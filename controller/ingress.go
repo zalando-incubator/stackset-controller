@@ -151,7 +151,7 @@ func (c *ingressReconciler) getStackStatuses(stacks map[types.UID]*StackContaine
 
 		// check that service has at least one endpoint, otherwise it
 		// should not get traffic.
-		endpoints := stack.Deployment.Endpoints
+		endpoints := stack.Resources.Endpoints
 		if endpoints == nil {
 			status.Available = false
 		} else {

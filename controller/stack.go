@@ -73,7 +73,7 @@ func (c *stacksReconciler) manageStack(sc StackContainer, ssc StackSetContainer)
 
 // manageDeployment manages the deployment owned by the stack.
 func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetContainer) error {
-	deployment := sc.Deployment.Deployment
+	deployment := sc.Resources.Deployment
 	stack := sc.Stack
 
 	var origDeployment *appsv1.Deployment
@@ -144,7 +144,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 				return fmt.Errorf("failed to parse no-traffic-since timestamp '%s': %v", ttl, err)
 			}
 
-			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > ssc.ScaledownTTLSeconds() {
+			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > ssc.ScaledownTTL() {
 				replicas := int32(0)
 				deployment.Spec.Replicas = &replicas
 			}
@@ -245,7 +245,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 // manageAutoscaling manages the HPA defined for the stack.
 func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer) (*autoscaling.HorizontalPodAutoscaler, error) {
-	hpa := sc.Deployment.HPA
+	hpa := sc.Resources.HPA
 	stack := sc.Stack
 
 	var origHPA *autoscaling.HorizontalPodAutoscaler
@@ -337,7 +337,7 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 
 // manageService manages the service for a given stack.
 func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer) error {
-	service := sc.Deployment.Service
+	service := sc.Resources.Service
 	stack := sc.Stack
 
 	var origService *v1.Service
