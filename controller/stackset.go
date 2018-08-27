@@ -90,55 +90,42 @@ func (c *StackSetController) Run(ctx context.Context) {
 		case <-time.After(time.Until(nextCheck)):
 			nextCheck = time.Now().Add(c.interval)
 
-			start := time.Now()
 			stackContainers, err := c.collectResources()
 			if err != nil {
 				c.logger.Errorf("Failed to collect resources: %v", err)
 				continue
 			}
-			c.logger.Infof("Collecting resources time: %s", time.Since(start))
 
-			startRecon := time.Now()
 			var reconcileGroup errgroup.Group
 			for stackset, container := range stackContainers {
 				container := *container
 
 				reconcileGroup.Go(func() error {
 					if _, ok := c.stacksetStore[stackset]; ok {
-						start := time.Now()
 						err = c.ReconcileStack(container)
 						if err != nil {
 							c.logger.Error(err)
 						}
-						fmt.Printf("%s: ReconcileStack took: %s\n", container.StackSet.Name, time.Since(start))
 
-						start = time.Now()
 						err := c.ReconcileStacks(container)
 						if err != nil {
 							c.logger.Error(err)
 						}
-						fmt.Printf("%s: ReconcileStacks took: %s\n", container.StackSet.Name, time.Since(start))
 
-						start = time.Now()
 						err = c.ReconcileIngress(container)
 						if err != nil {
 							c.logger.Error(err)
 						}
-						fmt.Printf("%s: ReconcileIngress took: %s\n", container.StackSet.Name, time.Since(start))
 
-						start = time.Now()
 						err = c.ReconcileStackSetStatus(container)
 						if err != nil {
 							c.logger.Error(err)
 						}
-						fmt.Printf("%s: ReconcileStackSetStatus took: %s\n", container.StackSet.Name, time.Since(start))
 
-						start = time.Now()
 						err = c.StackSetGC(container)
 						if err != nil {
 							c.logger.Error(err)
 						}
-						fmt.Printf("%s: StackSetGC took: %s\n", container.StackSet.Name, time.Since(start))
 					}
 					return nil
 				})
@@ -146,10 +133,8 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			err = reconcileGroup.Wait()
 			if err != nil {
-				c.logger.Errorf("failed to wait?: %v", err)
+				c.logger.Errorf("Failed waiting for reconcilers: %v", err)
 			}
-			c.logger.Infof("Reconcile time: %s", time.Since(startRecon))
-			c.logger.Infof("Total Reconcile time: %s", time.Since(start))
 		case e := <-c.stacksetEvents:
 			stackset := *e.StackSet
 			// set TypeMeta manually because of this bug:
@@ -566,8 +551,15 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	if !reflect.DeepEqual(newStatus, stackset.Status) {
+		c.logger.Infof(
+			"Status changed for StackSet %s/%s: %#v -> %#v",
+			stackset.Namespace,
+			stackset.Name,
+			stackset.Status,
+			newStatus,
+		)
 		stackset.Status = newStatus
-		// TODO: log the change in status
+
 		// update status of stackset
 		_, err := c.appClient.ZalandoV1().StackSets(stackset.Namespace).UpdateStatus(&stackset)
 		if err != nil {

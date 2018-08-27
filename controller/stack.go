@@ -231,8 +231,15 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	}
 
 	if !reflect.DeepEqual(newStatus, stack.Status) {
+		c.logger.Infof(
+			"Status changed for Stack %s/%s: %#v -> %#v",
+			stack.Namespace,
+			stack.Name,
+			stack.Status,
+			newStatus,
+		)
 		stack.Status = newStatus
-		// TODO: log the change in status
+
 		// update status of stack
 		_, err = c.appClient.ZalandoV1().Stacks(stack.Namespace).UpdateStatus(&stack)
 		if err != nil {
