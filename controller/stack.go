@@ -499,6 +499,40 @@ func applyPodTemplateSpecDefaults(template v1.PodTemplateSpec) v1.PodTemplateSpe
 		if container.ImagePullPolicy == "" {
 			newTemplate.Spec.Containers[i].ImagePullPolicy = v1.PullIfNotPresent
 		}
+		if container.ReadinessProbe != nil {
+			if container.ReadinessProbe.Handler.HTTPGet != nil && container.ReadinessProbe.Handler.HTTPGet.Scheme == "" {
+				newTemplate.Spec.Containers[i].ReadinessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
+			}
+			if container.ReadinessProbe.TimeoutSeconds == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.TimeoutSeconds = 1
+			}
+			if container.ReadinessProbe.PeriodSeconds == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.PeriodSeconds = 10
+			}
+			if container.ReadinessProbe.SuccessThreshold == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.SuccessThreshold = 1
+			}
+			if container.ReadinessProbe.FailureThreshold == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.FailureThreshold = 3
+			}
+		}
+		if container.LivenessProbe != nil {
+			if container.LivenessProbe.Handler.HTTPGet != nil && container.LivenessProbe.Handler.HTTPGet.Scheme == "" {
+				newTemplate.Spec.Containers[i].LivenessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
+			}
+			if container.LivenessProbe.TimeoutSeconds == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.TimeoutSeconds = 1
+			}
+			if container.LivenessProbe.PeriodSeconds == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.PeriodSeconds = 10
+			}
+			if container.LivenessProbe.SuccessThreshold == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.SuccessThreshold = 1
+			}
+			if container.LivenessProbe.FailureThreshold == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.FailureThreshold = 3
+			}
+		}
 	}
 	if newTemplate.Spec.RestartPolicy == "" {
 		newTemplate.Spec.RestartPolicy = v1.RestartPolicyAlways
