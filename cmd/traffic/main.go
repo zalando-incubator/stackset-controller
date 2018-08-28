@@ -5,12 +5,10 @@ import (
 	"os"
 	"text/tabwriter"
 
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
-	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	"github.com/alecthomas/kingpin"
 	log "github.com/sirupsen/logrus"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
+	rest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
@@ -39,17 +37,12 @@ func main() {
 		log.Fatalf("Failed to setup Kubernetes client: %v.", err)
 	}
 
-	client, err := kubernetes.NewForConfig(kubeconfig)
+	client, err := traffic.NewForConfig(kubeconfig)
 	if err != nil {
-		log.Fatalf("Failed to setup Kubernetes client: %v", err)
+		log.Fatalf("Failed to setup Traffic client: %v.", err)
 	}
 
-	appClient, err := clientset.NewForConfig(kubeconfig)
-	if err != nil {
-		log.Fatalf("Failed to setup Kubernetes CRD client: %v", err)
-	}
-
-	trafficSwitcher := traffic.NewSwitcher(client, appClient)
+	trafficSwitcher := traffic.NewSwitcher(client)
 
 	if config.Stack != "" && config.Traffic != -1 {
 		weight := config.Traffic
