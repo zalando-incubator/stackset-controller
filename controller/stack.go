@@ -1,10 +1,7 @@
 package controller
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
-	"math"
 	"reflect"
 	"time"
 
@@ -16,10 +13,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 )
@@ -28,81 +23,36 @@ const (
 	noTrafficSinceAnnotationKey = "stacksetstacks.zalando.org/no-traffic-since"
 )
 
-// StackController is a controller for managing StackSet Stack
-// resources like Deployment and Service.
-type StackController struct {
-	logger                *log.Entry
-	kube                  kubernetes.Interface
-	appClient             clientset.Interface
-	stackset              zv1.StackSet
-	noTrafficScaledownTTL time.Duration
-	interval              time.Duration
-	done                  chan<- struct{}
+// stacksReconciler is able to bring a set of Stacks of a StackSet to the
+// desired state. This includes managing, Deployment, Service and HPA resources
+// of the Stacks.
+type stacksReconciler struct {
+	logger    *log.Entry
+	kube      kubernetes.Interface
+	appClient clientset.Interface
 }
 
-// NewStackController initializes a new StackController.
-func NewStackController(client kubernetes.Interface, appClient clientset.Interface, stackset zv1.StackSet, done chan<- struct{}, noTrafficScaledownTTL, interval time.Duration) *StackController {
-	return &StackController{
+// ReconcileStacks brings a set of Stacks of a StackSet to the desired state.
+func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
+	sr := &stacksReconciler{
 		logger: log.WithFields(
 			log.Fields{
-				"controller": "stack",
-				"stackset":   stackset.Name,
-				"namespace":  stackset.Namespace,
+				"controller": "stacks",
+				"stackset":   ssc.StackSet.Name,
+				"namespace":  ssc.StackSet.Namespace,
 			},
 		),
-		kube:                  client,
-		appClient:             appClient,
-		stackset:              stackset,
-		noTrafficScaledownTTL: noTrafficScaledownTTL,
-		done:     done,
-		interval: interval,
+		kube:      c.kube,
+		appClient: c.appClient,
 	}
+	return sr.reconcile(ssc)
 }
 
-// Run runs the Stack Controller control loop.
-func (c *StackController) Run(ctx context.Context) {
-	for {
-		err := c.runOnce()
+func (c *stacksReconciler) reconcile(ssc StackSetContainer) error {
+	for _, sc := range ssc.StackContainers {
+		err := c.manageStack(*sc, ssc)
 		if err != nil {
-			c.logger.Error(err)
-		}
-
-		select {
-		case <-time.After(c.interval):
-		case <-ctx.Done():
-			c.logger.Info("Terminating Stack Controller.")
-			c.done <- struct{}{}
-			return
-		}
-	}
-}
-
-// runOnce runs one loop of the Stack Controller.
-func (c *StackController) runOnce() error {
-	heritageLabels := map[string]string{
-		stacksetHeritageLabelKey: c.stackset.Name,
-	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(heritageLabels).String(),
-	}
-
-	stacks, err := c.appClient.ZalandoV1().Stacks(c.stackset.Namespace).List(opts)
-	if err != nil {
-		return fmt.Errorf("failed to list Stacks of StackSet %s/%s: %v", c.stackset.Namespace, c.stackset.Name, err)
-	}
-
-	var traffic map[string]TrafficStatus
-	if c.stackset.Spec.Ingress != nil && len(stacks.Items) > 0 {
-		traffic, err = getIngressTraffic(c.kube, &c.stackset)
-		if err != nil {
-			return fmt.Errorf("failed to get Ingress traffic for StackSet %s/%s: %v", c.stackset.Namespace, c.stackset.Name, err)
-		}
-	}
-
-	for _, stack := range stacks.Items {
-		err = c.manageStack(stack, traffic)
-		if err != nil {
-			log.Errorf("Failed to manage Stack %s/%s: %v", stack.Namespace, stack.Name, err)
+			log.Errorf("Failed to manage Stack %s/%s: %v", sc.Stack.Namespace, sc.Stack.Name, err)
 			continue
 		}
 	}
@@ -110,44 +60,10 @@ func (c *StackController) runOnce() error {
 	return nil
 }
 
-func getIngressTraffic(client kubernetes.Interface, stackset *zv1.StackSet) (map[string]TrafficStatus, error) {
-	ingress, err := getIngress(client, stackset)
-	if err != nil {
-		return nil, err
-	}
-
-	desiredTraffic := make(map[string]float64)
-	if weights, ok := ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
-		err := json.Unmarshal([]byte(weights), &desiredTraffic)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current desired Stack traffic weights: %v", err)
-		}
-	}
-
-	actualTraffic := make(map[string]float64)
-	if weights, ok := ingress.Annotations[backendWeightsAnnotationKey]; ok {
-		err := json.Unmarshal([]byte(weights), &actualTraffic)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
-		}
-	}
-
-	traffic := make(map[string]TrafficStatus, len(desiredTraffic))
-
-	for stackName, weight := range desiredTraffic {
-		traffic[stackName] = TrafficStatus{
-			ActualWeight:  actualTraffic[stackName],
-			DesiredWeight: weight,
-		}
-	}
-
-	return traffic, nil
-}
-
 // manageStack manages the stack by managing the related Deployment and Service
 // resources.
-func (c *StackController) manageStack(stack zv1.Stack, traffic map[string]TrafficStatus) error {
-	err := c.manageDeployment(stack, traffic)
+func (c *stacksReconciler) manageStack(sc StackContainer, ssc StackSetContainer) error {
+	err := c.manageDeployment(sc, ssc)
 	if err != nil {
 		return err
 	}
@@ -156,13 +72,9 @@ func (c *StackController) manageStack(stack zv1.Stack, traffic map[string]Traffi
 }
 
 // manageDeployment manages the deployment owned by the stack.
-func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]TrafficStatus) error {
-	deployment, err := getDeployment(c.kube, stack)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-	}
+func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetContainer) error {
+	deployment := sc.Resources.Deployment
+	stack := sc.Stack
 
 	var origDeployment *appsv1.Deployment
 	if deployment != nil {
@@ -225,37 +137,17 @@ func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]T
 		deployment.Spec.Replicas = stack.Spec.Replicas
 	}
 
-	if traffic != nil && traffic[stack.Name].Weight() <= 0 {
+	if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0 {
 		if ttl, ok := deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
 			noTrafficSince, err := time.Parse(time.RFC3339, ttl)
 			if err != nil {
 				return fmt.Errorf("failed to parse no-traffic-since timestamp '%s': %v", ttl, err)
 			}
 
-			// TODO: make ttl configurable per app/stack
-			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > c.noTrafficScaledownTTL {
+			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > ssc.ScaledownTTL() {
 				replicas := int32(0)
 				deployment.Spec.Replicas = &replicas
 			}
-
-			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > c.noTrafficScaledownTTL {
-				// delete deployment
-				if !createDeployment {
-					c.logger.Infof("Deleting Deployment %s/%s no longer needed", deployment.Namespace, deployment.Name)
-					err = c.kube.AppsV1().Deployments(deployment.Namespace).Delete(deployment.Name, nil)
-					if err != nil {
-						return fmt.Errorf(
-							"failed to delete Deployment %s/%s owned by Stack %s/%s",
-							deployment.Namespace,
-							deployment.Name,
-							stack.Namespace,
-							stack.Name,
-						)
-					}
-				}
-				return nil
-			}
-
 		} else {
 			deployment.Annotations[noTrafficSinceAnnotationKey] = time.Now().UTC().Format(time.RFC3339)
 		}
@@ -267,6 +159,7 @@ func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]T
 		}
 	}
 
+	var err error
 	if createDeployment {
 		c.logger.Infof(
 			"Creating Deployment %s/%s for StackSet stack %s/%s",
@@ -311,57 +204,56 @@ func (c *StackController) manageDeployment(stack zv1.Stack, traffic map[string]T
 	deployment.APIVersion = "apps/v1"
 	deployment.Kind = "Deployment"
 
-	hpa, err := c.manageAutoscaling(stack, deployment, traffic)
+	hpa, err := c.manageAutoscaling(sc, deployment, ssc)
 	if err != nil {
 		return err
 	}
 
-	err = c.manageService(stack, deployment)
+	err = c.manageService(sc, deployment, ssc)
 	if err != nil {
 		return err
 	}
 
 	// update stack status
-	stack.Status.Replicas = deployment.Status.Replicas
-	stack.Status.ReadyReplicas = deployment.Status.ReadyReplicas
-	stack.Status.UpdatedReplicas = deployment.Status.UpdatedReplicas
+	newStatus := zv1.StackStatus{
+		Replicas:        deployment.Status.Replicas,
+		ReadyReplicas:   deployment.Status.ReadyReplicas,
+		UpdatedReplicas: deployment.Status.UpdatedReplicas,
+	}
 
-	if traffic != nil {
-		stack.Status.ActualTrafficWeight = traffic[stack.Name].ActualWeight
-		stack.Status.DesiredTrafficWeight = traffic[stack.Name].DesiredWeight
+	if ssc.Traffic != nil {
+		newStatus.ActualTrafficWeight = ssc.Traffic[stack.Name].ActualWeight
+		newStatus.DesiredTrafficWeight = ssc.Traffic[stack.Name].DesiredWeight
 	}
 
 	if hpa != nil {
-		stack.Status.DesiredReplicas = hpa.Status.DesiredReplicas
+		newStatus.DesiredReplicas = hpa.Status.DesiredReplicas
 	}
 
-	// TODO: log the change in status
-	// update status of stackset
-	_, err = c.appClient.ZalandoV1().Stacks(stack.Namespace).UpdateStatus(&stack)
-	if err != nil {
-		return err
+	if !reflect.DeepEqual(newStatus, stack.Status) {
+		c.logger.Infof(
+			"Status changed for Stack %s/%s: %#v -> %#v",
+			stack.Namespace,
+			stack.Name,
+			stack.Status,
+			newStatus,
+		)
+		stack.Status = newStatus
+
+		// update status of stack
+		_, err = c.appClient.ZalandoV1().Stacks(stack.Namespace).UpdateStatus(&stack)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-type TrafficStatus struct {
-	ActualWeight  float64
-	DesiredWeight float64
-}
-
-func (t TrafficStatus) Weight() float64 {
-	return math.Max(t.ActualWeight, t.DesiredWeight)
-}
-
 // manageAutoscaling manages the HPA defined for the stack.
-func (c *StackController) manageAutoscaling(stack zv1.Stack, deployment *appsv1.Deployment, traffic map[string]TrafficStatus) (*autoscaling.HorizontalPodAutoscaler, error) {
-	hpa, err := c.getHPA(deployment)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-	}
+func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer) (*autoscaling.HorizontalPodAutoscaler, error) {
+	hpa := sc.Resources.HPA
+	stack := sc.Stack
 
 	var origHPA *autoscaling.HorizontalPodAutoscaler
 	if hpa != nil {
@@ -370,7 +262,7 @@ func (c *StackController) manageAutoscaling(stack zv1.Stack, deployment *appsv1.
 	}
 
 	// cleanup HPA if autoscaling is disabled or the stack has 0 traffic.
-	if stack.Spec.HorizontalPodAutoscaler == nil || (traffic != nil && traffic[stack.Name].Weight() <= 0) {
+	if stack.Spec.HorizontalPodAutoscaler == nil || (ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0) {
 		if hpa != nil {
 			c.logger.Infof(
 				"Deleting obsolete HPA %s/%s for Deployment %s/%s",
@@ -417,6 +309,7 @@ func (c *StackController) manageAutoscaling(stack zv1.Stack, deployment *appsv1.
 	hpa.Spec.MaxReplicas = stack.Spec.HorizontalPodAutoscaler.MaxReplicas
 	hpa.Spec.Metrics = stack.Spec.HorizontalPodAutoscaler.Metrics
 
+	var err error
 	if createHPA {
 		c.logger.Infof(
 			"Creating HPA %s/%s for Deployment %s/%s",
@@ -449,36 +342,10 @@ func (c *StackController) manageAutoscaling(stack zv1.Stack, deployment *appsv1.
 	return hpa, nil
 }
 
-// getHPA gets HPA owned by the Deployment.
-func (c *StackController) getHPA(deployment *appsv1.Deployment) (*autoscaling.HorizontalPodAutoscaler, error) {
-	// check for existing object
-	hpa, err := c.kube.AutoscalingV2beta1().HorizontalPodAutoscalers(deployment.Namespace).Get(deployment.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	// check if object is owned by the deployment resource
-	if !isOwnedReference(deployment.TypeMeta, deployment.ObjectMeta, hpa.ObjectMeta) {
-		return nil, fmt.Errorf(
-			"found HPA '%s/%s' not managed by the Deployment %s/%s",
-			hpa.Namespace,
-			hpa.Name,
-			deployment.Namespace,
-			deployment.Name,
-		)
-	}
-
-	return hpa, nil
-}
-
 // manageService manages the service for a given stack.
-func (c *StackController) manageService(stack zv1.Stack, deployment *appsv1.Deployment) error {
-	service, err := getStackService(c.kube, *deployment)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return err
-		}
-	}
+func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer) error {
+	service := sc.Resources.Service
+	stack := sc.Stack
 
 	var origService *v1.Service
 	if service != nil {
@@ -511,7 +378,7 @@ func (c *StackController) manageService(stack zv1.Stack, deployment *appsv1.Depl
 	service.Labels = stack.Labels
 	service.Spec.Selector = stack.Labels
 	// get service ports to be used for the service
-	servicePorts, err := getServicePorts(c.stackset.Spec.Ingress.BackendPort, stack)
+	servicePorts, err := getServicePorts(ssc.StackSet.Spec.Ingress.BackendPort, stack)
 	if err != nil {
 		return err
 	}
@@ -547,50 +414,6 @@ func (c *StackController) manageService(stack zv1.Stack, deployment *appsv1.Depl
 	}
 
 	return nil
-}
-
-// getDeployment gets Deployment owned by StackSet stack.
-func getDeployment(kube kubernetes.Interface, stack zv1.Stack) (*appsv1.Deployment, error) {
-	// check for existing object
-	deployment, err := kube.AppsV1().Deployments(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	// check if object is owned by the stack resource
-	if !isOwnedReference(stack.TypeMeta, stack.ObjectMeta, deployment.ObjectMeta) {
-		return nil, fmt.Errorf(
-			"found Deployment '%s/%s' not managed by the StackSet stack %s/%s",
-			deployment.Namespace,
-			deployment.Name,
-			stack.Namespace,
-			stack.Name,
-		)
-	}
-
-	return deployment, nil
-}
-
-// getStackService gets service owned by StackSet stack.
-func getStackService(kube kubernetes.Interface, deployment appsv1.Deployment) (*v1.Service, error) {
-	// check for existing object
-	service, err := kube.CoreV1().Services(deployment.Namespace).Get(deployment.Name, metav1.GetOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	// check if object is owned by the deployment resource
-	if !isOwnedReference(deployment.TypeMeta, deployment.ObjectMeta, service.ObjectMeta) {
-		return nil, fmt.Errorf(
-			"found Service '%s/%s' not managed by the Deployment %s/%s",
-			service.Namespace,
-			service.Name,
-			deployment.Namespace,
-			deployment.Name,
-		)
-	}
-
-	return service, nil
 }
 
 // getServicePorts gets the service ports to be used for the stack service.
@@ -675,6 +498,40 @@ func applyPodTemplateSpecDefaults(template v1.PodTemplateSpec) v1.PodTemplateSpe
 		}
 		if container.ImagePullPolicy == "" {
 			newTemplate.Spec.Containers[i].ImagePullPolicy = v1.PullIfNotPresent
+		}
+		if container.ReadinessProbe != nil {
+			if container.ReadinessProbe.Handler.HTTPGet != nil && container.ReadinessProbe.Handler.HTTPGet.Scheme == "" {
+				newTemplate.Spec.Containers[i].ReadinessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
+			}
+			if container.ReadinessProbe.TimeoutSeconds == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.TimeoutSeconds = 1
+			}
+			if container.ReadinessProbe.PeriodSeconds == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.PeriodSeconds = 10
+			}
+			if container.ReadinessProbe.SuccessThreshold == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.SuccessThreshold = 1
+			}
+			if container.ReadinessProbe.FailureThreshold == 0 {
+				newTemplate.Spec.Containers[i].ReadinessProbe.FailureThreshold = 3
+			}
+		}
+		if container.LivenessProbe != nil {
+			if container.LivenessProbe.Handler.HTTPGet != nil && container.LivenessProbe.Handler.HTTPGet.Scheme == "" {
+				newTemplate.Spec.Containers[i].LivenessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
+			}
+			if container.LivenessProbe.TimeoutSeconds == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.TimeoutSeconds = 1
+			}
+			if container.LivenessProbe.PeriodSeconds == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.PeriodSeconds = 10
+			}
+			if container.LivenessProbe.SuccessThreshold == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.SuccessThreshold = 1
+			}
+			if container.LivenessProbe.FailureThreshold == 0 {
+				newTemplate.Spec.Containers[i].LivenessProbe.FailureThreshold = 3
+			}
 		}
 	}
 	if newTemplate.Spec.RestartPolicy == "" {

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -14,11 +15,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
+	"golang.org/x/sync/errgroup"
+	appsv1 "k8s.io/api/apps/v1"
+	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
+	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
@@ -41,16 +45,15 @@ var (
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
 type StackSetController struct {
-	logger                  *log.Entry
-	kube                    kubernetes.Interface
-	appClient               clientset.Interface
-	controllerID            string
-	interval                time.Duration
-	stacksetStackMinGCAge   time.Duration
-	noTrafficScaledownTTL   time.Duration
-	noTrafficTerminationTTL time.Duration
-	controllerTable         map[types.UID]controllerEntry
-	stacksetEvents          chan stacksetEvent
+	logger                *log.Entry
+	kube                  kubernetes.Interface
+	appClient             clientset.Interface
+	controllerID          string
+	interval              time.Duration
+	stacksetStackMinGCAge time.Duration
+	noTrafficScaledownTTL time.Duration
+	stacksetEvents        chan stacksetEvent
+	stacksetStore         map[types.UID]zv1.StackSet
 	sync.Mutex
 }
 
@@ -59,24 +62,18 @@ type stacksetEvent struct {
 	StackSet *zv1.StackSet
 }
 
-type controllerEntry struct {
-	Cancel context.CancelFunc
-	Done   []<-chan struct{}
-}
-
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client kubernetes.Interface, appClient clientset.Interface, controllerID string, stacksetStackMinGCAge, noTrafficScaledownTTL, noTrafficTerminationTTL, interval time.Duration) *StackSetController {
+func NewStackSetController(client kubernetes.Interface, appClient clientset.Interface, controllerID string, stacksetStackMinGCAge, noTrafficScaledownTTL, interval time.Duration) *StackSetController {
 	return &StackSetController{
-		logger:                  log.WithFields(log.Fields{"controller": "stackset"}),
-		kube:                    client,
-		appClient:               appClient,
-		controllerID:            controllerID,
-		stacksetStackMinGCAge:   stacksetStackMinGCAge,
-		noTrafficScaledownTTL:   noTrafficScaledownTTL,
-		noTrafficTerminationTTL: noTrafficTerminationTTL,
-		stacksetEvents:          make(chan stacksetEvent, 1),
-		controllerTable:         map[types.UID]controllerEntry{},
-		interval:                interval,
+		logger:                log.WithFields(log.Fields{"controller": "stackset"}),
+		kube:                  client,
+		appClient:             appClient,
+		controllerID:          controllerID,
+		stacksetStackMinGCAge: stacksetStackMinGCAge,
+		noTrafficScaledownTTL: noTrafficScaledownTTL,
+		stacksetEvents:        make(chan stacksetEvent, 1),
+		stacksetStore:         make(map[types.UID]zv1.StackSet),
+		interval:              interval,
 	}
 }
 
@@ -86,8 +83,58 @@ func NewStackSetController(client kubernetes.Interface, appClient clientset.Inte
 func (c *StackSetController) Run(ctx context.Context) {
 	c.startWatch(ctx)
 
+	nextCheck := time.Now().Add(-c.interval)
+
 	for {
 		select {
+		case <-time.After(time.Until(nextCheck)):
+			nextCheck = time.Now().Add(c.interval)
+
+			stackContainers, err := c.collectResources()
+			if err != nil {
+				c.logger.Errorf("Failed to collect resources: %v", err)
+				continue
+			}
+
+			var reconcileGroup errgroup.Group
+			for stackset, container := range stackContainers {
+				container := *container
+
+				reconcileGroup.Go(func() error {
+					if _, ok := c.stacksetStore[stackset]; ok {
+						err = c.ReconcileStack(container)
+						if err != nil {
+							c.logger.Error(err)
+						}
+
+						err := c.ReconcileStacks(container)
+						if err != nil {
+							c.logger.Error(err)
+						}
+
+						err = c.ReconcileIngress(container)
+						if err != nil {
+							c.logger.Error(err)
+						}
+
+						err = c.ReconcileStackSetStatus(container)
+						if err != nil {
+							c.logger.Error(err)
+						}
+
+						err = c.StackSetGC(container)
+						if err != nil {
+							c.logger.Error(err)
+						}
+					}
+					return nil
+				})
+			}
+
+			err = reconcileGroup.Wait()
+			if err != nil {
+				c.logger.Errorf("Failed waiting for reconcilers: %v", err)
+			}
 		case e := <-c.stacksetEvents:
 			stackset := *e.StackSet
 			// set TypeMeta manually because of this bug:
@@ -95,28 +142,21 @@ func (c *StackSetController) Run(ctx context.Context) {
 			stackset.APIVersion = "zalando.org/v1"
 			stackset.Kind = "StackSet"
 
-			noTrafficScaledownTTL := c.noTrafficScaledownTTL
-			if ttlSec := stackset.Spec.StackLifecycle.ScaledownTTLSeconds; ttlSec != nil {
-				noTrafficScaledownTTL = time.Second * time.Duration(*ttlSec)
-			}
-
 			// set default ingress backend port if not specified.
 			if stackset.Spec.Ingress != nil && intOrStrIsEmpty(stackset.Spec.Ingress.BackendPort) {
 				stackset.Spec.Ingress.BackendPort = defaultBackendPort
 			}
 
-			// clear existing entry
-			if entry, ok := c.controllerTable[stackset.UID]; ok {
-				c.logger.Infof("Stopping controllers for StackSet %s/%s", stackset.Namespace, stackset.Name)
-				entry.Cancel()
-				for _, d := range entry.Done {
-					<-d
+			// update/delete existing entry
+			if _, ok := c.stacksetStore[stackset.UID]; ok {
+				if e.Deleted || !c.hasOwnership(&stackset) {
+					c.logger.Infof("StackSet '%s/%s' deleted, removing references", stackset.Namespace, stackset.Name)
+					delete(c.stacksetStore, stackset.UID)
+					continue
 				}
-				delete(c.controllerTable, stackset.UID)
-				c.logger.Infof("Controllers stopped for StackSet %s/%s", stackset.Namespace, stackset.Name)
-			}
 
-			if e.Deleted {
+				// update stackset entry
+				c.stacksetStore[stackset.UID] = stackset
 				continue
 			}
 
@@ -125,51 +165,293 @@ func (c *StackSetController) Run(ctx context.Context) {
 				continue
 			}
 
-			err := c.manageStackSet(&stackset)
-			if err != nil {
-				c.logger.Error(err)
-				continue
-			}
-
-			c.logger.Infof("Starting controllers for StackSet %s/%s", stackset.Namespace, stackset.Name)
-			ctx, cancel := context.WithCancel(ctx)
-			entry := controllerEntry{
-				Cancel: cancel,
-				Done:   []<-chan struct{}{},
-			}
-
-			stackControllerDone := make(chan struct{}, 1)
-			entry.Done = append(entry.Done, stackControllerDone)
-			stackController := NewStackController(c.kube, c.appClient, stackset, stackControllerDone, noTrafficScaledownTTL, c.interval)
-			go stackController.Run(ctx)
-
-			ingressControllerDone := make(chan struct{}, 1)
-			entry.Done = append(entry.Done, ingressControllerDone)
-			ingressController := NewIngressController(c.kube, c.appClient, stackset, ingressControllerDone, c.interval)
-			go ingressController.Run(ctx)
-
-			stackGCDone := make(chan struct{}, 1)
-			entry.Done = append(entry.Done, stackGCDone)
-			go c.runStackGC(ctx, stackset, stackGCDone)
-
-			updateStatusDone := make(chan struct{}, 1)
-			entry.Done = append(entry.Done, updateStatusDone)
-			go c.runUpdateStatus(ctx, stackset, updateStatusDone)
-
-			c.controllerTable[stackset.UID] = entry
+			c.logger.Infof("Adding entry for StackSet %s/%s", stackset.Namespace, stackset.Name)
+			c.stacksetStore[stackset.UID] = stackset
 		case <-ctx.Done():
 			c.logger.Info("Terminating main controller loop.")
-			// wait for all controllers
-			for uid, entry := range c.controllerTable {
-				entry.Cancel()
-				for _, d := range entry.Done {
-					<-d
-				}
-				delete(c.controllerTable, uid)
-			}
 			return
 		}
 	}
+}
+
+// StackSetContainer is a container for storing the full state of a StackSet
+// including the sub-resources which are part of the StackSet. It respresents a
+// snapshot of the resources currently in the Cluster. This includes an
+// optional Ingress resource as well as the current Traffic distribution. It
+// also contains a set of StackContainers which respresents the full state of
+// the individual Stacks part of the StackSet.
+type StackSetContainer struct {
+	StackSet zv1.StackSet
+
+	// StackContainers is a set of stacks belonging to the StackSet
+	// including the Stack sub resources like Deployments and Services.
+	StackContainers map[types.UID]*StackContainer
+
+	// Ingress defines the current Ingress resource belonging to the
+	// StackSet. This is a reference to the actual resource while
+	// `StackSet.Spec.Ingress` defines the ingress configuration specified
+	// by the user on the StackSet.
+	Ingress *v1beta1.Ingress
+
+	// Traffic is the current traffic distribution across stacks of the
+	// StackSet. The values of this are derived from the related Ingress
+	// resource. The key of the map is the Stack name.
+	Traffic map[string]TrafficStatus
+}
+
+// Stacks returns a slice of Stack resources.
+func (sc StackSetContainer) Stacks() []zv1.Stack {
+	stacks := make([]zv1.Stack, 0, len(sc.StackContainers))
+	for _, stackContainer := range sc.StackContainers {
+		stacks = append(stacks, stackContainer.Stack)
+	}
+	return stacks
+}
+
+// ScaledownTTL returns the ScaledownTTLSeconds value of a StackSet as a
+// time.Duration.
+func (sc StackSetContainer) ScaledownTTL() time.Duration {
+	if ttlSec := sc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds; ttlSec != nil {
+		return time.Second * time.Duration(*ttlSec)
+	}
+	return 0
+}
+
+// StackContainer is a container for storing the full state of a Stack
+// including all the managed sub-resources. This includes the Stack resource
+// itself and all the sub resources like Deployment, HPA, Service and
+// Endpoints.
+type StackContainer struct {
+	Stack     zv1.Stack
+	Resources StackResources
+}
+
+// StackResources describes the resources of a stack.
+type StackResources struct {
+	Deployment *appsv1.Deployment
+	HPA        *autoscaling.HorizontalPodAutoscaler
+	Service    *v1.Service
+	Endpoints  *v1.Endpoints
+}
+
+// TrafficStatus represents the traffic status of an Ingress. ActualWeight is
+// the actual traffic a particular backend is getting and DesiredWeight is the
+// user specified value that it should try to achieve.
+type TrafficStatus struct {
+	ActualWeight  float64
+	DesiredWeight float64
+}
+
+// Weight returns the max of ActualWeight and DesiredWeight.
+func (t TrafficStatus) Weight() float64 {
+	return math.Max(t.ActualWeight, t.DesiredWeight)
+}
+
+// getIngressTraffic parses ingress traffic from an Ingress resource.
+func getIngressTraffic(ingress *v1beta1.Ingress) (map[string]TrafficStatus, error) {
+	desiredTraffic := make(map[string]float64)
+	if weights, ok := ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
+		err := json.Unmarshal([]byte(weights), &desiredTraffic)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current desired Stack traffic weights: %v", err)
+		}
+	}
+
+	actualTraffic := make(map[string]float64)
+	if weights, ok := ingress.Annotations[backendWeightsAnnotationKey]; ok {
+		err := json.Unmarshal([]byte(weights), &actualTraffic)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
+		}
+	}
+
+	traffic := make(map[string]TrafficStatus, len(desiredTraffic))
+
+	for stackName, weight := range desiredTraffic {
+		traffic[stackName] = TrafficStatus{
+			ActualWeight:  actualTraffic[stackName],
+			DesiredWeight: weight,
+		}
+	}
+
+	return traffic, nil
+}
+
+func (c *StackSetController) collectResources() (map[types.UID]*StackSetContainer, error) {
+	stacksets := make(map[types.UID]*StackSetContainer, len(c.stacksetStore))
+	for uid, stackset := range c.stacksetStore {
+		stackset := stackset
+		stacksets[uid] = &StackSetContainer{
+			StackSet:        stackset,
+			StackContainers: map[types.UID]*StackContainer{},
+		}
+	}
+
+	err := c.collectIngresses(stacksets)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.collectStacks(stacksets)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.collectDeployments(stacksets)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.collectServices(stacksets)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.collectEndpoints(stacksets)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.collectHPAs(stacksets)
+	if err != nil {
+		return nil, err
+	}
+
+	// add traffic settings
+	for _, ssc := range stacksets {
+		if ssc.StackSet.Spec.Ingress != nil && len(ssc.StackContainers) > 0 && ssc.Ingress != nil {
+			traffic, err := getIngressTraffic(ssc.Ingress)
+			if err != nil {
+				// TODO: can fail for all!!!
+				return nil, fmt.Errorf("failed to get Ingress traffic for StackSet %s/%s: %v", ssc.StackSet.Namespace, ssc.StackSet.Name, err)
+			}
+			ssc.Traffic = traffic
+		}
+	}
+
+	return stacksets, nil
+}
+
+func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetContainer) error {
+	ingresses, err := c.kube.ExtensionsV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list Ingresses: %v", err)
+	}
+
+	for _, i := range ingresses.Items {
+		ingress := i
+		if uid, ok := getOwnerUID(ingress.ObjectMeta); ok {
+			if s, ok := stacksets[uid]; ok {
+				s.Ingress = &ingress
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetContainer) error {
+	stacks, err := c.appClient.ZalandoV1().Stacks(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list Stacks: %v", err)
+	}
+
+	for _, stack := range stacks.Items {
+		if uid, ok := getOwnerUID(stack.ObjectMeta); ok {
+			if s, ok := stacksets[uid]; ok {
+				s.StackContainers[stack.UID] = &StackContainer{Stack: stack}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSetContainer) error {
+	deployments, err := c.kube.AppsV1().Deployments(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list Deployments: %v", err)
+	}
+
+	for _, d := range deployments.Items {
+		deployment := d
+		if uid, ok := getOwnerUID(deployment.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				if s, ok := stackset.StackContainers[uid]; ok {
+					s.Resources = StackResources{
+						Deployment: &deployment,
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetContainer) error {
+	services, err := c.kube.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list Services: %v", err)
+	}
+
+	for _, s := range services.Items {
+		service := s
+		if uid, ok := getOwnerUID(service.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				for _, stack := range stackset.StackContainers {
+					if stack.Resources.Deployment != nil && stack.Resources.Deployment.UID == uid {
+						stack.Resources.Service = &service
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetContainer) error {
+	endpoints, err := c.kube.CoreV1().Endpoints(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list Endpoints: %v", err)
+	}
+
+	for _, endpoint := range endpoints.Items {
+		endpoint := endpoint
+		for _, stackset := range stacksets {
+			for _, stack := range stackset.StackContainers {
+				if stack.Stack.Name == endpoint.Name && stack.Stack.Namespace == endpoint.Namespace {
+					stack.Resources.Endpoints = &endpoint
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectHPAs(stacksets map[types.UID]*StackSetContainer) error {
+	hpas, err := c.kube.AutoscalingV2beta1().HorizontalPodAutoscalers(v1.NamespaceAll).List(metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list HPAs: %v", err)
+	}
+
+	for _, h := range hpas.Items {
+		hpa := h
+		if uid, ok := getOwnerUID(hpa.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				for _, stack := range stackset.StackContainers {
+					if stack.Resources.Deployment != nil && stack.Resources.Deployment.UID == uid {
+						stack.Resources.HPA = &hpa
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func getOwnerUID(objectMeta metav1.ObjectMeta) (types.UID, bool) {
+	if len(objectMeta.OwnerReferences) == 1 {
+		return objectMeta.OwnerReferences[0].UID, true
+	}
+	return "", false
 }
 
 // hasOwnership returns true if the controller is the "owner" of the stackset.
@@ -262,62 +544,36 @@ func (c *StackSetController) del(obj interface{}) {
 	}
 }
 
-func (c *StackSetController) runUpdateStatus(ctx context.Context, stackset zv1.StackSet, done chan<- struct{}) {
-	for {
-		err := c.updateStatus(stackset)
-		if err != nil {
-			c.logger.Error(err)
-		}
-
-		select {
-		case <-time.After(c.interval):
-		case <-ctx.Done():
-			c.logger.Info("Terminating update status loop.")
-			done <- struct{}{}
-			return
-		}
-	}
-}
-
-func (c *StackSetController) updateStatus(stackset zv1.StackSet) error {
-	heritageLabels := map[string]string{
-		stacksetHeritageLabelKey: stackset.Name,
-	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(heritageLabels).String(),
-	}
-
-	stacks, err := c.appClient.ZalandoV1().Stacks(stackset.Namespace).List(opts)
-	if err != nil {
-		return fmt.Errorf("failed to list Stacks of StackSet %s/%s: %v", stackset.Namespace, stackset.Name, err)
-	}
-
-	var traffic map[string]TrafficStatus
-	if stackset.Spec.Ingress != nil && len(stacks.Items) > 0 {
-		traffic, err = getIngressTraffic(c.kube, &stackset)
-		if err != nil {
-			return fmt.Errorf("failed to get Ingress traffic for StackSet %s/%s: %v", stackset.Namespace, stackset.Name, err)
-		}
-	}
+// ReconcileStackSetStatus reconciles the status of a StackSet.
+func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) error {
+	stackset := ssc.StackSet
+	stacks := ssc.Stacks()
 
 	stacksWithTraffic := int32(0)
-	for _, stack := range stacks.Items {
-		if traffic != nil && traffic[stack.Name].Weight() > 0 {
+	for _, stack := range stacks {
+		if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() > 0 {
 			stacksWithTraffic++
 		}
 	}
 
 	newStatus := zv1.StackSetStatus{
-		Stacks:            int32(len(stacks.Items)),
+		Stacks:            int32(len(stacks)),
 		StacksWithTraffic: stacksWithTraffic,
-		ReadyStacks:       readyStacks(stacks.Items),
+		ReadyStacks:       readyStacks(stacks),
 	}
 
 	if !reflect.DeepEqual(newStatus, stackset.Status) {
+		c.logger.Infof(
+			"Status changed for StackSet %s/%s: %#v -> %#v",
+			stackset.Namespace,
+			stackset.Name,
+			stackset.Status,
+			newStatus,
+		)
 		stackset.Status = newStatus
-		// TODO: log the change in status
+
 		// update status of stackset
-		_, err = c.appClient.ZalandoV1().StackSets(stackset.Namespace).UpdateStatus(&stackset)
+		_, err := c.appClient.ZalandoV1().StackSets(stackset.Namespace).UpdateStatus(&stackset)
 		if err != nil {
 			return err
 		}
@@ -326,6 +582,7 @@ func (c *StackSetController) updateStatus(stackset zv1.StackSet) error {
 	return nil
 }
 
+// readyStacks returns the number of ready Stacks given a slice of Stacks.
 func readyStacks(stacks []zv1.Stack) int32 {
 	var readyStacks int32
 	for _, stack := range stacks {
@@ -337,54 +594,21 @@ func readyStacks(stacks []zv1.Stack) int32 {
 	return readyStacks
 }
 
-func (c *StackSetController) runStackGC(ctx context.Context, stackset zv1.StackSet, done chan<- struct{}) {
-	for {
-		err := c.gcStacks(stackset)
-		if err != nil {
-			c.logger.Error(err)
-		}
-
-		select {
-		// TODO: change GC interval
-		case <-time.After(c.interval):
-		case <-ctx.Done():
-			c.logger.Info("Terminating stack Garbage collector.")
-			done <- struct{}{}
-			return
-		}
-	}
-}
-
-func (c *StackSetController) gcStacks(stackset zv1.StackSet) error {
-	heritageLabels := map[string]string{
-		stacksetHeritageLabelKey: stackset.Name,
-	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(heritageLabels).String(),
-	}
-
-	stacks, err := c.appClient.ZalandoV1().Stacks(stackset.Namespace).List(opts)
-	if err != nil {
-		return fmt.Errorf("failed to list Stacks of StackSet %s/%s: %v", stackset.Namespace, stackset.Name, err)
-	}
-
-	var traffic map[string]TrafficStatus
-	if stackset.Spec.Ingress != nil && len(stacks.Items) > 0 {
-		traffic, err = getIngressTraffic(c.kube, &stackset)
-		if err != nil {
-			return fmt.Errorf("failed to get Ingress traffic for StackSet %s/%s: %v", stackset.Namespace, stackset.Name, err)
-		}
-	}
+// StackSetGC garbage collects Stacks for a single StackSet. Whether Stacks
+// should be garbage collected is determined by the StackSet lifecycle limit.
+func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
+	stackset := ssc.StackSet
+	stacks := ssc.Stacks()
 
 	historyLimit := defaultStackLifecycleLimit
 	if stackset.Spec.StackLifecycle != nil && stackset.Spec.StackLifecycle.Limit != nil {
 		historyLimit = int(*stackset.Spec.StackLifecycle.Limit)
 	}
 
-	gcCandidates := make([]zv1.Stack, 0, len(stacks.Items))
-	for _, stack := range stacks.Items {
+	gcCandidates := make([]zv1.Stack, 0, len(stacks))
+	for _, stack := range stacks {
 		// never garbage collect stacks with traffic
-		if traffic != nil && traffic[stack.Name].Weight() > 0 {
+		if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() > 0 {
 			continue
 		}
 
@@ -394,8 +618,8 @@ func (c *StackSetController) gcStacks(stackset zv1.StackSet) error {
 	}
 
 	// only garbage collect if history limit is reached
-	if len(stacks.Items) <= historyLimit {
-		c.logger.Debugf("No Stacks to clean up for StackSet %s/%s (limit: %d/%d)", stackset.Namespace, stackset.Name, len(stacks.Items), historyLimit)
+	if len(stacks) <= historyLimit {
+		c.logger.Debugf("No Stacks to clean up for StackSet %s/%s (limit: %d/%d)", stackset.Namespace, stackset.Name, len(stacks), historyLimit)
 		return nil
 	}
 
@@ -404,7 +628,7 @@ func (c *StackSetController) gcStacks(stackset zv1.StackSet) error {
 		return gcCandidates[i].CreationTimestamp.Time.Before(gcCandidates[j].CreationTimestamp.Time)
 	})
 
-	excessStacks := len(stacks.Items) - historyLimit
+	excessStacks := len(stacks) - historyLimit
 	c.logger.Infof(
 		"Found %d Stack(s) exeeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
 		excessStacks,
@@ -433,21 +657,12 @@ func (c *StackSetController) gcStacks(stackset zv1.StackSet) error {
 	return nil
 }
 
-func strInSlice(str string, slice []string) bool {
-	for _, s := range slice {
-		if s == str {
-			return true
-		}
-	}
-	return false
-}
-
-func (c *StackSetController) manageStackSet(stackset *zv1.StackSet) error {
+// ReconcileStack brings the Stack created from the current StackSet definition
+// to the desired state.
+func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
+	stackset := ssc.StackSet
 	heritageLabels := map[string]string{
 		stacksetHeritageLabelKey: stackset.Name,
-	}
-	opts := metav1.ListOptions{
-		LabelSelector: labels.Set(heritageLabels).String(),
 	}
 
 	version := stackset.Spec.StackTemplate.Spec.Version
@@ -457,17 +672,19 @@ func (c *StackSetController) manageStackSet(stackset *zv1.StackSet) error {
 
 	stackName := stackset.Name + "-" + version
 
-	stacks, err := c.appClient.ZalandoV1().Stacks(stackset.Namespace).List(opts)
-	if err != nil {
-		return fmt.Errorf("failed to list stacks of StackSet %s/%s: %v", stackset.Namespace, stackset.Name, err)
-	}
+	stacks := ssc.Stacks()
 
 	var stack *zv1.Stack
-	for _, s := range stacks.Items {
+	for _, s := range stacks {
 		if s.Name == stackName {
 			stack = &s
 			break
 		}
+	}
+
+	var origStack *zv1.Stack
+	if stack != nil {
+		origStack = stack.DeepCopy()
 	}
 
 	stackLabels := mergeLabels(
@@ -483,7 +700,7 @@ func (c *StackSetController) manageStackSet(stackset *zv1.StackSet) error {
 		stack = &zv1.Stack{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      stackName,
-				Namespace: stackset.Namespace,
+				Namespace: ssc.StackSet.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					{
 						APIVersion: stackset.APIVersion,
@@ -516,16 +733,27 @@ func (c *StackSetController) manageStackSet(stackset *zv1.StackSet) error {
 			return err
 		}
 	} else {
-		c.logger.Infof(
-			"Updating StackSet stack %s/%s for StackSet %s/%s",
-			stack.Namespace,
-			stack.Name,
-			stackset.Namespace,
-			stackset.Name,
-		)
-		_, err := c.appClient.ZalandoV1().Stacks(stack.Namespace).Update(stack)
-		if err != nil {
-			return err
+		// only update the resource if there are changes
+		if !reflect.DeepEqual(origStack, stack) {
+			c.logger.Debugf("Stack %s/%s changed: %s",
+				stack.Namespace, stack.Name,
+				cmp.Diff(
+					origStack,
+					stack,
+					cmpopts.IgnoreUnexported(resource.Quantity{}),
+				),
+			)
+			c.logger.Infof(
+				"Updating StackSet stack %s/%s for StackSet %s/%s",
+				stack.Namespace,
+				stack.Name,
+				stackset.Namespace,
+				stackset.Name,
+			)
+			_, err := c.appClient.ZalandoV1().Stacks(stack.Namespace).Update(stack)
+			if err != nil {
+				return err
+			}
 		}
 	}
 

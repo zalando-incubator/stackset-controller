@@ -21,24 +21,22 @@ import (
 )
 
 const (
-	defaultInterval                = "10s"
-	defaultMetricsAddress          = ":7979"
-	defaultStackMinGCAge           = "24h"
-	defaultNoTrafficScaledownTTL   = 1 * time.Hour
-	defaultNoTrafficTerminationTTL = 1 * time.Minute
-	defaultClientGOTimeout         = 30 * time.Second
+	defaultInterval              = "10s"
+	defaultMetricsAddress        = ":7979"
+	defaultStackMinGCAge         = "24h"
+	defaultNoTrafficScaledownTTL = 1 * time.Hour
+	defaultClientGOTimeout       = 30 * time.Second
 )
 
 var (
 	config struct {
-		Debug                   bool
-		Interval                time.Duration
-		APIServer               *url.URL
-		MetricsAddress          string
-		StackMinGCAge           time.Duration
-		NoTrafficScaledownTTL   time.Duration
-		NoTrafficTerminationTTL time.Duration
-		ControllerID            string
+		Debug                 bool
+		Interval              time.Duration
+		APIServer             *url.URL
+		MetricsAddress        string
+		StackMinGCAge         time.Duration
+		NoTrafficScaledownTTL time.Duration
+		ControllerID          string
 	}
 )
 
@@ -49,7 +47,6 @@ func main() {
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
 	kingpin.Flag("stackset-stack-min-gc-age", "Minimum age for stackset stacks before they are considered for garbage collection.").Default(defaultStackMinGCAge).DurationVar(&config.StackMinGCAge)
 	kingpin.Flag("no-traffic-scaledown-ttl", "Default TTL for scaling down deployments not getting any traffic.").Default(defaultNoTrafficScaledownTTL.String()).DurationVar(&config.NoTrafficScaledownTTL)
-	kingpin.Flag("no-traffic-termination-ttl", "Default TTL for terminating deployments after they are not getting any traffic.").Default(defaultNoTrafficTerminationTTL.String()).DurationVar(&config.NoTrafficTerminationTTL)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
 	kingpin.Parse()
@@ -80,7 +77,6 @@ func main() {
 		config.ControllerID,
 		config.StackMinGCAge,
 		config.NoTrafficScaledownTTL,
-		config.NoTrafficTerminationTTL,
 		config.Interval,
 	)
 
@@ -132,6 +128,8 @@ func configureKubeConfig(apiServerURL *url.URL, timeout time.Duration, stopCh <-
 			Host:      apiServerURL.String(),
 			Timeout:   timeout,
 			Transport: tr,
+			QPS:       100.0,
+			Burst:     500,
 		}, nil
 	}
 
@@ -153,6 +151,8 @@ func configureKubeConfig(apiServerURL *url.URL, timeout time.Duration, stopCh <-
 
 	config.Timeout = timeout
 	config.Transport = tr
+	config.QPS = 100.0
+	config.Burst = 500
 	// disable TLSClientConfig to make the custom Transport work
 	config.TLSClientConfig = rest.TLSClientConfig{}
 	return config, nil
