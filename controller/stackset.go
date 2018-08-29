@@ -14,7 +14,7 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -46,8 +45,7 @@ var (
 // stackset resource.
 type StackSetController struct {
 	logger                *log.Entry
-	kube                  kubernetes.Interface
-	appClient             clientset.Interface
+	client                clientset.Interface
 	controllerID          string
 	interval              time.Duration
 	stacksetStackMinGCAge time.Duration
@@ -63,11 +61,10 @@ type stacksetEvent struct {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client kubernetes.Interface, appClient clientset.Interface, controllerID string, stacksetStackMinGCAge, noTrafficScaledownTTL, interval time.Duration) *StackSetController {
+func NewStackSetController(client clientset.Interface, controllerID string, stacksetStackMinGCAge, noTrafficScaledownTTL, interval time.Duration) *StackSetController {
 	return &StackSetController{
 		logger:                log.WithFields(log.Fields{"controller": "stackset"}),
-		kube:                  client,
-		appClient:             appClient,
+		client:                client,
 		controllerID:          controllerID,
 		stacksetStackMinGCAge: stacksetStackMinGCAge,
 		noTrafficScaledownTTL: noTrafficScaledownTTL,
@@ -333,7 +330,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 }
 
 func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetContainer) error {
-	ingresses, err := c.kube.ExtensionsV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
+	ingresses, err := c.client.ExtensionsV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Ingresses: %v", err)
 	}
@@ -350,7 +347,7 @@ func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetC
 }
 
 func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetContainer) error {
-	stacks, err := c.appClient.ZalandoV1().Stacks(v1.NamespaceAll).List(metav1.ListOptions{})
+	stacks, err := c.client.ZalandoV1().Stacks(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Stacks: %v", err)
 	}
@@ -366,7 +363,7 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetCont
 }
 
 func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSetContainer) error {
-	deployments, err := c.kube.AppsV1().Deployments(v1.NamespaceAll).List(metav1.ListOptions{})
+	deployments, err := c.client.AppsV1().Deployments(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Deployments: %v", err)
 	}
@@ -387,7 +384,7 @@ func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSe
 }
 
 func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetContainer) error {
-	services, err := c.kube.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
+	services, err := c.client.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Services: %v", err)
 	}
@@ -408,7 +405,7 @@ func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetCo
 }
 
 func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetContainer) error {
-	endpoints, err := c.kube.CoreV1().Endpoints(v1.NamespaceAll).List(metav1.ListOptions{})
+	endpoints, err := c.client.CoreV1().Endpoints(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Endpoints: %v", err)
 	}
@@ -427,7 +424,7 @@ func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetC
 }
 
 func (c *StackSetController) collectHPAs(stacksets map[types.UID]*StackSetContainer) error {
-	hpas, err := c.kube.AutoscalingV2beta1().HorizontalPodAutoscalers(v1.NamespaceAll).List(metav1.ListOptions{})
+	hpas, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list HPAs: %v", err)
 	}
@@ -470,7 +467,7 @@ func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 
 func (c *StackSetController) startWatch(ctx context.Context) {
 	informer := cache.NewSharedIndexInformer(
-		cache.NewListWatchFromClient(c.appClient.ZalandoV1().RESTClient(), "stacksets", v1.NamespaceAll, fields.Everything()),
+		cache.NewListWatchFromClient(c.client.ZalandoV1().RESTClient(), "stacksets", v1.NamespaceAll, fields.Everything()),
 		&zv1.StackSet{},
 		0, // skip resync
 		cache.Indexers{},
@@ -573,7 +570,7 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 		stackset.Status = newStatus
 
 		// update status of stackset
-		_, err := c.appClient.ZalandoV1().StackSets(stackset.Namespace).UpdateStatus(&stackset)
+		_, err := c.client.ZalandoV1().StackSets(stackset.Namespace).UpdateStatus(&stackset)
 		if err != nil {
 			return err
 		}
@@ -648,7 +645,7 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 			stackset.Namespace,
 			stackset.Name,
 		)
-		err := c.appClient.ZalandoV1().Stacks(stack.Namespace).Delete(stack.Name, nil)
+		err := c.client.ZalandoV1().Stacks(stack.Namespace).Delete(stack.Name, nil)
 		if err != nil {
 			return err
 		}
@@ -728,7 +725,7 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			stackset.Namespace,
 			stackset.Name,
 		)
-		_, err := c.appClient.ZalandoV1().Stacks(stack.Namespace).Create(stack)
+		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
 		if err != nil {
 			return err
 		}
@@ -750,7 +747,7 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 				stackset.Namespace,
 				stackset.Name,
 			)
-			_, err := c.appClient.ZalandoV1().Stacks(stack.Namespace).Update(stack)
+			_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(stack)
 			if err != nil {
 				return err
 			}

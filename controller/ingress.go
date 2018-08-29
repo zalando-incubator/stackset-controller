@@ -11,11 +11,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -31,7 +31,7 @@ var (
 // state.
 type ingressReconciler struct {
 	logger *log.Entry
-	kube   kubernetes.Interface
+	client clientset.Interface
 }
 
 // ReconcileIngress brings Ingresses of a StackSet to the desired state.
@@ -44,7 +44,7 @@ func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
 				"namespace":  sc.StackSet.Namespace,
 			},
 		),
-		kube: c.kube,
+		client: c.client,
 	}
 	return ir.reconcile(sc)
 }
@@ -62,7 +62,7 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 				sc.StackSet.Namespace,
 				sc.StackSet.Name,
 			)
-			err := c.kube.ExtensionsV1beta1().Ingresses(sc.Ingress.Namespace).Delete(sc.Ingress.Name, nil)
+			err := c.client.ExtensionsV1beta1().Ingresses(sc.Ingress.Namespace).Delete(sc.Ingress.Name, nil)
 			if err != nil {
 				return fmt.Errorf(
 					"failed to delete Ingress %s/%s for StackSet %s/%s: %v",
@@ -101,7 +101,7 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 
 	if sc.Ingress == nil {
 		c.logger.Infof("Creating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks))
-		_, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
+		_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
 		if err != nil {
 			return err
 		}
@@ -110,7 +110,7 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 		if !reflect.DeepEqual(sc.Ingress, ingress) {
 			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(sc.Ingress, ingress))
 			c.logger.Infof("Updating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks))
-			_, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
+			_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
 			if err != nil {
 				return err
 			}
@@ -175,7 +175,7 @@ func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack)
 		return fmt.Errorf("failed generate Ingress for Stack %s/%s: %s", stack.Namespace, stack.Name, err)
 	}
 
-	ing, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Get(ingress.Name, metav1.GetOptions{})
+	ing, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Get(ingress.Name, metav1.GetOptions{})
 	if err != nil {
 		if !apiErrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get Ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
@@ -185,7 +185,7 @@ func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack)
 
 	if ing == nil {
 		c.logger.Infof("Creating Ingress %s/%s", ingress.Namespace, ingress.Name)
-		_, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
+		_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
 		if err != nil {
 			return fmt.Errorf("failed to create Ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
 		}
@@ -206,7 +206,7 @@ func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack)
 		if !reflect.DeepEqual(ing, ingress) {
 			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(ing, ingress))
 			c.logger.Infof("Updating Ingress %s/%s.", ingress.Namespace, ingress.Name)
-			_, err := c.kube.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
+			_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
 			if err != nil {
 				return fmt.Errorf("failed to update Ingress %s/%s: %v", ingress.Namespace, ingress.Name, err)
 			}
@@ -217,7 +217,7 @@ func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack)
 }
 
 func (c *ingressReconciler) gcStackIngress(stack zv1.Stack) error {
-	ing, err := c.kube.ExtensionsV1beta1().Ingresses(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
+	ing, err := c.client.ExtensionsV1beta1().Ingresses(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
 	if err != nil {
 		if !apiErrors.IsNotFound(err) {
 			return fmt.Errorf("failed to get Ingress %s/%s: %s", stack.Namespace, stack.Name, err)
@@ -231,7 +231,7 @@ func (c *ingressReconciler) gcStackIngress(stack zv1.Stack) error {
 	}
 
 	c.logger.Infof("Deleting obsolete Ingress %s/%s.", ing.Namespace, ing.Name)
-	err = c.kube.ExtensionsV1beta1().Ingresses(ing.Namespace).Delete(ing.Name, nil)
+	err = c.client.ExtensionsV1beta1().Ingresses(ing.Namespace).Delete(ing.Name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to delete Ingress %s/%s: %v", ing.Namespace, ing.Name, err)
 	}

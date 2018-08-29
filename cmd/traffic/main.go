@@ -7,6 +7,7 @@ import (
 
 	"github.com/alecthomas/kingpin"
 	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	rest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -37,9 +38,9 @@ func main() {
 		log.Fatalf("Failed to setup Kubernetes client: %v.", err)
 	}
 
-	client, err := traffic.NewForConfig(kubeconfig)
+	client, err := clientset.NewForConfig(kubeconfig)
 	if err != nil {
-		log.Fatalf("Failed to setup Traffic client: %v.", err)
+		log.Fatalf("Failed to initialize Kubernetes client: %v.", err)
 	}
 
 	trafficSwitcher := traffic.NewSwitcher(client)

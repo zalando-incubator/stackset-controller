@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,11 +19,11 @@ const (
 
 // Switcher is able to switch traffic between stacks.
 type Switcher struct {
-	client Interface
+	client clientset.Interface
 }
 
 // NewSwitcher initializes a new traffic switcher.
-func NewSwitcher(client Interface) *Switcher {
+func NewSwitcher(client clientset.Interface) *Switcher {
 	return &Switcher{client: client}
 }
 
