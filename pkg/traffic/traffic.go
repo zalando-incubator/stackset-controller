@@ -5,11 +5,10 @@ import (
 	"fmt"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -20,16 +19,12 @@ const (
 
 // Switcher is able to switch traffic between stacks.
 type Switcher struct {
-	kube      kubernetes.Interface
-	appClient clientset.Interface
+	client clientset.Interface
 }
 
 // NewSwitcher initializes a new traffic switcher.
-func NewSwitcher(kube kubernetes.Interface, client clientset.Interface) *Switcher {
-	return &Switcher{
-		kube:      kube,
-		appClient: client,
-	}
+func NewSwitcher(client clientset.Interface) *Switcher {
+	return &Switcher{client: client}
 }
 
 // Switch changes traffic weight for a stack.
@@ -73,7 +68,7 @@ func (t *Switcher) Switch(stackset, stack, namespace string, weight float64) ([]
 			return nil, err
 		}
 
-		_, err = t.kube.ExtensionsV1beta1().Ingresses(namespace).Patch(stackset, types.StrategicMergePatchType, annotationData)
+		_, err = t.client.ExtensionsV1beta1().Ingresses(namespace).Patch(stackset, types.StrategicMergePatchType, annotationData)
 		if err != nil {
 			return nil, err
 		}
@@ -106,7 +101,7 @@ func (t *Switcher) getStacks(stackset, namespace string) ([]StackTrafficWeight, 
 		LabelSelector: labels.Set(heritageLabels).String(),
 	}
 
-	stacks, err := t.appClient.ZalandoV1().Stacks(namespace).List(opts)
+	stacks, err := t.client.ZalandoV1().Stacks(namespace).List(opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list stacks of stackset %s/%s: %v", namespace, stackset, err)
 	}
@@ -134,7 +129,7 @@ func (t *Switcher) getIngressTraffic(name, namespace string, stacks []zv1.Stack)
 		return map[string]float64{}, map[string]float64{}, nil
 	}
 
-	ingress, err := t.kube.ExtensionsV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
+	ingress, err := t.client.ExtensionsV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}

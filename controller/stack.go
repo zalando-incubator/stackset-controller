@@ -9,14 +9,13 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
 )
 
 const (
@@ -27,9 +26,8 @@ const (
 // desired state. This includes managing, Deployment, Service and HPA resources
 // of the Stacks.
 type stacksReconciler struct {
-	logger    *log.Entry
-	kube      kubernetes.Interface
-	appClient clientset.Interface
+	logger *log.Entry
+	client clientset.Interface
 }
 
 // ReconcileStacks brings a set of Stacks of a StackSet to the desired state.
@@ -42,8 +40,7 @@ func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
 				"namespace":  ssc.StackSet.Namespace,
 			},
 		),
-		kube:      c.kube,
-		appClient: c.appClient,
+		client: c.client,
 	}
 	return sr.reconcile(ssc)
 }
@@ -168,7 +165,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			stack.Namespace,
 			stack.Name,
 		)
-		deployment, err = c.kube.AppsV1().Deployments(deployment.Namespace).Create(deployment)
+		deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 		if err != nil {
 			return err
 		}
@@ -192,7 +189,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 				stack.Namespace,
 				stack.Name,
 			)
-			deployment, err = c.kube.AppsV1().Deployments(deployment.Namespace).Update(deployment)
+			deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Update(deployment)
 			if err != nil {
 				return err
 			}
@@ -241,7 +238,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		stack.Status = newStatus
 
 		// update status of stack
-		_, err = c.appClient.ZalandoV1().Stacks(stack.Namespace).UpdateStatus(&stack)
+		_, err = c.client.ZalandoV1().Stacks(stack.Namespace).UpdateStatus(&stack)
 		if err != nil {
 			return err
 		}
@@ -271,7 +268,7 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 				deployment.Namespace,
 				deployment.Name,
 			)
-			return nil, c.kube.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Delete(hpa.Name, nil)
+			return nil, c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Delete(hpa.Name, nil)
 		}
 		return nil, nil
 	}
@@ -318,7 +315,7 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 			deployment.Namespace,
 			deployment.Name,
 		)
-		_, err := c.kube.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(hpa)
+		_, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(hpa)
 		if err != nil {
 			return nil, err
 		}
@@ -332,7 +329,7 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 				deployment.Namespace,
 				deployment.Name,
 			)
-			hpa, err = c.kube.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Update(hpa)
+			hpa, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Update(hpa)
 			if err != nil {
 				return nil, err
 			}
@@ -392,7 +389,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 			stack.Namespace,
 			stack.Name,
 		)
-		_, err := c.kube.CoreV1().Services(service.Namespace).Create(service)
+		_, err := c.client.CoreV1().Services(service.Namespace).Create(service)
 		if err != nil {
 			return err
 		}
@@ -406,7 +403,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 				stack.Namespace,
 				stack.Name,
 			)
-			_, err := c.kube.CoreV1().Services(service.Namespace).Update(service)
+			_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
 			if err != nil {
 				return err
 			}

@@ -13,9 +13,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller"
-	clientset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 )
@@ -61,19 +60,13 @@ func main() {
 		log.Fatalf("Failed to setup Kubernetes config: %v", err)
 	}
 
-	client, err := kubernetes.NewForConfig(kubeConfig)
+	client, err := clientset.NewForConfig(kubeConfig)
 	if err != nil {
-		log.Fatalf("Failed to setup Kubernetes client: %v", err)
-	}
-
-	stacksetClient, err := clientset.NewForConfig(kubeConfig)
-	if err != nil {
-		log.Fatalf("Failed to setup Kubernetes CRD client: %v", err)
+		log.Fatalf("Failed to initialize Kubernetes client: %v.", err)
 	}
 
 	controller := controller.NewStackSetController(
 		client,
-		stacksetClient,
 		config.ControllerID,
 		config.StackMinGCAge,
 		config.NoTrafficScaledownTTL,
