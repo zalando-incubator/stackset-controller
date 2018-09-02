@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"reflect"
 	"sort"
 	"sync"
 	"time"
@@ -20,6 +19,7 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -559,7 +559,7 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 		ReadyStacks:       readyStacks(stacks),
 	}
 
-	if !reflect.DeepEqual(newStatus, stackset.Status) {
+	if !equality.Semantic.DeepEqual(newStatus, stackset.Status) {
 		c.logger.Infof(
 			"Status changed for StackSet %s/%s: %#v -> %#v",
 			stackset.Namespace,
@@ -731,7 +731,7 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 		}
 	} else {
 		// only update the resource if there are changes
-		if !reflect.DeepEqual(origStack, stack) {
+		if !equality.Semantic.DeepEqual(origStack, stack) {
 			c.logger.Debugf("Stack %s/%s changed: %s",
 				stack.Namespace, stack.Name,
 				cmp.Diff(

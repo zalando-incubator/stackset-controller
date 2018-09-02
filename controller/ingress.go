@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"sort"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -107,7 +107,7 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 		}
 	} else {
 		sc.Ingress.Status = v1beta1.IngressStatus{}
-		if !reflect.DeepEqual(sc.Ingress, ingress) {
+		if !equality.Semantic.DeepEqual(sc.Ingress, ingress) {
 			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(sc.Ingress, ingress))
 			c.logger.Infof("Updating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks))
 			_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
@@ -203,7 +203,7 @@ func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack)
 		ingress.ResourceVersion = ing.ResourceVersion
 		ing.Status = v1beta1.IngressStatus{}
 
-		if !reflect.DeepEqual(ing, ingress) {
+		if !equality.Semantic.DeepEqual(ing, ingress) {
 			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(ing, ingress))
 			c.logger.Infof("Updating Ingress %s/%s.", ingress.Namespace, ingress.Name)
 			_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
