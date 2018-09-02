@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
@@ -13,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -173,7 +173,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		// only update the resource if there are changes
 		// TODO: still if we add just the annotation it could mess with
 		// the HPA.
-		if !reflect.DeepEqual(origDeployment, deployment) {
+		if !equality.Semantic.DeepEqual(origDeployment, deployment) {
 			c.logger.Debugf("Deployment %s/%s changed: %s",
 				deployment.Namespace, deployment.Name,
 				cmp.Diff(
@@ -227,7 +227,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		newStatus.DesiredReplicas = hpa.Status.DesiredReplicas
 	}
 
-	if !reflect.DeepEqual(newStatus, stack.Status) {
+	if !equality.Semantic.DeepEqual(newStatus, stack.Status) {
 		c.logger.Infof(
 			"Status changed for Stack %s/%s: %#v -> %#v",
 			stack.Namespace,
@@ -320,7 +320,7 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 			return nil, err
 		}
 	} else {
-		if !reflect.DeepEqual(origHPA, hpa) {
+		if !equality.Semantic.DeepEqual(origHPA, hpa) {
 			c.logger.Debugf("HPA %s/%s changed: %s", hpa.Namespace, hpa.Name, cmp.Diff(origHPA, hpa))
 			c.logger.Infof(
 				"Updating HPA %s/%s for Deployment %s/%s",
@@ -394,7 +394,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 			return err
 		}
 	} else {
-		if !reflect.DeepEqual(origService, service) {
+		if !equality.Semantic.DeepEqual(origService, service) {
 			c.logger.Debugf("Service %s/%s changed: %s", service.Namespace, service.Name, cmp.Diff(origService, service))
 			c.logger.Infof(
 				"Updating Service %s/%s for StackSet stack %s/%s",
