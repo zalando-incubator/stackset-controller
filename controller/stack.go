@@ -481,56 +481,10 @@ func templateInjectLabels(template v1.PodTemplateSpec, labels map[string]string)
 // applyPodTemplateSpecDefaults inject default values into a pod template spec.
 func applyPodTemplateSpecDefaults(template v1.PodTemplateSpec) v1.PodTemplateSpec {
 	newTemplate := template.DeepCopy()
-	for i, container := range newTemplate.Spec.Containers {
-		for j, port := range container.Ports {
-			if port.Protocol == "" {
-				newTemplate.Spec.Containers[i].Ports[j].Protocol = v1.ProtocolTCP
-			}
-		}
-		if container.TerminationMessagePath == "" {
-			newTemplate.Spec.Containers[i].TerminationMessagePath = v1.TerminationMessagePathDefault
-		}
-		if container.TerminationMessagePolicy == "" {
-			newTemplate.Spec.Containers[i].TerminationMessagePolicy = v1.TerminationMessageReadFile
-		}
-		if container.ImagePullPolicy == "" {
-			newTemplate.Spec.Containers[i].ImagePullPolicy = v1.PullIfNotPresent
-		}
-		if container.ReadinessProbe != nil {
-			if container.ReadinessProbe.Handler.HTTPGet != nil && container.ReadinessProbe.Handler.HTTPGet.Scheme == "" {
-				newTemplate.Spec.Containers[i].ReadinessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
-			}
-			if container.ReadinessProbe.TimeoutSeconds == 0 {
-				newTemplate.Spec.Containers[i].ReadinessProbe.TimeoutSeconds = 1
-			}
-			if container.ReadinessProbe.PeriodSeconds == 0 {
-				newTemplate.Spec.Containers[i].ReadinessProbe.PeriodSeconds = 10
-			}
-			if container.ReadinessProbe.SuccessThreshold == 0 {
-				newTemplate.Spec.Containers[i].ReadinessProbe.SuccessThreshold = 1
-			}
-			if container.ReadinessProbe.FailureThreshold == 0 {
-				newTemplate.Spec.Containers[i].ReadinessProbe.FailureThreshold = 3
-			}
-		}
-		if container.LivenessProbe != nil {
-			if container.LivenessProbe.Handler.HTTPGet != nil && container.LivenessProbe.Handler.HTTPGet.Scheme == "" {
-				newTemplate.Spec.Containers[i].LivenessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
-			}
-			if container.LivenessProbe.TimeoutSeconds == 0 {
-				newTemplate.Spec.Containers[i].LivenessProbe.TimeoutSeconds = 1
-			}
-			if container.LivenessProbe.PeriodSeconds == 0 {
-				newTemplate.Spec.Containers[i].LivenessProbe.PeriodSeconds = 10
-			}
-			if container.LivenessProbe.SuccessThreshold == 0 {
-				newTemplate.Spec.Containers[i].LivenessProbe.SuccessThreshold = 1
-			}
-			if container.LivenessProbe.FailureThreshold == 0 {
-				newTemplate.Spec.Containers[i].LivenessProbe.FailureThreshold = 3
-			}
-		}
-	}
+
+	applyContainersDefaults(newTemplate.Spec.InitContainers)
+	applyContainersDefaults(newTemplate.Spec.Containers)
+
 	if newTemplate.Spec.RestartPolicy == "" {
 		newTemplate.Spec.RestartPolicy = v1.RestartPolicyAlways
 	}
@@ -547,5 +501,67 @@ func applyPodTemplateSpecDefaults(template v1.PodTemplateSpec) v1.PodTemplateSpe
 	if newTemplate.Spec.SchedulerName == "" {
 		newTemplate.Spec.SchedulerName = v1.DefaultSchedulerName
 	}
+	if newTemplate.Spec.DeprecatedServiceAccount != newTemplate.Spec.ServiceAccountName {
+		newTemplate.Spec.DeprecatedServiceAccount = newTemplate.Spec.ServiceAccountName
+	}
 	return *newTemplate
+}
+
+func applyContainersDefaults(containers []v1.Container) {
+	for i, container := range containers {
+		for j, port := range container.Ports {
+			if port.Protocol == "" {
+				containers[i].Ports[j].Protocol = v1.ProtocolTCP
+			}
+		}
+
+		for j, env := range container.Env {
+			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil && env.ValueFrom.FieldRef.APIVersion == "" {
+				containers[i].Env[j].ValueFrom.FieldRef.APIVersion = "v1"
+			}
+		}
+		if container.TerminationMessagePath == "" {
+			containers[i].TerminationMessagePath = v1.TerminationMessagePathDefault
+		}
+		if container.TerminationMessagePolicy == "" {
+			containers[i].TerminationMessagePolicy = v1.TerminationMessageReadFile
+		}
+		if container.ImagePullPolicy == "" {
+			containers[i].ImagePullPolicy = v1.PullIfNotPresent
+		}
+		if container.ReadinessProbe != nil {
+			if container.ReadinessProbe.Handler.HTTPGet != nil && container.ReadinessProbe.Handler.HTTPGet.Scheme == "" {
+				containers[i].ReadinessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
+			}
+			if container.ReadinessProbe.TimeoutSeconds == 0 {
+				containers[i].ReadinessProbe.TimeoutSeconds = 1
+			}
+			if container.ReadinessProbe.PeriodSeconds == 0 {
+				containers[i].ReadinessProbe.PeriodSeconds = 10
+			}
+			if container.ReadinessProbe.SuccessThreshold == 0 {
+				containers[i].ReadinessProbe.SuccessThreshold = 1
+			}
+			if container.ReadinessProbe.FailureThreshold == 0 {
+				containers[i].ReadinessProbe.FailureThreshold = 3
+			}
+		}
+		if container.LivenessProbe != nil {
+			if container.LivenessProbe.Handler.HTTPGet != nil && container.LivenessProbe.Handler.HTTPGet.Scheme == "" {
+				containers[i].LivenessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
+			}
+			if container.LivenessProbe.TimeoutSeconds == 0 {
+				containers[i].LivenessProbe.TimeoutSeconds = 1
+			}
+			if container.LivenessProbe.PeriodSeconds == 0 {
+				containers[i].LivenessProbe.PeriodSeconds = 10
+			}
+			if container.LivenessProbe.SuccessThreshold == 0 {
+				containers[i].LivenessProbe.SuccessThreshold = 1
+			}
+			if container.LivenessProbe.FailureThreshold == 0 {
+				containers[i].LivenessProbe.FailureThreshold = 3
+			}
+		}
+	}
 }
