@@ -10,6 +10,23 @@ spec:
     kind: StackSet
     singular: stackset
     plural: stacksets
+  additionalPrinterColumns:
+  - name: Stacks
+    type: integer
+    description: Number of Stacks belonging to the StackSet
+    JSONPath: .status.stacks
+  - name: Ready
+    type: integer
+    description: Number of Ready Stacks
+    JSONPath: .status.readyStacks
+  - name: Traffic
+    type: integer
+    description: Number of Ready Stacks with traffic
+    JSONPath: .status.stacksWithTraffic
+  - name: Age
+    type: date
+    description: Age of the stack
+    JSONPath: .metadata.creationTimestamp
   subresources:
     # status enables the status subresource.
     status: {}
