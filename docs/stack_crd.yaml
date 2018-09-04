@@ -10,6 +10,32 @@ spec:
     kind: Stack
     singular: stack
     plural: stacks
+  additionalPrinterColumns:
+  - name: Desired
+    type: integer
+    description: Number of desired replicas
+    JSONPath: .spec.replicas
+  - name: Current
+    type: integer
+    description: Number of current replicas
+    JSONPath: .status.replicas
+  - name: Up-to-date
+    type: integer
+    description: Number of up-to-date replicas
+    JSONPath: .status.updatedReplicas
+  - name: Available
+    type: integer
+    description: Number of available replicas
+    JSONPath: .status.updatedReplicas
+  - name: Traffic
+    type: number
+    format: float
+    description: Current traffic weight for the stack
+    JSONPath: .status.actualTrafficWeight
+  - name: Age
+    type: date
+    description: Age of the stack
+    JSONPath: .metadata.creationTimestamp
   subresources:
     # status enables the status subresource.
     status: {}
