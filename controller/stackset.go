@@ -34,6 +34,7 @@ const (
 	defaultVersion                            = "default"
 	defaultStackLifecycleLimit                = 10
 	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
+	defaultScaledownTTLSeconds                = int64(300)
 )
 
 var (
@@ -44,14 +45,12 @@ var (
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
 type StackSetController struct {
-	logger                *log.Entry
-	client                clientset.Interface
-	controllerID          string
-	interval              time.Duration
-	stacksetStackMinGCAge time.Duration
-	noTrafficScaledownTTL time.Duration
-	stacksetEvents        chan stacksetEvent
-	stacksetStore         map[types.UID]zv1.StackSet
+	logger         *log.Entry
+	client         clientset.Interface
+	controllerID   string
+	interval       time.Duration
+	stacksetEvents chan stacksetEvent
+	stacksetStore  map[types.UID]zv1.StackSet
 	sync.Mutex
 }
 
@@ -61,16 +60,14 @@ type stacksetEvent struct {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID string, stacksetStackMinGCAge, noTrafficScaledownTTL, interval time.Duration) *StackSetController {
+func NewStackSetController(client clientset.Interface, controllerID string, interval time.Duration) *StackSetController {
 	return &StackSetController{
-		logger:                log.WithFields(log.Fields{"controller": "stackset"}),
-		client:                client,
-		controllerID:          controllerID,
-		stacksetStackMinGCAge: stacksetStackMinGCAge,
-		noTrafficScaledownTTL: noTrafficScaledownTTL,
-		stacksetEvents:        make(chan stacksetEvent, 1),
-		stacksetStore:         make(map[types.UID]zv1.StackSet),
-		interval:              interval,
+		logger:         log.WithFields(log.Fields{"controller": "stackset"}),
+		client:         client,
+		controllerID:   controllerID,
+		stacksetEvents: make(chan stacksetEvent, 1),
+		stacksetStore:  make(map[types.UID]zv1.StackSet),
+		interval:       interval,
 	}
 }
 
@@ -142,6 +139,13 @@ func (c *StackSetController) Run(ctx context.Context) {
 			// set default ingress backend port if not specified.
 			if stackset.Spec.Ingress != nil && intOrStrIsEmpty(stackset.Spec.Ingress.BackendPort) {
 				stackset.Spec.Ingress.BackendPort = defaultBackendPort
+			}
+
+			// set default ScaledownTTLSeconds if not defined on
+			// the stackset.
+			if stackset.Spec.StackLifecycle.ScaledownTTLSeconds == nil {
+				scaledownTTLSeconds := defaultScaledownTTLSeconds
+				stackset.Spec.StackLifecycle.ScaledownTTLSeconds = &scaledownTTLSeconds
 			}
 
 			// update/delete existing entry
@@ -598,7 +602,7 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	stacks := ssc.Stacks()
 
 	historyLimit := defaultStackLifecycleLimit
-	if stackset.Spec.StackLifecycle != nil && stackset.Spec.StackLifecycle.Limit != nil {
+	if stackset.Spec.StackLifecycle.Limit != nil {
 		historyLimit = int(*stackset.Spec.StackLifecycle.Limit)
 	}
 
@@ -609,7 +613,7 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 			continue
 		}
 
-		if time.Since(stack.CreationTimestamp.Time) > c.stacksetStackMinGCAge {
+		if time.Since(stack.CreationTimestamp.Time) > ssc.ScaledownTTL() {
 			gcCandidates = append(gcCandidates, stack)
 		}
 	}

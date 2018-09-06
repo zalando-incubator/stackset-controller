@@ -256,11 +256,7 @@ func (in *StackSetSpec) DeepCopyInto(out *StackSetSpec) {
 		*out = new(StackSetIngressSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.StackLifecycle != nil {
-		in, out := &in.StackLifecycle, &out.StackLifecycle
-		*out = new(StackLifecycle)
-		(*in).DeepCopyInto(*out)
-	}
+	in.StackLifecycle.DeepCopyInto(&out.StackLifecycle)
 	in.StackTemplate.DeepCopyInto(&out.StackTemplate)
 	return
 }

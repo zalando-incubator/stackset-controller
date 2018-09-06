@@ -20,11 +20,9 @@ import (
 )
 
 const (
-	defaultInterval              = "10s"
-	defaultMetricsAddress        = ":7979"
-	defaultStackMinGCAge         = "24h"
-	defaultNoTrafficScaledownTTL = 1 * time.Hour
-	defaultClientGOTimeout       = 30 * time.Second
+	defaultInterval        = "10s"
+	defaultMetricsAddress  = ":7979"
+	defaultClientGOTimeout = 30 * time.Second
 )
 
 var (
@@ -33,7 +31,6 @@ var (
 		Interval              time.Duration
 		APIServer             *url.URL
 		MetricsAddress        string
-		StackMinGCAge         time.Duration
 		NoTrafficScaledownTTL time.Duration
 		ControllerID          string
 	}
@@ -44,8 +41,6 @@ func main() {
 	kingpin.Flag("interval", "Interval between syncing ingresses.").
 		Default(defaultInterval).DurationVar(&config.Interval)
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
-	kingpin.Flag("stackset-stack-min-gc-age", "Minimum age for stackset stacks before they are considered for garbage collection.").Default(defaultStackMinGCAge).DurationVar(&config.StackMinGCAge)
-	kingpin.Flag("no-traffic-scaledown-ttl", "Default TTL for scaling down deployments not getting any traffic.").Default(defaultNoTrafficScaledownTTL.String()).DurationVar(&config.NoTrafficScaledownTTL)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
 	kingpin.Parse()
@@ -68,8 +63,6 @@ func main() {
 	controller := controller.NewStackSetController(
 		client,
 		config.ControllerID,
-		config.StackMinGCAge,
-		config.NoTrafficScaledownTTL,
 		config.Interval,
 	)
 
