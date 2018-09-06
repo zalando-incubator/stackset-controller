@@ -24,6 +24,13 @@ type Clientset struct {
 	stackset   stackset.Interface
 }
 
+func NewClientset(kubernetes kubernetes.Interface, stackset stackset.Interface) *Clientset {
+	return &Clientset{
+		kubernetes: kubernetes,
+		stackset:   stackset,
+	}
+}
+
 func NewForConfig(kubeconfig *rest.Config) (*Clientset, error) {
 	kubeClient, err := kubernetes.NewForConfig(kubeconfig)
 	if err != nil {
