@@ -2,7 +2,9 @@ package controller
 
 import (
 	"testing"
+	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"k8s.io/api/core/v1"
@@ -10,6 +12,173 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+func TestGetStacksToGC(tt *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		stackSetContainer StackSetContainer
+		expectedNum       int
+	}{
+		{
+			name: "test GC oldest stack",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						StackLifecycle: zv1.StackLifecycle{
+							Limit: int32Ptr(1),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+						},
+					},
+				},
+			},
+			expectedNum: 1,
+		},
+		{
+			name: "test don't GC stacks when all are getting traffic",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						StackLifecycle: zv1.StackLifecycle{
+							Limit: int32Ptr(1),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+						},
+					},
+				},
+				Traffic: map[string]TrafficStatus{
+					"stack1": TrafficStatus{ActualWeight: 50},
+					"stack2": TrafficStatus{ActualWeight: 50},
+				},
+			},
+			expectedNum: 0,
+		},
+		{
+			name: "test don't GC stacks when there are less than limit",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						StackLifecycle: zv1.StackLifecycle{
+							Limit: int32Ptr(3),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+						},
+					},
+				},
+				Traffic: map[string]TrafficStatus{
+					"stack1": TrafficStatus{ActualWeight: 0},
+					"stack2": TrafficStatus{ActualWeight: 0},
+				},
+			},
+			expectedNum: 0,
+		},
+	} {
+		tt.Run(tc.name, func(t *testing.T) {
+			c := &StackSetController{
+				logger: log.WithFields(
+					log.Fields{
+						"test": "yes",
+					},
+				),
+			}
+
+			stacks := c.getStacksToGC(tc.stackSetContainer)
+			assert.Len(t, stacks, tc.expectedNum)
+		})
+	}
+}
+
+func TestSetStackSetDefaults(t *testing.T) {
+	stackset := zv1.StackSet{
+		Spec: zv1.StackSetSpec{
+			Ingress: &zv1.StackSetIngressSpec{
+				BackendPort: intstr.FromInt(0),
+			},
+		},
+	}
+
+	setStackSetDefaults(&stackset)
+	assert.Equal(t, defaultBackendPort, stackset.Spec.Ingress.BackendPort)
+	assert.NotNil(t, stackset.Spec.StackLifecycle.ScaledownTTLSeconds)
+	assert.Equal(t, defaultScaledownTTLSeconds, *stackset.Spec.StackLifecycle.ScaledownTTLSeconds)
+}
+
+func TestStacks(t *testing.T) {
+	sc := StackSetContainer{
+		StackContainers: map[types.UID]*StackContainer{
+			types.UID("uid"): {
+				Stack: zv1.Stack{},
+			},
+		},
+	}
+	assert.Len(t, sc.Stacks(), 1)
+}
+
+func TestScaledownTTL(t *testing.T) {
+	scaledownTTL := defaultScaledownTTLSeconds
+	sc := StackSetContainer{
+		StackSet: zv1.StackSet{
+			Spec: zv1.StackSetSpec{
+				StackLifecycle: zv1.StackLifecycle{
+					ScaledownTTLSeconds: &scaledownTTL,
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, time.Duration(defaultScaledownTTLSeconds)*time.Second, sc.ScaledownTTL())
+
+	sc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds = nil
+	assert.Equal(t, time.Duration(0), sc.ScaledownTTL())
+}
 
 func TestGetOwnerUID(t *testing.T) {
 	objectMeta := metav1.ObjectMeta{
@@ -68,4 +237,8 @@ func TestIntOrStrIsEmpty(t *testing.T) {
 	assert.True(t, intOrStrIsEmpty(intstr.FromString("")))
 	assert.False(t, intOrStrIsEmpty(intstr.FromInt(1)))
 	assert.False(t, intOrStrIsEmpty(intstr.FromString("1")))
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
 }

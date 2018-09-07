@@ -24,7 +24,7 @@ type StackSet struct {
 // +k8s:deepcopy-gen=true
 type StackSetSpec struct {
 	Ingress        *StackSetIngressSpec `json:"ingress"`
-	StackLifecycle *StackLifecycle      `json:"stackLifecycle"`
+	StackLifecycle StackLifecycle       `json:"stackLifecycle"`
 	StackTemplate  StackTemplate        `json:"stackTemplate"`
 }
 
