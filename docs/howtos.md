@@ -10,8 +10,7 @@ for setting up this port mapping.
 
 ### Configure Ingress backendPort
 
-The simplest option is to configure the optional `backendPort` value under
-`spec.ingress` as shown below:
+The `backendPort` value under `spec.ingress` must be defined as shown below:
 
 ```yaml
 apiVersion: zalando.org/v1
@@ -22,7 +21,7 @@ spec:
   # optional Ingress definition.
   ingress:
     hosts: [my-app.example.org]
-    backendPort: ingress # defaults to 'ingress' if not specified
+    backendPort: 80
   stackTemplate:
     spec:
       version: v1
@@ -34,11 +33,10 @@ spec:
             image: nginx
             ports:
             - containerPort: 80
-              name: ingress
 ```
 
 This will result in an `Ingress` resource where the `servicePort` value is
-`ingress`:
+`80`:
 
 ```yaml
 apiVersion: extensions/v1beta1
@@ -52,10 +50,10 @@ spec:
       paths:
       - backend:
           serviceName: my-app-v1
-          servicePort: ingress
+          servicePort: 80
 ```
 
-And since the `podTemplate` of the `StackSet` also defines a named port `ingress`
+And since the `podTemplate` of the `StackSet` also defines a containerPort `80`
 for the container:
 
 ```yaml
@@ -64,7 +62,6 @@ containers:
   image: nginx
   ports:
   - containerPort: 80
-    name: ingress
 ```
 
 The service created for a `Stack` will get the following generated port
@@ -72,7 +69,7 @@ configuration:
 
 ```yaml
 ports:
-- name: ingress
+- name: port-0
   port: 80
   protocol: TCP
   targetPort: 80
@@ -81,9 +78,9 @@ ports:
 Which ensures that there is a connection from `Ingress -> Service -> Pods`.
 
 If you have multiple ports or containers defined in a pod it's important that
-exactly one of the ports map to the `backendPort` defined for the ingress
-(default value: `ingress`) i.e. one port of the containers must have the same
-name or port number as the `backendPort`.
+exactly one of the ports map to the `backendPort` defined for the ingress i.e.
+one port of the containers must have the same name or port number as the
+`backendPort`.
 
 ### Configure custom service ports
 
@@ -99,7 +96,7 @@ spec:
   # optional Ingress definition.
   ingress:
     hosts: [my-app.example.org]
-    backendPort: ingress # defaults to 'ingress' if not specified
+    backendPort: 80
   stackTemplate:
     spec:
       version: v1

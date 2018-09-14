@@ -146,7 +146,6 @@ func TestSetStackSetDefaults(t *testing.T) {
 	}
 
 	setStackSetDefaults(&stackset)
-	assert.Equal(t, defaultBackendPort, stackset.Spec.Ingress.BackendPort)
 	assert.NotNil(t, stackset.Spec.StackLifecycle.ScaledownTTLSeconds)
 	assert.Equal(t, defaultScaledownTTLSeconds, *stackset.Spec.StackLifecycle.ScaledownTTLSeconds)
 }
@@ -230,13 +229,6 @@ func TestMergeLabels(t *testing.T) {
 
 	merged = mergeLabels(labels1, labels3)
 	assert.Equal(t, map[string]string{"foo": "bar", "bar": "foo"}, merged)
-}
-
-func TestIntOrStrIsEmpty(t *testing.T) {
-	assert.True(t, intOrStrIsEmpty(intstr.FromInt(0)))
-	assert.True(t, intOrStrIsEmpty(intstr.FromString("")))
-	assert.False(t, intOrStrIsEmpty(intstr.FromInt(1)))
-	assert.False(t, intOrStrIsEmpty(intstr.FromString("1")))
 }
 
 func int32Ptr(i int32) *int32 {
