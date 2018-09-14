@@ -14,10 +14,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
+	apiv1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -26,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
+	kube_record "k8s.io/client-go/tools/record"
 )
 
 const (
@@ -51,6 +54,7 @@ type StackSetController struct {
 	interval       time.Duration
 	stacksetEvents chan stacksetEvent
 	stacksetStore  map[types.UID]zv1.StackSet
+	recorder       kube_record.EventRecorder
 	sync.Mutex
 }
 
@@ -61,6 +65,7 @@ type stacksetEvent struct {
 
 // NewStackSetController initializes a new StackSetController.
 func NewStackSetController(client clientset.Interface, controllerID string, interval time.Duration) *StackSetController {
+
 	return &StackSetController{
 		logger:         log.WithFields(log.Fields{"controller": "stackset"}),
 		client:         client,
@@ -68,6 +73,7 @@ func NewStackSetController(client clientset.Interface, controllerID string, inte
 		stacksetEvents: make(chan stacksetEvent, 1),
 		stacksetStore:  make(map[types.UID]zv1.StackSet),
 		interval:       interval,
+		recorder:       recorder.CreateEventRecorder(client),
 	}
 }
 
@@ -86,7 +92,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			stackContainers, err := c.collectResources()
 			if err != nil {
-				c.logger.Errorf("Failed to collect resources: %v", err)
 				continue
 			}
 
@@ -142,7 +147,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			// update/delete existing entry
 			if _, ok := c.stacksetStore[stackset.UID]; ok {
 				if e.Deleted || !c.hasOwnership(&stackset) {
-					c.logger.Infof("StackSet '%s/%s' deleted, removing references", stackset.Namespace, stackset.Name)
+					c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "DeleteStackSet", "StackSet '%s/%s' deleted, removing references", stackset.Namespace, stackset.Name)
 					delete(c.stacksetStore, stackset.UID)
 					continue
 				}
@@ -157,7 +162,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 				continue
 			}
 
-			c.logger.Infof("Adding entry for StackSet %s/%s", stackset.Namespace, stackset.Name)
+			c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "AddStackSet", "StackSet '%s/%s' added", stackset.Namespace, stackset.Name)
 			c.stacksetStore[stackset.UID] = stackset
 		case <-ctx.Done():
 			c.logger.Info("Terminating main controller loop.")
@@ -331,7 +336,11 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 			traffic, err := getIngressTraffic(ssc.Ingress)
 			if err != nil {
 				// TODO: can fail for all!!!
-				return nil, fmt.Errorf("failed to get Ingress traffic for StackSet %s/%s: %v", ssc.StackSet.Namespace, ssc.StackSet.Name, err)
+				c.recorder.Eventf(&ssc.StackSet,
+					apiv1.EventTypeWarning,
+					"FailedToGetIngressTraffic",
+					"Failed to get Ingress traffic for StackSet %s/%s: %v", ssc.StackSet.Namespace, ssc.StackSet.Name, err)
+				return nil, err
 			}
 			ssc.Traffic = traffic
 		}
@@ -343,7 +352,11 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetContainer) error {
 	ingresses, err := c.client.ExtensionsV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list Ingresses: %v", err)
+		c.recorder.Eventf(ingresses,
+			apiv1.EventTypeWarning,
+			"FailedToListIngress",
+			"Failed to get Ingresses: %v", err)
+		return err
 	}
 
 	for _, i := range ingresses.Items {
@@ -360,7 +373,11 @@ func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetC
 func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetContainer) error {
 	stacks, err := c.client.ZalandoV1().Stacks(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list Stacks: %v", err)
+		c.recorder.Eventf(stacks,
+			apiv1.EventTypeWarning,
+			"FailedToListStacks",
+			"Failed to list Stacks: %v", err)
+		return err
 	}
 
 	for _, stack := range stacks.Items {
@@ -376,7 +393,11 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetCont
 func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSetContainer) error {
 	deployments, err := c.client.AppsV1().Deployments(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list Deployments: %v", err)
+		c.recorder.Eventf(deployments,
+			apiv1.EventTypeWarning,
+			"FailedToListDeployments",
+			"Failed to list Deployments: %v", err)
+		return err
 	}
 
 	for _, d := range deployments.Items {
@@ -397,7 +418,11 @@ func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSe
 func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetContainer) error {
 	services, err := c.client.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list Services: %v", err)
+		c.recorder.Eventf(services,
+			apiv1.EventTypeWarning,
+			"FailedToListServices",
+			"Failed to list Services: %v", err)
+		return err
 	}
 
 	for _, s := range services.Items {
@@ -418,7 +443,11 @@ func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetCo
 func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetContainer) error {
 	endpoints, err := c.client.CoreV1().Endpoints(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list Endpoints: %v", err)
+		c.recorder.Eventf(endpoints,
+			apiv1.EventTypeWarning,
+			"FailedToListEndpoints",
+			"Failed to list Endpoints: %v", err)
+		return err
 	}
 
 	for _, endpoint := range endpoints.Items {
@@ -437,7 +466,11 @@ func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetC
 func (c *StackSetController) collectHPAs(stacksets map[types.UID]*StackSetContainer) error {
 	hpas, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list HPAs: %v", err)
+		c.recorder.Eventf(hpas,
+			apiv1.EventTypeWarning,
+			"FailedToListHorizontalPodAutoScalers",
+			"Failed to list HPAs: %v", err)
+		return err
 	}
 
 	for _, h := range hpas.Items {
@@ -503,11 +536,17 @@ func (c *StackSetController) startWatch(ctx context.Context) {
 func (c *StackSetController) add(obj interface{}) {
 	stackset, ok := obj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object")
+		c.recorder.Eventf(stackset,
+			apiv1.EventTypeWarning,
+			"FailedToGetStackSetObject",
+			"Failed to get StackSet Object")
 		return
 	}
 
-	c.logger.Infof("New StackSet added %s/%s", stackset.Namespace, stackset.Name)
+	c.recorder.Eventf(stackset,
+		apiv1.EventTypeNormal,
+		"NewStackSetObject",
+		"New StackSet added %s/%s", stackset.Namespace, stackset.Name)
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: stackset.DeepCopy(),
 	}
@@ -516,13 +555,19 @@ func (c *StackSetController) add(obj interface{}) {
 func (c *StackSetController) update(oldObj, newObj interface{}) {
 	newStackset, ok := newObj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object")
+		c.recorder.Eventf(newStackset,
+			apiv1.EventTypeWarning,
+			"FailedToGetStackSetObject",
+			"Failed to get StackSet Object")
 		return
 	}
 
 	oldStackset, ok := oldObj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object")
+		c.recorder.Eventf(oldStackset,
+			apiv1.EventTypeWarning,
+			"FailedToGetStackSetObject",
+			"Failed to get StackSet Object")
 		return
 	}
 
@@ -532,7 +577,11 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 		cmp.Diff(oldStackset, newStackset, cmpopts.IgnoreUnexported(resource.Quantity{})),
 	)
 
-	c.logger.Infof("StackSet updated %s/%s", newStackset.Namespace, newStackset.Name)
+	c.recorder.Eventf(newStackset,
+		apiv1.EventTypeNormal,
+		"UpdateStackSetObject",
+		"StackSet updated %s/%s", newStackset.Namespace, newStackset.Name)
+
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: newStackset.DeepCopy(),
 	}
@@ -541,11 +590,17 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 func (c *StackSetController) del(obj interface{}) {
 	stackset, ok := obj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object")
+		c.recorder.Eventf(stackset,
+			apiv1.EventTypeWarning,
+			"FailedToGetStackSetObject",
+			"Failed to get StackSet object")
 		return
 	}
 
-	c.logger.Infof("StackSet deleted %s/%s", stackset.Namespace, stackset.Name)
+	c.recorder.Eventf(stackset,
+		apiv1.EventTypeNormal,
+		"DeletedStackSet",
+		"StackSet deleted %s/%s", stackset.Namespace, stackset.Name)
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: stackset.DeepCopy(),
 		Deleted:  true,
@@ -571,7 +626,9 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	if !equality.Semantic.DeepEqual(newStatus, stackset.Status) {
-		c.logger.Infof(
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"ChangeStackSetStatus",
 			"Status changed for StackSet %s/%s: %#v -> %#v",
 			stackset.Namespace,
 			stackset.Name,
@@ -607,7 +664,9 @@ func readyStacks(stacks []zv1.Stack) int32 {
 func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	stackset := ssc.StackSet
 	for _, stack := range c.getStacksToGC(ssc) {
-		c.logger.Infof(
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"DeleteExcessStack",
 			"Deleting excess stack %s/%s for StackSet %s/%s",
 			stack.Namespace,
 			stack.Name,
@@ -656,7 +715,9 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	})
 
 	excessStacks := len(stacks) - historyLimit
-	c.logger.Infof(
+	c.recorder.Eventf(&stackset,
+		apiv1.EventTypeNormal,
+		"ExeedingStackHistoryLimit",
 		"Found %d Stack(s) exeeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
 		excessStacks,
 		historyLimit,
@@ -734,7 +795,9 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 	}
 
 	if createStack {
-		c.logger.Infof(
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"CreateStackSetStack",
 			"Creating StackSet stack %s/%s for StackSet %s/%s",
 			stack.Namespace, stack.Name,
 			stackset.Namespace,
@@ -755,7 +818,10 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 					cmpopts.IgnoreUnexported(resource.Quantity{}),
 				),
 			)
-			c.logger.Infof(
+
+			c.recorder.Eventf(&stackset,
+				apiv1.EventTypeNormal,
+				"UpdateStackSetStack",
 				"Updating StackSet stack %s/%s for StackSet %s/%s",
 				stack.Namespace,
 				stack.Name,
