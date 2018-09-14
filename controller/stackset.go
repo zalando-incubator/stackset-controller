@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -35,10 +34,6 @@ const (
 	defaultStackLifecycleLimit                = 10
 	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 	defaultScaledownTTLSeconds                = int64(300)
-)
-
-var (
-	defaultBackendPort = intstr.FromString("ingress")
 )
 
 // StackSetController is the main controller. It watches for changes to
@@ -169,11 +164,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 // setStackSetDefaults sets default values on the stackset in case the fields
 // were left empty by the user.
 func setStackSetDefaults(stackset *zv1.StackSet) {
-	// set default ingress backend port if not specified.
-	if stackset.Spec.Ingress != nil && intOrStrIsEmpty(stackset.Spec.Ingress.BackendPort) {
-		stackset.Spec.Ingress.BackendPort = defaultBackendPort
-	}
-
 	// set default ScaledownTTLSeconds if not defined on
 	// the stackset.
 	if stackset.Spec.StackLifecycle.ScaledownTTLSeconds == nil {
@@ -793,15 +783,4 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 		}
 	}
 	return labels
-}
-
-func intOrStrIsEmpty(v intstr.IntOrString) bool {
-	switch v.Type {
-	case intstr.Int:
-		return v.IntVal == 0
-	case intstr.String:
-		return v.StrVal == ""
-	default:
-		return true
-	}
 }

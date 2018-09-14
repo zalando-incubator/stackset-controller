@@ -70,6 +70,7 @@ spec:
   # optional Ingress definition.
   ingress:
     hosts: [my-app.example.org, alt.name.org]
+    backendPort: 80
   stackLifecycle:
     scaledownTTLSeconds: 300
     limit: 5
