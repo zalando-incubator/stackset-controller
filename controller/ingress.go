@@ -11,11 +11,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
+	apiv1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	kube_record "k8s.io/client-go/tools/record"
 )
 
 const (
@@ -30,8 +33,9 @@ var (
 // ingressReconciler is able to bring Ingresses of a StackSet to the desired
 // state.
 type ingressReconciler struct {
-	logger *log.Entry
-	client clientset.Interface
+	logger   *log.Entry
+	client   clientset.Interface
+	recorder kube_record.EventRecorder
 }
 
 // ReconcileIngress brings Ingresses of a StackSet to the desired state.
@@ -44,7 +48,8 @@ func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
 				"namespace":  sc.StackSet.Namespace,
 			},
 		),
-		client: c.client,
+		client:   c.client,
+		recorder: recorder.CreateEventRecorder(c.client),
 	}
 	return ir.reconcile(sc)
 }
@@ -55,7 +60,9 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 	// cleanup Ingress if ingress is disabled.
 	if sc.StackSet.Spec.Ingress == nil {
 		if sc.Ingress != nil {
-			c.logger.Infof(
+			c.recorder.Eventf(sc.Ingress,
+				apiv1.EventTypeNormal,
+				"DeleteIngress",
 				"Deleting obsolete Ingress %s/%s for StackSet %s/%s",
 				sc.Ingress.Namespace,
 				sc.Ingress.Name,
@@ -64,21 +71,23 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 			)
 			err := c.client.ExtensionsV1beta1().Ingresses(sc.Ingress.Namespace).Delete(sc.Ingress.Name, nil)
 			if err != nil {
-				return fmt.Errorf(
-					"failed to delete Ingress %s/%s for StackSet %s/%s: %v",
+				c.recorder.Eventf(sc.Ingress,
+					apiv1.EventTypeWarning,
+					"DeleteIngress",
+					"Failed to delete Ingress %s/%s for StackSet %s/%s: %v",
 					sc.Ingress.Namespace,
 					sc.Ingress.Name,
 					sc.StackSet.Namespace,
 					sc.StackSet.Name,
 					err,
 				)
+				return err
 			}
 
 			// cleanup any per stack ingresses.
 			for _, stack := range stacks {
 				err := c.gcStackIngress(stack)
 				if err != nil {
-					log.Error(err)
 					continue
 				}
 			}
@@ -88,19 +97,42 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 
 	stackStatuses, err := c.getStackStatuses(sc.StackContainers)
 	if err != nil {
-		return fmt.Errorf("failed to get Stack statuses for StackSet %s/%s: %v", sc.StackSet.Namespace, sc.StackSet.Name, err)
+		c.recorder.Eventf(&sc.StackSet,
+			apiv1.EventTypeWarning,
+			"GetStackStatus",
+			"Failed to get Stack statuses for StackSet %s/%s: %v",
+			sc.StackSet.Namespace,
+			sc.StackSet.Name,
+			err,
+		)
+		return err
 	}
 
-	ingress, err := ingressForStackSet(&sc.StackSet, sc.Ingress, stackStatuses)
+	ingress, err := c.ingressForStackSet(&sc.StackSet, sc.Ingress, stackStatuses)
 	if err != nil {
 		if err == errNoPaths {
 			return nil
 		}
-		return fmt.Errorf("failed to generate Ingress for StackSet %s/%s: %v", sc.StackSet.Namespace, sc.StackSet.Name, err)
+		c.recorder.Eventf(&sc.StackSet,
+			apiv1.EventTypeWarning,
+			"GenerateIngress",
+			"Failed to generate Ingress for StackSet %s/%s: %v",
+			sc.StackSet.Namespace,
+			sc.StackSet.Name,
+			err,
+		)
+		return err
 	}
 
 	if sc.Ingress == nil {
-		c.logger.Infof("Creating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks))
+		c.recorder.Eventf(&sc.StackSet,
+			apiv1.EventTypeNormal,
+			"CreateIngress",
+			"Creating Ingress %s/%s with %d service backend(s).",
+			ingress.Namespace,
+			ingress.Name,
+			len(stacks),
+		)
 		_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
 		if err != nil {
 			return err
@@ -109,7 +141,14 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 		sc.Ingress.Status = v1beta1.IngressStatus{}
 		if !equality.Semantic.DeepEqual(sc.Ingress, ingress) {
 			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(sc.Ingress, ingress))
-			c.logger.Infof("Updating Ingress %s/%s with %d service backend(s).", ingress.Namespace, ingress.Name, len(stacks))
+			c.recorder.Eventf(&sc.StackSet,
+				apiv1.EventTypeNormal,
+				"UpdateIngress",
+				"Updating Ingress %s/%s with %d service backend(s).",
+				ingress.Namespace,
+				ingress.Name,
+				len(stacks),
+			)
 			_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
 			if err != nil {
 				return err
@@ -129,7 +168,6 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 	for _, stack := range stacks {
 		err := c.stackIngress(sc.StackSet, stack)
 		if err != nil {
-			log.Error(err)
 			continue
 		}
 	}
@@ -170,29 +208,47 @@ func (c *ingressReconciler) getStackStatuses(stacks map[types.UID]*StackContaine
 }
 
 func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack) error {
-	ingress, err := ingressForStack(&stackset, &stack)
+	ingress, err := c.ingressForStack(&stackset, &stack)
 	if err != nil {
-		return fmt.Errorf("failed generate Ingress for Stack %s/%s: %s", stack.Namespace, stack.Name, err)
+		c.recorder.Eventf(ingress,
+			apiv1.EventTypeWarning,
+			"GenerateIngress",
+			"Failed generate Ingress for Stack %s/%s: %s", stack.Namespace, stack.Name, err)
+		return err
 	}
 
 	ing, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Get(ingress.Name, metav1.GetOptions{})
 	if err != nil {
 		if !apiErrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get Ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
+			c.recorder.Eventf(ingress,
+				apiv1.EventTypeWarning,
+				"GetIngress",
+				"Failed to get Ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
+			return err
 		}
 		ing = nil
 	}
 
 	if ing == nil {
-		c.logger.Infof("Creating Ingress %s/%s", ingress.Namespace, ingress.Name)
+		c.recorder.Eventf(ingress,
+			apiv1.EventTypeNormal,
+			"CreateIngress",
+			"Creating Ingress %s/%s", ingress.Namespace, ingress.Name)
 		_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
 		if err != nil {
-			return fmt.Errorf("failed to create Ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
+			c.recorder.Eventf(ingress,
+				apiv1.EventTypeWarning,
+				"Failed to create Ingress %s/%s: %s", ingress.Namespace, ingress.Name, err)
+			return err
 		}
 	} else {
 		// check if ingress is already owned by a different resource.
 		if !isOwnedReference(stack.TypeMeta, stack.ObjectMeta, ing.ObjectMeta) {
-			return fmt.Errorf("Ingress %s/%s already has a different owner: %v", ing.Namespace, ing.Name, ing.ObjectMeta.OwnerReferences)
+			c.recorder.Eventf(ingress,
+				apiv1.EventTypeWarning,
+				"IngressDifferentOwner",
+				"Ingress %s/%s already has a different owner: %v", ing.Namespace, ing.Name, ing.ObjectMeta.OwnerReferences)
+			return err
 		}
 
 		// add objectMeta from existing ingress
@@ -205,10 +261,17 @@ func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack)
 
 		if !equality.Semantic.DeepEqual(ing, ingress) {
 			c.logger.Debugf("Ingress %s/%s changed: %s", ingress.Namespace, ingress.Name, cmp.Diff(ing, ingress))
-			c.logger.Infof("Updating Ingress %s/%s.", ingress.Namespace, ingress.Name)
+			c.recorder.Eventf(ingress,
+				apiv1.EventTypeNormal,
+				"UpdateIngress",
+				"Updating Ingress %s/%s.", ingress.Namespace, ingress.Name)
 			_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Update(ingress)
 			if err != nil {
-				return fmt.Errorf("failed to update Ingress %s/%s: %v", ingress.Namespace, ingress.Name, err)
+				c.recorder.Eventf(ingress,
+					apiv1.EventTypeWarning,
+					"UpdateIngress",
+					"Failed to update Ingress %s/%s: %v", ingress.Namespace, ingress.Name, err)
+				return err
 			}
 		}
 	}
@@ -220,27 +283,42 @@ func (c *ingressReconciler) gcStackIngress(stack zv1.Stack) error {
 	ing, err := c.client.ExtensionsV1beta1().Ingresses(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
 	if err != nil {
 		if !apiErrors.IsNotFound(err) {
-			return fmt.Errorf("failed to get Ingress %s/%s: %s", stack.Namespace, stack.Name, err)
+			c.recorder.Eventf(ing,
+				apiv1.EventTypeWarning,
+				"GetIngress",
+				"Failed to get Ingress %s/%s: %v", stack.Namespace, stack.Name, err)
+			return err
 		}
 		return nil
 	}
 
 	// check if ingress is already owned by a different resource.
 	if !isOwnedReference(stack.TypeMeta, stack.ObjectMeta, ing.ObjectMeta) {
-		return fmt.Errorf("Ingress %s/%s already has a different owner: %v", ing.Namespace, ing.Name, ing.ObjectMeta.OwnerReferences)
+		c.recorder.Eventf(ing,
+			apiv1.EventTypeWarning,
+			"IngressDifferentOwner",
+			"Ingress %s/%s already has a different owner: %v", ing.Namespace, ing.Name, ing.ObjectMeta.OwnerReferences)
+		return err
 	}
 
-	c.logger.Infof("Deleting obsolete Ingress %s/%s.", ing.Namespace, ing.Name)
+	c.recorder.Eventf(ing,
+		apiv1.EventTypeNormal,
+		"DeleteIngress",
+		"Deleting obsolete Ingress %s/%s.", ing.Namespace, ing.Name)
 	err = c.client.ExtensionsV1beta1().Ingresses(ing.Namespace).Delete(ing.Name, nil)
 	if err != nil {
-		return fmt.Errorf("failed to delete Ingress %s/%s: %v", ing.Namespace, ing.Name, err)
+		c.recorder.Eventf(ing,
+			apiv1.EventTypeWarning,
+			"DeleteIngress",
+			"Failed to delete Ingress %s/%s: %v", ing.Namespace, ing.Name, err)
+		return err
 	}
 
 	return nil
 }
 
 // ingressForStack generates an ingress object based on a stack.
-func ingressForStack(stackset *zv1.StackSet, stack *zv1.Stack) (*v1beta1.Ingress, error) {
+func (c *ingressReconciler) ingressForStack(stackset *zv1.StackSet, stack *zv1.Stack) (*v1beta1.Ingress, error) {
 	ingress := &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      stack.Name,
@@ -291,7 +369,11 @@ func ingressForStack(stackset *zv1.StackSet, stack *zv1.Stack) (*v1beta1.Ingress
 		r := rule
 		newHost, err := createSubdomain(host, stack.Name)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create domain name: %s", err)
+			c.recorder.Eventf(stack,
+				apiv1.EventTypeWarning,
+				"CreateDomainName",
+				"Failed to create domain name: %s", err)
+			return nil, err
 		}
 		r.Host = newHost
 		ingress.Spec.Rules = append(ingress.Spec.Rules, r)
@@ -301,7 +383,7 @@ func ingressForStack(stackset *zv1.StackSet, stack *zv1.Stack) (*v1beta1.Ingress
 }
 
 // ingressForStackSet
-func ingressForStackSet(stackset *zv1.StackSet, origIngress *v1beta1.Ingress, stackStatuses []stackStatus) (*v1beta1.Ingress, error) {
+func (c *ingressReconciler) ingressForStackSet(stackset *zv1.StackSet, origIngress *v1beta1.Ingress, stackStatuses []stackStatus) (*v1beta1.Ingress, error) {
 	heritageLabels := map[string]string{
 		stacksetHeritageLabelKey: stackset.Name,
 	}
@@ -361,7 +443,11 @@ func ingressForStackSet(stackset *zv1.StackSet, origIngress *v1beta1.Ingress, st
 		if weights, ok := origIngress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
 			err := json.Unmarshal([]byte(weights), &currentWeights)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get current Stack traffic weights: %v", err)
+				c.recorder.Eventf(origIngress,
+					apiv1.EventTypeWarning,
+					"StackTrafficWeights",
+					"Failed to get current Stack traffic weights: %v", err)
+				return nil, err
 			}
 		}
 	}

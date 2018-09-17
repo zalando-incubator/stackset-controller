@@ -162,7 +162,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 				continue
 			}
 
-			c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "AddStackSet", "StackSet '%s/%s' added", stackset.Namespace, stackset.Name)
+			c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "CreateStackSet", "StackSet '%s/%s' added", stackset.Namespace, stackset.Name)
 			c.stacksetStore[stackset.UID] = stackset
 		case <-ctx.Done():
 			c.logger.Info("Terminating main controller loop.")
@@ -338,7 +338,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 				// TODO: can fail for all!!!
 				c.recorder.Eventf(&ssc.StackSet,
 					apiv1.EventTypeWarning,
-					"FailedToGetIngressTraffic",
+					"GetIngressTraffic",
 					"Failed to get Ingress traffic for StackSet %s/%s: %v", ssc.StackSet.Namespace, ssc.StackSet.Name, err)
 				return nil, err
 			}
@@ -354,7 +354,7 @@ func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetC
 	if err != nil {
 		c.recorder.Eventf(ingresses,
 			apiv1.EventTypeWarning,
-			"FailedToListIngress",
+			"ListIngress",
 			"Failed to get Ingresses: %v", err)
 		return err
 	}
@@ -375,7 +375,7 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetCont
 	if err != nil {
 		c.recorder.Eventf(stacks,
 			apiv1.EventTypeWarning,
-			"FailedToListStacks",
+			"ListStacks",
 			"Failed to list Stacks: %v", err)
 		return err
 	}
@@ -395,7 +395,7 @@ func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSe
 	if err != nil {
 		c.recorder.Eventf(deployments,
 			apiv1.EventTypeWarning,
-			"FailedToListDeployments",
+			"ListDeployments",
 			"Failed to list Deployments: %v", err)
 		return err
 	}
@@ -420,7 +420,7 @@ func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetCo
 	if err != nil {
 		c.recorder.Eventf(services,
 			apiv1.EventTypeWarning,
-			"FailedToListServices",
+			"ListServices",
 			"Failed to list Services: %v", err)
 		return err
 	}
@@ -445,7 +445,7 @@ func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetC
 	if err != nil {
 		c.recorder.Eventf(endpoints,
 			apiv1.EventTypeWarning,
-			"FailedToListEndpoints",
+			"ListEndpoints",
 			"Failed to list Endpoints: %v", err)
 		return err
 	}
@@ -468,7 +468,7 @@ func (c *StackSetController) collectHPAs(stacksets map[types.UID]*StackSetContai
 	if err != nil {
 		c.recorder.Eventf(hpas,
 			apiv1.EventTypeWarning,
-			"FailedToListHorizontalPodAutoScalers",
+			"ListHPAs",
 			"Failed to list HPAs: %v", err)
 		return err
 	}
@@ -538,14 +538,14 @@ func (c *StackSetController) add(obj interface{}) {
 	if !ok {
 		c.recorder.Eventf(stackset,
 			apiv1.EventTypeWarning,
-			"FailedToGetStackSetObject",
+			"GetStackSet",
 			"Failed to get StackSet Object")
 		return
 	}
 
 	c.recorder.Eventf(stackset,
 		apiv1.EventTypeNormal,
-		"NewStackSetObject",
+		"CreateStackSet",
 		"New StackSet added %s/%s", stackset.Namespace, stackset.Name)
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: stackset.DeepCopy(),
@@ -557,7 +557,7 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 	if !ok {
 		c.recorder.Eventf(newStackset,
 			apiv1.EventTypeWarning,
-			"FailedToGetStackSetObject",
+			"GetStackSet",
 			"Failed to get StackSet Object")
 		return
 	}
@@ -566,7 +566,7 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 	if !ok {
 		c.recorder.Eventf(oldStackset,
 			apiv1.EventTypeWarning,
-			"FailedToGetStackSetObject",
+			"GetStackSet",
 			"Failed to get StackSet Object")
 		return
 	}
@@ -579,7 +579,7 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 
 	c.recorder.Eventf(newStackset,
 		apiv1.EventTypeNormal,
-		"UpdateStackSetObject",
+		"UpdateStackSet",
 		"StackSet updated %s/%s", newStackset.Namespace, newStackset.Name)
 
 	c.stacksetEvents <- stacksetEvent{
@@ -592,14 +592,14 @@ func (c *StackSetController) del(obj interface{}) {
 	if !ok {
 		c.recorder.Eventf(stackset,
 			apiv1.EventTypeWarning,
-			"FailedToGetStackSetObject",
+			"GetStackSet",
 			"Failed to get StackSet object")
 		return
 	}
 
 	c.recorder.Eventf(stackset,
 		apiv1.EventTypeNormal,
-		"DeletedStackSet",
+		"DeleteStackSet",
 		"StackSet deleted %s/%s", stackset.Namespace, stackset.Name)
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: stackset.DeepCopy(),
@@ -628,7 +628,7 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	if !equality.Semantic.DeepEqual(newStatus, stackset.Status) {
 		c.recorder.Eventf(&stackset,
 			apiv1.EventTypeNormal,
-			"ChangeStackSetStatus",
+			"UpdateStackSetStatus",
 			"Status changed for StackSet %s/%s: %#v -> %#v",
 			stackset.Namespace,
 			stackset.Name,
@@ -717,7 +717,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	excessStacks := len(stacks) - historyLimit
 	c.recorder.Eventf(&stackset,
 		apiv1.EventTypeNormal,
-		"ExeedingStackHistoryLimit",
+		"ExeedStackHistoryLimit",
 		"Found %d Stack(s) exeeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
 		excessStacks,
 		historyLimit,
