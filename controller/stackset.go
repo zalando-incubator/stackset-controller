@@ -163,7 +163,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 				continue
 			}
 
-			c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "CreateStackSet", "StackSet '%s/%s' added", stackset.Namespace, stackset.Name)
+			c.logger.Infof("Adding entry for StackSet %s/%s", stackset.Namespace, stackset.Name)
 			c.stacksetStore[stackset.UID] = stackset
 		case <-ctx.Done():
 			c.logger.Info("Terminating main controller loop.")
@@ -513,17 +513,11 @@ func (c *StackSetController) startWatch(ctx context.Context) {
 func (c *StackSetController) add(obj interface{}) {
 	stackset, ok := obj.(*zv1.StackSet)
 	if !ok {
-		c.recorder.Eventf(stackset,
-			apiv1.EventTypeWarning,
-			"GetStackSet",
-			"Failed to get StackSet Object")
+		c.logger.Error("Failed to get StackSet object")
 		return
 	}
 
-	c.recorder.Eventf(stackset,
-		apiv1.EventTypeNormal,
-		"CreateStackSet",
-		"New StackSet added %s/%s", stackset.Namespace, stackset.Name)
+	c.logger.Infof("New StackSet added %s/%s", stackset.Namespace, stackset.Name)
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: stackset.DeepCopy(),
 	}
@@ -532,19 +526,13 @@ func (c *StackSetController) add(obj interface{}) {
 func (c *StackSetController) update(oldObj, newObj interface{}) {
 	newStackset, ok := newObj.(*zv1.StackSet)
 	if !ok {
-		c.recorder.Eventf(newStackset,
-			apiv1.EventTypeWarning,
-			"GetStackSet",
-			"Failed to get StackSet Object")
+		c.logger.Error("Failed to get StackSet object")
 		return
 	}
 
 	oldStackset, ok := oldObj.(*zv1.StackSet)
 	if !ok {
-		c.recorder.Eventf(oldStackset,
-			apiv1.EventTypeWarning,
-			"GetStackSet",
-			"Failed to get StackSet Object")
+		c.logger.Error("Failed to get StackSet object")
 		return
 	}
 
@@ -554,11 +542,7 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 		cmp.Diff(oldStackset, newStackset, cmpopts.IgnoreUnexported(resource.Quantity{})),
 	)
 
-	c.recorder.Eventf(newStackset,
-		apiv1.EventTypeNormal,
-		"UpdateStackSet",
-		"StackSet updated %s/%s", newStackset.Namespace, newStackset.Name)
-
+	c.logger.Infof("StackSet updated %s/%s", newStackset.Namespace, newStackset.Name)
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: newStackset.DeepCopy(),
 	}
@@ -567,17 +551,11 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 func (c *StackSetController) del(obj interface{}) {
 	stackset, ok := obj.(*zv1.StackSet)
 	if !ok {
-		c.recorder.Eventf(stackset,
-			apiv1.EventTypeWarning,
-			"GetStackSet",
-			"Failed to get StackSet object")
+		c.logger.Error("Failed to get StackSet object")
 		return
 	}
 
-	c.recorder.Eventf(stackset,
-		apiv1.EventTypeNormal,
-		"DeleteStackSet",
-		"StackSet deleted %s/%s", stackset.Namespace, stackset.Name)
+	c.logger.Infof("StackSet deleted %s/%s", stackset.Namespace, stackset.Name)
 	c.stacksetEvents <- stacksetEvent{
 		StackSet: stackset.DeepCopy(),
 		Deleted:  true,
