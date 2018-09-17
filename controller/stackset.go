@@ -92,6 +92,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			stackContainers, err := c.collectResources()
 			if err != nil {
+				c.logger.Errorf("Failed to collect resources: %v", err)
 				continue
 			}
 
@@ -352,11 +353,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetContainer) error {
 	ingresses, err := c.client.ExtensionsV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		c.recorder.Eventf(ingresses,
-			apiv1.EventTypeWarning,
-			"ListIngress",
-			"Failed to get Ingresses: %v", err)
-		return err
+		return fmt.Errorf("failed to list Ingresses: %v", err)
 	}
 
 	for _, i := range ingresses.Items {
@@ -373,11 +370,7 @@ func (c *StackSetController) collectIngresses(stacksets map[types.UID]*StackSetC
 func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetContainer) error {
 	stacks, err := c.client.ZalandoV1().Stacks(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		c.recorder.Eventf(stacks,
-			apiv1.EventTypeWarning,
-			"ListStacks",
-			"Failed to list Stacks: %v", err)
-		return err
+		return fmt.Errorf("failed to list Stacks: %v", err)
 	}
 
 	for _, stack := range stacks.Items {
@@ -393,11 +386,7 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*StackSetCont
 func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSetContainer) error {
 	deployments, err := c.client.AppsV1().Deployments(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		c.recorder.Eventf(deployments,
-			apiv1.EventTypeWarning,
-			"ListDeployments",
-			"Failed to list Deployments: %v", err)
-		return err
+		return fmt.Errorf("failed to list Deployments: %v", err)
 	}
 
 	for _, d := range deployments.Items {
@@ -418,11 +407,7 @@ func (c *StackSetController) collectDeployments(stacksets map[types.UID]*StackSe
 func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetContainer) error {
 	services, err := c.client.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		c.recorder.Eventf(services,
-			apiv1.EventTypeWarning,
-			"ListServices",
-			"Failed to list Services: %v", err)
-		return err
+		return fmt.Errorf("failed to list Services: %v", err)
 	}
 
 	for _, s := range services.Items {
@@ -443,11 +428,7 @@ func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetCo
 func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetContainer) error {
 	endpoints, err := c.client.CoreV1().Endpoints(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		c.recorder.Eventf(endpoints,
-			apiv1.EventTypeWarning,
-			"ListEndpoints",
-			"Failed to list Endpoints: %v", err)
-		return err
+		return fmt.Errorf("failed to list Endpoints: %v", err)
 	}
 
 	for _, endpoint := range endpoints.Items {
@@ -466,11 +447,7 @@ func (c *StackSetController) collectEndpoints(stacksets map[types.UID]*StackSetC
 func (c *StackSetController) collectHPAs(stacksets map[types.UID]*StackSetContainer) error {
 	hpas, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
-		c.recorder.Eventf(hpas,
-			apiv1.EventTypeWarning,
-			"ListHPAs",
-			"Failed to list HPAs: %v", err)
-		return err
+		return fmt.Errorf("failed to list HPAs: %v", err)
 	}
 
 	for _, h := range hpas.Items {
