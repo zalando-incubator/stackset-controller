@@ -661,11 +661,17 @@ spec:
                             properties:
                               limits:
                                 additionalProperties:
-                                  type: string
+                                  # quantity type is string or int
+                                  oneOf:
+                                  - type: string
+                                  - type: integer
                                 type: object
                               requests:
                                 additionalProperties:
-                                  type: string
+                                  # quantity type is string or int
+                                  oneOf:
+                                  - type: string
+                                  - type: integer
                                 type: object
                           securityContext:
                             properties:
@@ -1061,11 +1067,17 @@ spec:
                             properties:
                               limits:
                                 additionalProperties:
-                                  type: string
+                                  # quantity type is string or int
+                                  oneOf:
+                                  - type: string
+                                  - type: integer
                                 type: object
                               requests:
                                 additionalProperties:
-                                  type: string
+                                  # quantity type is string or int
+                                  oneOf:
+                                  - type: string
+                                  - type: integer
                                 type: object
                           securityContext:
                             properties:
