@@ -1,9 +1,7 @@
 # Kubernetes StackSet Controller
 [![Build Status](https://travis-ci.org/zalando-incubator/stackset-controller.svg?branch=master)](https://travis-ci.org/zalando-incubator/stackset-controller)
 
-**Consider this alpha quality, things are subject to change, feedback very welcome!**
-
-The Kubernetes StackSet Controller is a proposal (along with an
+The Kubernetes StackSet Controller is a concept (along with an
 implementation) for easing and automating application life cycle for
 certain types of applications running on Kubernetes.
 
@@ -59,7 +57,7 @@ traffic to different stacks at the load balancer (Ingress) level.
 ```
 
 The `StackSet` and `Stack` resources are implemented as
-[CRDs][crd].  An `StackSet` looks like this:
+[CRDs][crd].  A `StackSet` looks like this:
 
 ```yaml
 apiVersion: zalando.org/v1
@@ -204,7 +202,7 @@ You must install these into your cluster before running the controller:
 $ kubectl apply -f docs/stackset_crd.yaml -f docs/stackset_stack_crd.yaml
 ```
 
-After the CRDs are install the controller can be deployed:
+After the CRDs are installed the controller can be deployed:
 
 ```bash
 $ kubectl apply -f docs/deployment.yaml
