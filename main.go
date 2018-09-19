@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -11,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller"
@@ -46,11 +44,6 @@ func main() {
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
 	kingpin.Parse()
-
-	// discard all logs from glog
-	nullLogger := log.New()
-	nullLogger.SetOutput(ioutil.Discard)
-	glog.SetLogger(nullLogger)
 
 	if config.Debug {
 		log.SetLevel(log.DebugLevel)
