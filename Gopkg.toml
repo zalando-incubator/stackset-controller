@@ -29,3 +29,7 @@
 [prune]
   go-tests = true
   unused-packages = true
+
+[[override]]
+  name = "github.com/golang/glog"
+  source = "github.com/kubermatic/glog-logrus"
