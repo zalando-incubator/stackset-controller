@@ -189,15 +189,16 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 					cmpopts.IgnoreUnexported(resource.Quantity{}),
 				),
 			)
-			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
-				"UpdateDeployment",
-				"Updating Deployment %s/%s for StackSet stack %s/%s",
-				deployment.Namespace,
-				deployment.Name,
-				stack.Namespace,
-				stack.Name,
-			)
+			// depends on https://github.com/zalando-incubator/stackset-controller/issues/49
+			// c.recorder.Eventf(&stack,
+			// 	apiv1.EventTypeNormal,
+			// 	"UpdateDeployment",
+			// 	"Updating Deployment %s/%s for StackSet stack %s/%s",
+			// 	deployment.Namespace,
+			// 	deployment.Name,
+			// 	stack.Namespace,
+			// 	stack.Name,
+			// )
 			deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Update(deployment)
 			if err != nil {
 				return err
