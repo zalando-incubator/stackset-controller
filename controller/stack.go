@@ -9,13 +9,16 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
+	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	kube_record "k8s.io/client-go/tools/record"
 )
 
 const (
@@ -26,8 +29,9 @@ const (
 // desired state. This includes managing, Deployment, Service and HPA resources
 // of the Stacks.
 type stacksReconciler struct {
-	logger *log.Entry
-	client clientset.Interface
+	logger   *log.Entry
+	recorder kube_record.EventRecorder
+	client   clientset.Interface
 }
 
 // ReconcileStacks brings a set of Stacks of a StackSet to the desired state.
@@ -40,7 +44,8 @@ func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
 				"namespace":  ssc.StackSet.Namespace,
 			},
 		),
-		client: c.client,
+		client:   c.client,
+		recorder: recorder.CreateEventRecorder(c.client),
 	}
 	return sr.reconcile(ssc)
 }
@@ -158,7 +163,9 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	var err error
 	if createDeployment {
-		c.logger.Infof(
+		c.recorder.Eventf(&stack,
+			apiv1.EventTypeNormal,
+			"CreateDeployment",
 			"Creating Deployment %s/%s for StackSet stack %s/%s",
 			deployment.Namespace,
 			deployment.Name,
@@ -182,7 +189,9 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 					cmpopts.IgnoreUnexported(resource.Quantity{}),
 				),
 			)
-			c.logger.Infof(
+			c.recorder.Eventf(&stack,
+				apiv1.EventTypeNormal,
+				"UpdateDeployment",
 				"Updating Deployment %s/%s for StackSet stack %s/%s",
 				deployment.Namespace,
 				deployment.Name,
@@ -228,7 +237,9 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	}
 
 	if !equality.Semantic.DeepEqual(newStatus, stack.Status) {
-		c.logger.Infof(
+		c.recorder.Eventf(&stack,
+			apiv1.EventTypeNormal,
+			"UpdateStackStatus",
 			"Status changed for Stack %s/%s: %#v -> %#v",
 			stack.Namespace,
 			stack.Name,
@@ -261,7 +272,9 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 	// cleanup HPA if autoscaling is disabled or the stack has 0 traffic.
 	if stack.Spec.HorizontalPodAutoscaler == nil || (ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0) {
 		if hpa != nil {
-			c.logger.Infof(
+			c.recorder.Eventf(&stack,
+				apiv1.EventTypeNormal,
+				"DeleteHPA",
 				"Deleting obsolete HPA %s/%s for Deployment %s/%s",
 				hpa.Namespace,
 				hpa.Name,
@@ -308,7 +321,9 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 
 	var err error
 	if createHPA {
-		c.logger.Infof(
+		c.recorder.Eventf(&stack,
+			apiv1.EventTypeNormal,
+			"CreateHPA",
 			"Creating HPA %s/%s for Deployment %s/%s",
 			hpa.Namespace,
 			hpa.Name,
@@ -322,7 +337,9 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 	} else {
 		if !equality.Semantic.DeepEqual(origHPA, hpa) {
 			c.logger.Debugf("HPA %s/%s changed: %s", hpa.Namespace, hpa.Name, cmp.Diff(origHPA, hpa))
-			c.logger.Infof(
+			c.recorder.Eventf(&stack,
+				apiv1.EventTypeNormal,
+				"UpdateHPA",
 				"Updating HPA %s/%s for Deployment %s/%s",
 				hpa.Namespace,
 				hpa.Name,
@@ -382,7 +399,9 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	service.Spec.Ports = servicePorts
 
 	if createService {
-		c.logger.Infof(
+		c.recorder.Eventf(&stack,
+			apiv1.EventTypeNormal,
+			"CreateService",
 			"Creating Service %s/%s for StackSet stack %s/%s",
 			service.Namespace,
 			service.Name,
@@ -396,7 +415,9 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	} else {
 		if !equality.Semantic.DeepEqual(origService, service) {
 			c.logger.Debugf("Service %s/%s changed: %s", service.Namespace, service.Name, cmp.Diff(origService, service))
-			c.logger.Infof(
+			c.recorder.Eventf(&stack,
+				apiv1.EventTypeNormal,
+				"UpdateService",
 				"Updating Service %s/%s for StackSet stack %s/%s",
 				service.Namespace,
 				service.Name,

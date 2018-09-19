@@ -14,10 +14,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
+	apiv1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	kube_record "k8s.io/client-go/tools/record"
 )
 
 const (
@@ -46,6 +49,7 @@ type StackSetController struct {
 	interval       time.Duration
 	stacksetEvents chan stacksetEvent
 	stacksetStore  map[types.UID]zv1.StackSet
+	recorder       kube_record.EventRecorder
 	sync.Mutex
 }
 
@@ -56,6 +60,7 @@ type stacksetEvent struct {
 
 // NewStackSetController initializes a new StackSetController.
 func NewStackSetController(client clientset.Interface, controllerID string, interval time.Duration) *StackSetController {
+
 	return &StackSetController{
 		logger:         log.WithFields(log.Fields{"controller": "stackset"}),
 		client:         client,
@@ -63,6 +68,7 @@ func NewStackSetController(client clientset.Interface, controllerID string, inte
 		stacksetEvents: make(chan stacksetEvent, 1),
 		stacksetStore:  make(map[types.UID]zv1.StackSet),
 		interval:       interval,
+		recorder:       recorder.CreateEventRecorder(client),
 	}
 }
 
@@ -137,7 +143,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			// update/delete existing entry
 			if _, ok := c.stacksetStore[stackset.UID]; ok {
 				if e.Deleted || !c.hasOwnership(&stackset) {
-					c.logger.Infof("StackSet '%s/%s' deleted, removing references", stackset.Namespace, stackset.Name)
+					c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "DeleteStackSet", "StackSet '%s/%s' deleted, removing references", stackset.Namespace, stackset.Name)
 					delete(c.stacksetStore, stackset.UID)
 					continue
 				}
@@ -321,7 +327,11 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 			traffic, err := getIngressTraffic(ssc.Ingress)
 			if err != nil {
 				// TODO: can fail for all!!!
-				return nil, fmt.Errorf("failed to get Ingress traffic for StackSet %s/%s: %v", ssc.StackSet.Namespace, ssc.StackSet.Name, err)
+				c.recorder.Eventf(&ssc.StackSet,
+					apiv1.EventTypeWarning,
+					"GetIngressTraffic",
+					"Failed to get Ingress traffic for StackSet %s/%s: %v", ssc.StackSet.Namespace, ssc.StackSet.Name, err)
+				return nil, err
 			}
 			ssc.Traffic = traffic
 		}
@@ -561,7 +571,9 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	if !equality.Semantic.DeepEqual(newStatus, stackset.Status) {
-		c.logger.Infof(
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"UpdateStackSetStatus",
 			"Status changed for StackSet %s/%s: %#v -> %#v",
 			stackset.Namespace,
 			stackset.Name,
@@ -597,7 +609,9 @@ func readyStacks(stacks []zv1.Stack) int32 {
 func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	stackset := ssc.StackSet
 	for _, stack := range c.getStacksToGC(ssc) {
-		c.logger.Infof(
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"DeleteExcessStack",
 			"Deleting excess stack %s/%s for StackSet %s/%s",
 			stack.Namespace,
 			stack.Name,
@@ -646,7 +660,9 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	})
 
 	excessStacks := len(stacks) - historyLimit
-	c.logger.Infof(
+	c.recorder.Eventf(&stackset,
+		apiv1.EventTypeNormal,
+		"ExeedStackHistoryLimit",
 		"Found %d Stack(s) exeeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
 		excessStacks,
 		historyLimit,
@@ -724,7 +740,9 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 	}
 
 	if createStack {
-		c.logger.Infof(
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"CreateStackSetStack",
 			"Creating StackSet stack %s/%s for StackSet %s/%s",
 			stack.Namespace, stack.Name,
 			stackset.Namespace,
@@ -745,7 +763,10 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 					cmpopts.IgnoreUnexported(resource.Quantity{}),
 				),
 			)
-			c.logger.Infof(
+
+			c.recorder.Eventf(&stackset,
+				apiv1.EventTypeNormal,
+				"UpdateStackSetStack",
 				"Updating StackSet stack %s/%s for StackSet %s/%s",
 				stack.Namespace,
 				stack.Name,

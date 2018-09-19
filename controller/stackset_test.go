@@ -7,10 +7,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 func TestGetStacksToGC(tt *testing.T) {
@@ -128,6 +130,7 @@ func TestGetStacksToGC(tt *testing.T) {
 						"test": "yes",
 					},
 				),
+				recorder: recorder.CreateEventRecorder(fake.NewSimpleClientset()),
 			}
 
 			stacks := c.getStacksToGC(tc.stackSetContainer)
