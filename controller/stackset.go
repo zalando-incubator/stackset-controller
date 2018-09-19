@@ -18,7 +18,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,6 +102,11 @@ func (c *StackSetController) Run(ctx context.Context) {
 						}
 
 						err = c.ReconcileIngress(container)
+						if err != nil {
+							c.logger.Error(err)
+						}
+
+						err = c.ReconcileService(container)
 						if err != nil {
 							c.logger.Error(err)
 						}
@@ -190,6 +195,12 @@ type StackSetContainer struct {
 	// `StackSet.Spec.Ingress` defines the ingress configuration specified
 	// by the user on the StackSet.
 	Ingress *v1beta1.Ingress
+
+	// Service defines the current Service resource belonging to the
+	// StackSet. This is a reference to the actual resource while
+	// `StackSet.Spec.Service` defines the ingress configuration specified
+	// by the user on the StackSet.
+	Service *v1.Service
 
 	// Traffic is the current traffic distribution across stacks of the
 	// StackSet. The values of this are derived from the related Ingress
@@ -389,6 +400,21 @@ func (c *StackSetController) collectServices(stacksets map[types.UID]*StackSetCo
 	if err != nil {
 		return fmt.Errorf("failed to list Services: %v", err)
 	}
+
+
+	for _, s := range services.Items {
+		service := s
+		if uid, ok := getOwnerUID(service.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				if service.Name == stackset.StackSet.Name &&
+					service.Namespace == stackset.StackSet.Namespace &&
+					stackset.StackSet.UID == uid {
+					stackset.Service = &service
+				}
+			}
+		}
+	}
+
 
 	for _, s := range services.Items {
 		service := s

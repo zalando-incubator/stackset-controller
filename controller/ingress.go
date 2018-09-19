@@ -11,11 +11,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -47,6 +49,60 @@ func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
 		client: c.client,
 	}
 	return ir.reconcile(sc)
+}
+
+func (c *StackSetController) ReconcileService(sc StackSetContainer) error {
+	stackset := sc.StackSet
+	service := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      stackset.Name,
+			Namespace: stackset.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: stackset.APIVersion,
+					Kind:       stackset.Kind,
+					Name:       stackset.Name,
+					UID:        stackset.UID,
+				},
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+
+	service.Labels = stackset.Labels
+	service.Spec.Selector = map[string]string{"stackset": stackset.Name}
+	// get service ports to be used for the service
+	servicePort := v1.ServicePort{
+		Name:       "ingress",
+		Protocol:   "TCP",
+		Port:       80,
+		TargetPort: intstr.FromInt(80),
+	}
+
+	service.Spec.Ports = []v1.ServicePort{servicePort}
+
+	if sc.Service == nil {
+		c.logger.Infof("Creating Service %s/%s", service.Namespace, service.Name)
+		_, err := c.client.CoreV1().Services(service.Namespace).Create(service)
+		if err != nil {
+			return err
+		}
+
+	} else {
+		// The update won't work if we don't define the Immutable fields
+		service.Spec.ClusterIP = sc.Service.Spec.ClusterIP
+		service.ResourceVersion = sc.Service.ResourceVersion
+		c.logger.Infof("Updating Service %s/%s", service.Namespace, service.Name)
+		_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	return nil
 }
 
 func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
