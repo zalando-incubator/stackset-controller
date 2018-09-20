@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
-	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
@@ -37,7 +36,7 @@ type stacksReconciler struct {
 // ReconcileStacks brings a set of Stacks of a StackSet to the desired state.
 func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
 	sr := &stacksReconciler{
-		logger: log.WithFields(
+		logger: c.logger.WithFields(
 			log.Fields{
 				"controller": "stacks",
 				"stackset":   ssc.StackSet.Name,
@@ -45,7 +44,7 @@ func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
 			},
 		),
 		client:   c.client,
-		recorder: recorder.CreateEventRecorder(c.client),
+		recorder: c.recorder,
 	}
 	return sr.reconcile(ssc)
 }
