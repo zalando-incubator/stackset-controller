@@ -11,7 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
-	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	apiv1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -41,7 +40,7 @@ type ingressReconciler struct {
 // ReconcileIngress brings Ingresses of a StackSet to the desired state.
 func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
 	ir := &ingressReconciler{
-		logger: log.WithFields(
+		logger: c.logger.WithFields(
 			log.Fields{
 				"controller": "ingress",
 				"stackset":   sc.StackSet.Name,
@@ -49,7 +48,7 @@ func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
 			},
 		),
 		client:   c.client,
-		recorder: recorder.CreateEventRecorder(c.client),
+		recorder: c.recorder,
 	}
 	return ir.reconcile(sc)
 }
