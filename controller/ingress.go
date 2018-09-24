@@ -470,7 +470,7 @@ func (c *ingressReconciler) ingressForStackSet(stackset *zv1.StackSet, origIngre
 		return nil, errNoPaths
 	}
 
-	// sort backends by name to have a consitent generated ingress
+	// sort backends by name to have a consistent generated ingress
 	// resource.
 	sort.Slice(rule.IngressRuleValue.HTTP.Paths, func(i, j int) bool {
 		return rule.IngressRuleValue.HTTP.Paths[i].Backend.ServiceName < rule.IngressRuleValue.HTTP.Paths[j].Backend.ServiceName
