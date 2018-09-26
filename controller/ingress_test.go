@@ -9,15 +9,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"testing"
 
-	fake_cs "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
-	ss_clientset "github.com/zalando-incubator/stackset-controller/pkg/clientset"
-	fake_k8s "k8s.io/client-go/kubernetes/fake"
+	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
+	ScController "github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	fakeK8s "k8s.io/client-go/kubernetes/fake"
 )
 
 func getFakeController() *StackSetController {
-	fStacksetClient := fake_cs.NewSimpleClientset()
-	fk8sClient := fake_k8s.NewSimpleClientset()
-	fSSClientSet := ss_clientset.NewClientset(fk8sClient, fStacksetClient)
+	fStacksetClient := fakeController.NewSimpleClientset()
+	fk8sClient := fakeK8s.NewSimpleClientset()
+	fSSClientSet := ScController.NewClientset(fk8sClient, fStacksetClient)
 
 	return NewStackSetController(fSSClientSet, "test-controller", 0)
 }
