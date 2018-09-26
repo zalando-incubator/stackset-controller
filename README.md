@@ -1,5 +1,6 @@
 # Kubernetes StackSet Controller
 [![Build Status](https://travis-ci.org/zalando-incubator/stackset-controller.svg?branch=master)](https://travis-ci.org/zalando-incubator/stackset-controller)
+[![Coverage Status](https://coveralls.io/repos/github/zalando-incubator/stackset-controller/badge.svg?branch=master)](https://coveralls.io/github/zalando-incubator/stackset-controller?branch=master)
 
 The Kubernetes StackSet Controller is a concept (along with an
 implementation) for easing and automating application life cycle for
