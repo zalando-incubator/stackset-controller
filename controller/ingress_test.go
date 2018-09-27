@@ -21,65 +21,81 @@ func getFakeController() *StackSetController {
 	return NewStackSetController(fSSClientSet, "test-controller", 0)
 }
 
-// Test an Ingress is created if specified in the StackSet
-func TestIngressCreation(t *testing.T) {
-	controller := getFakeController()
-	sc := StackSetContainer{
-		StackContainers: map[types.UID]*StackContainer{
-			"test": {},
-		},
-		StackSet: zv1.StackSet{
-			Spec: zv1.StackSetSpec{
-				Ingress: &zv1.StackSetIngressSpec{},
+var ingressTests = []struct {
+	msg string
+	in  StackSetContainer
+	out int
+}{
+	{
+		msg: "Test an Ingress is created if specified in the StackSet",
+		in: StackSetContainer{
+			StackContainers: map[types.UID]*StackContainer{
+				"test": {},
+			},
+			StackSet: zv1.StackSet{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "example",
+					Namespace: "default",
+				},
+				Spec: zv1.StackSetSpec{
+					Ingress: &zv1.StackSetIngressSpec{
+						ObjectMeta: v1.ObjectMeta{
+							Namespace: "default",
+						},
+						BackendPort: intstr.FromInt(80),
+						Hosts:       []string{"example.com"},
+						Path:        "example",
+					},
+				},
 			},
 		},
-	}
-
-	err := controller.ReconcileIngress(sc)
-	require.NoError(t, err)
-	ingressList, err := controller.client.ExtensionsV1beta1().Ingresses("").List(v1.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, ingressList.Items, 1)
-}
-
-// Test Ingress gets deleted if not defined in StackSet Spec
-func TestIngressDeletion(t *testing.T) {
-	controller := getFakeController()
-	stackIngress, err := controller.client.ExtensionsV1beta1().Ingresses("").Create(&v1beta1.Ingress{})
-	require.NoError(t, err)
-
-	ingressList, err := controller.client.ExtensionsV1beta1().Ingresses("").List(v1.ListOptions{})
-	ingressCount := len(ingressList.Items)
-	require.Equal(t, 1, ingressCount)
-
-	sc := StackSetContainer{
-		Ingress: stackIngress,
-	}
-
-	err = controller.ReconcileIngress(sc)
-	ingressList, err = controller.client.ExtensionsV1beta1().Ingresses("").List(v1.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, ingressList.Items, 0)
-
-}
-
-// Test that if an Ingress Spec is updated, the Ingress will also be updated
-func TestIngressUpdate(t *testing.T) {
-	controller := getFakeController()
-	stackIngress, err := controller.client.ExtensionsV1beta1().Ingresses("default").Create(&v1beta1.Ingress{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "example",
+		out: 1,
+	},
+	{	// TODO: Test that per stack ingresses were also cleaned up
+		msg: "Test Ingress gets deleted if not defined in StackSet Spec",
+		in: StackSetContainer{
+			Ingress: &v1beta1.Ingress{},
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{
-				{
-					Host: "not-example.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
-								{
-									Backend: v1beta1.IngressBackend{
-										ServicePort: intstr.FromInt(8080),
+		out: 0,
+	},
+	{
+		msg: "Test that if an Ingress Spec is updated, the Ingress will also be updated",
+		in: StackSetContainer{
+			StackContainers: map[types.UID]*StackContainer{
+				"test": {},
+			},
+			StackSet: zv1.StackSet{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      "example",
+					Namespace: "default",
+				},
+				Spec: zv1.StackSetSpec{
+					Ingress: &zv1.StackSetIngressSpec{
+						ObjectMeta: v1.ObjectMeta{
+							Namespace: "default",
+						},
+						BackendPort: intstr.FromInt(80),
+						Hosts:       []string{"example.com"},
+						Path:        "example",
+					},
+				},
+			},
+			Ingress: &v1beta1.Ingress{
+				ObjectMeta: v1.ObjectMeta{
+					Name: "example",
+				},
+				Spec: v1beta1.IngressSpec{
+					Rules: []v1beta1.IngressRule{
+						{
+							Host: "not-example.com",
+							IngressRuleValue: v1beta1.IngressRuleValue{
+								HTTP: &v1beta1.HTTPIngressRuleValue{
+									Paths: []v1beta1.HTTPIngressPath{
+										{
+											Backend: v1beta1.IngressBackend{
+												ServicePort: intstr.FromInt(8080),
+											},
+										},
 									},
 								},
 							},
@@ -88,40 +104,33 @@ func TestIngressUpdate(t *testing.T) {
 				},
 			},
 		},
-	})
+		out: 1,
 
-	require.Equal(t, "not-example.com", stackIngress.Spec.Rules[0].Host)
-	require.Equal(t, 8080, stackIngress.Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.ServicePort.IntValue())
+	},
+}
 
-	sc := StackSetContainer{
-		StackContainers: map[types.UID]*StackContainer{
-			"test": {},
-		},
-		StackSet: zv1.StackSet{
-			ObjectMeta: v1.ObjectMeta{
-				Name: "example",
-				Namespace: "default",
-			},
-			Spec: zv1.StackSetSpec{
-				Ingress: &zv1.StackSetIngressSpec{
-					ObjectMeta: v1.ObjectMeta{
-						Namespace: "default",
-					},
-					BackendPort: intstr.FromInt(80),
-					Hosts: []string{"example.com"},
-					Path: "example",
-				},
-			},
-		},
-		Ingress: stackIngress,
+func TestIngress(t *testing.T) {
+	for _, tc := range ingressTests {
+		t.Run(tc.msg, func(t *testing.T) {
+			controller := getFakeController()
+			// If the StackSetContainer has an ingress create & update it as setup
+			if tc.in.Ingress != nil {
+				stackIngress, err := controller.client.ExtensionsV1beta1().Ingresses(tc.in.StackSet.Namespace).Create(tc.in.Ingress)
+				require.NoError(t, err)
+				tc.in.Ingress = stackIngress
+			}
+
+			err := controller.ReconcileIngress(tc.in)
+
+			require.NoError(t, err)
+			ingressList, err := controller.client.ExtensionsV1beta1().Ingresses(tc.in.StackSet.Namespace).List(v1.ListOptions{})
+			require.NoError(t, err)
+			require.Len(t, ingressList.Items, tc.out)
+			// Only run these tests if we wanted an ingress to be created and it was
+			if tc.out > 0 && len(ingressList.Items) > 0 {
+				require.Equal(t, tc.in.StackSet.Spec.Ingress.Hosts[0], ingressList.Items[0].Spec.Rules[0].Host)
+				require.Equal(t, tc.in.StackSet.Spec.Ingress.BackendPort, ingressList.Items[0].Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.ServicePort)
+			}
+		})
 	}
-
-	err = controller.ReconcileIngress(sc)
-	require.NoError(t, err)
-
-	ingressList, err := controller.client.ExtensionsV1beta1().Ingresses("default").List(v1.ListOptions{})
-	require.NoError(t, err)
-	require.Len(t, ingressList.Items, 1)
-	require.Equal(t, "example.com", ingressList.Items[0].Spec.Rules[0].Host)
-	require.Equal(t, 80, ingressList.Items[0].Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.ServicePort.IntValue())
 }
