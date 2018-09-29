@@ -39,7 +39,12 @@ type ingressReconciler struct {
 
 // ReconcileIngress brings Ingresses of a StackSet to the desired state.
 func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
-	ir := &ingressReconciler{
+	ir := c.NewIngressReconciler(sc)
+	return ir.reconcile(sc)
+}
+
+func (c *StackSetController) NewIngressReconciler(sc StackSetContainer) *ingressReconciler {
+	return &ingressReconciler{
 		logger: c.logger.WithFields(
 			log.Fields{
 				"controller": "ingress",
@@ -50,7 +55,6 @@ func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
 		client:   c.client,
 		recorder: c.recorder,
 	}
-	return ir.reconcile(sc)
 }
 
 func (c *ingressReconciler) reconcile(sc StackSetContainer) error {

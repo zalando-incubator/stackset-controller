@@ -1,7 +1,6 @@
 package controller
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
@@ -23,79 +22,81 @@ func getFakeController() *StackSetController {
 	return NewStackSetController(fSSClientSet, "test-controller", 0)
 }
 
-var ingressTests = []struct {
-	msg string
-	in  StackSetContainer
-	out int
-}{
-	{
-		msg: "Test an Ingress is created if specified in the StackSet",
-		in: StackSetContainer{
-			StackContainers: map[types.UID]*StackContainer{
-				"test": {},
-			},
-			StackSet: zv1.StackSet{
-				ObjectMeta: v1.ObjectMeta{
-					Name:      "example",
-					Namespace: "default",
+func TestReconcileIngress(t *testing.T) {
+	var ingressTests = []struct {
+		msg string
+		in  StackSetContainer
+		out int
+	}{
+		{
+			msg: "Test an Ingress is created if specified in the StackSet",
+			in: StackSetContainer{
+				StackContainers: map[types.UID]*StackContainer{
+					"test": {},
 				},
-				Spec: zv1.StackSetSpec{
-					Ingress: &zv1.StackSetIngressSpec{
-						ObjectMeta: v1.ObjectMeta{
-							Namespace: "default",
+				StackSet: zv1.StackSet{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "example",
+						Namespace: "default",
+					},
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							ObjectMeta: v1.ObjectMeta{
+								Namespace: "default",
+							},
+							BackendPort: intstr.FromInt(80),
+							Hosts:       []string{"example.com"},
+							Path:        "example",
 						},
-						BackendPort: intstr.FromInt(80),
-						Hosts:       []string{"example.com"},
-						Path:        "example",
 					},
 				},
 			},
+			out: 1,
 		},
-		out: 1,
-	},
-	{ // TODO: Test that per stack ingresses were also cleaned up
-		msg: "Test Ingress gets deleted if not defined in StackSet Spec",
-		in: StackSetContainer{
-			Ingress: &v1beta1.Ingress{},
-		},
-		out: 0,
-	},
-	{
-		msg: "Test that if an Ingress Spec is updated, the Ingress will also be updated",
-		in: StackSetContainer{
-			StackContainers: map[types.UID]*StackContainer{
-				"test": {},
+		{ // TODO: Test that per stack ingresses were also cleaned up
+			msg: "Test Ingress gets deleted if not defined in StackSet Spec",
+			in: StackSetContainer{
+				Ingress: &v1beta1.Ingress{},
 			},
-			StackSet: zv1.StackSet{
-				ObjectMeta: v1.ObjectMeta{
-					Name:      "example",
-					Namespace: "default",
+			out: 0,
+		},
+		{
+			msg: "Test that if an Ingress Spec is updated, the Ingress will also be updated",
+			in: StackSetContainer{
+				StackContainers: map[types.UID]*StackContainer{
+					"test": {},
 				},
-				Spec: zv1.StackSetSpec{
-					Ingress: &zv1.StackSetIngressSpec{
-						ObjectMeta: v1.ObjectMeta{
-							Namespace: "default",
+				StackSet: zv1.StackSet{
+					ObjectMeta: v1.ObjectMeta{
+						Name:      "example",
+						Namespace: "default",
+					},
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							ObjectMeta: v1.ObjectMeta{
+								Namespace: "default",
+							},
+							BackendPort: intstr.FromInt(80),
+							Hosts:       []string{"example.com"},
+							Path:        "example",
 						},
-						BackendPort: intstr.FromInt(80),
-						Hosts:       []string{"example.com"},
-						Path:        "example",
 					},
 				},
-			},
-			Ingress: &v1beta1.Ingress{
-				ObjectMeta: v1.ObjectMeta{
-					Name: "example",
-				},
-				Spec: v1beta1.IngressSpec{
-					Rules: []v1beta1.IngressRule{
-						{
-							Host: "not-example.com",
-							IngressRuleValue: v1beta1.IngressRuleValue{
-								HTTP: &v1beta1.HTTPIngressRuleValue{
-									Paths: []v1beta1.HTTPIngressPath{
-										{
-											Backend: v1beta1.IngressBackend{
-												ServicePort: intstr.FromInt(8080),
+				Ingress: &v1beta1.Ingress{
+					ObjectMeta: v1.ObjectMeta{
+						Name: "example",
+					},
+					Spec: v1beta1.IngressSpec{
+						Rules: []v1beta1.IngressRule{
+							{
+								Host: "not-example.com",
+								IngressRuleValue: v1beta1.IngressRuleValue{
+									HTTP: &v1beta1.HTTPIngressRuleValue{
+										Paths: []v1beta1.HTTPIngressPath{
+											{
+												Backend: v1beta1.IngressBackend{
+													ServicePort: intstr.FromInt(8080),
+												},
 											},
 										},
 									},
@@ -105,12 +106,10 @@ var ingressTests = []struct {
 					},
 				},
 			},
+			out: 1,
 		},
-		out: 1,
-	},
-}
+	}
 
-func TestReconcileIngress(t *testing.T) {
 	for _, tc := range ingressTests {
 		t.Run(tc.msg, func(t *testing.T) {
 			controller := getFakeController()
@@ -136,30 +135,15 @@ func TestReconcileIngress(t *testing.T) {
 	}
 }
 
-func (c *StackSetController) NewIngressReconiler(sc StackSetContainer) *ingressReconciler {
-	return &ingressReconciler{
-		logger: c.logger.WithFields(
-			log.Fields{
-				"controller": "ingress",
-				"stackset":   sc.StackSet.Name,
-				"namespace":  sc.StackSet.Namespace,
-			},
-		),
-		client:   c.client,
-		recorder: c.recorder,
-	}
-}
-
-
 func TestGcStackIngress(t *testing.T) {
 	var gcTests = []struct {
-		msg string
-		in  StackSetContainer
+		msg           string
+		in            StackSetContainer
 		createIngress bool
 	}{
 		{
 			msg: "If the ingress doesn't exist, nothing happens",
-			in:  StackSetContainer{
+			in: StackSetContainer{
 				StackContainers: map[types.UID]*StackContainer{
 					"test": {},
 				},
@@ -173,19 +157,17 @@ func TestGcStackIngress(t *testing.T) {
 						Stack: zv1.Stack{
 							TypeMeta: v1.TypeMeta{
 								APIVersion: "v1",
-								Kind: "test",
+								Kind:       "test",
 							},
 							ObjectMeta: v1.ObjectMeta{
 								Name: "example",
-								UID: types.UID("1234"),
+								UID:  types.UID("1234"),
 							},
 						},
 					},
 				},
-
 			},
 			createIngress: true,
-
 		},
 	}
 	for _, tc := range gcTests {
@@ -201,7 +183,7 @@ func TestGcStackIngress(t *testing.T) {
 		}
 
 		t.Run(tc.msg, func(t *testing.T) {
-			ingressReconciler := controller.NewIngressReconiler(StackSetContainer{})
+			ingressReconciler := controller.NewIngressReconciler(StackSetContainer{})
 
 			err := ingressReconciler.gcStackIngress(stack)
 
