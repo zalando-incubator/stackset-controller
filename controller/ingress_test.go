@@ -149,26 +149,26 @@ func TestGcStackIngress(t *testing.T) {
 				},
 			},
 		},
-		{
-			msg: "If the ingress is owned by another resource it doesn't get cleaned up",
-			in: StackSetContainer{
-				StackContainers: map[types.UID]*StackContainer{
-					"test": {
-						Stack: zv1.Stack{
-							TypeMeta: v1.TypeMeta{
-								APIVersion: "v1",
-								Kind:       "test",
-							},
-							ObjectMeta: v1.ObjectMeta{
-								Name: "example",
-								UID:  types.UID("1234"),
-							},
-						},
-					},
-				},
-			},
-			createIngress: true,
-		},
+		//{
+		//	msg: "If the ingress is owned by another resource it doesn't get cleaned up",
+		//	in: StackSetContainer{
+		//		StackContainers: map[types.UID]*StackContainer{
+		//			"test": {
+		//				Stack: zv1.Stack{
+		//					TypeMeta: v1.TypeMeta{
+		//						APIVersion: "v1",
+		//						Kind:       "test",
+		//					},
+		//					ObjectMeta: v1.ObjectMeta{
+		//						Name: "example",
+		//						UID:  types.UID("1234"),
+		//					},
+		//				},
+		//			},
+		//		},
+		//	},
+		//	createIngress: true,
+		//},
 	}
 	for _, tc := range gcTests {
 		controller := getFakeController()
