@@ -1,12 +1,14 @@
 package controller
 
 import (
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	scController "github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
@@ -51,7 +53,7 @@ var ingressTests = []struct {
 		},
 		out: 1,
 	},
-	{	// TODO: Test that per stack ingresses were also cleaned up
+	{ // TODO: Test that per stack ingresses were also cleaned up
 		msg: "Test Ingress gets deleted if not defined in StackSet Spec",
 		in: StackSetContainer{
 			Ingress: &v1beta1.Ingress{},
@@ -105,11 +107,10 @@ var ingressTests = []struct {
 			},
 		},
 		out: 1,
-
 	},
 }
 
-func TestIngress(t *testing.T) {
+func TestReconcileIngress(t *testing.T) {
 	for _, tc := range ingressTests {
 		t.Run(tc.msg, func(t *testing.T) {
 			controller := getFakeController()
@@ -131,6 +132,85 @@ func TestIngress(t *testing.T) {
 				require.Equal(t, tc.in.StackSet.Spec.Ingress.Hosts[0], ingressList.Items[0].Spec.Rules[0].Host)
 				require.Equal(t, tc.in.StackSet.Spec.Ingress.BackendPort, ingressList.Items[0].Spec.Rules[0].IngressRuleValue.HTTP.Paths[0].Backend.ServicePort)
 			}
+		})
+	}
+}
+
+func (c *StackSetController) NewIngressReconiler(sc StackSetContainer) *ingressReconciler {
+	return &ingressReconciler{
+		logger: c.logger.WithFields(
+			log.Fields{
+				"controller": "ingress",
+				"stackset":   sc.StackSet.Name,
+				"namespace":  sc.StackSet.Namespace,
+			},
+		),
+		client:   c.client,
+		recorder: c.recorder,
+	}
+}
+
+
+func TestGcStackIngress(t *testing.T) {
+	var gcTests = []struct {
+		msg string
+		in  StackSetContainer
+		createIngress bool
+	}{
+		{
+			msg: "If the ingress doesn't exist, nothing happens",
+			in:  StackSetContainer{
+				StackContainers: map[types.UID]*StackContainer{
+					"test": {},
+				},
+			},
+		},
+		{
+			msg: "If the ingress is owned by another resource it doesn't get cleaned up",
+			in: StackSetContainer{
+				StackContainers: map[types.UID]*StackContainer{
+					"test": {
+						Stack: zv1.Stack{
+							TypeMeta: v1.TypeMeta{
+								APIVersion: "v1",
+								Kind: "test",
+							},
+							ObjectMeta: v1.ObjectMeta{
+								Name: "example",
+								UID: types.UID("1234"),
+							},
+						},
+					},
+				},
+
+			},
+			createIngress: true,
+
+		},
+	}
+	for _, tc := range gcTests {
+		controller := getFakeController()
+		stack := tc.in.Stacks()[0]
+		if tc.createIngress {
+			_, err := controller.client.ExtensionsV1beta1().Ingresses(stack.Namespace).Create(&v1beta1.Ingress{
+				ObjectMeta: v1.ObjectMeta{
+					Name: stack.Name,
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		t.Run(tc.msg, func(t *testing.T) {
+			ingressReconciler := controller.NewIngressReconiler(StackSetContainer{})
+
+			err := ingressReconciler.gcStackIngress(stack)
+
+			require.NoError(t, err)
+			if tc.createIngress {
+				_, err := controller.client.ExtensionsV1beta1().Ingresses(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+			}
+
 		})
 	}
 }
