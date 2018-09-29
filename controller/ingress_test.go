@@ -149,26 +149,26 @@ func TestGcStackIngress(t *testing.T) {
 				},
 			},
 		},
-		//{
-		//	msg: "If the ingress is owned by another resource it doesn't get cleaned up",
-		//	in: StackSetContainer{
-		//		StackContainers: map[types.UID]*StackContainer{
-		//			"test": {
-		//				Stack: zv1.Stack{
-		//					TypeMeta: v1.TypeMeta{
-		//						APIVersion: "v1",
-		//						Kind:       "test",
-		//					},
-		//					ObjectMeta: v1.ObjectMeta{
-		//						Name: "example",
-		//						UID:  types.UID("1234"),
-		//					},
-		//				},
-		//			},
-		//		},
-		//	},
-		//	createIngress: true,
-		//},
+		{
+			msg: "If the ingress is owned by another resource it doesn't get cleaned up",
+			in: StackSetContainer{
+				StackContainers: map[types.UID]*StackContainer{
+					"test": {
+						Stack: zv1.Stack{
+							TypeMeta: v1.TypeMeta{
+								APIVersion: "v1",
+								Kind:       "test",
+							},
+							ObjectMeta: v1.ObjectMeta{
+								Name: "example",
+								UID:  types.UID("1234"),
+							},
+						},
+					},
+				},
+			},
+			createIngress: true,
+		},
 	}
 	for _, tc := range gcTests {
 		controller := getFakeController()
@@ -190,6 +190,9 @@ func TestGcStackIngress(t *testing.T) {
 			require.NoError(t, err)
 			if tc.createIngress {
 				_, err := controller.client.ExtensionsV1beta1().Ingresses(stack.Namespace).Get(stack.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				// Trying to cleanup afterwards
+				controller.client.ExtensionsV1beta1().Ingresses(stack.Namespace).Delete(stack.Name, &metav1.DeleteOptions{})
 				require.NoError(t, err)
 			}
 
