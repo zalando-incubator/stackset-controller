@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
@@ -11,7 +13,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"
-	"testing"
 )
 
 func getFakeController() *StackSetController {
@@ -183,7 +184,7 @@ func TestGcStackIngress(t *testing.T) {
 		}
 
 		t.Run(tc.msg, func(t *testing.T) {
-			ingressReconciler := controller.NewIngressReconciler(StackSetContainer{})
+			ingressReconciler := controller.newIngressReconciler(StackSetContainer{})
 
 			err := ingressReconciler.gcStackIngress(stack)
 
