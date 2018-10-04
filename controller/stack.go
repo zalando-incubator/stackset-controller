@@ -336,7 +336,14 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 		}
 	} else {
 		if !equality.Semantic.DeepEqual(origHPA, hpa) {
-			c.logger.Debugf("HPA %s/%s changed: %s", hpa.Namespace, hpa.Name, cmp.Diff(origHPA, hpa))
+			c.logger.Debugf("HPA %s/%s changed: %s",
+				hpa.Namespace, hpa.Name,
+				cmp.Diff(
+					origHPA,
+					hpa,
+					cmpopts.IgnoreUnexported(resource.Quantity{}),
+				),
+			)
 			c.recorder.Eventf(&stack,
 				apiv1.EventTypeNormal,
 				"UpdateHPA",
