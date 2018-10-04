@@ -93,9 +93,15 @@ spec:
                                   type: string
                                 type: object
                           targetAverageValue:
-                            type: string
+                            # quantity type is string or int
+                            oneOf:
+                            - type: string
+                            - type: integer
                           targetValue:
-                            type: string
+                            # quantity type is string or int
+                            oneOf:
+                            - type: string
+                            - type: integer
                       object:
                         properties:
                           metricName:
@@ -109,13 +115,19 @@ spec:
                               name:
                                 type: string
                           targetValue:
-                            type: string
+                            # quantity type is string or int
+                            oneOf:
+                            - type: string
+                            - type: integer
                       pods:
                         properties:
                           metricName:
                             type: string
                           targetAverageValue:
-                            type: string
+                            # quantity type is string or int
+                            oneOf:
+                            - type: string
+                            - type: integer
                       resource:
                         properties:
                           name:
@@ -124,7 +136,10 @@ spec:
                             format: int32
                             type: integer
                           targetAverageValue:
-                            type: string
+                            # quantity type is string or int
+                            oneOf:
+                            - type: string
+                            - type: integer
                       type:
                         type: string
                   type: array
