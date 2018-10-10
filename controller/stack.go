@@ -139,13 +139,13 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	}
 
 	// If the deployment is scaled down by the downscaler then scale it back up again
-	if *deployment.Spec.Replicas == 0 && *stack.Spec.Replicas != 0 {
+	if deployment.Spec.Replicas != nil && *deployment.Spec.Replicas == 0 && *stack.Spec.Replicas != 0 {
 		replicas := int32(*stack.Spec.Replicas)
 		deployment.Spec.Replicas = &replicas
 	}
 
 	// The deployment has to be scaled down because the stack has been scaled down then set the replica count
-	if *deployment.Spec.Replicas != 0 && *stack.Spec.Replicas == 0 {
+	if deployment.Spec.Replicas != nil && *deployment.Spec.Replicas != 0 && *stack.Spec.Replicas == 0 {
 		replicas := int32(0)
 		deployment.Spec.Replicas = &replicas
 	}
