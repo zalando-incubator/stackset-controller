@@ -138,6 +138,22 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		deployment.Spec.Replicas = stack.Spec.Replicas
 	}
 
+	// If the deployment is scaled down by the downscaler then scale it back up again
+	if stack.Spec.Replicas != nil && *stack.Spec.Replicas != 0 {
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas == 0 {
+			replicas := int32(*stack.Spec.Replicas)
+			deployment.Spec.Replicas = &replicas
+		}
+	}
+
+	// The deployment has to be scaled down because the stack has been scaled down then set the replica count
+	if stack.Spec.Replicas != nil && *stack.Spec.Replicas == 0 {
+		if deployment.Spec.Replicas == nil || *deployment.Spec.Replicas != 0 {
+			replicas := int32(0)
+			deployment.Spec.Replicas = &replicas
+		}
+	}
+
 	if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0 {
 		if ttl, ok := deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
 			noTrafficSince, err := time.Parse(time.RFC3339, ttl)
