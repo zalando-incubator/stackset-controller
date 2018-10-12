@@ -39,7 +39,12 @@ type ingressReconciler struct {
 
 // ReconcileIngress brings Ingresses of a StackSet to the desired state.
 func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
-	ir := &ingressReconciler{
+	ir := c.newIngressReconciler(sc)
+	return ir.reconcile(sc)
+}
+
+func (c *StackSetController) newIngressReconciler(sc StackSetContainer) *ingressReconciler {
+	return &ingressReconciler{
 		logger: c.logger.WithFields(
 			log.Fields{
 				"controller": "ingress",
@@ -50,7 +55,6 @@ func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
 		client:   c.client,
 		recorder: c.recorder,
 	}
-	return ir.reconcile(sc)
 }
 
 func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
@@ -470,7 +474,7 @@ func (c *ingressReconciler) ingressForStackSet(stackset *zv1.StackSet, origIngre
 		return nil, errNoPaths
 	}
 
-	// sort backends by name to have a consitent generated ingress
+	// sort backends by name to have a consistent generated ingress
 	// resource.
 	sort.Slice(rule.IngressRuleValue.HTTP.Paths, func(i, j int) bool {
 		return rule.IngressRuleValue.HTTP.Paths[i].Backend.ServiceName < rule.IngressRuleValue.HTTP.Paths[j].Backend.ServiceName
