@@ -23,7 +23,8 @@ func getFakeController() *StackSetController {
 }
 
 func TestReconcileIngress(t *testing.T) {
-	var ingressTests = []struct {
+
+	for _, tc := range []struct {
 		msg string
 		in  StackSetContainer
 		out int
@@ -108,9 +109,7 @@ func TestReconcileIngress(t *testing.T) {
 			},
 			out: 1,
 		},
-	}
-
-	for _, tc := range ingressTests {
+	} {
 		t.Run(tc.msg, func(t *testing.T) {
 			controller := getFakeController()
 			// If the StackSetContainer has an ingress create & update it as setup
