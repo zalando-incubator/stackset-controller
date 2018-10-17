@@ -675,6 +675,18 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	return gcCandidates[:gcLimit]
 }
 
+func currentStackVersion(stackset zv1.StackSet) string {
+	version := stackset.Spec.StackTemplate.Spec.Version
+	if version == "" {
+		version = defaultVersion
+	}
+	return version
+}
+
+func generateStackName(stackset zv1.StackSet, version string) string {
+	return stackset.Name + "-" + version
+}
+
 // ReconcileStack brings the Stack created from the current StackSet definition
 // to the desired state.
 func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
@@ -683,12 +695,8 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 		stacksetHeritageLabelKey: stackset.Name,
 	}
 
-	version := stackset.Spec.StackTemplate.Spec.Version
-	if version == "" {
-		version = defaultVersion
-	}
-
-	stackName := stackset.Name + "-" + version
+	stackVersion := currentStackVersion(stackset)
+	stackName := generateStackName(stackset, stackVersion)
 
 	stacks := ssc.Stacks()
 
@@ -708,7 +716,7 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 	stackLabels := mergeLabels(
 		heritageLabels,
 		stackset.Labels,
-		map[string]string{stackVersionLabelKey: version},
+		map[string]string{stackVersionLabelKey: stackVersion},
 	)
 
 	createStack := false

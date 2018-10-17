@@ -154,7 +154,10 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0 {
+	currentStackName := generateStackName(ssc.StackSet, currentStackVersion(ssc.StackSet))
+
+	// Avoid downscaling the current stack
+	if sc.Stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0 {
 		if ttl, ok := deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
 			noTrafficSince, err := time.Parse(time.RFC3339, ttl)
 			if err != nil {
