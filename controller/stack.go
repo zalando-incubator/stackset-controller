@@ -417,8 +417,14 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 
 	service.Labels = stack.Labels
 	service.Spec.Selector = stack.Labels
+
 	// get service ports to be used for the service
-	servicePorts, err := getServicePorts(ssc.StackSet.Spec.Ingress.BackendPort, stack)
+	var backendPort *intstr.IntOrString
+	if ssc.StackSet.Spec.Ingress != nil {
+		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
+	}
+
+	servicePorts, err := getServicePorts(backendPort, stack)
 	if err != nil {
 		return err
 	}
@@ -461,7 +467,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 }
 
 // getServicePorts gets the service ports to be used for the stack service.
-func getServicePorts(backendPort intstr.IntOrString, stack zv1.Stack) ([]v1.ServicePort, error) {
+func getServicePorts(backendPort *intstr.IntOrString, stack zv1.Stack) ([]v1.ServicePort, error) {
 	var servicePorts []v1.ServicePort
 	if stack.Spec.Service == nil || len(stack.Spec.Service.Ports) == 0 {
 		servicePorts = servicePortsFromContainers(stack.Spec.PodTemplate.Spec.Containers)
@@ -470,20 +476,24 @@ func getServicePorts(backendPort intstr.IntOrString, stack zv1.Stack) ([]v1.Serv
 	}
 
 	// validate that one port in the list map to the backendPort.
-	for _, port := range servicePorts {
-		switch backendPort.Type {
-		case intstr.Int:
-			if port.Port == backendPort.IntVal {
-				return servicePorts, nil
-			}
-		case intstr.String:
-			if port.Name == backendPort.StrVal {
-				return servicePorts, nil
+	if backendPort != nil {
+		for _, port := range servicePorts {
+			switch backendPort.Type {
+			case intstr.Int:
+				if port.Port == backendPort.IntVal {
+					return servicePorts, nil
+				}
+			case intstr.String:
+				if port.Name == backendPort.StrVal {
+					return servicePorts, nil
+				}
 			}
 		}
+
+		return nil, fmt.Errorf("no service ports matching backendPort '%s'", backendPort.String())
 	}
 
-	return nil, fmt.Errorf("no service ports matching backendPort '%s'", backendPort.String())
+	return servicePorts, nil
 }
 
 // servicePortsFromTemplate gets service port from pod template.
