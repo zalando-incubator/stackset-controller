@@ -146,6 +146,64 @@ spec:
                 minReplicas:
                   format: int32
                   type: integer
+
+
+            autoscaling:
+              properties:
+                minReplicas:
+                  type: integer
+                maxReplicas:
+                  type: integer
+                metrics:
+                  type: array
+                  items:
+                    required:
+                    - metricType
+                    properties:
+                      metricType:
+                        type: string
+                      endpoint:
+                        properties:
+                          port:
+                            type: integer
+                          path:
+                            type: string
+                          key:
+                            type: string
+                        required:
+                        - port
+                        - path
+                        - key
+                      average:
+                        type: integer
+                      queue:
+                        properties:
+                          name:
+                            type: string
+                          region:
+                            type: string
+                        required:
+                        - name
+                        - region
+                      averageUtilization:
+                        type: integer
+                      check:
+                        properties:
+                          id:
+                            type: integer
+                          key:
+                            type: string
+                          entities:
+                            properties:
+                              application:
+                                type: string
+                              type:
+                                type: string
+                        required:
+                        - id
+                        - key
+                        - entities
+
             service:
               properties:
                 metadata:
