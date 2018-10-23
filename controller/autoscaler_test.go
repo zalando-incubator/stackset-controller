@@ -41,6 +41,15 @@ func generateSSAutoscalerCPU(minReplicas, maxReplicas, utilization int32) *Stack
 	return container
 }
 
+func generateSSAutoscalerMemory(minReplicas, maxReplicas, utilization int32) *StackSetContainer {
+	container := generateSSAutoscalerStub(minReplicas, maxReplicas)
+	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
+		container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+			Type:               MemoryMetricName,
+			AverageUtilization: &utilization,
+		})
+	return container
+}
 func generateSSAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueName, queueRegion string) *StackSetContainer {
 	container := generateSSAutoscalerStub(minReplicas, maxReplicas)
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
@@ -99,6 +108,21 @@ func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	assert.Equal(t, *cpuMetric.Resource.TargetAverageUtilization, int32(80))
 }
 
+func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
+	controller := StackSetController{}
+	container := generateSSAutoscalerMemory(1, 10, 80)
+	err := controller.ReconcileAutoscalers(container)
+	assert.NoError(t, err, "failed to reconcile autoscaler")
+	hpa := container.StackSet.Spec.StackTemplate.Spec.HorizontalPodAutoscaler
+	assert.NotNil(t, hpa, "hpa not generated")
+	assert.Equal(t, int32(1), *hpa.MinReplicas, "min replicas not generated correctly")
+	assert.Equal(t, int32(10), hpa.MaxReplicas, "max replicas generated incorrectly")
+	assert.Len(t, hpa.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Metrics))
+	memoryMetric := hpa.Metrics[0]
+	assert.Equal(t, memoryMetric.Type, v2beta1.ResourceMetricSourceType)
+	assert.Equal(t, memoryMetric.Resource.Name, v12.ResourceMemory)
+	assert.Equal(t, *memoryMetric.Resource.TargetAverageUtilization, int32(80))
+}
 func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
 	controller := StackSetController{}
 	container := generateSSAutoscalerSQS(1, 10, 80, "test-queue", "test-region")
@@ -162,6 +186,19 @@ func TestCPUMetricValid(t *testing.T) {
 func TestCPUMetricInValid(t *testing.T) {
 	metrics := v1.AutoscalerMetrics{Type: "cpu", AverageUtilization: nil}
 	_, err := CPUMetric(metrics)
+	assert.Error(t, err, "created metric even when utilization not specified")
+}
+func TestMemoryMetricValid(t *testing.T) {
+	var utilization int32 = 80
+	metrics := v1.AutoscalerMetrics{Type: "memory", AverageUtilization: &utilization}
+	metric, err := MemoryMetric(metrics)
+	assert.NoError(t, err, "could not create hpa metric")
+	assert.Equal(t, metric.Resource.Name, v12.ResourceMemory)
+}
+
+func TestMemoryMetricInValid(t *testing.T) {
+	metrics := v1.AutoscalerMetrics{Type: "memory", AverageUtilization: nil}
+	_, err := MemoryMetric(metrics)
 	assert.Error(t, err, "created metric even when utilization not specified")
 }
 

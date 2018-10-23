@@ -12,14 +12,15 @@ import (
 
 const (
 	AmazonSQSMetricName   = "AmazonSQS"
-	PodJSONMetricName     = "PodJson"
+	PodJSONMetricName     = "PodJSON"
 	IngressMetricName     = "Ingress"
 	CPUMetricName         = "CPU"
+	MemoryMetricName      = "Memory"
 	ZMONMetricName        = "ZMON"
 	requestsPerSecondName = "requests-per-second"
-	metricConfigJsonPath  = "metric-config.pods.%s.json-path/path"
-	metricConfigJsonKey   = "metric-config.pods.%s.json-path/json-key"
-	metricConfigJsonPort  = "metric-config.pods.%s.json-path/port"
+	metricConfigJSONPath  = "metric-config.pods.%s.json-path/path"
+	metricConfigJSONKey   = "metric-config.pods.%s.json-path/json-key"
+	metricConfigJSONPort  = "metric-config.pods.%s.json-path/port"
 	SQSQueueLengthTag     = "sqs-queue-length"
 	SQSQueueNameTag       = "queue-name"
 	SQSQueueRegionTag     = "region"
@@ -38,8 +39,10 @@ func (c *StackSetController) ReconcileAutoscalers(container *StackSetContainer) 
 		generatedHPA.Metrics = make([]autoscaling.MetricSpec, len(autoscaler.Metrics))
 
 		for i, m := range autoscaler.Metrics {
-			var generated autoscaling.MetricSpec
-			var err error
+			var (
+				generated *autoscaling.MetricSpec
+				err       error
+			)
 			switch m.Type {
 			case AmazonSQSMetricName:
 				generated, err = SQSMetric(m)
@@ -68,22 +71,41 @@ func (c *StackSetController) ReconcileAutoscalers(container *StackSetContainer) 
 				if err != nil {
 					return err
 				}
+			case MemoryMetricName:
+				generated, err = MemoryMetric(m)
+				if err != nil {
+					return err
+				}
 			default:
 				return fmt.Errorf("metric type %s not supported", m.Type)
 			}
 
-			generatedHPA.Metrics[i] = generated
+			generatedHPA.Metrics[i] = *generated
 		}
 		container.StackSet.Spec.StackTemplate.Spec.HorizontalPodAutoscaler = &generatedHPA
 	}
 	return nil
 }
 
-func CPUMetric(metrics zv1.AutoscalerMetrics) (autoscaling.MetricSpec, error) {
+func MemoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	if metrics.AverageUtilization == nil {
-		return autoscaling.MetricSpec{}, fmt.Errorf("utilization is not specified")
+		return nil, fmt.Errorf("utilization is not specified")
 	}
-	generated := autoscaling.MetricSpec{
+	generated := &autoscaling.MetricSpec{
+		Type:autoscaling.ResourceMetricSourceType,
+		Resource:&autoscaling.ResourceMetricSource{
+			Name: v1.ResourceMemory,
+			TargetAverageUtilization:metrics.AverageUtilization,
+		},
+	}
+	return generated, nil
+}
+
+func CPUMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
+	if metrics.AverageUtilization == nil {
+		return nil, fmt.Errorf("utilization is not specified")
+	}
+	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ResourceMetricSourceType,
 		Resource: &autoscaling.ResourceMetricSource{
 			Name:                     v1.ResourceCPU,
@@ -93,18 +115,18 @@ func CPUMetric(metrics zv1.AutoscalerMetrics) (autoscaling.MetricSpec, error) {
 	return generated, nil
 }
 
-func SQSMetric(metrics zv1.AutoscalerMetrics) (autoscaling.MetricSpec, error) {
+func SQSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	if metrics.Average == nil {
-		return autoscaling.MetricSpec{}, fmt.Errorf("average not specified")
+		return nil, fmt.Errorf("average not specified")
 	}
 	quantity, err := resource.ParseQuantity(strconv.Itoa(int(*metrics.Average)))
 	if err != nil {
-		return autoscaling.MetricSpec{}, err
+		return nil, err
 	}
 	if metrics.Queue == nil || metrics.Queue.Name == "" || metrics.Queue.Region == "" {
-		return autoscaling.MetricSpec{}, fmt.Errorf("queue not specified correctly")
+		return nil, fmt.Errorf("queue not specified correctly")
 	}
-	generated := autoscaling.MetricSpec{
+	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
 			MetricName: SQSQueueLengthTag,
@@ -117,15 +139,15 @@ func SQSMetric(metrics zv1.AutoscalerMetrics) (autoscaling.MetricSpec, error) {
 	return generated, nil
 }
 
-func PodJsonMetric(metrics zv1.AutoscalerMetrics) (autoscaling.MetricSpec, map[string]string, error) {
+func PodJsonMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[string]string, error) {
 	if metrics.Average == nil {
-		return autoscaling.MetricSpec{}, nil, fmt.Errorf("average is not specified for metric")
+		return nil, nil, fmt.Errorf("average is not specified for metric")
 	}
 	quantity, err := resource.ParseQuantity(strconv.Itoa(int(*metrics.Average)))
 	if err != nil {
-		return autoscaling.MetricSpec{}, nil, err
+		return nil, nil, err
 	}
-	generated := autoscaling.MetricSpec{
+	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.PodsMetricSourceType,
 		Pods: &autoscaling.PodsMetricSource{
 			MetricName:         metrics.Endpoint.Name,
@@ -133,24 +155,24 @@ func PodJsonMetric(metrics zv1.AutoscalerMetrics) (autoscaling.MetricSpec, map[s
 		},
 	}
 	if metrics.Endpoint == nil || metrics.Endpoint.Port == 0 || metrics.Endpoint.Path == "" || metrics.Endpoint.Key == "" || metrics.Endpoint.Name == "" {
-		return autoscaling.MetricSpec{}, nil, fmt.Errorf("the metrics endpoint is not specified correctly")
+		return nil, nil, fmt.Errorf("the metrics endpoint is not specified correctly")
 	}
 	annotations := map[string]string{
-		fmt.Sprintf(metricConfigJsonKey, metrics.Endpoint.Name):  metrics.Endpoint.Key,
-		fmt.Sprintf(metricConfigJsonPath, metrics.Endpoint.Name): metrics.Endpoint.Path,
-		fmt.Sprintf(metricConfigJsonPort, metrics.Endpoint.Name): strconv.Itoa(int(metrics.Endpoint.Port)),
+		fmt.Sprintf(metricConfigJSONKey, metrics.Endpoint.Name):  metrics.Endpoint.Key,
+		fmt.Sprintf(metricConfigJSONPath, metrics.Endpoint.Name): metrics.Endpoint.Path,
+		fmt.Sprintf(metricConfigJSONPort, metrics.Endpoint.Name): strconv.Itoa(int(metrics.Endpoint.Port)),
 	}
 	return generated, annotations, nil
 }
-func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName string) (autoscaling.MetricSpec, error) {
+func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName string) (*autoscaling.MetricSpec, error) {
 	if metrics.Average == nil {
-		return autoscaling.MetricSpec{}, fmt.Errorf("average value not specified for metric")
+		return nil, fmt.Errorf("average value not specified for metric")
 	}
 	quantity, err := resource.ParseQuantity(strconv.Itoa(int(*metrics.Average)))
 	if err != nil {
-		return autoscaling.MetricSpec{}, err
+		return nil, err
 	}
-	generated := autoscaling.MetricSpec{
+	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ObjectMetricSourceType,
 		Object: &autoscaling.ObjectMetricSource{
 			MetricName: requestsPerSecondName,

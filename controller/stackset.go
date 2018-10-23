@@ -98,14 +98,12 @@ func (c *StackSetController) Run(ctx context.Context) {
 				if err != nil {
 					c.recorder.Event(&container.StackSet, v1.EventTypeWarning,
 						"GenerateHPA", fmt.Sprintf("Failed to generate HPA %v", err.Error()))
-					c.logger.Error(err)
 				}
 
 				container := *container
 
 				reconcileGroup.Go(func() error {
 					if _, ok := c.stacksetStore[stackset]; ok {
-
 						err = c.ReconcileStack(container)
 						if err != nil {
 							c.logger.Error(err)
