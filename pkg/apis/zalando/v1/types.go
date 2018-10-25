@@ -61,6 +61,47 @@ type StackTemplate struct {
 	Spec              StackSpecTemplate `json:"spec"`
 }
 
+// MetricsEndpoint specified the endpoint where the custom endpoint where the metrics
+// can be queried
+// +k8s:deepcopy-gen=true
+type MetricsEndpoint struct {
+	Port int32  `json:"port"`
+	Path string `json:"path"`
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
+// MetricsQueue specifies the SQS queue whose length should be used for scaling
+// +k8s:deepcopy-gen=true
+type MetricsQueue struct {
+	Name   string `json:"name"`
+	Region string `json:"region"`
+}
+
+// AutoscalerMetrics is the type of metric to be be used for autoscaling
+// +k8s:deepcopy-gen=true
+type AutoscalerMetrics struct {
+	Type               string           `json:"metricType"`
+	Average            *int32           `json:"average,omitEmpty"`
+	Endpoint           *MetricsEndpoint `json:"endpoint,omitEmpty"`
+	AverageUtilization *int32           `json:"averageUtilization,omitEmpty"`
+	Queue              *MetricsQueue    `json:"queue,omitEmpty"`
+}
+
+// Autoscaler is the autoscaling definition for a stack
+// +k8s:deepcopy-gen=true
+type Autoscaler struct {
+	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
+	// It defaults to 1 pod.
+	// +optional
+	MinReplicas *int32 `json:"minReplicas,omitempty" protobuf:"varint,2,opt,name=minReplicas"`
+	// maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
+	// It cannot be less that minReplicas.
+	MaxReplicas int32 `json:"maxReplicas" protobuf:"varint,3,opt,name=maxReplicas"`
+
+	Metrics []AutoscalerMetrics `json:"metrics"`
+}
+
 // HorizontalPodAutoscaler is the Autoscaling configuration of a Stack. If
 // defined an HPA will be created for the Stack.
 // +k8s:deepcopy-gen=true
@@ -138,6 +179,8 @@ type StackSpec struct {
 	Service *StackServiceSpec `json:"service,omitempty"`
 	// PodTemplate describes the pods that will be created.
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate" protobuf:"bytes,3,opt,name=template"`
+
+	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
 }
 
 // StackServiceSpec makes it possible to customize the service generated for

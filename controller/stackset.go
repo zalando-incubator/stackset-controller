@@ -20,7 +20,7 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
 	apiv1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,6 +93,12 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			var reconcileGroup errgroup.Group
 			for stackset, container := range stackContainers {
+				err = c.ReconcileAutoscalers(container)
+				if err != nil {
+					c.recorder.Event(&container.StackSet, v1.EventTypeWarning,
+						"GenerateHPA", fmt.Sprintf("Failed to generate HPA %v", err.Error()))
+				}
+
 				container := *container
 
 				reconcileGroup.Go(func() error {
