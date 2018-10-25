@@ -148,7 +148,7 @@ spec:
                   type: integer
 
 
-            autoscaling:
+            autoscaler:
               properties:
                 minReplicas:
                   type: integer

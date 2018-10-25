@@ -128,3 +128,70 @@ Here you must make sure that the value used for `spec.ingress.backendPort` also
 maps to one of the ports in the `Service`, either by name or port number.
 Additionally the service ports should map to corresponding container ports also
 by name or port number.
+
+### Specifying Horizontal Pod Autoscaler
+
+A [Horizontal Pod Autoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
+can be attached to the the deployment created by the stackset.
+HPAs can be used to scale the number of pods based on metrics from different sources.
+Specifying an HPA for a deployment allows the stack to scale up during periods of higher
+traffic and then scale back down during off-peak hours to save costs.
+
+HPAs can be specified in 2 different ways for stacksets. The first is to use the `horizontalPodAutoscaler`
+field which is similar in syntax to the original Horizontal Pod Autoscaler. The second way is to use
+the `autoscaler` field. This is then resolved by the _stackset-controller_ which generates an HPA
+with an equivalent spec. Currently, the autoscaler can be used to specify scaling based on 4 metrics:
+
+1. `cpu`
+2. `memory`
+3. `AmazonSQS`
+4. `PodJSON`
+5. `Ingress`
+
+_Note:_ Based on the metrics type specified you may need to also deploy the [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter)
+in your cluster.
+
+Following is an example using the `autoscaler` field to generate an HPA with CPU metrics and external metrics based
+on AmazonSQS queue size.
+
+```yaml
+autoscaling:
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: AmazonSQS
+    queue:
+      name: foo
+      region: eu-west-1
+    average: 30
+  - type: CPU
+    averageUtilization: 80
+```
+
+Here the stackset would be scaled based on the length of the Amazon SQS Queue size so that there are no more
+than 30 items in the queue per pod. Also the autoscaler tries to keep the CPU usage below 80% in the pods by
+scaling. If multiple metrics are specified then the HPA calculates the number of pods required per metrics
+and uses the higest recommendation.
+
+JSON metrics exposed by the pods are also supported. Here's an example where the pods expose metrics in
+JSON format on the `/metrics` endpoint on port 9090. The key for the metrics should be specified as well.
+
+```yaml
+type: PodJson
+endpoint:
+  port: 9090
+  path: /metrics
+  key: '$.http_server.rps'
+average: 1k
+```
+
+If the [kube-aws-ingress-controller](https://github.com/zalando-incubator/kube-ingress-aws-controller) is used in
+the cluster then scaling can also be done based on the requests received by the stack. The following autoscaler
+metric specifies that the number of requests per pod should not be more 30.
+
+```yaml
+type: Ingress
+ingress:
+  name: my-app
+average: 30
+```

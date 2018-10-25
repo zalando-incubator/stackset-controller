@@ -174,7 +174,7 @@ spec:
                         minReplicas:
                           format: int32
                           type: integer
-                    autoscaling:
+                    autoscaler:
                       properties:
                         minReplicas:
                           type: integer
