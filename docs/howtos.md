@@ -155,7 +155,7 @@ Following is an example using the `autoscaler` field to generate an HPA with CPU
 on AmazonSQS queue size.
 
 ```yaml
-autoscaling:
+autoscaler:
   minReplicas: 1
   maxReplicas: 3
   metrics:
