@@ -158,9 +158,9 @@ spec:
                   type: array
                   items:
                     required:
-                    - metricType
+                    - type
                     properties:
-                      metricType:
+                      type:
                         type: string
                       endpoint:
                         properties:
