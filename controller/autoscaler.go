@@ -2,12 +2,13 @@ package controller
 
 import (
 	"fmt"
+	"strconv"
+
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strconv"
 )
 
 const (
@@ -92,10 +93,10 @@ func MemoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error
 		return nil, fmt.Errorf("utilization is not specified")
 	}
 	generated := &autoscaling.MetricSpec{
-		Type:autoscaling.ResourceMetricSourceType,
-		Resource:&autoscaling.ResourceMetricSource{
-			Name: v1.ResourceMemory,
-			TargetAverageUtilization:metrics.AverageUtilization,
+		Type: autoscaling.ResourceMetricSourceType,
+		Resource: &autoscaling.ResourceMetricSource{
+			Name:                     v1.ResourceMemory,
+			TargetAverageUtilization: metrics.AverageUtilization,
 		},
 	}
 	return generated, nil

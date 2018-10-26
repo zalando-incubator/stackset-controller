@@ -81,7 +81,7 @@ type MetricsQueue struct {
 // AutoscalerMetrics is the type of metric to be be used for autoscaling
 // +k8s:deepcopy-gen=true
 type AutoscalerMetrics struct {
-	Type               string           `json:"metricType"`
+	Type               string           `json:"type"`
 	Average            *int32           `json:"average,omitEmpty"`
 	Endpoint           *MetricsEndpoint `json:"endpoint,omitEmpty"`
 	AverageUtilization *int32           `json:"averageUtilization,omitEmpty"`
