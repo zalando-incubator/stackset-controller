@@ -32,6 +32,7 @@ func TestReconcileIngress(t *testing.T) {
 		{
 			msg: "Test an Ingress is created if specified in the StackSet",
 			in: StackSetContainer{
+				TrafficReconciler: SimpleTrafficReconciler{},
 				StackContainers: map[types.UID]*StackContainer{
 					"test": {},
 				},
@@ -57,13 +58,15 @@ func TestReconcileIngress(t *testing.T) {
 		{ // TODO: Test that per stack ingresses were also cleaned up
 			msg: "Test Ingress gets deleted if not defined in StackSet Spec",
 			in: StackSetContainer{
-				Ingress: &v1beta1.Ingress{},
+				TrafficReconciler: SimpleTrafficReconciler{},
+				Ingress:           &v1beta1.Ingress{},
 			},
 			out: 0,
 		},
 		{
 			msg: "Test that if an Ingress Spec is updated, the Ingress will also be updated",
 			in: StackSetContainer{
+				TrafficReconciler: SimpleTrafficReconciler{},
 				StackContainers: map[types.UID]*StackContainer{
 					"test": {},
 				},

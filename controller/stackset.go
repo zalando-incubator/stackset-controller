@@ -207,6 +207,9 @@ type StackSetContainer struct {
 	// StackSet. The values of this are derived from the related Ingress
 	// resource. The key of the map is the Stack name.
 	Traffic map[string]TrafficStatus
+
+	// TODO:
+	TrafficReconciler TrafficReconciler
 }
 
 // Stacks returns a slice of Stack resources.
@@ -292,8 +295,9 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 	for uid, stackset := range c.stacksetStore {
 		stackset := stackset
 		stacksets[uid] = &StackSetContainer{
-			StackSet:        stackset,
-			StackContainers: map[types.UID]*StackContainer{},
+			StackSet:          stackset,
+			StackContainers:   map[types.UID]*StackContainer{},
+			TrafficReconciler: SimpleTrafficReconciler{},
 		}
 	}
 
