@@ -1,15 +1,104 @@
 package controller
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
+	for _, ti := range []struct {
+		msg                 string
+		hpa                 *autoscaling.HorizontalPodAutoscaler
+		deployment          *appsv1.Deployment
+		stack               *zv1.Stack
+		expectedMinReplicas int32
+		expectedMaxReplicas int32
+		err                 error
+	}{
+		{
+			msg: "minReplicas should match prescale replicas",
+			hpa: &autoscaling.HorizontalPodAutoscaler{},
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						prescaleAnnotationKey: "10",
+					},
+				},
+			},
+			stack: &zv1.Stack{
+				Spec: zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &[]int32{10}[0],
+						MaxReplicas: 20,
+					},
+				},
+			},
+			expectedMaxReplicas: 20,
+			expectedMinReplicas: 10,
+		},
+		{
+			msg: "Invalid prescale replicas should return error",
+			hpa: &autoscaling.HorizontalPodAutoscaler{},
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						prescaleAnnotationKey: "abc",
+					},
+				},
+			},
+			stack: &zv1.Stack{
+				Spec: zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &[]int32{10}[0],
+						MaxReplicas: 20,
+					},
+				},
+			},
+			err: errors.New("failure"),
+		},
+	} {
+		tt.Run(ti.msg, func(t *testing.T) {
+			trafficReconciler := &PrescaleTrafficReconciler{}
+			err := trafficReconciler.ReconcileHPA(ti.stack, ti.hpa, ti.deployment)
+			if ti.err != nil {
+				require.Error(t, err)
+			} else {
+				require.Equal(t, ti.expectedMinReplicas, *ti.hpa.Spec.MinReplicas)
+				require.Equal(t, ti.expectedMaxReplicas, ti.hpa.Spec.MaxReplicas)
+			}
+		})
+	}
+}
+
+func TestGetDeploymentPrescale(t *testing.T) {
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				prescaleAnnotationKey: "10",
+			},
+		},
+	}
+
+	prescale, ok := getDeploymentPrescale(deployment)
+	require.True(t, ok)
+	require.Equal(t, int32(10), prescale)
+
+	deployment.Annotations = map[string]string{}
+	_, ok = getDeploymentPrescale(deployment)
+	require.False(t, ok)
+
+	deployment.Annotations = map[string]string{prescaleAnnotationKey: "abc"}
+	_, ok = getDeploymentPrescale(deployment)
+	require.False(t, ok)
+}
 
 func TestReconcileIngressTraffic(tt *testing.T) {
 	for _, ti := range []struct {
