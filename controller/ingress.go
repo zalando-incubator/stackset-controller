@@ -428,22 +428,7 @@ func (c *ingressReconciler) ingressForStackSet(ssc StackSetContainer, origIngres
 		},
 	}
 
-	// get current stack traffic weights stored on ingress.
-	currentWeights := make(map[string]float64, 0)
-	if origIngress != nil {
-		if weights, ok := origIngress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
-			err := json.Unmarshal([]byte(weights), &currentWeights)
-			if err != nil {
-				c.recorder.Eventf(stackset,
-					apiv1.EventTypeWarning,
-					"StackTrafficWeights",
-					"Failed to get current Stack traffic weights: %v", err)
-				return nil, err
-			}
-		}
-	}
-
-	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, currentWeights)
+	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
 
 	for backend, traffic := range availableWeights {
 		if traffic > 0 {

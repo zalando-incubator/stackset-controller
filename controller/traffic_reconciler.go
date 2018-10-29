@@ -20,7 +20,7 @@ const (
 type TrafficReconciler interface {
 	ReconcileDeployment(stackset zv1.StackSet, stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment, scaledownTTL time.Duration) error
 	ReconcileHPA(stack *zv1.Stack, hpa *autoscaling.HorizontalPodAutoscaler, deployment *appsv1.Deployment) error
-	ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, currentWeights map[string]float64) (map[string]float64, map[string]float64)
+	ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64)
 }
 
 type SimpleTrafficReconciler struct{}
@@ -89,19 +89,19 @@ func (r SimpleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscaling
 	return nil
 }
 
-func (r SimpleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, currentWeights map[string]float64) (map[string]float64, map[string]float64) {
+func (r SimpleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
 	stackStatuses := getStackStatuses(stacks)
-	return computeBackendWeights(stackStatuses, currentWeights)
+	return computeBackendWeights(stackStatuses, traffic)
 }
 
-func computeBackendWeights(stacks []stackStatus, traffic map[string]float64) (map[string]float64, map[string]float64) {
+func computeBackendWeights(stacks []stackStatus, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
 	backendWeights := make(map[string]float64, len(stacks))
 	availableBackends := make(map[string]float64, len(stacks))
 	for _, stack := range stacks {
-		backendWeights[stack.Stack.Name] = traffic[stack.Stack.Name]
+		backendWeights[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
 
 		if stack.Available {
-			availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name]
+			availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
 		}
 	}
 
@@ -198,33 +198,57 @@ func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscal
 	return nil
 }
 
-func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, currentWeights map[string]float64) (map[string]float64, map[string]float64) {
-	return nil, nil
+func getDeploymentPrescale(deployment *appsv1.Deployment) (int32, bool) {
+	prescaleReplicasStr, ok := deployment.Annotations[prescaleAnnotationKey]
+	if !ok {
+		return 0, false
+	}
+	prescaleReplicas, err := strconv.Atoi(prescaleReplicasStr)
+	if err != nil {
+		return 0, false
+	}
+	return int32(prescaleReplicas), true
 }
 
-// func getStackStatusesPrescale(stacks map[types.UID]*StackContainer) []stackStatus {
-// 	statuses := make([]stackStatus, 0, len(stacks))
-// 	for _, stack := range stacks {
-// 		status := stackStatus{
-// 			Stack: stack.Stack,
-// 		}
+func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
+	backendWeights := make(map[string]float64, len(stacks))
+	currentWeights := make(map[string]float64, len(stacks))
+	availableBackends := make(map[string]float64, len(stacks))
+	for _, stack := range stacks {
+		backendWeights[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
+		currentWeights[stack.Stack.Name] = traffic[stack.Stack.Name].ActualWeight
 
-// 		// check that service has at least one endpoint, otherwise it
-// 		// should not get traffic.
-// 		endpoints := stack.Resources.Endpoints
-// 		if endpoints == nil {
-// 			status.Available = false
-// 		} else {
-// 			readyEndpoints := 0
-// 			for _, subset := range endpoints.Subsets {
-// 				readyEndpoints += len(subset.Addresses)
-// 			}
+		deployment := stack.Resources.Deployment
 
-// 			status.Available = readyEndpoints > 0
-// 		}
+		// prescale if stack is currently not getting traffic
+		if traffic[stack.Stack.Name].ActualWeight == 0 && deployment != nil {
+			if prescale, ok := getDeploymentPrescale(deployment); ok {
+				var desired int32 = 1
+				if deployment.Spec.Replicas != nil {
+					desired = *deployment.Spec.Replicas
+				}
 
-// 		statuses = append(statuses, status)
-// 	}
+				if desired >= prescale && deployment.Status.ReadyReplicas >= prescale {
+					availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
+				}
+			}
+			continue
+		}
+	}
 
-// 	return statuses
-// }
+	if !allZero(currentWeights) {
+		normalizeWeights(currentWeights)
+	}
+
+	if !allZero(backendWeights) {
+		normalizeWeights(backendWeights)
+	}
+
+	if len(availableBackends) == 0 {
+		availableBackends = currentWeights
+	}
+
+	normalizeWeights(availableBackends)
+
+	return availableBackends, backendWeights
+}

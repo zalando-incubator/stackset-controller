@@ -36,6 +36,7 @@ const (
 	defaultVersion                            = "default"
 	defaultStackLifecycleLimit                = 10
 	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
+	prescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
 	defaultScaledownTTLSeconds                = int64(300)
 )
 
@@ -294,11 +295,20 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 	stacksets := make(map[types.UID]*StackSetContainer, len(c.stacksetStore))
 	for uid, stackset := range c.stacksetStore {
 		stackset := stackset
-		stacksets[uid] = &StackSetContainer{
+		stacksetContainer := &StackSetContainer{
 			StackSet:          stackset,
 			StackContainers:   map[types.UID]*StackContainer{},
 			TrafficReconciler: SimpleTrafficReconciler{},
 		}
+
+		// use prescaling logic if enabled with an annotation
+		if _, ok := stackset.Annotations[prescaleStacksAnnotationKey]; ok {
+			stacksetContainer.TrafficReconciler = &PrescaleTrafficReconciler{
+				base: SimpleTrafficReconciler{},
+			}
+		}
+
+		stacksets[uid] = stacksetContainer
 	}
 
 	err := c.collectIngresses(stacksets)
