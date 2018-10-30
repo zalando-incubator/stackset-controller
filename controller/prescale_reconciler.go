@@ -3,7 +3,6 @@ package controller
 import (
 	"math"
 	"strconv"
-	"time"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -20,12 +19,10 @@ type PrescaleTrafficReconciler struct {
 	base TrafficReconciler
 }
 
-func (r *PrescaleTrafficReconciler) ReconcileDeployment(stackset zv1.StackSet, stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment, scaledownTTL time.Duration) error {
-	err := r.base.ReconcileDeployment(stackset, stacks, stack, traffic, deployment, scaledownTTL)
-	if err != nil {
-		return err
-	}
-
+// ReconcileDeployment prescales the deployment if the prescale annotation is
+// set. Prescale annotation will only be removed from the deployment after it's
+// getting traffic.
+func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment) error {
 	// prescale logic
 	if prescale, ok := deployment.Annotations[prescaleAnnotationKey]; ok {
 		// don't prescale if desired weight is 0
@@ -76,6 +73,10 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stackset zv1.StackSet, s
 	return nil
 }
 
+// ReconcileHPA sets the MinReplicas to the prescale value defined in the
+// annotation of the deployment. If no annotation is defined then the default
+// minReplicas value is used from the Stack. This means that the HPA is allowed
+// to scale down once the prescaling is done.
 func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscaling.HorizontalPodAutoscaler, deployment *appsv1.Deployment) error {
 	hpa.Spec.MinReplicas = stack.Spec.HorizontalPodAutoscaler.MinReplicas
 	hpa.Spec.MaxReplicas = stack.Spec.HorizontalPodAutoscaler.MaxReplicas
@@ -93,6 +94,8 @@ func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscal
 	return nil
 }
 
+// getDeploymentPrescale parses and returns the prescale value if set in the
+// deployment annotation.
 func getDeploymentPrescale(deployment *appsv1.Deployment) (int32, bool) {
 	prescaleReplicasStr, ok := deployment.Annotations[prescaleAnnotationKey]
 	if !ok {
@@ -105,6 +108,18 @@ func getDeploymentPrescale(deployment *appsv1.Deployment) (int32, bool) {
 	return int32(prescaleReplicas), true
 }
 
+// ReconcileIngress calcuates the traffic distribution for the ingress. The
+// implementation is optimized for prescaling stacks before directing traffic.
+// It works like this:
+//
+// * If stack has a deployment with prescale annotation then it only gets
+//   traffic if it has readyReplicas >= prescaleReplicas.
+// * If stack is getting traffic but ReadyReplicas < prescaleReplicas, don't
+//   remove traffic from it.
+// * If no stacks are currently being prescaled fall back to the current
+//   weights.
+// * If no stacks are getting traffic fall back to desired weight without
+//   checking health.
 func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
 	backendWeights := make(map[string]float64, len(stacks))
 	currentWeights := make(map[string]float64, len(stacks))
