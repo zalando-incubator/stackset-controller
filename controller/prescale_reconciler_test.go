@@ -270,12 +270,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "svc-3",
 				},
-				Spec: zv1.StackSpec{
-					// HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-					// 	MinReplicas: &[]int32{3}[0],
-					// 	MaxReplicas: 20,
-					// },
-				},
+				Spec: zv1.StackSpec{},
 			},
 			traffic: map[string]TrafficStatus{
 				"svc-1": TrafficStatus{
@@ -459,9 +454,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 								Name:        "svc-1",
 								Annotations: map[string]string{},
 							},
-							Status: autoscaling.HorizontalPodAutoscalerStatus{
-								CurrentReplicas: 20,
-							},
 						},
 					},
 				},
@@ -522,14 +514,14 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					DesiredWeight: 50.0,
 				},
 			},
-			expectedReplicas: 30,
+			expectedReplicas: 15,
 			expectedAnnotations: map[string]string{
-				prescaleAnnotationKey: "30",
+				prescaleAnnotationKey: "15",
 			},
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
-			trafficReconciler := &PrescaleTrafficReconciler{}
+			trafficReconciler := PrescaleTrafficReconciler{}
 			err := trafficReconciler.ReconcileDeployment(ti.stacks, ti.stack, ti.traffic, ti.deployment)
 			if ti.err != nil {
 				require.Error(t, err)
@@ -613,7 +605,7 @@ func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
-			trafficReconciler := &PrescaleTrafficReconciler{}
+			trafficReconciler := PrescaleTrafficReconciler{}
 			err := trafficReconciler.ReconcileHPA(ti.stack, ti.hpa, ti.deployment)
 			if ti.err != nil {
 				require.Error(t, err)
@@ -966,8 +958,6 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			expectedAvailableWeights: map[string]float64{
-				"svc-1": 0.0,
-				"svc-2": 0.0,
 				"svc-3": 100.0,
 			},
 			expectedAllWeights: map[string]float64{
@@ -1056,9 +1046,9 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			expectedAvailableWeights: map[string]float64{
-				"svc-1": 0.0,
+				// "svc-1": 0.0,
 				"svc-2": 100.0,
-				"svc-3": 0.0,
+				// "svc-3": 0.0,
 			},
 			expectedAllWeights: map[string]float64{
 				"svc-1": 0.0,
@@ -1068,7 +1058,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
-			trafficReconciler := &PrescaleTrafficReconciler{}
+			trafficReconciler := PrescaleTrafficReconciler{}
 			availableWeights, allWeights := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
 			require.Equal(t, ti.expectedAvailableWeights, availableWeights)
 			require.Equal(t, ti.expectedAllWeights, allWeights)

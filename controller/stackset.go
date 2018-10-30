@@ -303,9 +303,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 
 		// use prescaling logic if enabled with an annotation
 		if _, ok := stackset.Annotations[prescaleStacksAnnotationKey]; ok {
-			stacksetContainer.TrafficReconciler = &PrescaleTrafficReconciler{
-				base: SimpleTrafficReconciler{},
-			}
+			stacksetContainer.TrafficReconciler = PrescaleTrafficReconciler{}
 		}
 
 		stacksets[uid] = stacksetContainer
