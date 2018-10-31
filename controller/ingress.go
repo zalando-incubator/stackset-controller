@@ -98,20 +98,7 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 		return nil
 	}
 
-	stackStatuses, err := c.getStackStatuses(sc.StackContainers)
-	if err != nil {
-		c.recorder.Eventf(&sc.StackSet,
-			apiv1.EventTypeWarning,
-			"GetStackStatus",
-			"Failed to get Stack statuses for StackSet %s/%s: %v",
-			sc.StackSet.Namespace,
-			sc.StackSet.Name,
-			err,
-		)
-		return err
-	}
-
-	ingress, err := c.ingressForStackSet(&sc.StackSet, sc.Ingress, stackStatuses)
+	ingress, err := c.ingressForStackSet(sc, sc.Ingress)
 	if err != nil {
 		if err == errNoPaths {
 			return nil
@@ -183,7 +170,7 @@ type stackStatus struct {
 	Available bool
 }
 
-func (c *ingressReconciler) getStackStatuses(stacks map[types.UID]*StackContainer) ([]stackStatus, error) {
+func getStackStatuses(stacks map[types.UID]*StackContainer) []stackStatus {
 	statuses := make([]stackStatus, 0, len(stacks))
 	for _, stack := range stacks {
 		status := stackStatus{
@@ -207,7 +194,7 @@ func (c *ingressReconciler) getStackStatuses(stacks map[types.UID]*StackContaine
 		statuses = append(statuses, status)
 	}
 
-	return statuses, nil
+	return statuses
 }
 
 func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack) error {
@@ -386,7 +373,8 @@ func (c *ingressReconciler) ingressForStack(stackset *zv1.StackSet, stack *zv1.S
 }
 
 // ingressForStackSet
-func (c *ingressReconciler) ingressForStackSet(stackset *zv1.StackSet, origIngress *v1beta1.Ingress, stackStatuses []stackStatus) (*v1beta1.Ingress, error) {
+func (c *ingressReconciler) ingressForStackSet(ssc StackSetContainer, origIngress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
+	stackset := &ssc.StackSet
 	heritageLabels := map[string]string{
 		stacksetHeritageLabelKey: stackset.Name,
 	}
@@ -440,22 +428,7 @@ func (c *ingressReconciler) ingressForStackSet(stackset *zv1.StackSet, origIngre
 		},
 	}
 
-	// get current stack traffic weights stored on ingress.
-	currentWeights := make(map[string]float64, len(stackStatuses))
-	if origIngress != nil {
-		if weights, ok := origIngress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
-			err := json.Unmarshal([]byte(weights), &currentWeights)
-			if err != nil {
-				c.recorder.Eventf(stackset,
-					apiv1.EventTypeWarning,
-					"StackTrafficWeights",
-					"Failed to get current Stack traffic weights: %v", err)
-				return nil, err
-			}
-		}
-	}
-
-	availableWeights, allWeights := computeBackendWeights(stackStatuses, currentWeights)
+	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
 
 	for backend, traffic := range availableWeights {
 		if traffic > 0 {
@@ -542,33 +515,6 @@ func normalizeWeights(backendWeights map[string]float64) {
 	for backend, weight := range backendWeights {
 		backendWeights[backend] = weight / sum * 100
 	}
-}
-
-func computeBackendWeights(stacks []stackStatus, traffic map[string]float64) (map[string]float64, map[string]float64) {
-	backendWeights := make(map[string]float64, len(stacks))
-	availableBackends := make(map[string]float64, len(stacks))
-	for _, stack := range stacks {
-		backendWeights[stack.Stack.Name] = traffic[stack.Stack.Name]
-
-		if stack.Available {
-			availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name]
-		}
-	}
-
-	// TODO: validate this logic
-	if !allZero(backendWeights) {
-		normalizeWeights(backendWeights)
-	}
-
-	if len(availableBackends) == 0 {
-		availableBackends = backendWeights
-	}
-
-	// TODO: think of case were all are zero and the service/deployment is
-	// deleted.
-	normalizeWeights(availableBackends)
-
-	return availableBackends, backendWeights
 }
 
 // isOwnedReference returns true of the dependent object is owned by the owner

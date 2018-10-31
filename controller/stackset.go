@@ -36,6 +36,8 @@ const (
 	defaultVersion                            = "default"
 	defaultStackLifecycleLimit                = 10
 	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
+	prescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
+	resetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	defaultScaledownTTLSeconds                = int64(300)
 )
 
@@ -207,6 +209,11 @@ type StackSetContainer struct {
 	// StackSet. The values of this are derived from the related Ingress
 	// resource. The key of the map is the Stack name.
 	Traffic map[string]TrafficStatus
+
+	// TrafficReconciler is the reconciler implementation used for
+	// switching traffic between stacks. E.g. for prescaling stacks before
+	// switching traffic.
+	TrafficReconciler TrafficReconciler
 }
 
 // Stacks returns a slice of Stack resources.
@@ -291,10 +298,24 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 	stacksets := make(map[types.UID]*StackSetContainer, len(c.stacksetStore))
 	for uid, stackset := range c.stacksetStore {
 		stackset := stackset
-		stacksets[uid] = &StackSetContainer{
-			StackSet:        stackset,
-			StackContainers: map[types.UID]*StackContainer{},
+		stacksetContainer := &StackSetContainer{
+			StackSet:          stackset,
+			StackContainers:   map[types.UID]*StackContainer{},
+			TrafficReconciler: SimpleTrafficReconciler{},
 		}
+
+		// use prescaling logic if enabled with an annotation
+		if _, ok := stackset.Annotations[prescaleStacksAnnotationKey]; ok {
+			resetDelay := DefaultResetMinReplicasDelay
+			if resetDelayValue, ok := getResetMinReplicasDelay(stackset.Annotations); ok {
+				resetDelay = resetDelayValue
+			}
+			stacksetContainer.TrafficReconciler = &PrescaleTrafficReconciler{
+				ResetHPAMinReplicasTimeout: resetDelay,
+			}
+		}
+
+		stacksets[uid] = stacksetContainer
 	}
 
 	err := c.collectIngresses(stacksets)
@@ -818,4 +839,18 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 		}
 	}
 	return labels
+}
+
+// getResetMinReplicasDelay parses and returns the reset delay if set in the
+// stackset annotation.
+func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, bool) {
+	resetDelayStr, ok := annotations[resetHPAMinReplicasDelayAnnotationKey]
+	if !ok {
+		return 0, false
+	}
+	resetDelay, err := time.ParseDuration(resetDelayStr)
+	if err != nil {
+		return 0, false
+	}
+	return resetDelay, true
 }

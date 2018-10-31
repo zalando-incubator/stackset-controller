@@ -157,7 +157,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	currentStackName := generateStackName(ssc.StackSet, currentStackVersion(ssc.StackSet))
 
 	// Avoid downscaling the current stack
-	if sc.Stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0 {
+	if stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0 {
 		if ttl, ok := deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
 			noTrafficSince, err := time.Parse(time.RFC3339, ttl)
 			if err != nil {
@@ -179,7 +179,11 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	var err error
+	err := ssc.TrafficReconciler.ReconcileDeployment(ssc.StackContainers, &stack, ssc.Traffic, deployment)
+	if err != nil {
+		return err
+	}
+
 	if createDeployment {
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
@@ -333,12 +337,18 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 		}
 	}
 
+	if hpa.Annotations == nil {
+		hpa.Annotations = map[string]string{}
+	}
+
 	hpa.Labels = deployment.Labels
-	hpa.Spec.MinReplicas = stack.Spec.HorizontalPodAutoscaler.MinReplicas
-	hpa.Spec.MaxReplicas = stack.Spec.HorizontalPodAutoscaler.MaxReplicas
 	hpa.Spec.Metrics = stack.Spec.HorizontalPodAutoscaler.Metrics
 
-	var err error
+	err := ssc.TrafficReconciler.ReconcileHPA(&stack, hpa, deployment)
+	if err != nil {
+		return nil, err
+	}
+
 	if createHPA {
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
