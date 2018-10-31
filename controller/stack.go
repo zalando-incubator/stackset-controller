@@ -337,6 +337,10 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 		}
 	}
 
+	if hpa.Annotations == nil {
+		hpa.Annotations = map[string]string{}
+	}
+
 	hpa.Labels = deployment.Labels
 	hpa.Spec.Metrics = stack.Spec.HorizontalPodAutoscaler.Metrics
 
