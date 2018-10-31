@@ -8,24 +8,32 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// TrafficReconciler defines an interface for different traffic reconcilation
+// algorithms.
 type TrafficReconciler interface {
 	ReconcileDeployment(stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment) error
 	ReconcileHPA(stack *zv1.Stack, hpa *autoscaling.HorizontalPodAutoscaler, deployment *appsv1.Deployment) error
 	ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64)
 }
 
+// SimpleTrafficReconciler is the most simple traffic reconciler which
+// implements the default traffic switching supported in the
+// stackset-controller.
 type SimpleTrafficReconciler struct{}
 
+// ReconcileDeployment does not do anything for the simple reconciler.
 func (r SimpleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment) error {
 	return nil
 }
 
+// ReconcileHPA sets the min and max replicas as defined on the Stack.
 func (r SimpleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscaling.HorizontalPodAutoscaler, deployment *appsv1.Deployment) error {
 	hpa.Spec.MinReplicas = stack.Spec.HorizontalPodAutoscaler.MinReplicas
 	hpa.Spec.MaxReplicas = stack.Spec.HorizontalPodAutoscaler.MaxReplicas
 	return nil
 }
 
+// ReconcileIngress computes the ingress traffic to distribute to stacks.
 func (r SimpleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
 	stackStatuses := getStackStatuses(stacks)
 	return computeBackendWeights(stackStatuses, traffic)

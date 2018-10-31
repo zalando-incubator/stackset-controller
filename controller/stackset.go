@@ -210,7 +210,9 @@ type StackSetContainer struct {
 	// resource. The key of the map is the Stack name.
 	Traffic map[string]TrafficStatus
 
-	// TODO:
+	// TrafficReconciler is the reconciler implementation used for
+	// switching traffic between stacks. E.g. for prescaling stacks before
+	// switching traffic.
 	TrafficReconciler TrafficReconciler
 }
 
