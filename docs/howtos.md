@@ -245,3 +245,9 @@ The default delay for resetting the `MinReplicas` of the HPA is 10 min. You can
 configure the time by setting the
 `alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay` annotation
 on the stackset.
+
+**Note**: Even if you switch traffic gradually like `10%...20%..50%..80%..100%`
+It will still prescale to the sum of stacks getting traffic within each step.
+This means that it might overscale for some minutes before the HPA kicks in and
+scales back down to the needed resources. Reliability is favoured over cost in
+the prescale logic.
