@@ -36,9 +36,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &[]int32{3}[0],
 				},
-				// Status: appsv1.DeploymentStatus{
-				// 	ReadyReplicas: 9, // 9/10 ready
-				// },
 			},
 			stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
@@ -67,9 +64,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{5}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 					},
 				},
@@ -88,9 +82,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 					},
 				},
@@ -111,9 +102,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{3}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 9, // 9/10 ready
-							// },
 						},
 					},
 				},
@@ -149,9 +137,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &[]int32{3}[0],
 				},
-				// Status: appsv1.DeploymentStatus{
-				// 	ReadyReplicas: 9, // 9/10 ready
-				// },
 			},
 			stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
@@ -180,9 +165,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{5}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 					},
 				},
@@ -201,9 +183,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 					},
 				},
@@ -224,9 +203,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{3}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 9, // 9/10 ready
-							// },
 						},
 					},
 				},
@@ -262,9 +238,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &[]int32{3}[0],
 				},
-				// Status: appsv1.DeploymentStatus{
-				// 	ReadyReplicas: 9, // 9/10 ready
-				// },
 			},
 			stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
@@ -295,16 +268,10 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "svc-3",
 					Annotations: map[string]string{},
-					// Annotations: map[string]string{
-					// 	prescaleAnnotationKey: "10",
-					// },
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &[]int32{3}[0],
 				},
-				// Status: appsv1.DeploymentStatus{
-				// 	ReadyReplicas: 9, // 9/10 ready
-				// },
 			},
 			stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
@@ -333,9 +300,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{5}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 					},
 				},
@@ -354,9 +318,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 					},
 				},
@@ -375,9 +336,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{3}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 9, // 9/10 ready
-							// },
 						},
 					},
 				},
@@ -407,16 +365,10 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "svc-3",
 					Annotations: map[string]string{},
-					// Annotations: map[string]string{
-					// 	prescaleAnnotationKey: "10",
-					// },
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &[]int32{3}[0],
 				},
-				// Status: appsv1.DeploymentStatus{
-				// 	ReadyReplicas: 9, // 9/10 ready
-				// },
 			},
 			stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
@@ -445,9 +397,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{5}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 						HPA: &autoscaling.HorizontalPodAutoscaler{
 							ObjectMeta: metav1.ObjectMeta{
@@ -472,9 +421,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 10,
-							// },
 						},
 					},
 				},
@@ -493,9 +439,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{3}[0],
 							},
-							// Status: appsv1.DeploymentStatus{
-							// 	ReadyReplicas: 9, // 9/10 ready
-							// },
 						},
 					},
 				},
@@ -517,6 +460,109 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 			expectedReplicas: 15,
 			expectedAnnotations: map[string]string{
 				prescaleAnnotationKey: "15",
+			},
+		},
+		{
+			msg: "prescale stack if desired is > actual (with HPA), cap prescale at Max HPA replicas",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "svc-3",
+					Annotations: map[string]string{},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &[]int32{3}[0],
+				},
+			},
+			stack: &zv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "svc-3",
+				},
+				Spec: zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &[]int32{3}[0],
+						MaxReplicas: 10,
+					},
+				},
+			},
+			stacks: map[types.UID]*StackContainer{
+				types.UID("1"): &StackContainer{
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-1",
+						},
+					},
+					Resources: StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-1",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{5}[0],
+							},
+						},
+						HPA: &autoscaling.HorizontalPodAutoscaler{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-1",
+								Annotations: map[string]string{},
+							},
+						},
+					},
+				},
+				types.UID("2"): &StackContainer{
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-2",
+						},
+					},
+					Resources: StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-2",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{10}[0],
+							},
+						},
+					},
+				},
+				types.UID("3"): &StackContainer{
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-3",
+						},
+					},
+					Resources: StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-3",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+						},
+					},
+				},
+			},
+			traffic: map[string]TrafficStatus{
+				"svc-1": TrafficStatus{
+					ActualWeight:  0.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-2": TrafficStatus{
+					ActualWeight:  50.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-3": TrafficStatus{
+					ActualWeight:  50.0,
+					DesiredWeight: 100.0,
+				},
+			},
+			expectedReplicas: 3,
+			expectedAnnotations: map[string]string{
+				prescaleAnnotationKey: "10",
 			},
 		},
 	} {
