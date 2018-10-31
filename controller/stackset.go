@@ -37,6 +37,7 @@ const (
 	defaultStackLifecycleLimit                = 10
 	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 	prescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
+	resetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	defaultScaledownTTLSeconds                = int64(300)
 )
 
@@ -303,7 +304,13 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 
 		// use prescaling logic if enabled with an annotation
 		if _, ok := stackset.Annotations[prescaleStacksAnnotationKey]; ok {
-			stacksetContainer.TrafficReconciler = PrescaleTrafficReconciler{}
+			resetDelay := DefaultResetMinReplicasDelay
+			if resetDelayValue, ok := getResetMinReplicasDelay(stackset.Annotations); ok {
+				resetDelay = resetDelayValue
+			}
+			stacksetContainer.TrafficReconciler = &PrescaleTrafficReconciler{
+				ResetHPAMinReplicasTimeout: resetDelay,
+			}
 		}
 
 		stacksets[uid] = stacksetContainer
@@ -830,4 +837,18 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 		}
 	}
 	return labels
+}
+
+// getResetMinReplicasDelay parses and returns the reset delay if set in the
+// stackset annotation.
+func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, bool) {
+	resetDelayStr, ok := annotations[resetHPAMinReplicasDelayAnnotationKey]
+	if !ok {
+		return 0, false
+	}
+	resetDelay, err := time.ParseDuration(resetDelayStr)
+	if err != nil {
+		return 0, false
+	}
+	return resetDelay, true
 }

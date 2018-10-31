@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
@@ -581,17 +582,22 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 
 func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 	for _, ti := range []struct {
-		msg                 string
-		hpa                 *autoscaling.HorizontalPodAutoscaler
-		deployment          *appsv1.Deployment
-		stack               *zv1.Stack
-		expectedMinReplicas int32
-		expectedMaxReplicas int32
-		err                 error
+		msg                       string
+		hpa                       *autoscaling.HorizontalPodAutoscaler
+		deployment                *appsv1.Deployment
+		stack                     *zv1.Stack
+		expectedMinReplicas       int32
+		expectedMaxReplicas       int32
+		expectedHPAAnnotationKeys map[string]struct{}
+		err                       error
 	}{
 		{
 			msg: "minReplicas should match prescale replicas",
-			hpa: &autoscaling.HorizontalPodAutoscaler{},
+			hpa: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
@@ -609,6 +615,9 @@ func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 			},
 			expectedMaxReplicas: 20,
 			expectedMinReplicas: 10,
+			expectedHPAAnnotationKeys: map[string]struct{}{
+				resetHPAMinReplicasSinceKey: struct{}{},
+			},
 		},
 		{
 			msg: "Invalid prescale replicas should return error",
@@ -649,15 +658,106 @@ func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 			expectedMaxReplicas: 20,
 			expectedMinReplicas: 3,
 		},
+		{
+			msg: "re-use HPA minReplicas if the ResetHPAMinReplicasTimeout has not expired",
+			hpa: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						resetHPAMinReplicasSinceKey: time.Now().Format(time.RFC3339),
+					},
+				},
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &[]int32{20}[0],
+					MaxReplicas: 20,
+				},
+			},
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			stack: &zv1.Stack{
+				Spec: zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &[]int32{3}[0],
+						MaxReplicas: 20,
+					},
+				},
+			},
+			expectedMaxReplicas: 20,
+			expectedMinReplicas: 20,
+			expectedHPAAnnotationKeys: map[string]struct{}{
+				resetHPAMinReplicasSinceKey: struct{}{},
+			},
+		},
+		{
+			msg: "invalid date format for 'min-replicas-prescale-since' should be an error.",
+			hpa: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						resetHPAMinReplicasSinceKey: "invalid date",
+					},
+				},
+			},
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			stack: &zv1.Stack{
+				Spec: zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &[]int32{3}[0],
+						MaxReplicas: 20,
+					},
+				},
+			},
+			err: errors.New("error"),
+		},
+		{
+			msg: "Don't re-use HPA minReplicas if the ResetHPAMinReplicasTimeout has expired",
+			hpa: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						resetHPAMinReplicasSinceKey: time.Now().Add(-(20 * time.Minute)).Format(time.RFC3339),
+					},
+				},
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &[]int32{20}[0],
+					MaxReplicas: 20,
+				},
+			},
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+				},
+			},
+			stack: &zv1.Stack{
+				Spec: zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &[]int32{3}[0],
+						MaxReplicas: 20,
+					},
+				},
+			},
+			expectedMaxReplicas: 20,
+			expectedMinReplicas: 3,
+		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
-			trafficReconciler := PrescaleTrafficReconciler{}
+			trafficReconciler := PrescaleTrafficReconciler{
+				ResetHPAMinReplicasTimeout: 10 * time.Minute,
+			}
 			err := trafficReconciler.ReconcileHPA(ti.stack, ti.hpa, ti.deployment)
 			if ti.err != nil {
 				require.Error(t, err)
 			} else {
 				require.Equal(t, ti.expectedMinReplicas, *ti.hpa.Spec.MinReplicas)
 				require.Equal(t, ti.expectedMaxReplicas, ti.hpa.Spec.MaxReplicas)
+				require.Len(t, ti.hpa.Annotations, len(ti.expectedHPAAnnotationKeys))
+				for k := range ti.expectedHPAAnnotationKeys {
+					require.Contains(t, ti.hpa.Annotations, k)
+				}
 			}
 		})
 	}
