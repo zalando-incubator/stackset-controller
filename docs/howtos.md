@@ -1,5 +1,9 @@
 # How to's
 
+* [Configure port mapping](#configure-port-mapping)
+* [Specifying Horizontal Pod Autoscaler](#specifying-horizontal-pod-autoscaler)
+* [Enable stack prescaling](#enable-stack-prescaling)
+
 ## Configure port mapping
 
 `StackSets` creates `Stacks` which in turn creates the underlying resource
@@ -195,3 +199,49 @@ ingress:
   name: my-app
 average: 30
 ```
+
+## Enable stack prescaling
+
+The stackset-controller has `alpha` support for prescaling stacks before
+directing traffic to them. That is, if you deploy your stacks with Horizontal
+Pod Autoscaling (HPA) enabled then you might have the current stack scaled to
+20 pods while a new stack is initially deployed with only 3 pods. In this case
+you want to make sure that the new stack is scaled to 20 pods before it gets
+any traffic, otherwise it might die under the high unexpected load and the HPA
+would not be able to react and scale up fast enough.
+
+To enable prescaling support, you simply need to add the
+`alpha.stackset-controller.zalando.org/prescale-stacks` annotation to your
+`StackSet` resource:
+
+```yaml
+apiVersion: zalando.org/v1
+kind: StackSet
+metadata:
+  name: my-app
+  annotations:
+    alpha.stackset-controller.zalando.org/prescale-stacks: "yes"
+    # alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay: 20m # optional
+spec:
+...
+```
+
+### Prescaling logic
+
+The pre scaling works as follows:
+
+1. User directs/increases traffic to a stack.
+2. Before the stack gets any traffic it will caculate a prescale value `n` of
+   replicas based on the sum of all stacks currently getting traffic.
+3. The HPA of the stack will get the `MinReplicas` value set equal to the
+   prescale value calculated in 2.
+4. Once the stack has `n` ready pods then traffic will be switched to it.
+5. After the traffic has been switched and has been running for 10 min. then
+   the HPA `MinReplicas` will be reset back to what is configured in the
+   stackset allowing the HPA to scale down in case the load decreases for the
+   service.
+
+The default delay for resetting the `MinReplicas` of the HPA is 10 min. You can
+configure the time by setting the
+`alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay` annotation
+on the stackset.
