@@ -19,18 +19,18 @@ const (
 
 var (
 	config struct {
-		Application string
-		Stack       string
-		Traffic     float64
-		Namespace   string
+		Stackset  string
+		Stack     string
+		Traffic   float64
+		Namespace string
 	}
 )
 
 func main() {
-	kingpin.Arg("application", "help").Required().StringVar(&config.Application)
+	kingpin.Arg("stackset", "help").Required().StringVar(&config.Stackset)
 	kingpin.Arg("stack", "help").StringVar(&config.Stack)
 	kingpin.Arg("traffic", "help").Default("-1").Float64Var(&config.Traffic)
-	kingpin.Flag("namespace", "Namespace of the application resource.").Default(defaultNamespace).StringVar(&config.Namespace)
+	kingpin.Flag("namespace", "Namespace of the stackset resource.").Default(defaultNamespace).StringVar(&config.Namespace)
 	kingpin.Parse()
 
 	kubeconfig, err := newKubeConfig()
@@ -51,7 +51,7 @@ func main() {
 			log.Fatalf("Traffic weight must be between 0 and 100.")
 		}
 
-		stacks, err := trafficSwitcher.Switch(config.Application, config.Stack, config.Namespace, weight)
+		stacks, err := trafficSwitcher.Switch(config.Stackset, config.Stack, config.Namespace, weight)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -59,7 +59,7 @@ func main() {
 		return
 	}
 
-	stacks, err := trafficSwitcher.TrafficWeights(config.Application, config.Namespace)
+	stacks, err := trafficSwitcher.TrafficWeights(config.Stackset, config.Namespace)
 	if err != nil {
 		log.Fatal(err)
 	}
