@@ -2,10 +2,9 @@ package controller
 
 import (
 	"github.com/stretchr/testify/assert"
-	"github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/autoscaling/v2beta1"
-	v12 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"testing"
 )
 
@@ -104,7 +103,7 @@ func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	assert.Len(t, hpa.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Metrics))
 	cpuMetric := hpa.Metrics[0]
 	assert.Equal(t, cpuMetric.Type, v2beta1.ResourceMetricSourceType)
-	assert.Equal(t, cpuMetric.Resource.Name, v12.ResourceCPU)
+	assert.Equal(t, cpuMetric.Resource.Name, corev1.ResourceCPU)
 	assert.Equal(t, *cpuMetric.Resource.TargetAverageUtilization, int32(80))
 }
 
@@ -120,7 +119,7 @@ func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
 	assert.Len(t, hpa.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Metrics))
 	memoryMetric := hpa.Metrics[0]
 	assert.Equal(t, memoryMetric.Type, v2beta1.ResourceMetricSourceType)
-	assert.Equal(t, memoryMetric.Resource.Name, v12.ResourceMemory)
+	assert.Equal(t, memoryMetric.Resource.Name, corev1.ResourceMemory)
 	assert.Equal(t, *memoryMetric.Resource.TargetAverageUtilization, int32(80))
 }
 func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
@@ -177,27 +176,27 @@ func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
 
 func TestCPUMetricValid(t *testing.T) {
 	var utilization int32 = 80
-	metrics := v1.AutoscalerMetrics{Type: "cpu", AverageUtilization: &utilization}
+	metrics := zv1.AutoscalerMetrics{Type: "cpu", AverageUtilization: &utilization}
 	metric, err := CPUMetric(metrics)
 	assert.NoError(t, err, "could not create hpa metric")
-	assert.Equal(t, metric.Resource.Name, v12.ResourceCPU)
+	assert.Equal(t, metric.Resource.Name, corev1.ResourceCPU)
 }
 
 func TestCPUMetricInValid(t *testing.T) {
-	metrics := v1.AutoscalerMetrics{Type: "cpu", AverageUtilization: nil}
+	metrics := zv1.AutoscalerMetrics{Type: "cpu", AverageUtilization: nil}
 	_, err := CPUMetric(metrics)
 	assert.Error(t, err, "created metric even when utilization not specified")
 }
 func TestMemoryMetricValid(t *testing.T) {
 	var utilization int32 = 80
-	metrics := v1.AutoscalerMetrics{Type: "memory", AverageUtilization: &utilization}
+	metrics := zv1.AutoscalerMetrics{Type: "memory", AverageUtilization: &utilization}
 	metric, err := MemoryMetric(metrics)
 	assert.NoError(t, err, "could not create hpa metric")
-	assert.Equal(t, metric.Resource.Name, v12.ResourceMemory)
+	assert.Equal(t, metric.Resource.Name, corev1.ResourceMemory)
 }
 
 func TestMemoryMetricInValid(t *testing.T) {
-	metrics := v1.AutoscalerMetrics{Type: "memory", AverageUtilization: nil}
+	metrics := zv1.AutoscalerMetrics{Type: "memory", AverageUtilization: nil}
 	_, err := MemoryMetric(metrics)
 	assert.Error(t, err, "created metric even when utilization not specified")
 }
@@ -226,14 +225,14 @@ func TestPodJsonMetricInvalid(t *testing.T) {
 		},
 	}
 	for _, e := range endpoints {
-		metrics := v1.AutoscalerMetrics{Type: PodJSONMetricName, Endpoint: &e}
+		metrics := zv1.AutoscalerMetrics{Type: PodJSONMetricName, Endpoint: &e}
 		_, _, err := PodJsonMetric(metrics)
 		assert.Error(t, err, "created metric with invalid configuration")
 	}
 }
 
 func TestIngressMetricInvalid(t *testing.T) {
-	metrics := v1.AutoscalerMetrics{Type: IngressMetricName, Average: nil}
+	metrics := zv1.AutoscalerMetrics{Type: IngressMetricName, Average: nil}
 	_, err := IngressMetric(metrics, "stack-name")
 	assert.Errorf(t, err, "created metric with invalid configuration")
 }

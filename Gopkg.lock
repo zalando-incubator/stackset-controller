@@ -365,6 +365,19 @@
   revision = "fbb02b2291d28baffd63558aa44b4b56f178d650"
 
 [[projects]]
+  branch = "master"
+  digest = "1:6511064c08bff306dd24fa83ea82e160009fa7572240b70173b25d1dbc3e1872"
+  name = "golang.org/x/tools"
+  packages = [
+    "go/ast/astutil",
+    "imports",
+    "internal/fastwalk",
+    "internal/gopathwalk",
+  ]
+  pruneopts = "UT"
+  revision = "99072bc9d7ade6fc470d6c040de25d2edeac78c4"
+
+[[projects]]
   digest = "1:c06d9e11d955af78ac3bbb26bd02e01d2f61f689e1a3bce2ef6fb683ef8a7f2d"
   name = "gopkg.in/alecthomas/kingpin.v2"
   packages = ["."]
@@ -389,8 +402,8 @@
   version = "v2.2.1"
 
 [[projects]]
-  branch = "master"
-  digest = "1:9a5742021de9e9efc565db89f34f6fb114eea6ed1d5c1fcc549291943461c9b0"
+  branch = "release-1.11"
+  digest = "1:6163e6e8fcdb2c545db15aa5fe492fb5c2d59ad54f58fa1cba07f12ceac6d77b"
   name = "k8s.io/api"
   packages = [
     "admissionregistration/v1alpha1",
@@ -424,10 +437,11 @@
     "storage/v1beta1",
   ]
   pruneopts = "UT"
-  revision = "f456898a08e4bbc5891694118f3819f324de12ff"
+  revision = "4e7be11eab3ffcfc1876898b8272df53785a9504"
 
 [[projects]]
-  digest = "1:02a0c216426652d43d2692b7e363b22198597022a05bc780f08db157e1a9705e"
+  branch = "release-1.11"
+  digest = "1:d537ffd573c53e6c8fe11a676aa64e6ff52c6da6e62b07deb0e50925c6d89503"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -474,7 +488,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "UT"
-  revision = "103fd098999dc9c0c88536f5c9ad2e5da39373ae"
+  revision = "8ee1a638bafa4ae9691077e690cb45dd54f45111"
 
 [[projects]]
   digest = "1:79cf4c5cf3e201879a15cfb4146adeb33301c0c241bbd3cf70de08bb25cd57f8"
@@ -575,6 +589,56 @@
   version = "v8.0.0"
 
 [[projects]]
+  branch = "release-1.11"
+  digest = "1:3b9c82e73290987c719062ba514f47cc95a7b1e10d9868b1e083e48044c0820b"
+  name = "k8s.io/code-generator"
+  packages = [
+    "cmd/client-gen",
+    "cmd/client-gen/args",
+    "cmd/client-gen/generators",
+    "cmd/client-gen/generators/fake",
+    "cmd/client-gen/generators/scheme",
+    "cmd/client-gen/generators/util",
+    "cmd/client-gen/path",
+    "cmd/client-gen/types",
+    "cmd/deepcopy-gen",
+    "cmd/deepcopy-gen/args",
+    "cmd/defaulter-gen",
+    "cmd/defaulter-gen/args",
+    "cmd/lister-gen",
+    "cmd/lister-gen/args",
+    "cmd/lister-gen/generators",
+    "pkg/util",
+  ]
+  pruneopts = "T"
+  revision = "8c97d6ab64da020f8b151e9d3ed8af3172f5c390"
+
+[[projects]]
+  branch = "master"
+  digest = "1:aa52b6c20603be5f6d64dcd44f594ea82baa8f30fa27f16ff580a9f32769efa8"
+  name = "k8s.io/gengo"
+  packages = [
+    "args",
+    "examples/deepcopy-gen/generators",
+    "examples/defaulter-gen/generators",
+    "examples/set-gen/sets",
+    "generator",
+    "namer",
+    "parser",
+    "types",
+  ]
+  pruneopts = "UT"
+  revision = "fd15ee9cc2f77baa4f31e59e6acbf21146455073"
+
+[[projects]]
+  digest = "1:e2999bf1bb6eddc2a6aa03fe5e6629120a53088926520ca3b4765f77d7ff7eab"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "a5bc97fbc634d635061f3146511332c7e313a55a"
+  version = "v0.1.0"
+
+[[projects]]
   branch = "master"
   digest = "1:a2c842a1e0aed96fd732b535514556323a6f5edfded3b63e5e0ab1bce188aa54"
   name = "k8s.io/kube-openapi"
@@ -653,6 +717,10 @@
     "k8s.io/client-go/tools/record",
     "k8s.io/client-go/transport",
     "k8s.io/client-go/util/flowcontrol",
+    "k8s.io/code-generator/cmd/client-gen",
+    "k8s.io/code-generator/cmd/deepcopy-gen",
+    "k8s.io/code-generator/cmd/defaulter-gen",
+    "k8s.io/code-generator/cmd/lister-gen",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

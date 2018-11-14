@@ -21,10 +21,10 @@ package v1
 import (
 	time "time"
 
-	zalandov1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	versioned "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/client/listers/zalando/v1"
+	v1 "github.com/zalando-incubator/stackset-controller/pkg/client/listers/zalando.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -70,7 +70,7 @@ func NewFilteredStackSetInformer(client versioned.Interface, namespace string, r
 				return client.ZalandoV1().StackSets(namespace).Watch(options)
 			},
 		},
-		&zalandov1.StackSet{},
+		&zalandoorgv1.StackSet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *stackSetInformer) defaultInformer(client versioned.Interface, resyncPer
 }
 
 func (f *stackSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&zalandov1.StackSet{}, f.defaultInformer)
+	return f.factory.InformerFor(&zalandoorgv1.StackSet{}, f.defaultInformer)
 }
 
 func (f *stackSetInformer) Lister() v1.StackSetLister {

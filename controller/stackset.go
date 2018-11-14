@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
-	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"golang.org/x/sync/errgroup"

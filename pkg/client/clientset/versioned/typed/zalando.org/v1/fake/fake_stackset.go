@@ -19,13 +19,13 @@ limitations under the License.
 package fake
 
 import (
-	zalandov1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/client-go/testing"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	types "k8s.io/apimachinery/pkg/types"
+	watch "k8s.io/apimachinery/pkg/watch"
+	testing "k8s.io/client-go/testing"
 )
 
 // FakeStackSets implements StackSetInterface
@@ -34,25 +34,25 @@ type FakeStackSets struct {
 	ns   string
 }
 
-var stacksetsResource = schema.GroupVersionResource{Group: "zalando", Version: "v1", Resource: "stacksets"}
+var stacksetsResource = schema.GroupVersionResource{Group: "zalando.org", Version: "v1", Resource: "stacksets"}
 
-var stacksetsKind = schema.GroupVersionKind{Group: "zalando", Version: "v1", Kind: "StackSet"}
+var stacksetsKind = schema.GroupVersionKind{Group: "zalando.org", Version: "v1", Kind: "StackSet"}
 
 // Get takes name of the stackSet, and returns the corresponding stackSet object, and an error if there is any.
-func (c *FakeStackSets) Get(name string, options v1.GetOptions) (result *zalandov1.StackSet, err error) {
+func (c *FakeStackSets) Get(name string, options v1.GetOptions) (result *zalandoorgv1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(stacksetsResource, c.ns, name), &zalandov1.StackSet{})
+		Invokes(testing.NewGetAction(stacksetsResource, c.ns, name), &zalandoorgv1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.StackSet), err
+	return obj.(*zalandoorgv1.StackSet), err
 }
 
 // List takes label and field selectors, and returns the list of StackSets that match those selectors.
-func (c *FakeStackSets) List(opts v1.ListOptions) (result *zalandov1.StackSetList, err error) {
+func (c *FakeStackSets) List(opts v1.ListOptions) (result *zalandoorgv1.StackSetList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(stacksetsResource, stacksetsKind, c.ns, opts), &zalandov1.StackSetList{})
+		Invokes(testing.NewListAction(stacksetsResource, stacksetsKind, c.ns, opts), &zalandoorgv1.StackSetList{})
 
 	if obj == nil {
 		return nil, err
@@ -62,8 +62,8 @@ func (c *FakeStackSets) List(opts v1.ListOptions) (result *zalandov1.StackSetLis
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &zalandov1.StackSetList{ListMeta: obj.(*zalandov1.StackSetList).ListMeta}
-	for _, item := range obj.(*zalandov1.StackSetList).Items {
+	list := &zalandoorgv1.StackSetList{ListMeta: obj.(*zalandoorgv1.StackSetList).ListMeta}
+	for _, item := range obj.(*zalandoorgv1.StackSetList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -79,43 +79,43 @@ func (c *FakeStackSets) Watch(opts v1.ListOptions) (watch.Interface, error) {
 }
 
 // Create takes the representation of a stackSet and creates it.  Returns the server's representation of the stackSet, and an error, if there is any.
-func (c *FakeStackSets) Create(stackSet *zalandov1.StackSet) (result *zalandov1.StackSet, err error) {
+func (c *FakeStackSets) Create(stackSet *zalandoorgv1.StackSet) (result *zalandoorgv1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(stacksetsResource, c.ns, stackSet), &zalandov1.StackSet{})
+		Invokes(testing.NewCreateAction(stacksetsResource, c.ns, stackSet), &zalandoorgv1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.StackSet), err
+	return obj.(*zalandoorgv1.StackSet), err
 }
 
 // Update takes the representation of a stackSet and updates it. Returns the server's representation of the stackSet, and an error, if there is any.
-func (c *FakeStackSets) Update(stackSet *zalandov1.StackSet) (result *zalandov1.StackSet, err error) {
+func (c *FakeStackSets) Update(stackSet *zalandoorgv1.StackSet) (result *zalandoorgv1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(stacksetsResource, c.ns, stackSet), &zalandov1.StackSet{})
+		Invokes(testing.NewUpdateAction(stacksetsResource, c.ns, stackSet), &zalandoorgv1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.StackSet), err
+	return obj.(*zalandoorgv1.StackSet), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStackSets) UpdateStatus(stackSet *zalandov1.StackSet) (*zalandov1.StackSet, error) {
+func (c *FakeStackSets) UpdateStatus(stackSet *zalandoorgv1.StackSet) (*zalandoorgv1.StackSet, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(stacksetsResource, "status", c.ns, stackSet), &zalandov1.StackSet{})
+		Invokes(testing.NewUpdateSubresourceAction(stacksetsResource, "status", c.ns, stackSet), &zalandoorgv1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.StackSet), err
+	return obj.(*zalandoorgv1.StackSet), err
 }
 
 // Delete takes name of the stackSet and deletes it. Returns an error if one occurs.
 func (c *FakeStackSets) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(stacksetsResource, c.ns, name), &zalandov1.StackSet{})
+		Invokes(testing.NewDeleteAction(stacksetsResource, c.ns, name), &zalandoorgv1.StackSet{})
 
 	return err
 }
@@ -124,17 +124,17 @@ func (c *FakeStackSets) Delete(name string, options *v1.DeleteOptions) error {
 func (c *FakeStackSets) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(stacksetsResource, c.ns, listOptions)
 
-	_, err := c.Fake.Invokes(action, &zalandov1.StackSetList{})
+	_, err := c.Fake.Invokes(action, &zalandoorgv1.StackSetList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched stackSet.
-func (c *FakeStackSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandov1.StackSet, err error) {
+func (c *FakeStackSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandoorgv1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(stacksetsResource, c.ns, name, data, subresources...), &zalandov1.StackSet{})
+		Invokes(testing.NewPatchSubresourceAction(stacksetsResource, c.ns, name, data, subresources...), &zalandoorgv1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.StackSet), err
+	return obj.(*zalandoorgv1.StackSet), err
 }

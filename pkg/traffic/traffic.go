@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"

@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/zalando-incubator/stackset-controller/pkg/apis/zalando"
+	"github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org"
 )
 
 var (

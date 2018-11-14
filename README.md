@@ -342,7 +342,7 @@ $ make
 
 Note that the Go client interface for talking to the custom `StackSet` and
 `Stack` CRD is generated code living in `pkg/client/` and
-`pkg/apis/zalando/v1/zz_generated_deepcopy.go`. If you make changes to
+`pkg/apis/zalando.org/v1/zz_generated_deepcopy.go`. If you make changes to
 `pkg/apis/*` then you must run `make clean && make` to regenerate the code.
 
 To understand how this works see the upstream
