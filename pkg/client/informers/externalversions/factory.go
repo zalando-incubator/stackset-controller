@@ -25,7 +25,7 @@ import (
 
 	versioned "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/internalinterfaces"
-	zalando "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/zalando"
+	zalandoorg "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/zalando.org"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -172,9 +172,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Zalando() zalando.Interface
+	Zalando() zalandoorg.Interface
 }
 
-func (f *sharedInformerFactory) Zalando() zalando.Interface {
-	return zalando.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Zalando() zalandoorg.Interface {
+	return zalandoorg.New(f, f.namespace, f.tweakListOptions)
 }

@@ -20,7 +20,7 @@ package zalando
 
 import (
 	internalinterfaces "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/zalando/v1"
+	v1 "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/zalando.org/v1"
 )
 
 // Interface provides access to each of this group's versions.

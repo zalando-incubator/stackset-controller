@@ -19,7 +19,7 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
@@ -31,7 +31,7 @@ type ZalandoV1Interface interface {
 	StackSetsGetter
 }
 
-// ZalandoV1Client is used to interact with features provided by the zalando group.
+// ZalandoV1Client is used to interact with features provided by the zalando.org group.
 type ZalandoV1Client struct {
 	restClient rest.Interface
 }

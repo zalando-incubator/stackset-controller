@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	zalandov1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -34,25 +34,25 @@ type FakeStacks struct {
 	ns   string
 }
 
-var stacksResource = schema.GroupVersionResource{Group: "zalando", Version: "v1", Resource: "stacks"}
+var stacksResource = schema.GroupVersionResource{Group: "zalando.org", Version: "v1", Resource: "stacks"}
 
-var stacksKind = schema.GroupVersionKind{Group: "zalando", Version: "v1", Kind: "Stack"}
+var stacksKind = schema.GroupVersionKind{Group: "zalando.org", Version: "v1", Kind: "Stack"}
 
 // Get takes name of the stack, and returns the corresponding stack object, and an error if there is any.
-func (c *FakeStacks) Get(name string, options v1.GetOptions) (result *zalandov1.Stack, err error) {
+func (c *FakeStacks) Get(name string, options v1.GetOptions) (result *zalandoorgv1.Stack, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(stacksResource, c.ns, name), &zalandov1.Stack{})
+		Invokes(testing.NewGetAction(stacksResource, c.ns, name), &zalandoorgv1.Stack{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.Stack), err
+	return obj.(*zalandoorgv1.Stack), err
 }
 
 // List takes label and field selectors, and returns the list of Stacks that match those selectors.
-func (c *FakeStacks) List(opts v1.ListOptions) (result *zalandov1.StackList, err error) {
+func (c *FakeStacks) List(opts v1.ListOptions) (result *zalandoorgv1.StackList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(stacksResource, stacksKind, c.ns, opts), &zalandov1.StackList{})
+		Invokes(testing.NewListAction(stacksResource, stacksKind, c.ns, opts), &zalandoorgv1.StackList{})
 
 	if obj == nil {
 		return nil, err
@@ -62,8 +62,8 @@ func (c *FakeStacks) List(opts v1.ListOptions) (result *zalandov1.StackList, err
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &zalandov1.StackList{ListMeta: obj.(*zalandov1.StackList).ListMeta}
-	for _, item := range obj.(*zalandov1.StackList).Items {
+	list := &zalandoorgv1.StackList{ListMeta: obj.(*zalandoorgv1.StackList).ListMeta}
+	for _, item := range obj.(*zalandoorgv1.StackList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -79,43 +79,43 @@ func (c *FakeStacks) Watch(opts v1.ListOptions) (watch.Interface, error) {
 }
 
 // Create takes the representation of a stack and creates it.  Returns the server's representation of the stack, and an error, if there is any.
-func (c *FakeStacks) Create(stack *zalandov1.Stack) (result *zalandov1.Stack, err error) {
+func (c *FakeStacks) Create(stack *zalandoorgv1.Stack) (result *zalandoorgv1.Stack, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(stacksResource, c.ns, stack), &zalandov1.Stack{})
+		Invokes(testing.NewCreateAction(stacksResource, c.ns, stack), &zalandoorgv1.Stack{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.Stack), err
+	return obj.(*zalandoorgv1.Stack), err
 }
 
 // Update takes the representation of a stack and updates it. Returns the server's representation of the stack, and an error, if there is any.
-func (c *FakeStacks) Update(stack *zalandov1.Stack) (result *zalandov1.Stack, err error) {
+func (c *FakeStacks) Update(stack *zalandoorgv1.Stack) (result *zalandoorgv1.Stack, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(stacksResource, c.ns, stack), &zalandov1.Stack{})
+		Invokes(testing.NewUpdateAction(stacksResource, c.ns, stack), &zalandoorgv1.Stack{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.Stack), err
+	return obj.(*zalandoorgv1.Stack), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStacks) UpdateStatus(stack *zalandov1.Stack) (*zalandov1.Stack, error) {
+func (c *FakeStacks) UpdateStatus(stack *zalandoorgv1.Stack) (*zalandoorgv1.Stack, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(stacksResource, "status", c.ns, stack), &zalandov1.Stack{})
+		Invokes(testing.NewUpdateSubresourceAction(stacksResource, "status", c.ns, stack), &zalandoorgv1.Stack{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.Stack), err
+	return obj.(*zalandoorgv1.Stack), err
 }
 
 // Delete takes name of the stack and deletes it. Returns an error if one occurs.
 func (c *FakeStacks) Delete(name string, options *v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(stacksResource, c.ns, name), &zalandov1.Stack{})
+		Invokes(testing.NewDeleteAction(stacksResource, c.ns, name), &zalandoorgv1.Stack{})
 
 	return err
 }
@@ -124,17 +124,17 @@ func (c *FakeStacks) Delete(name string, options *v1.DeleteOptions) error {
 func (c *FakeStacks) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(stacksResource, c.ns, listOptions)
 
-	_, err := c.Fake.Invokes(action, &zalandov1.StackList{})
+	_, err := c.Fake.Invokes(action, &zalandoorgv1.StackList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched stack.
-func (c *FakeStacks) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandov1.Stack, err error) {
+func (c *FakeStacks) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandoorgv1.Stack, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(stacksResource, c.ns, name, data, subresources...), &zalandov1.Stack{})
+		Invokes(testing.NewPatchSubresourceAction(stacksResource, c.ns, name, data, subresources...), &zalandoorgv1.Stack{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandov1.Stack), err
+	return obj.(*zalandoorgv1.Stack), err
 }

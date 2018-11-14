@@ -20,7 +20,7 @@ set -o pipefail
 
 
 GOPKG="github.com/zalando-incubator/stackset-controller"
-CUSTOM_RESOURCE_NAME="zalando"
+CUSTOM_RESOURCE_NAME="zalando.org"
 CUSTOM_RESOURCE_VERSION="v1"
 
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..

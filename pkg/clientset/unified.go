@@ -2,7 +2,7 @@ package clientset
 
 import (
 	stackset "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
-	zalandov1 "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando/v1"
+	zalandov1 "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
 	discovery "k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	admissionregistrationv1alpha1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1"

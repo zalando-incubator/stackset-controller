@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando/v1"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	scController "github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"k8s.io/api/extensions/v1beta1"
