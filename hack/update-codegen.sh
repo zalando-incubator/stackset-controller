@@ -24,13 +24,6 @@ CUSTOM_RESOURCE_NAME="zalando"
 CUSTOM_RESOURCE_VERSION="v1"
 
 SCRIPT_ROOT=$(dirname ${BASH_SOURCE})/..
-
-# use vendor/ as a temporary stash for code-generator.
-rm -rf ${SCRIPT_ROOT}/vendor/k8s.io/code-generator
-rm -rf ${SCRIPT_ROOT}/vendor/k8s.io/gengo
-git clone https://github.com/kubernetes/code-generator.git ${SCRIPT_ROOT}/vendor/k8s.io/code-generator
-git clone https://github.com/kubernetes/gengo.git ${SCRIPT_ROOT}/vendor/k8s.io/gengo
-
 CODEGEN_PKG=${CODEGEN_PKG:-$(cd ${SCRIPT_ROOT}; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
 
 # generate the code with:
