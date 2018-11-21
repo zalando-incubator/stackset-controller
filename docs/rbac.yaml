@@ -13,8 +13,10 @@ rules:
 - apiGroups:
   - "zalando.org"
   resources:
-  - applications
-  - applicationstacks
+  - stacks
+  - stacks/status
+  - stacksets
+  - stacksets/status
   verbs:
   - get
   - list
