@@ -155,9 +155,10 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	}
 
 	currentStackName := generateStackName(ssc.StackSet, currentStackVersion(ssc.StackSet))
+	stackUnused := stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0
 
 	// Avoid downscaling the current stack
-	if stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0 {
+	if stackUnused {
 		if ttl, ok := deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
 			noTrafficSince, err := time.Parse(time.RFC3339, ttl)
 			if err != nil {
@@ -233,7 +234,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	deployment.APIVersion = "apps/v1"
 	deployment.Kind = "Deployment"
 
-	hpa, err := c.manageAutoscaling(sc, deployment, ssc)
+	hpa, err := c.manageAutoscaling(sc, deployment, ssc, stackUnused)
 	if err != nil {
 		return err
 	}
@@ -282,7 +283,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 }
 
 // manageAutoscaling manages the HPA defined for the stack.
-func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer) (*autoscaling.HorizontalPodAutoscaler, error) {
+func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer, stackUnused bool) (*autoscaling.HorizontalPodAutoscaler, error) {
 	hpa := sc.Resources.HPA
 	stack := sc.Stack
 
@@ -293,7 +294,7 @@ func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *apps
 	}
 
 	// cleanup HPA if autoscaling is disabled or the stack has 0 traffic.
-	if stack.Spec.HorizontalPodAutoscaler == nil || (ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0) {
+	if stack.Spec.HorizontalPodAutoscaler == nil || stackUnused {
 		if hpa != nil {
 			c.recorder.Eventf(&stack,
 				apiv1.EventTypeNormal,
