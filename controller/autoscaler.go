@@ -27,12 +27,23 @@ const (
 	SQSQueueRegionTag     = "region"
 )
 
-func (c *StackSetController) ReconcileAutoscalers(container *StackSetContainer) error {
-	if container.StackSet.Spec.StackTemplate.Spec.HorizontalPodAutoscaler != nil {
+type AutoscalerReconciler struct {
+	ssc StackSetContainer
+}
+
+func NewAutoscalerReconciler(ssc StackSetContainer) *AutoscalerReconciler {
+	return &AutoscalerReconciler{ssc: ssc}
+}
+
+func (c *AutoscalerReconciler) Reconcile(sc *StackContainer) error {
+
+	if c.ssc.StackSet.Spec.StackTemplate.Spec.HorizontalPodAutoscaler != nil {
 		return nil
 	}
-	autoscaler := container.StackSet.Spec.StackTemplate.Spec.Autoscaler
-	stacksetName := container.StackSet.Name
+	autoscaler := c.ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler
+	stacksetName := c.ssc.StackSet.Name
+	stackName := sc.Stack.Name
+
 	if autoscaler != nil {
 		var generatedHPA zv1.HorizontalPodAutoscaler
 		generatedHPA.MinReplicas = autoscaler.MinReplicas
@@ -61,7 +72,7 @@ func (c *StackSetController) ReconcileAutoscalers(container *StackSetContainer) 
 				}
 				generated = g
 			case IngressMetricName:
-				generated, err = IngressMetric(m, stacksetName)
+				generated, err = IngressMetric(m, stacksetName, stackName)
 				if err != nil {
 					return err
 				}
@@ -83,7 +94,7 @@ func (c *StackSetController) ReconcileAutoscalers(container *StackSetContainer) 
 
 			generatedHPA.Metrics[i] = *generated
 		}
-		container.StackSet.Spec.StackTemplate.Spec.HorizontalPodAutoscaler = &generatedHPA
+		sc.Stack.Spec.HorizontalPodAutoscaler = &generatedHPA
 	}
 	return nil
 }
@@ -165,7 +176,7 @@ func PodJsonMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[
 	}
 	return generated, annotations, nil
 }
-func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName string) (*autoscaling.MetricSpec, error) {
+func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName string) (*autoscaling.MetricSpec, error) {
 	if metrics.Average == nil {
 		return nil, fmt.Errorf("average value not specified for metric")
 	}
@@ -176,7 +187,7 @@ func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName string) (*autoscal
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ObjectMetricSourceType,
 		Object: &autoscaling.ObjectMetricSource{
-			MetricName: requestsPerSecondName,
+			MetricName: fmt.Sprintf("%s,%s", requestsPerSecondName, backendName),
 			Target: autoscaling.CrossVersionObjectReference{
 				APIVersion: "extensions/v1beta1",
 				Kind:       "Ingress",
