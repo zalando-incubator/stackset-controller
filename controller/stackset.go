@@ -95,11 +95,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			var reconcileGroup errgroup.Group
 			for stackset, container := range stackContainers {
-				err = c.ReconcileAutoscalers(container)
-				if err != nil {
-					c.recorder.Event(&container.StackSet, v1.EventTypeWarning,
-						"GenerateHPA", fmt.Sprintf("Failed to generate HPA %v", err.Error()))
-				}
 
 				container := *container
 

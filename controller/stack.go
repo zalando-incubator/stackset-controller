@@ -28,9 +28,10 @@ const (
 // desired state. This includes managing, Deployment, Service and HPA resources
 // of the Stacks.
 type stacksReconciler struct {
-	logger   *log.Entry
-	recorder kube_record.EventRecorder
-	client   clientset.Interface
+	logger               *log.Entry
+	recorder             kube_record.EventRecorder
+	client               clientset.Interface
+	autoscalerReconciler *AutoscalerReconciler
 }
 
 // ReconcileStacks brings a set of Stacks of a StackSet to the desired state.
@@ -43,21 +44,26 @@ func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
 				"namespace":  ssc.StackSet.Namespace,
 			},
 		),
-		client:   c.client,
-		recorder: c.recorder,
+		client:               c.client,
+		recorder:             c.recorder,
+		autoscalerReconciler: NewAutoscalerReconciler(ssc),
 	}
 	return sr.reconcile(ssc)
 }
 
 func (c *stacksReconciler) reconcile(ssc StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
-		err := c.manageStack(*sc, ssc)
+		err := c.autoscalerReconciler.Reconcile(sc)
+		if err != nil {
+			c.recorder.Event(&ssc.StackSet, v1.EventTypeWarning, "GenerateHPA",
+				fmt.Sprintf("Failed to generate HPA %v", err.Error()))
+		}
+		err = c.manageStack(*sc, ssc)
 		if err != nil {
 			log.Errorf("Failed to manage Stack %s/%s: %v", sc.Stack.Namespace, sc.Stack.Name, err)
 			continue
 		}
 	}
-
 	return nil
 }
 
@@ -68,7 +74,6 @@ func (c *stacksReconciler) manageStack(sc StackContainer, ssc StackSetContainer)
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
