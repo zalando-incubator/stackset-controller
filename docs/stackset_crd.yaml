@@ -10,6 +10,8 @@ spec:
     kind: StackSet
     singular: stackset
     plural: stacksets
+    categories:
+    - all
   additionalPrinterColumns:
   - name: Stacks
     type: integer
