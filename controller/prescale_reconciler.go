@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	prescaleAnnotationKey        = "stacksetstacks.zalando.org/prescale-replicas"
+	prescaleAnnotationKey        = "stacksetstacks.zalando.org/prescaling-active-info"
 	DefaultResetMinReplicasDelay = 10 * time.Minute
 )
 
@@ -28,14 +28,10 @@ type prescalingInfo struct {
 }
 
 // ReconcileDeployment calculates the number replicas required when prescaling is active. If there is no associated
-// HPA then the replicas of are also increased. Finally once traffic switching is complete the prescaling annotations
-// are removed.
+// HPA then the replicas of the deployment are increased directly. Finally once traffic switching is complete the
+// prescaling annotations are removed.
 func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment) error {
-	// 1. Check if prescaling active
-	// 2. If traffic does not need changing then return
-	// 3. If prescaling not active calculate replicas
-	// 4. If HPA not present set replicas
-
+	// Check if prescaling is active and get the existing prescaling information
 	prescalingInfoJson, prescalingActive := deployment.Annotations[prescaleAnnotationKey]
 	var info prescalingInfo
 	if prescalingActive {
@@ -45,7 +41,9 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 		}
 	}
 
+	// If traffic needs to be increased
 	if traffic != nil && traffic[stack.Name].DesiredWeight > 0 && traffic[stack.Name].ActualWeight < traffic[stack.Name].DesiredWeight {
+		// If prescaling is not active then calculate the replicas required
 		if !prescalingActive {
 			for _, stackContainer := range stacks {
 				if traffic[stackContainer.Stack.Name].ActualWeight > 0 {
@@ -55,6 +53,8 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 				}
 			}
 		}
+
+		// Update the timestamp in the precaling information. This bumps the prescaling timeout
 		info.LastUpdated = time.Now().Format(time.RFC3339)
 
 		updatedPrescalingJson, err := json.Marshal(info)
@@ -63,6 +63,7 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 		}
 		deployment.Annotations[prescaleAnnotationKey] = string(updatedPrescalingJson)
 
+		// If there is not associated HPA then manually update the replicas
 		if stack.Spec.HorizontalPodAutoscaler == nil {
 			replicas := int32(info.Replicas)
 			deployment.Spec.Replicas = &replicas
@@ -70,6 +71,7 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 		return nil
 	}
 
+	// If prescaling is active and the prescaling timeout has expired then delete the prescaling annotation
 	if prescalingActive {
 		lastUpdated, err := time.Parse(time.RFC3339, info.LastUpdated)
 		if err != nil {
