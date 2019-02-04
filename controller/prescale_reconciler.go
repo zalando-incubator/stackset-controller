@@ -103,6 +103,7 @@ func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscal
 	}
 
 	hpa.Spec.MinReplicas = stack.Spec.HorizontalPodAutoscaler.MinReplicas
+	hpa.Spec.MaxReplicas = stack.Spec.HorizontalPodAutoscaler.MaxReplicas
 	return nil
 }
 
