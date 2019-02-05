@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
-	"k8s.io/api/core/v1"
 	apiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -31,14 +31,15 @@ import (
 )
 
 const (
-	stacksetHeritageLabelKey                  = "stackset"
-	stackVersionLabelKey                      = "stack-version"
-	defaultVersion                            = "default"
-	defaultStackLifecycleLimit                = 10
-	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
-	prescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
-	resetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
-	defaultScaledownTTLSeconds                = int64(300)
+	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
+
+	stacksetHeritageLabelKey              = "stackset"
+	stackVersionLabelKey                  = "stack-version"
+	defaultVersion                        = "default"
+	defaultStackLifecycleLimit            = 10
+	prescaleStacksAnnotationKey           = "alpha.stackset-controller.zalando.org/prescale-stacks"
+	resetHPAMinReplicasDelayAnnotationKey = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
+	defaultScaledownTTLSeconds            = int64(300)
 )
 
 // StackSetController is the main controller. It watches for changes to
@@ -491,7 +492,7 @@ func getOwnerUID(objectMeta metav1.ObjectMeta) (types.UID, bool) {
 // "" and there's no annotation set.
 func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 	if stackset.Annotations != nil {
-		if owner, ok := stackset.Annotations[stacksetControllerControllerAnnotationKey]; ok {
+		if owner, ok := stackset.Annotations[StacksetControllerControllerAnnotationKey]; ok {
 			return owner == c.controllerID
 		}
 	}

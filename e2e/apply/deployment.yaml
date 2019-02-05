@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{{APPLICATION}}}"
+  annotations:
+    downscaler/exclude: "true"
+  labels:
+    application: "{{{APPLICATION}}}"
+    version: "{{{CDP_BUILD_VERSION}}}"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      application: "{{{APPLICATION}}}"
+  template:
+    metadata:
+      labels:
+        application: "{{{APPLICATION}}}"
+        version: "{{{CDP_BUILD_VERSION}}}"
+    spec:
+      serviceAccountName: operator
+      containers:
+      - name: "{{{APPLICATION}}}"
+        image: "{{{IMAGE}}}"
+        args:
+          - "--controller-id={{{CONTROLLER_ID}}}"
+        resources:
+          limits:
+            cpu: 10m
+            memory: 100Mi
+          requests:
+            cpu: 10m
+            memory: 100Mi
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop: ["ALL"]
