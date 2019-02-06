@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,12 +40,32 @@ func TestGetStacksToGC(tt *testing.T) {
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
 						},
+						Resources: StackResources{
+							Deployment: &appsv1.Deployment{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "stack1",
+									Annotations: map[string]string{
+										noTrafficSinceAnnotationKey: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+									},
+								},
+							},
+						},
 					},
 					types.UID("uid2"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+						},
+						Resources: StackResources{
+							Deployment: &appsv1.Deployment{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "stack2",
+									Annotations: map[string]string{
+										noTrafficSinceAnnotationKey: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+									},
+								},
 							},
 						},
 					},
@@ -70,12 +91,32 @@ func TestGetStacksToGC(tt *testing.T) {
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
 						},
+						Resources: StackResources{
+							Deployment: &appsv1.Deployment{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "stack1",
+									Annotations: map[string]string{
+										noTrafficSinceAnnotationKey: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+									},
+								},
+							},
+						},
 					},
 					types.UID("uid2"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+						},
+						Resources: StackResources{
+							Deployment: &appsv1.Deployment{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "stack2",
+									Annotations: map[string]string{
+										noTrafficSinceAnnotationKey: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+									},
+								},
 							},
 						},
 					},
@@ -105,12 +146,32 @@ func TestGetStacksToGC(tt *testing.T) {
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
 						},
+						Resources: StackResources{
+							Deployment: &appsv1.Deployment{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "stack1",
+									Annotations: map[string]string{
+										noTrafficSinceAnnotationKey: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+									},
+								},
+							},
+						},
 					},
 					types.UID("uid2"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+						},
+						Resources: StackResources{
+							Deployment: &appsv1.Deployment{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: "stack2",
+									Annotations: map[string]string{
+										noTrafficSinceAnnotationKey: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+									},
+								},
 							},
 						},
 					},
@@ -133,7 +194,8 @@ func TestGetStacksToGC(tt *testing.T) {
 				recorder: recorder.CreateEventRecorder(fake.NewSimpleClientset()),
 			}
 
-			stacks := c.getStacksToGC(tc.stackSetContainer)
+			stacks, err := c.getStacksToGC(tc.stackSetContainer)
+			assert.NoError(t, err)
 			assert.Len(t, stacks, tc.expectedNum)
 		})
 	}

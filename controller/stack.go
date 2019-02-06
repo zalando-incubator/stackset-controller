@@ -164,16 +164,14 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	// Avoid downscaling the current stack
 	if stackUnused {
-		if ttl, ok := deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
-			noTrafficSince, err := time.Parse(time.RFC3339, ttl)
-			if err != nil {
-				return fmt.Errorf("failed to parse no-traffic-since timestamp '%s': %v", ttl, err)
-			}
+		noTrafficSince, err := stackNoTrafficSince(&sc)
+		if err != nil {
+			return err
+		}
 
-			if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > ssc.ScaledownTTL() {
-				replicas := int32(0)
-				deployment.Spec.Replicas = &replicas
-			}
+		if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > ssc.ScaledownTTL() {
+			replicas := int32(0)
+			deployment.Spec.Replicas = &replicas
 		} else {
 			deployment.Annotations[noTrafficSinceAnnotationKey] = time.Now().UTC().Format(time.RFC3339)
 		}
@@ -637,4 +635,15 @@ func applyContainersDefaults(containers []v1.Container) {
 			}
 		}
 	}
+}
+
+func stackNoTrafficSince(stackContainer *StackContainer) (time.Time, error) {
+	if ttl, ok := stackContainer.Resources.Deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
+		noTrafficSince, err := time.Parse(time.RFC3339, ttl)
+		if err != nil {
+			return time.Time{}, fmt.Errorf("failed to parse no-traffic-since timestamp '%s': %v", ttl, err)
+		}
+		return noTrafficSince, nil
+	}
+	return time.Time{}, nil
 }
