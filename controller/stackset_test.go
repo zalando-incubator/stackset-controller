@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,15 +38,8 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack1",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
-						},
-						Resources: StackResources{
-							Deployment: &appsv1.Deployment{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "stack1",
-									Annotations: map[string]string{
-										noTrafficSinceAnnotationKey: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
-									},
-								},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
 							},
 						},
 					},
@@ -57,15 +49,8 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
 							},
-						},
-						Resources: StackResources{
-							Deployment: &appsv1.Deployment{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "stack2",
-									Annotations: map[string]string{
-										noTrafficSinceAnnotationKey: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-									},
-								},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
 							},
 						},
 					},
@@ -90,15 +75,8 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack1",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
-						},
-						Resources: StackResources{
-							Deployment: &appsv1.Deployment{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "stack1",
-									Annotations: map[string]string{
-										noTrafficSinceAnnotationKey: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
-									},
-								},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
 							},
 						},
 					},
@@ -108,15 +86,8 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
 							},
-						},
-						Resources: StackResources{
-							Deployment: &appsv1.Deployment{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "stack2",
-									Annotations: map[string]string{
-										noTrafficSinceAnnotationKey: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-									},
-								},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
 							},
 						},
 					},
@@ -145,15 +116,8 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack1",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
-						},
-						Resources: StackResources{
-							Deployment: &appsv1.Deployment{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "stack1",
-									Annotations: map[string]string{
-										noTrafficSinceAnnotationKey: time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
-									},
-								},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
 							},
 						},
 					},
@@ -163,15 +127,8 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
 							},
-						},
-						Resources: StackResources{
-							Deployment: &appsv1.Deployment{
-								ObjectMeta: metav1.ObjectMeta{
-									Name: "stack2",
-									Annotations: map[string]string{
-										noTrafficSinceAnnotationKey: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
-									},
-								},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
 							},
 						},
 					},
@@ -179,6 +136,44 @@ func TestGetStacksToGC(tt *testing.T) {
 				Traffic: map[string]TrafficStatus{
 					"stack1": TrafficStatus{ActualWeight: 0},
 					"stack2": TrafficStatus{ActualWeight: 0},
+				},
+			},
+			expectedNum: 0,
+		},
+		{
+			name: "test not GC'ing a stack with no-traffic-since less than ScaledownTTLSeconds",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						StackLifecycle: zv1.StackLifecycle{
+							Limit:               int32Ptr(1),
+							ScaledownTTLSeconds: int64Ptr(300),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-200 * time.Second)},
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-250 * time.Second)},
+							},
+						},
+					},
 				},
 			},
 			expectedNum: 0,
@@ -194,8 +189,7 @@ func TestGetStacksToGC(tt *testing.T) {
 				recorder: recorder.CreateEventRecorder(fake.NewSimpleClientset()),
 			}
 
-			stacks, err := c.getStacksToGC(tc.stackSetContainer)
-			assert.NoError(t, err)
+			stacks := c.getStacksToGC(tc.stackSetContainer)
 			assert.Len(t, stacks, tc.expectedNum)
 		})
 	}
@@ -297,5 +291,9 @@ func TestMergeLabels(t *testing.T) {
 }
 
 func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
 	return &i
 }

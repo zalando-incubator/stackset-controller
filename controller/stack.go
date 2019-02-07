@@ -20,10 +20,6 @@ import (
 	kube_record "k8s.io/client-go/tools/record"
 )
 
-const (
-	noTrafficSinceAnnotationKey = "stacksetstacks.zalando.org/no-traffic-since"
-)
-
 // stacksReconciler is able to bring a set of Stacks of a StackSet to the
 // desired state. This includes managing, Deployment, Service and HPA resources
 // of the Stacks.
@@ -162,25 +158,21 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	currentStackName := generateStackName(ssc.StackSet, currentStackVersion(ssc.StackSet))
 	stackUnused := stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0
 
+	noTrafficSince := stack.Status.NoTrafficSince
+
 	// Avoid downscaling the current stack
 	if stackUnused {
-		noTrafficSince, err := stackNoTrafficSince(&sc)
-		if err != nil {
-			return err
-		}
-
-		if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > ssc.ScaledownTTL() {
-			replicas := int32(0)
-			deployment.Spec.Replicas = &replicas
+		if noTrafficSince != nil {
+			if !noTrafficSince.IsZero() && time.Since(noTrafficSince.Time) > ssc.ScaledownTTL() {
+				replicas := int32(0)
+				deployment.Spec.Replicas = &replicas
+			}
 		} else {
-			deployment.Annotations[noTrafficSinceAnnotationKey] = time.Now().UTC().Format(time.RFC3339)
+			noTrafficSince = &metav1.Time{Time: time.Now().UTC()}
 		}
 	} else {
-		// ensure the scaledown annotation is removed if the stack has
-		// traffic.
-		if _, ok := deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
-			delete(deployment.Annotations, noTrafficSinceAnnotationKey)
-		}
+		// ensure noTrafficSince status is not set
+		noTrafficSince = nil
 	}
 
 	err := ssc.TrafficReconciler.ReconcileDeployment(ssc.StackContainers, &stack, ssc.Traffic, deployment)
@@ -252,6 +244,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		Replicas:        deployment.Status.Replicas,
 		ReadyReplicas:   deployment.Status.ReadyReplicas,
 		UpdatedReplicas: deployment.Status.UpdatedReplicas,
+		NoTrafficSince:  noTrafficSince,
 	}
 
 	if ssc.Traffic != nil {
@@ -635,15 +628,4 @@ func applyContainersDefaults(containers []v1.Container) {
 			}
 		}
 	}
-}
-
-func stackNoTrafficSince(stackContainer *StackContainer) (time.Time, error) {
-	if ttl, ok := stackContainer.Resources.Deployment.Annotations[noTrafficSinceAnnotationKey]; ok {
-		noTrafficSince, err := time.Parse(time.RFC3339, ttl)
-		if err != nil {
-			return time.Time{}, fmt.Errorf("failed to parse no-traffic-since timestamp '%s': %v", ttl, err)
-		}
-		return noTrafficSince, nil
-	}
-	return time.Time{}, nil
 }

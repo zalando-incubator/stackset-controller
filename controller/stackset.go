@@ -628,10 +628,7 @@ func readyStacks(stacks []zv1.Stack) int32 {
 // should be garbage collected is determined by the StackSet lifecycle limit.
 func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	stackset := ssc.StackSet
-	stacks, err := c.getStacksToGC(ssc)
-	if err != nil {
-		return err
-	}
+	stacks := c.getStacksToGC(ssc)
 
 	for _, stack := range stacks {
 		c.recorder.Eventf(&stackset,
@@ -652,7 +649,7 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	return nil
 }
 
-func (c *StackSetController) getStacksToGC(ssc StackSetContainer) ([]zv1.Stack, error) {
+func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	stackset := ssc.StackSet
 	stacks := ssc.Stacks()
 
@@ -662,26 +659,28 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) ([]zv1.Stack, 
 	}
 
 	gcCandidates := make([]zv1.Stack, 0, len(stacks))
-	for _, stack := range ssc.StackContainers {
+	for _, stack := range ssc.Stacks() {
 		// never garbage collect stacks with traffic
-		if ssc.Traffic != nil && ssc.Traffic[stack.Stack.Name].Weight() > 0 {
+		if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() > 0 {
 			continue
 		}
 
-		noTrafficSince, err := stackNoTrafficSince(stack)
-		if err != nil {
-			return nil, err
+		// never garbage collect stacks without NoTrafficSince status
+		if stack.Status.NoTrafficSince == nil {
+			continue
 		}
 
-		if !noTrafficSince.IsZero() && time.Since(noTrafficSince) > ssc.ScaledownTTL() {
-			gcCandidates = append(gcCandidates, stack.Stack)
+		noTrafficSince := stack.Status.NoTrafficSince
+
+		if !noTrafficSince.IsZero() && time.Since(noTrafficSince.Time) > ssc.ScaledownTTL() {
+			gcCandidates = append(gcCandidates, stack)
 		}
 	}
 
 	// only garbage collect if history limit is reached
 	if len(stacks) <= historyLimit {
 		c.logger.Debugf("No Stacks to clean up for StackSet %s/%s (limit: %d/%d)", stackset.Namespace, stackset.Name, len(stacks), historyLimit)
-		return nil, nil
+		return nil
 	}
 
 	// sort candidates by oldest
@@ -702,7 +701,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) ([]zv1.Stack, 
 	)
 
 	gcLimit := int(math.Min(float64(excessStacks), float64(len(gcCandidates))))
-	return gcCandidates[:gcLimit], nil
+	return gcCandidates[:gcLimit]
 }
 
 func currentStackVersion(stackset zv1.StackSet) string {
