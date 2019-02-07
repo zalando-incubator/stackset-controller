@@ -4,6 +4,10 @@ pipeline:
   overlay: ci/golang
   type: script
   working_dir: /go/src/github.com/zalando-incubator/stackset-controller
+  cache:
+    paths:
+    - /go/pkg/dep
+    - ~/.cache
   commands:
   - desc: install deps
     cmd: |
