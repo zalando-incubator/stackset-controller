@@ -72,7 +72,7 @@ spec:
     backendPort: 80
   stackLifecycle:
     scaledownTTLSeconds: 300
-    limit: 5
+    limit: 5 # total number of stacks to keep around.
   stackTemplate:
     spec:
       version: v1 # version of the Stack.
@@ -153,6 +153,20 @@ the relationship between `Deployments` and `ReplicaSets`.
 
 If the `Stack` is deleted the related resources like `Service` and
 `Deployment` will be automatically cleaned up.
+
+The `stackLifecycle` let's you configure two settings to change the cleanup
+behavior for the `StackSet`:
+
+* `scaleDownTTLSeconds` defines for how many seconds a stack should not receive
+  traffic before it's scaled down.
+* `limit` defines the total number of stacks to keep. That is, if you have a
+  `limit` of `5` and currently have `6` stacks for the `StackSet` then it will
+  clean up the oldest stack which is **NOT** getting traffic. The `limit` is
+  not enforced if it would mean deleting a stack with traffic. E.g. if you set
+  a `limit` of `1` and have two stacks with `50%` then none of them would be
+  deleted. However, if you switch to `100%` traffic for one of the stacks then
+  the other will be deleted after it has not received traffic for
+  `scaleDownTTLSeconds`.
 
 ## Features
 
