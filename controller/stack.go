@@ -20,6 +20,13 @@ import (
 	kube_record "k8s.io/client-go/tools/record"
 )
 
+var (
+	selectorLabels = map[string]struct{}{
+		stacksetHeritageLabelKey: struct{}{},
+		stackVersionLabelKey:     struct{}{},
+	}
+)
+
 // stacksReconciler is able to bring a set of Stacks of a StackSet to the
 // desired state. This includes managing, Deployment, Service and HPA resources
 // of the Stacks.
@@ -113,7 +120,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			},
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
-					MatchLabels: stack.Labels,
+					MatchLabels: limitLabels(stack.Labels, selectorLabels),
 				},
 				Replicas: stack.Spec.Replicas,
 			},
@@ -423,7 +430,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	}
 
 	service.Labels = stack.Labels
-	service.Spec.Selector = stack.Labels
+	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
 
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
@@ -628,4 +635,15 @@ func applyContainersDefaults(containers []v1.Container) {
 			}
 		}
 	}
+}
+
+// limitLabels returns a limited set of labels based on the validKeys.
+func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[string]string {
+	newLabels := make(map[string]string, len(labels))
+	for k, v := range labels {
+		if _, ok := validKeys[k]; ok {
+			newLabels[k] = v
+		}
+	}
+	return newLabels
 }

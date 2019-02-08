@@ -326,3 +326,16 @@ func TestApplyContainersDefaults(t *testing.T) {
 	applyContainersDefaults(containers)
 	assert.Equal(t, expectedContainers, containers)
 }
+
+func TestLimitLabels(t *testing.T) {
+	labels := map[string]string{
+		"foo": "bar",
+		"foz": "baz",
+	}
+
+	validKeys := map[string]struct{}{
+		"foo": struct{}{},
+	}
+
+	assert.Len(t, limitLabels(labels, validKeys), 1)
+}
