@@ -162,9 +162,11 @@ func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, ex
 }
 
 type expectedStackStatus struct {
-	replicas        *int32
-	readyReplicas   *int32
-	updatedReplicas *int32
+	replicas             *int32
+	readyReplicas        *int32
+	updatedReplicas      *int32
+	actualTrafficWeight  *float64
+	desiredTrafficWeight *float64
 }
 
 func (expected expectedStackStatus) matches(stack *zv1.Stack) error {
@@ -177,6 +179,12 @@ func (expected expectedStackStatus) matches(stack *zv1.Stack) error {
 	}
 	if expected.readyReplicas != nil && status.Replicas != *expected.readyReplicas {
 		return fmt.Errorf("%s: readyReplicas %d != expected %d", stack.Name, status.ReadyReplicas, *expected.readyReplicas)
+	}
+	if expected.actualTrafficWeight != nil && status.ActualTrafficWeight != *expected.actualTrafficWeight {
+		return fmt.Errorf("%s: actualTrafficWeight %f != expected %f", stack.Name, status.ActualTrafficWeight, *expected.actualTrafficWeight)
+	}
+	if expected.desiredTrafficWeight != nil && status.DesiredTrafficWeight != *expected.desiredTrafficWeight {
+		return fmt.Errorf("%s: desiredTrafficWeight %f != expected %f", stack.Name, status.DesiredTrafficWeight, *expected.desiredTrafficWeight)
 	}
 	return nil
 }
@@ -304,5 +312,9 @@ func pint32(i int32) *int32 {
 }
 
 func pint64(i int64) *int64 {
+	return &i
+}
+
+func pfloat64(i float64) *float64 {
 	return &i
 }
