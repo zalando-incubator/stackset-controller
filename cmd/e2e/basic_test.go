@@ -17,6 +17,9 @@ import (
 
 func newStacksetSpec(stacksetName, stackVersion string, hpa bool, ingress bool) zv1.StackSetSpec {
 	var result = zv1.StackSetSpec{
+		StackLifecycle: zv1.StackLifecycle{
+			Limit: pint32(2),
+		},
 		StackTemplate: zv1.StackTemplate{
 			Spec: zv1.StackSpecTemplate{
 				StackSpec: zv1.StackSpec{

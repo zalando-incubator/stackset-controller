@@ -26,8 +26,8 @@ const (
 	stacksetHeritageLabelKey = "stackset"
 	stackVersionLabelKey     = "stack-version"
 
-	weightKindDesired weightKind = "zalando.org/backend-weights"
-	weightKindActual  weightKind = "zalando.org/stack-traffic-weights"
+	weightKindDesired weightKind = "zalando.org/stack-traffic-weights"
+	weightKindActual  weightKind = "zalando.org/backend-weights"
 )
 
 var (
@@ -136,7 +136,16 @@ func resourceDeleted(t *testing.T, kind string, name string, k8sInterface interf
 	})
 }
 
+func removeZeroWeights(weights map[string]float64) {
+	for k, v := range weights {
+		if v == 0 {
+			delete(weights, k)
+		}
+	}
+}
+
 func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64) *awaiter {
+	removeZeroWeights(expectedWeights)
 	return newAwaiter(t, fmt.Sprintf("update of traffic weights in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
 		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
 		if err != nil {
@@ -144,6 +153,7 @@ func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, ex
 		}
 
 		actualWeights := ingressTrafficWeights(ingress, kind)
+		removeZeroWeights(actualWeights)
 		if !reflect.DeepEqual(actualWeights, expectedWeights) {
 			return true, fmt.Errorf("%s: weights %v != expected %v", ingressName, actualWeights, expectedWeights)
 		}
@@ -201,13 +211,18 @@ func createStackSet(stacksetName string, spec zv1.StackSetSpec) error {
 }
 
 func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {
-	ss, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
-	if err != nil {
+	for {
+		ss, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		ss.Spec = spec
+		_, err = stacksetInterface().Update(ss)
+		if apiErrors.IsConflict(err) {
+			continue
+		}
 		return err
 	}
-	ss.Spec = spec
-	_, err = stacksetInterface().Update(ss)
-	return err
 }
 
 func waitForStack(t *testing.T, stacksetName, stackVersion string) (*zv1.Stack, error) {
@@ -263,6 +278,25 @@ func ingressTrafficWeights(ingress *extensionsv1beta1.Ingress, kind weightKind) 
 		return nil
 	}
 	return result
+}
+
+func setDesiredTrafficWeights(ingressName string, weights map[string]float64) error {
+	for {
+		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		serializedWeights, err := json.Marshal(weights)
+		if err != nil {
+			return err
+		}
+		ingress.Annotations[string(weightKindDesired)] = string(serializedWeights)
+		_, err = ingressInterface().Update(ingress)
+		if apiErrors.IsConflict(err) {
+			continue
+		}
+		return err
+	}
 }
 
 func pint32(i int32) *int32 {
