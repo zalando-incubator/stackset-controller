@@ -11,6 +11,7 @@ import (
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
 	apiv1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -53,11 +54,12 @@ func (c *stacksReconciler) reconcile(ssc StackSetContainer) error {
 		if err != nil {
 			c.recorder.Event(&ssc.StackSet, v1.EventTypeWarning, "GenerateHPA",
 				fmt.Sprintf("Failed to generate HPA %v", err.Error()))
+			continue
 		}
 		err = c.manageStack(*sc, ssc)
 		if err != nil {
-			log.Errorf("Failed to manage Stack %s/%s: %v", sc.Stack.Namespace, sc.Stack.Name, err)
-			continue
+			c.recorder.Event(&sc.Stack, v1.EventTypeWarning, "ManageStackFailed",
+				fmt.Sprintf("Failed to reoncile stack: %v", err.Error()))
 		}
 	}
 	return nil
@@ -229,7 +231,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	deployment.APIVersion = "apps/v1"
 	deployment.Kind = "Deployment"
 
-	hpa, err := c.manageAutoscaling(sc, deployment, ssc, stackUnused)
+	hpa, err := c.manageAutoscaling(stack, sc.Resources.HPA, deployment, ssc, stackUnused)
 	if err != nil {
 		return err
 	}
@@ -247,6 +249,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		NoTrafficSince:  noTrafficSince,
 	}
 
+	newStatus.Prescaling = stack.Status.Prescaling
 	if ssc.Traffic != nil {
 		newStatus.ActualTrafficWeight = ssc.Traffic[stack.Name].ActualWeight
 		newStatus.DesiredTrafficWeight = ssc.Traffic[stack.Name].DesiredWeight
@@ -279,10 +282,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 }
 
 // manageAutoscaling manages the HPA defined for the stack.
-func (c *stacksReconciler) manageAutoscaling(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer, stackUnused bool) (*autoscaling.HorizontalPodAutoscaler, error) {
-	hpa := sc.Resources.HPA
-	stack := sc.Stack
-
+func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc StackSetContainer, stackUnused bool) (*autoscaling.HorizontalPodAutoscaler, error) {
 	var origHPA *autoscaling.HorizontalPodAutoscaler
 	if hpa != nil {
 		hpa.Status = autoscaling.HorizontalPodAutoscalerStatus{}

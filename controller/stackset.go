@@ -103,27 +103,30 @@ func (c *StackSetController) Run(ctx context.Context) {
 					if _, ok := c.stacksetStore[stackset]; ok {
 						err = c.ReconcileStack(container)
 						if err != nil {
-							c.logger.Error(err)
+							c.StackSetStatusUpdateFailed(container)
+							return err
 						}
 
 						err := c.ReconcileStacks(container)
 						if err != nil {
-							c.logger.Error(err)
+							c.StackSetStatusUpdateFailed(container)
+							return err
 						}
 
 						err = c.ReconcileIngress(container)
 						if err != nil {
-							c.logger.Error(err)
+							c.StackSetStatusUpdateFailed(container)
+							return err
 						}
 
 						err = c.ReconcileStackSetStatus(container)
 						if err != nil {
-							c.logger.Error(err)
+							return err
 						}
 
 						err = c.StackSetGC(container)
 						if err != nil {
-							c.logger.Error(err)
+							return err
 						}
 					}
 					return nil
@@ -610,6 +613,14 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	return nil
+}
+
+func (c *StackSetController) StackSetStatusUpdateFailed(ssc StackSetContainer) {
+	stackset := ssc.StackSet
+	c.recorder.Eventf(&stackset,
+		apiv1.EventTypeWarning,
+		"FailedUpdateStack",
+		"Failed to create/update stack")
 }
 
 // readyStacks returns the number of ready Stacks given a slice of Stacks.
