@@ -199,23 +199,44 @@ func stackStatusMatches(t *testing.T, stackName string, expectedStatus expectedS
 	})
 }
 
-func stackObjectMeta(name string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
+func stackObjectMeta(name string, prescaling bool) metav1.ObjectMeta {
+	meta := metav1.ObjectMeta{
 		Name:      name,
 		Namespace: namespace,
 		Annotations: map[string]string{
 			controller.StacksetControllerControllerAnnotationKey: controllerId,
 		},
 	}
+	if prescaling {
+		meta.Annotations[controller.PrescaleStacksAnnotationKey] = "yes"
+	}
+	return meta
 }
 
-func createStackSet(stacksetName string, spec zv1.StackSetSpec) error {
+func createStackSet(stacksetName string, prescaling bool, spec zv1.StackSetSpec) error {
 	stackSet := &zv1.StackSet{
-		ObjectMeta: stackObjectMeta(stacksetName),
+		ObjectMeta: stackObjectMeta(stacksetName, prescaling),
 		Spec:       spec,
 	}
 	_, err := stacksetInterface().Create(stackSet)
 	return err
+}
+
+func stacksetExists(stacksetName string) bool {
+	_, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func stackExists(stacksetName, stackVersion string) bool {
+	fullStackName := fmt.Sprintf("%s-%s", stacksetName, stackVersion)
+	_, err := stackInterface().Get(fullStackName, metav1.GetOptions{})
+	if err != nil {
+		return false
+	}
+	return true
 }
 
 func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {

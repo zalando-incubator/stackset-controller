@@ -15,12 +15,14 @@ func TestTrafficSwitch(t *testing.T) {
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	updatedVersion := "v2"
 	updatedStack := fmt.Sprintf("%s-%s", stacksetName, updatedVersion)
-
-	err := createStackSet(stacksetName, newStacksetSpec(stacksetName, firstVersion, false, true))
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress()
+	spec := factory.Create(firstVersion)
+	err := createStackSet(stacksetName, false, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstVersion)
 	require.NoError(t, err)
-	err = updateStackset(stacksetName, newStacksetSpec(stacksetName, updatedVersion, false, true))
+	spec = factory.Create(updatedVersion)
+	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 
 	_, err = waitForIngress(t, stacksetName)

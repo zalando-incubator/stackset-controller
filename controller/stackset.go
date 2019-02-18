@@ -37,8 +37,8 @@ const (
 	stackVersionLabelKey                  = "stack-version"
 	defaultVersion                        = "default"
 	defaultStackLifecycleLimit            = 10
-	prescaleStacksAnnotationKey           = "alpha.stackset-controller.zalando.org/prescale-stacks"
-	resetHPAMinReplicasDelayAnnotationKey = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
+	PrescaleStacksAnnotationKey           = "alpha.stackset-controller.zalando.org/prescale-stacks"
+	ResetHPAMinReplicasDelayAnnotationKey = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	defaultScaledownTTLSeconds            = int64(300)
 )
 
@@ -301,7 +301,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 		}
 
 		// use prescaling logic if enabled with an annotation
-		if _, ok := stackset.Annotations[prescaleStacksAnnotationKey]; ok {
+		if _, ok := stackset.Annotations[PrescaleStacksAnnotationKey]; ok {
 			resetDelay := DefaultResetMinReplicasDelay
 			if resetDelayValue, ok := getResetMinReplicasDelay(stackset.Annotations); ok {
 				resetDelay = resetDelayValue
@@ -512,14 +512,11 @@ func (c *StackSetController) startWatch(ctx context.Context) {
 		UpdateFunc: c.update,
 		DeleteFunc: c.del,
 	})
-
 	go informer.Run(ctx.Done())
-
 	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
 		c.logger.Errorf("Timed out waiting for caches to sync")
 		return
 	}
-
 	c.logger.Info("Synced StackSet watcher")
 }
 
@@ -840,7 +837,7 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 // getResetMinReplicasDelay parses and returns the reset delay if set in the
 // stackset annotation.
 func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, bool) {
-	resetDelayStr, ok := annotations[resetHPAMinReplicasDelayAnnotationKey]
+	resetDelayStr, ok := annotations[ResetHPAMinReplicasDelayAnnotationKey]
 	if !ok {
 		return 0, false
 	}

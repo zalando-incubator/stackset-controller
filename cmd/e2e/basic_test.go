@@ -15,15 +15,63 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func newStacksetSpec(stacksetName, stackVersion string, hpa bool, ingress bool) zv1.StackSetSpec {
+type TestStacksetSpecFactory struct {
+	stacksetName   string
+	hpa            bool
+	ingress        bool
+	limit          int32
+	scaleDownTTL   int64
+	replicas       int32
+	hpaMaxReplicas int32
+	hpaMinReplicas int32
+}
+
+func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
+	return &TestStacksetSpecFactory{
+		stacksetName:   stacksetName,
+		hpa:            false,
+		ingress:        false,
+		limit:          4,
+		scaleDownTTL:   10,
+		replicas:       1,
+		hpaMinReplicas: 1,
+		hpaMaxReplicas: 3,
+	}
+}
+
+func (f *TestStacksetSpecFactory) HPA(minReplicas, maxReplicas int32) *TestStacksetSpecFactory {
+	f.hpa = true
+	f.hpaMinReplicas = minReplicas
+	f.hpaMaxReplicas = maxReplicas
+	return f
+}
+
+func (f *TestStacksetSpecFactory) Ingress() *TestStacksetSpecFactory {
+	f.ingress = true
+	return f
+}
+
+func (f *TestStacksetSpecFactory) StackGC(limit int32, ttl int64) *TestStacksetSpecFactory {
+	f.limit = limit
+	f.scaleDownTTL = ttl
+	return f
+}
+
+func (f *TestStacksetSpecFactory) Replicas(replicas int32) *TestStacksetSpecFactory {
+	f.replicas = replicas
+	return f
+}
+
+func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 	var result = zv1.StackSetSpec{
 		StackLifecycle: zv1.StackLifecycle{
-			Limit: pint32(2),
+			Limit:               pint32(f.limit),
+			ScaledownTTLSeconds: &f.scaleDownTTL,
 		},
 		StackTemplate: zv1.StackTemplate{
 			Spec: zv1.StackSpecTemplate{
 				StackSpec: zv1.StackSpec{
-					Replicas: pint32(1),
+					Replicas: pint32(f.replicas),
 					PodTemplate: corev1.PodTemplateSpec{
 						Spec: nginxPod,
 					},
@@ -41,9 +89,10 @@ func newStacksetSpec(stacksetName, stackVersion string, hpa bool, ingress bool) 
 			},
 		},
 	}
-	if hpa {
+	if f.hpa {
 		result.StackTemplate.Spec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{
-			MaxReplicas: 3,
+			MaxReplicas: f.hpaMaxReplicas,
+			MinReplicas: pint32(f.hpaMinReplicas),
 			Metrics: []autoscalingv2beta1.MetricSpec{
 				{
 					Type: autoscalingv2beta1.ResourceMetricSourceType,
@@ -56,9 +105,9 @@ func newStacksetSpec(stacksetName, stackVersion string, hpa bool, ingress bool) 
 		}
 	}
 
-	if ingress {
+	if f.ingress {
 		result.Ingress = &zv1.StackSetIngressSpec{
-			Hosts:       []string{hostname(stacksetName)},
+			Hosts:       []string{hostname(f.stacksetName)},
 			BackendPort: intstr.FromInt(80),
 		}
 	}
@@ -184,9 +233,15 @@ func testStacksetCreate(t *testing.T, testName string, hpa bool, ingress bool) {
 
 	stacksetName := fmt.Sprintf("stackset-create-%s", testName)
 	stackVersion := "v1"
-	stacksetSpec := newStacksetSpec(stacksetName, stackVersion, hpa, ingress)
-
-	err := createStackSet(stacksetName, stacksetSpec)
+	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
+	if hpa {
+		stacksetSpecFactory.HPA(1, 3)
+	}
+	if ingress {
+		stacksetSpecFactory.Ingress()
+	}
+	stacksetSpec := stacksetSpecFactory.Create(stackVersion)
+	err := createStackSet(stacksetName, false, stacksetSpec)
 	require.NoError(t, err)
 
 	verifyStack(t, stacksetName, stackVersion, stacksetSpec)
@@ -201,9 +256,16 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 
 	stacksetName := fmt.Sprintf("stackset-update-%s", testName)
 	initialVersion := "v1"
-	stacksetSpec := newStacksetSpec(stacksetName, initialVersion, oldHpa, oldIngress)
+	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
+	if oldHpa {
+		stacksetSpecFactory.HPA(1, 3)
+	}
+	if oldIngress {
+		stacksetSpecFactory.Ingress()
+	}
+	stacksetSpec := stacksetSpecFactory.Create(initialVersion)
 
-	err := createStackSet(stacksetName, stacksetSpec)
+	err := createStackSet(stacksetName, false, stacksetSpec)
 	require.NoError(t, err)
 	verifyStack(t, stacksetName, initialVersion, stacksetSpec)
 
@@ -211,8 +273,15 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
 	}
 
+	stacksetSpecFactory = NewTestStacksetSpecFactory(stacksetName)
 	updatedVersion := "v2"
-	updatedSpec := newStacksetSpec(stacksetName, updatedVersion, newHpa, newIngress)
+	if newHpa {
+		stacksetSpecFactory.HPA(1, 3)
+	}
+	if newIngress {
+		stacksetSpecFactory.Ingress()
+	}
+	updatedSpec := stacksetSpecFactory.Create(updatedVersion)
 	err = updateStackset(stacksetName, updatedSpec)
 	require.NoError(t, err)
 	verifyStack(t, stacksetName, updatedVersion, updatedSpec)
