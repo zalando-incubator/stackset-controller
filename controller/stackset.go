@@ -32,14 +32,14 @@ import (
 
 const (
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
+	PrescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
+	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 
-	stacksetHeritageLabelKey              = "stackset"
-	stackVersionLabelKey                  = "stack-version"
-	defaultVersion                        = "default"
-	defaultStackLifecycleLimit            = 10
-	PrescaleStacksAnnotationKey           = "alpha.stackset-controller.zalando.org/prescale-stacks"
-	ResetHPAMinReplicasDelayAnnotationKey = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
-	defaultScaledownTTLSeconds            = int64(300)
+	stacksetHeritageLabelKey   = "stackset"
+	stackVersionLabelKey       = "stack-version"
+	defaultVersion             = "default"
+	defaultStackLifecycleLimit = 10
+	defaultScaledownTTLSeconds = int64(300)
 )
 
 // StackSetController is the main controller. It watches for changes to

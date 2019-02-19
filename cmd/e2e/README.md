@@ -10,5 +10,8 @@ The following environment variables should be set:
 To run the tests run the command:
 
 ```
-go test -parallel 32 github.com/zalando-incubator/stackset-controller/cmd/e2e
+go test -parallel $NUM_PARALLEL github.com/zalando-incubator/stackset-controller/cmd/e2e
 ```
+
+Over here `$NUM_PARALLEL` can be set to a sufficiently high value which indicates how many
+of the parallel type tests can be run concurrently.
