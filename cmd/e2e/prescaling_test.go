@@ -65,6 +65,9 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	deployment, err = waitForDeployment(t, fullThirdStack)
 	require.NoError(t, err)
 	require.EqualValues(t, 6, *(deployment.Spec.Replicas))
+	time.Sleep(time.Minute)
+	deployment, err = waitForDeployment(t, fullThirdStack)
+	require.EqualValues(t, 1, *(deployment.Spec.Replicas))
 }
 
 func TestPrescalingWithHPA(t *testing.T) {
@@ -124,7 +127,11 @@ func TestPrescalingWithHPA(t *testing.T) {
 	require.NoError(t, err)
 
 	// verify that the third stack now has 6 replicas
-	deployment, err = waitForDeployment(t, fullThirdStack)
+	hpa, err := waitForHPA(t, fullThirdStack)
 	require.NoError(t, err)
-	require.EqualValues(t, 6, *(deployment.Spec.Replicas))
+	require.EqualValues(t, 6, *(hpa.Spec.MinReplicas))
+	time.Sleep(time.Minute)
+	hpa, err = waitForHPA(t, fullThirdStack)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, *(hpa.Spec.MinReplicas))
 }

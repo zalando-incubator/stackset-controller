@@ -209,6 +209,7 @@ func stackObjectMeta(name string, prescaling bool) metav1.ObjectMeta {
 	}
 	if prescaling {
 		meta.Annotations[controller.PrescaleStacksAnnotationKey] = "yes"
+		meta.Annotations[controller.ResetHPAMinReplicasDelayAnnotationKey] = "1m"
 	}
 	return meta
 }
