@@ -18,7 +18,7 @@ func TestStackTTLWithoutIngress(t *testing.T) {
 		var err error
 		spec := specFactory.Create(stackVersion)
 		if !stacksetExists(stacksetName) {
-			err = createStackSet(stacksetName, true, spec)
+			err = createStackSet(stacksetName, 1, spec)
 		} else {
 			err = updateStackset(stacksetName, spec)
 		}
@@ -54,7 +54,7 @@ func TestStackTTLWithIngress(t *testing.T) {
 		var err error
 		spec := specFactory.Create(stackVersion)
 		if !stacksetExists(stacksetName) {
-			err = createStackSet(stacksetName, true, spec)
+			err = createStackSet(stacksetName, 1, spec)
 		} else {
 			err = updateStackset(stacksetName, spec)
 		}
@@ -77,7 +77,8 @@ func TestStackTTLWithIngress(t *testing.T) {
 	for i := 2; i < 5; i++ {
 		deploymentName := fmt.Sprintf("%s-v%d", stacksetName, i)
 		require.True(t, stackExists(stacksetName, fmt.Sprintf("v%d", i)))
-		waitForDeployment(t, deploymentName)
+		_, err := waitForDeployment(t, deploymentName)
+		require.NoError(t, err)
 	}
 
 	// verify that the first 2 created stacks have been deleted

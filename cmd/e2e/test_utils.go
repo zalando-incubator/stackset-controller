@@ -199,7 +199,7 @@ func stackStatusMatches(t *testing.T, stackName string, expectedStatus expectedS
 	})
 }
 
-func stackObjectMeta(name string, prescaling bool) metav1.ObjectMeta {
+func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 	meta := metav1.ObjectMeta{
 		Name:      name,
 		Namespace: namespace,
@@ -207,16 +207,16 @@ func stackObjectMeta(name string, prescaling bool) metav1.ObjectMeta {
 			controller.StacksetControllerControllerAnnotationKey: controllerId,
 		},
 	}
-	if prescaling {
+	if prescalingTimeout > 0 {
 		meta.Annotations[controller.PrescaleStacksAnnotationKey] = "yes"
-		meta.Annotations[controller.ResetHPAMinReplicasDelayAnnotationKey] = "1m"
+		meta.Annotations[controller.ResetHPAMinReplicasDelayAnnotationKey] = fmt.Sprintf("%dm", prescalingTimeout)
 	}
 	return meta
 }
 
-func createStackSet(stacksetName string, prescaling bool, spec zv1.StackSetSpec) error {
+func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSetSpec) error {
 	stackSet := &zv1.StackSet{
-		ObjectMeta: stackObjectMeta(stacksetName, prescaling),
+		ObjectMeta: stackObjectMeta(stacksetName, prescalingTimeout),
 		Spec:       spec,
 	}
 	_, err := stacksetInterface().Create(stackSet)

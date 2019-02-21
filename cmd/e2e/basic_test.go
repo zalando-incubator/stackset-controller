@@ -241,7 +241,7 @@ func testStacksetCreate(t *testing.T, testName string, hpa bool, ingress bool) {
 		stacksetSpecFactory.Ingress()
 	}
 	stacksetSpec := stacksetSpecFactory.Create(stackVersion)
-	err := createStackSet(stacksetName, false, stacksetSpec)
+	err := createStackSet(stacksetName, 0, stacksetSpec)
 	require.NoError(t, err)
 
 	verifyStack(t, stacksetName, stackVersion, stacksetSpec)
@@ -265,7 +265,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	}
 	stacksetSpec := stacksetSpecFactory.Create(initialVersion)
 
-	err := createStackSet(stacksetName, false, stacksetSpec)
+	err := createStackSet(stacksetName, 0, stacksetSpec)
 	require.NoError(t, err)
 	verifyStack(t, stacksetName, initialVersion, stacksetSpec)
 
