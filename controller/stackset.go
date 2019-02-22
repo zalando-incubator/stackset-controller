@@ -660,6 +660,13 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 
 	gcCandidates := make([]zv1.Stack, 0, len(stacks))
 	for _, stack := range ssc.Stacks() {
+		// if the stack doesn't have any ingress all stacks are
+		// candidates for cleanup
+		if ssc.StackSet.Spec.Ingress == nil {
+			gcCandidates = append(gcCandidates, stack)
+			continue
+		}
+
 		// never garbage collect stacks with traffic
 		if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() > 0 {
 			continue

@@ -26,6 +26,9 @@ func TestGetStacksToGC(tt *testing.T) {
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
 						StackLifecycle: zv1.StackLifecycle{
 							Limit: int32Ptr(1),
 						},
@@ -59,10 +62,44 @@ func TestGetStacksToGC(tt *testing.T) {
 			expectedNum: 1,
 		},
 		{
+			name: "test GC oldest stack (without ingress defined)",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						StackLifecycle: zv1.StackLifecycle{
+							Limit: int32Ptr(1),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+						},
+					},
+				},
+			},
+			expectedNum: 1,
+		},
+		{
 			name: "test don't GC stacks when all are getting traffic",
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
 						StackLifecycle: zv1.StackLifecycle{
 							Limit: int32Ptr(1),
 						},
@@ -104,6 +141,9 @@ func TestGetStacksToGC(tt *testing.T) {
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
 						StackLifecycle: zv1.StackLifecycle{
 							Limit: int32Ptr(3),
 						},
@@ -145,6 +185,9 @@ func TestGetStacksToGC(tt *testing.T) {
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
 						StackLifecycle: zv1.StackLifecycle{
 							Limit:               int32Ptr(1),
 							ScaledownTTLSeconds: int64Ptr(300),
