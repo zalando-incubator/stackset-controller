@@ -27,3 +27,39 @@ pipeline:
         IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
       fi
       IMAGE=$IMAGE VERSION=$CDP_BUILD_VERSION make build.push
+
+- id: e2e
+  type: process
+  desc: "E2E Tests"
+  target: stups-test
+  process: microservice_standard_test
+  config:
+    apply_manifests:
+      env:
+      - name: APPLICATION
+        value: stackset-controller-test
+      - name: DEPLOYMENT_PATH
+        value: e2e
+      - name: IMAGE
+        value: "registry.opensource.zalan.do/teapot/stackset-controller-test:#{CDP_BUILD_VERSION}"
+      - name: CONTROLLER_ID
+        value: "#{CDP_BUILD_VERSION}"
+    end2end_tests:
+      metadata:
+        name: e2e
+      spec:
+        serviceAccountName: operator
+        restartPolicy: Never
+        containers:
+          - name: e2e
+            image: "registry.opensource.zalan.do/teapot/stackset-controller-test-e2e:#{CDP_BUILD_VERSION}"
+            command: ["/e2e"]
+            env:
+              - name: "CONTROLLER_ID"
+                value: "#{CDP_BUILD_VERSION}"
+              - name: CLUSTER_DOMAIN
+                value: stups-test.zalan.do
+              - name: "E2E_NAMESPACE"
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace

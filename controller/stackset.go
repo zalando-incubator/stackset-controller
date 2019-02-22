@@ -18,8 +18,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
-	"k8s.io/api/core/v1"
 	apiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -31,14 +31,15 @@ import (
 )
 
 const (
-	stacksetHeritageLabelKey                  = "stackset"
-	stackVersionLabelKey                      = "stack-version"
-	defaultVersion                            = "default"
-	defaultStackLifecycleLimit                = 10
-	stacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
-	prescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
-	resetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
-	defaultScaledownTTLSeconds                = int64(300)
+	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
+	PrescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
+	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
+
+	stacksetHeritageLabelKey   = "stackset"
+	stackVersionLabelKey       = "stack-version"
+	defaultVersion             = "default"
+	defaultStackLifecycleLimit = 10
+	defaultScaledownTTLSeconds = int64(300)
 )
 
 // StackSetController is the main controller. It watches for changes to
@@ -300,7 +301,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 		}
 
 		// use prescaling logic if enabled with an annotation
-		if _, ok := stackset.Annotations[prescaleStacksAnnotationKey]; ok {
+		if _, ok := stackset.Annotations[PrescaleStacksAnnotationKey]; ok {
 			resetDelay := DefaultResetMinReplicasDelay
 			if resetDelayValue, ok := getResetMinReplicasDelay(stackset.Annotations); ok {
 				resetDelay = resetDelayValue
@@ -491,7 +492,7 @@ func getOwnerUID(objectMeta metav1.ObjectMeta) (types.UID, bool) {
 // "" and there's no annotation set.
 func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 	if stackset.Annotations != nil {
-		if owner, ok := stackset.Annotations[stacksetControllerControllerAnnotationKey]; ok {
+		if owner, ok := stackset.Annotations[StacksetControllerControllerAnnotationKey]; ok {
 			return owner == c.controllerID
 		}
 	}
@@ -511,14 +512,11 @@ func (c *StackSetController) startWatch(ctx context.Context) {
 		UpdateFunc: c.update,
 		DeleteFunc: c.del,
 	})
-
 	go informer.Run(ctx.Done())
-
 	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
 		c.logger.Errorf("Timed out waiting for caches to sync")
 		return
 	}
-
 	c.logger.Info("Synced StackSet watcher")
 }
 
@@ -839,7 +837,7 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 // getResetMinReplicasDelay parses and returns the reset delay if set in the
 // stackset annotation.
 func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, bool) {
-	resetDelayStr, ok := annotations[resetHPAMinReplicasDelayAnnotationKey]
+	resetDelayStr, ok := annotations[ResetHPAMinReplicasDelayAnnotationKey]
 	if !ok {
 		return 0, false
 	}
