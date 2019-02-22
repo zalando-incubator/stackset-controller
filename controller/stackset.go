@@ -628,7 +628,9 @@ func readyStacks(stacks []zv1.Stack) int32 {
 // should be garbage collected is determined by the StackSet lifecycle limit.
 func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	stackset := ssc.StackSet
-	for _, stack := range c.getStacksToGC(ssc) {
+	stacks := c.getStacksToGC(ssc)
+
+	for _, stack := range stacks {
 		c.recorder.Eventf(&stackset,
 			apiv1.EventTypeNormal,
 			"DeleteExcessStack",
@@ -657,13 +659,27 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	}
 
 	gcCandidates := make([]zv1.Stack, 0, len(stacks))
-	for _, stack := range stacks {
+	for _, stack := range ssc.Stacks() {
+		// if the stack doesn't have any ingress all stacks are
+		// candidates for cleanup
+		if ssc.StackSet.Spec.Ingress == nil {
+			gcCandidates = append(gcCandidates, stack)
+			continue
+		}
+
 		// never garbage collect stacks with traffic
 		if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() > 0 {
 			continue
 		}
 
-		if time.Since(stack.CreationTimestamp.Time) > ssc.ScaledownTTL() {
+		// never garbage collect stacks without NoTrafficSince status
+		if stack.Status.NoTrafficSince == nil {
+			continue
+		}
+
+		noTrafficSince := stack.Status.NoTrafficSince
+
+		if !noTrafficSince.IsZero() && time.Since(noTrafficSince.Time) > ssc.ScaledownTTL() {
 			gcCandidates = append(gcCandidates, stack)
 		}
 	}

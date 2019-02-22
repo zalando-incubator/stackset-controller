@@ -26,6 +26,46 @@ func TestGetStacksToGC(tt *testing.T) {
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
+						StackLifecycle: zv1.StackLifecycle{
+							Limit: int32Ptr(1),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+							},
+						},
+					},
+				},
+			},
+			expectedNum: 1,
+		},
+		{
+			name: "test GC oldest stack (without ingress defined)",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
 						StackLifecycle: zv1.StackLifecycle{
 							Limit: int32Ptr(1),
 						},
@@ -57,6 +97,9 @@ func TestGetStacksToGC(tt *testing.T) {
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
 						StackLifecycle: zv1.StackLifecycle{
 							Limit: int32Ptr(1),
 						},
@@ -69,6 +112,9 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack1",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+							},
 						},
 					},
 					types.UID("uid2"): {
@@ -76,6 +122,9 @@ func TestGetStacksToGC(tt *testing.T) {
 							ObjectMeta: metav1.ObjectMeta{
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
 							},
 						},
 					},
@@ -92,6 +141,9 @@ func TestGetStacksToGC(tt *testing.T) {
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
 						StackLifecycle: zv1.StackLifecycle{
 							Limit: int32Ptr(3),
 						},
@@ -104,6 +156,9 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack1",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
 							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+							},
 						},
 					},
 					types.UID("uid2"): {
@@ -112,12 +167,56 @@ func TestGetStacksToGC(tt *testing.T) {
 								Name:              "stack2",
 								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
 							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
+							},
 						},
 					},
 				},
 				Traffic: map[string]TrafficStatus{
 					"stack1": TrafficStatus{ActualWeight: 0},
 					"stack2": TrafficStatus{ActualWeight: 0},
+				},
+			},
+			expectedNum: 0,
+		},
+		{
+			name: "test not GC'ing a stack with no-traffic-since less than ScaledownTTLSeconds",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
+						StackLifecycle: zv1.StackLifecycle{
+							Limit:               int32Ptr(1),
+							ScaledownTTLSeconds: int64Ptr(300),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-200 * time.Second)},
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-250 * time.Second)},
+							},
+						},
+					},
 				},
 			},
 			expectedNum: 0,
@@ -235,5 +334,9 @@ func TestMergeLabels(t *testing.T) {
 }
 
 func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
 	return &i
 }

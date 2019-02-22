@@ -34,6 +34,10 @@ spec:
     format: float
     description: Current traffic weight for the stack
     JSONPath: .status.actualTrafficWeight
+  - name: No-Traffic-Since
+    type: date
+    description: Time since the stack didn't get any traffic
+    JSONPath: .status.noTrafficSince
   - name: Age
     type: date
     description: Age of the stack

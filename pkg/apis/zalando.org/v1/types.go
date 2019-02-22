@@ -231,6 +231,9 @@ type StackStatus struct {
 	// optional HortizontalPodAutoscaler defined for the stack.
 	// +optional
 	DesiredReplicas int32 `json:"desiredReplicas,omitempty" protobuf:"varint,2,opt,name=desiredReplicas"`
+	// NoTrafficSince is the timestamp defining the last time the stack was
+	// observed getting traffic.
+	NoTrafficSince *metav1.Time `json:"noTrafficSince,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
