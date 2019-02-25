@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -16,23 +15,22 @@ import (
 
 func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 	for _, ti := range []struct {
-		msg                 string
-		deployment          *appsv1.Deployment
-		stacks              map[types.UID]*StackContainer
-		stack               *zv1.Stack
-		traffic             map[string]TrafficStatus
-		err                 error
-		expectedReplicas    int32
-		expectedAnnotations map[string]string
+		msg                string
+		deployment         *appsv1.Deployment
+		stacks             map[types.UID]*StackContainer
+		stack              *zv1.Stack
+		traffic            map[string]TrafficStatus
+		err                error
+		expectedReplicas   int32
+		calculatedReplicas int
+		prescalingActive   bool
+		timestampUpdated   bool
 	}{
 		{
 			msg: "should not prescale deployment replicas if there is an HPA defined",
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "svc-3",
-					Annotations: map[string]string{
-						prescaleAnnotationKey: "10",
-					},
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &[]int32{3}[0],
@@ -48,9 +46,16 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						MaxReplicas: 20,
 					},
 				},
+				Status: zv1.StackStatus{
+					Prescaling: zv1.PrescalingStatus{
+						Active:              true,
+						Replicas:            10,
+						LastTrafficIncrease: &metav1.Time{Time: time.Now().Add(-2 * time.Minute)},
+					},
+				},
 			},
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -68,7 +73,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
@@ -86,7 +91,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
@@ -96,9 +101,6 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
-								Annotations: map[string]string{
-									prescaleAnnotationKey: "10",
-								},
 							},
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{3}[0],
@@ -108,133 +110,29 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  0.0,
 					DesiredWeight: 100.0,
 				},
 			},
-			expectedReplicas: 3,
-			expectedAnnotations: map[string]string{
-				prescaleAnnotationKey: "10",
-			},
+			expectedReplicas:   3,
+			calculatedReplicas: 10,
+			prescalingActive:   true,
+			timestampUpdated:   true,
 		},
 		{
 			msg: "should prescale deployment if no HPA is defined",
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "svc-3",
-					Annotations: map[string]string{
-						prescaleAnnotationKey: "10",
-					},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: &[]int32{3}[0],
-				},
-			},
-			stack: &zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "svc-3",
-				},
-				Spec: zv1.StackSpec{
-					// HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-					// 	MinReplicas: &[]int32{3}[0],
-					// 	MaxReplicas: 20,
-					// },
-				},
-			},
-			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
-					Stack: zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "svc-1",
-						},
-					},
-					Resources: StackResources{
-						Deployment: &appsv1.Deployment{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:        "svc-1",
-								Annotations: map[string]string{},
-							},
-							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{5}[0],
-							},
-						},
-					},
-				},
-				types.UID("2"): &StackContainer{
-					Stack: zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "svc-2",
-						},
-					},
-					Resources: StackResources{
-						Deployment: &appsv1.Deployment{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:        "svc-2",
-								Annotations: map[string]string{},
-							},
-							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{10}[0],
-							},
-						},
-					},
-				},
-				types.UID("3"): &StackContainer{
-					Stack: zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "svc-3",
-						},
-					},
-					Resources: StackResources{
-						Deployment: &appsv1.Deployment{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "svc-3",
-								Annotations: map[string]string{
-									prescaleAnnotationKey: "10",
-								},
-							},
-							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{3}[0],
-							},
-						},
-					},
-				},
-			},
-			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
-					ActualWeight:  50.0,
-					DesiredWeight: 0.0,
-				},
-				"svc-2": TrafficStatus{
-					ActualWeight:  50.0,
-					DesiredWeight: 0.0,
-				},
-				"svc-3": TrafficStatus{
-					ActualWeight:  0.0,
-					DesiredWeight: 100.0,
-				},
-			},
-			expectedReplicas: 10,
-			expectedAnnotations: map[string]string{
-				prescaleAnnotationKey: "10",
-			},
-		},
-		{
-			msg: "remove prescale annotation if already getting traffic.",
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "svc-3",
-					Annotations: map[string]string{
-						prescaleAnnotationKey: "10",
-					},
 				},
 				Spec: appsv1.DeploymentSpec{
 					Replicas: &[]int32{3}[0],
@@ -245,26 +143,132 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					Name: "svc-3",
 				},
 				Spec: zv1.StackSpec{},
+				Status: zv1.StackStatus{
+					Prescaling: zv1.PrescalingStatus{
+						Active:              true,
+						Replicas:            10,
+						LastTrafficIncrease: &metav1.Time{Time: time.Now().Add(-2 * time.Minute)},
+					},
+				},
+			},
+			stacks: map[types.UID]*StackContainer{
+				types.UID("1"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-1",
+						},
+					},
+					Resources: StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-1",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{5}[0],
+							},
+						},
+					},
+				},
+				types.UID("2"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-2",
+						},
+					},
+					Resources: StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-2",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{10}[0],
+							},
+						},
+					},
+				},
+				types.UID("3"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-3",
+						},
+					},
+					Resources: StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "svc-3",
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+						},
+					},
+				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
+					ActualWeight:  50.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-2": {
+					ActualWeight:  50.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-3": {
+					ActualWeight:  0.0,
+					DesiredWeight: 100.0,
+				},
+			},
+			expectedReplicas:   10,
+			calculatedReplicas: 10,
+			prescalingActive:   true,
+			timestampUpdated:   true,
+		},
+		{
+			msg: "disable prescaling if prescaling timeout has elapsed and getting traffic.",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "svc-3",
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &[]int32{3}[0],
+				},
+			},
+			stack: &zv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "svc-3",
+				},
+				Spec: zv1.StackSpec{},
+				Status: zv1.StackStatus{
+					Prescaling: zv1.PrescalingStatus{
+						Active:              true,
+						Replicas:            10,
+						LastTrafficIncrease: &metav1.Time{Time: time.Now().Add(-2 * DefaultResetMinReplicasDelay)},
+					},
+				},
+			},
+			traffic: map[string]TrafficStatus{
+				"svc-1": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  100.0,
 					DesiredWeight: 100.0,
 				},
 			},
-			expectedReplicas:    3,
-			expectedAnnotations: map[string]string{},
+			expectedReplicas:   3,
+			calculatedReplicas: 0,
+			prescalingActive:   false,
+			timestampUpdated:   false,
 		},
 		{
-			msg: "prescale stack if desired is > 0",
+			msg: "prescale stack if desired traffic is > 0 (without HPA)",
 			deployment: &appsv1.Deployment{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "svc-3",
@@ -278,15 +282,10 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "svc-3",
 				},
-				Spec: zv1.StackSpec{
-					// HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-					// 	MinReplicas: &[]int32{3}[0],
-					// 	MaxReplicas: 20,
-					// },
-				},
+				Spec: zv1.StackSpec{},
 			},
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -304,7 +303,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
@@ -322,7 +321,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
@@ -342,23 +341,23 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  50.0,
 					DesiredWeight: 50.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  0.0,
 					DesiredWeight: 50.0,
 				},
 			},
-			expectedReplicas: 15,
-			expectedAnnotations: map[string]string{
-				prescaleAnnotationKey: "15",
-			},
+			expectedReplicas:   15,
+			prescalingActive:   true,
+			calculatedReplicas: 15,
+			timestampUpdated:   true,
 		},
 		{
 			msg: "prescale stack if desired is > 0 (with HPA)",
@@ -376,117 +375,21 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					Name: "svc-3",
 				},
 				Spec: zv1.StackSpec{
-					// HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-					// 	MinReplicas: &[]int32{3}[0],
-					// 	MaxReplicas: 20,
-					// },
-				},
-			},
-			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
-					Stack: zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "svc-1",
-						},
-					},
-					Resources: StackResources{
-						Deployment: &appsv1.Deployment{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:        "svc-1",
-								Annotations: map[string]string{},
-							},
-							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{5}[0],
-							},
-						},
-						HPA: &autoscaling.HorizontalPodAutoscaler{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:        "svc-1",
-								Annotations: map[string]string{},
-							},
-						},
-					},
-				},
-				types.UID("2"): &StackContainer{
-					Stack: zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "svc-2",
-						},
-					},
-					Resources: StackResources{
-						Deployment: &appsv1.Deployment{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:        "svc-2",
-								Annotations: map[string]string{},
-							},
-							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{10}[0],
-							},
-						},
-					},
-				},
-				types.UID("3"): &StackContainer{
-					Stack: zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "svc-3",
-						},
-					},
-					Resources: StackResources{
-						Deployment: &appsv1.Deployment{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:        "svc-3",
-								Annotations: map[string]string{},
-							},
-							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{3}[0],
-							},
-						},
-					},
-				},
-			},
-			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
-					ActualWeight:  50.0,
-					DesiredWeight: 0.0,
-				},
-				"svc-2": TrafficStatus{
-					ActualWeight:  50.0,
-					DesiredWeight: 50.0,
-				},
-				"svc-3": TrafficStatus{
-					ActualWeight:  0.0,
-					DesiredWeight: 50.0,
-				},
-			},
-			expectedReplicas: 15,
-			expectedAnnotations: map[string]string{
-				prescaleAnnotationKey: "15",
-			},
-		},
-		{
-			msg: "prescale stack if desired is > actual (with HPA), cap prescale at Max HPA replicas",
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:        "svc-3",
-					Annotations: map[string]string{},
-				},
-				Spec: appsv1.DeploymentSpec{
-					Replicas: &[]int32{3}[0],
-				},
-			},
-			stack: &zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "svc-3",
-				},
-				Spec: zv1.StackSpec{
 					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
 						MinReplicas: &[]int32{3}[0],
-						MaxReplicas: 10,
+						MaxReplicas: 20,
+					},
+				},
+				Status: zv1.StackStatus{
+					Prescaling: zv1.PrescalingStatus{
+						Active:              false,
+						Replicas:            0,
+						LastTrafficIncrease: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
 					},
 				},
 			},
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -510,7 +413,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
@@ -528,7 +431,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
@@ -548,33 +451,39 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
+					ActualWeight:  50.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-2": {
+					ActualWeight:  50.0,
+					DesiredWeight: 50.0,
+				},
+				"svc-3": {
 					ActualWeight:  0.0,
-					DesiredWeight: 0.0,
-				},
-				"svc-2": TrafficStatus{
-					ActualWeight:  50.0,
-					DesiredWeight: 0.0,
-				},
-				"svc-3": TrafficStatus{
-					ActualWeight:  50.0,
-					DesiredWeight: 100.0,
+					DesiredWeight: 50.0,
 				},
 			},
-			expectedReplicas: 3,
-			expectedAnnotations: map[string]string{
-				prescaleAnnotationKey: "10",
-			},
+			expectedReplicas:   3,
+			prescalingActive:   true,
+			calculatedReplicas: 15,
+			timestampUpdated:   true,
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
-			trafficReconciler := PrescaleTrafficReconciler{}
+			trafficReconciler := PrescaleTrafficReconciler{ResetHPAMinReplicasTimeout: DefaultResetMinReplicasDelay}
 			err := trafficReconciler.ReconcileDeployment(ti.stacks, ti.stack, ti.traffic, ti.deployment)
 			if ti.err != nil {
 				require.Error(t, err)
 			} else {
 				require.Equal(t, ti.expectedReplicas, *ti.deployment.Spec.Replicas)
-				require.Equal(t, ti.expectedAnnotations, ti.deployment.Annotations)
+				require.Equal(t, ti.prescalingActive, ti.stack.Status.Prescaling.Active, "expected prescaling to be %v", ti.prescalingActive)
+				if ti.prescalingActive {
+					require.EqualValues(t, ti.calculatedReplicas, ti.stack.Status.Prescaling.Replicas)
+				}
+				if ti.timestampUpdated {
+					require.InDelta(t, time.Now().Unix(), ti.stack.Status.Prescaling.LastTrafficIncrease.Unix(), float64(time.Second*10), "last updated is older than 10 seconds")
+				}
 			}
 		})
 	}
@@ -582,71 +491,34 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 
 func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 	for _, ti := range []struct {
-		msg                       string
-		hpa                       *autoscaling.HorizontalPodAutoscaler
-		deployment                *appsv1.Deployment
-		stack                     *zv1.Stack
-		expectedMinReplicas       int32
-		expectedMaxReplicas       int32
-		expectedHPAAnnotationKeys map[string]struct{}
-		err                       error
+		msg                 string
+		hpa                 *autoscaling.HorizontalPodAutoscaler
+		deployment          *appsv1.Deployment
+		stack               *zv1.Stack
+		expectedMinReplicas int32
+		expectedMaxReplicas int32
+		err                 error
 	}{
 		{
 			msg: "minReplicas should match prescale replicas",
-			hpa: &autoscaling.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						prescaleAnnotationKey: "10",
-					},
-				},
-			},
+			hpa: &autoscaling.HorizontalPodAutoscaler{},
 			stack: &zv1.Stack{
 				Spec: zv1.StackSpec{
 					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
 						MinReplicas: &[]int32{3}[0],
 						MaxReplicas: 20,
 					},
+				},
+				Status: zv1.StackStatus{
+					Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 				},
 			},
 			expectedMaxReplicas: 20,
 			expectedMinReplicas: 10,
-			expectedHPAAnnotationKeys: map[string]struct{}{
-				resetHPAMinReplicasSinceKey: struct{}{},
-			},
-		},
-		{
-			msg: "Invalid prescale replicas should return error",
-			hpa: &autoscaling.HorizontalPodAutoscaler{},
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						prescaleAnnotationKey: "abc",
-					},
-				},
-			},
-			stack: &zv1.Stack{
-				Spec: zv1.StackSpec{
-					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-						MinReplicas: &[]int32{10}[0],
-						MaxReplicas: 20,
-					},
-				},
-			},
-			err: errors.New("failure"),
 		},
 		{
 			msg: "stack without prescale annotation should have default MinReplicas.",
 			hpa: &autoscaling.HorizontalPodAutoscaler{},
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
 			stack: &zv1.Stack{
 				Spec: zv1.StackSpec{
 					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
@@ -654,90 +526,8 @@ func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 						MaxReplicas: 20,
 					},
 				},
-			},
-			expectedMaxReplicas: 20,
-			expectedMinReplicas: 3,
-		},
-		{
-			msg: "re-use HPA minReplicas if the ResetHPAMinReplicasTimeout has not expired",
-			hpa: &autoscaling.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						resetHPAMinReplicasSinceKey: time.Now().Format(time.RFC3339),
-					},
-				},
-				Spec: autoscaling.HorizontalPodAutoscalerSpec{
-					MinReplicas: &[]int32{20}[0],
-					MaxReplicas: 20,
-				},
-			},
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
-			stack: &zv1.Stack{
-				Spec: zv1.StackSpec{
-					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-						MinReplicas: &[]int32{3}[0],
-						MaxReplicas: 20,
-					},
-				},
-			},
-			expectedMaxReplicas: 20,
-			expectedMinReplicas: 20,
-			expectedHPAAnnotationKeys: map[string]struct{}{
-				resetHPAMinReplicasSinceKey: struct{}{},
-			},
-		},
-		{
-			msg: "invalid date format for 'min-replicas-prescale-since' should be an error.",
-			hpa: &autoscaling.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						resetHPAMinReplicasSinceKey: "invalid date",
-					},
-				},
-			},
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
-			stack: &zv1.Stack{
-				Spec: zv1.StackSpec{
-					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-						MinReplicas: &[]int32{3}[0],
-						MaxReplicas: 20,
-					},
-				},
-			},
-			err: errors.New("error"),
-		},
-		{
-			msg: "Don't re-use HPA minReplicas if the ResetHPAMinReplicasTimeout has expired",
-			hpa: &autoscaling.HorizontalPodAutoscaler{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{
-						resetHPAMinReplicasSinceKey: time.Now().Add(-(20 * time.Minute)).Format(time.RFC3339),
-					},
-				},
-				Spec: autoscaling.HorizontalPodAutoscalerSpec{
-					MinReplicas: &[]int32{20}[0],
-					MaxReplicas: 20,
-				},
-			},
-			deployment: &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-				},
-			},
-			stack: &zv1.Stack{
-				Spec: zv1.StackSpec{
-					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-						MinReplicas: &[]int32{3}[0],
-						MaxReplicas: 20,
-					},
+				Status: zv1.StackStatus{
+					Prescaling: zv1.PrescalingStatus{Active: false, Replicas: 10},
 				},
 			},
 			expectedMaxReplicas: 20,
@@ -754,35 +544,9 @@ func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 			} else {
 				require.Equal(t, ti.expectedMinReplicas, *ti.hpa.Spec.MinReplicas)
 				require.Equal(t, ti.expectedMaxReplicas, ti.hpa.Spec.MaxReplicas)
-				require.Len(t, ti.hpa.Annotations, len(ti.expectedHPAAnnotationKeys))
-				for k := range ti.expectedHPAAnnotationKeys {
-					require.Contains(t, ti.hpa.Annotations, k)
-				}
 			}
 		})
 	}
-}
-
-func TestGetDeploymentPrescale(t *testing.T) {
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				prescaleAnnotationKey: "10",
-			},
-		},
-	}
-
-	prescale, ok := getDeploymentPrescale(deployment)
-	require.True(t, ok)
-	require.Equal(t, int32(10), prescale)
-
-	deployment.Annotations = map[string]string{}
-	_, ok = getDeploymentPrescale(deployment)
-	require.False(t, ok)
-
-	deployment.Annotations = map[string]string{prescaleAnnotationKey: "abc"}
-	_, ok = getDeploymentPrescale(deployment)
-	require.False(t, ok)
 }
 
 func TestReconcileIngressTraffic(tt *testing.T) {
@@ -797,7 +561,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		{
 			msg: "stacks without prescale annotation should not get desired traffic if it was already 0",
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -812,7 +576,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
@@ -827,7 +591,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
@@ -846,15 +610,15 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
 					ActualWeight:  100.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  0.0,
 					DesiredWeight: 100.0,
 				},
@@ -873,7 +637,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		{
 			msg: "Prescaled stack should get desired traffic",
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -888,7 +652,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
@@ -903,19 +667,19 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
 					Resources: StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
-								Annotations: map[string]string{
-									prescaleAnnotationKey: "10",
-								},
 							},
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
@@ -928,15 +692,15 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
 					ActualWeight:  100.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  0.0,
 					DesiredWeight: 100.0,
 				},
@@ -953,7 +717,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		{
 			msg: "Prescaled stack should get not desired traffic if not ready",
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -968,7 +732,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
@@ -983,19 +747,19 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
 					Resources: StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
-								Annotations: map[string]string{
-									prescaleAnnotationKey: "10",
-								},
 							},
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
@@ -1008,15 +772,15 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
 					ActualWeight:  100.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  0.0,
 					DesiredWeight: 100.0,
 				},
@@ -1035,7 +799,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		{
 			msg: "Prescaled stack with actual traffic should not loose traffic if not all replicas are ready",
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -1050,7 +814,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
@@ -1065,19 +829,19 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
 					Resources: StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
-								Annotations: map[string]string{
-									prescaleAnnotationKey: "10",
-								},
 							},
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
@@ -1090,15 +854,15 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  100.0,
 					DesiredWeight: 100.0,
 				},
@@ -1115,7 +879,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		{
 			msg: "test two prescaled stacks one is ready and one is not",
 			stacks: map[types.UID]*StackContainer{
-				types.UID("1"): &StackContainer{
+				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
@@ -1130,19 +894,19 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("2"): &StackContainer{
+				types.UID("2"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-2",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
 					Resources: StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-2",
-								Annotations: map[string]string{
-									prescaleAnnotationKey: "10",
-								},
 							},
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
@@ -1153,19 +917,19 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 						},
 					},
 				},
-				types.UID("3"): &StackContainer{
+				types.UID("3"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-3",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
 					Resources: StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
-								Annotations: map[string]string{
-									prescaleAnnotationKey: "10",
-								},
 							},
 							Spec: appsv1.DeploymentSpec{
 								Replicas: &[]int32{10}[0],
@@ -1178,23 +942,21 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			traffic: map[string]TrafficStatus{
-				"svc-1": TrafficStatus{
+				"svc-1": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
 				},
-				"svc-2": TrafficStatus{
+				"svc-2": {
 					ActualWeight:  100.0,
 					DesiredWeight: 50.0,
 				},
-				"svc-3": TrafficStatus{
+				"svc-3": {
 					ActualWeight:  0.0,
 					DesiredWeight: 50.0,
 				},
 			},
 			expectedAvailableWeights: map[string]float64{
-				// "svc-1": 0.0,
 				"svc-2": 100.0,
-				// "svc-3": 0.0,
 			},
 			expectedAllWeights: map[string]float64{
 				"svc-1": 0.0,

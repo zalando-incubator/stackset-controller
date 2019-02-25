@@ -231,9 +231,26 @@ type StackStatus struct {
 	// optional HortizontalPodAutoscaler defined for the stack.
 	// +optional
 	DesiredReplicas int32 `json:"desiredReplicas,omitempty" protobuf:"varint,2,opt,name=desiredReplicas"`
+	// Prescaling current prescaling information
+	// +optional
+	Prescaling PrescalingStatus `json:"prescalingStatus,omitempty" protobuf:"varint,2,opt,name=prescalingStatus"`
 	// NoTrafficSince is the timestamp defining the last time the stack was
 	// observed getting traffic.
 	NoTrafficSince *metav1.Time `json:"noTrafficSince,omitempty"`
+}
+
+// Prescaling hold prescaling information
+// +k8s:deepcopy-gen=true
+type PrescalingStatus struct {
+	// Active indicates if prescaling is current active
+	// +optional
+	Active bool `json:"active,omitempty" protobuf:"varint,1,name=active"`
+	// Replicas is the number of replicas required for prescaling
+	// +optional
+	Replicas int32 `json:"replicas,omitempty" protobuf:"varint,2,opt,name=replicas"`
+	// LastTrafficIncrease is the timestamp when the traffic was last increased on the stack
+	// +optional
+	LastTrafficIncrease *metav1.Time `json:"lastTrafficIncrease,omitempty" protobuf:"varint,4,opt,name=lastTrafficIncrease"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
