@@ -42,7 +42,7 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 		stack.Status.Prescaling.LastTrafficIncrease = &currentTime
 	}
 
-	// If prescaling is active and the prescaling timeout has expired then delete the prescaling annotation
+	// If prescaling is active and the prescaling timeout has expired then deactivate the prescaling
 	if stack.Status.Prescaling.Active {
 		lastTraffic := *stack.Status.Prescaling.LastTrafficIncrease
 		if !lastTraffic.IsZero() && time.Since(lastTraffic.Time) > r.ResetHPAMinReplicasTimeout {
