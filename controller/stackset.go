@@ -789,7 +789,8 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 	stack.Labels = stackLabels
 	stack.Spec.PodTemplate = *stackset.Spec.StackTemplate.Spec.PodTemplate.DeepCopy()
 	stack.Spec.Replicas = stackset.Spec.StackTemplate.Spec.Replicas
-	stack.Spec.HorizontalPodAutoscaler = stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler
+	stack.Spec.HorizontalPodAutoscaler = stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy()
+	stack.Spec.Autoscaler = stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy()
 	if stackset.Spec.StackTemplate.Spec.Service != nil {
 		stack.Spec.Service = sanitizeServicePorts(stackset.Spec.StackTemplate.Spec.Service)
 	}
