@@ -37,11 +37,10 @@ func NewAutoscalerReconciler(ssc StackSetContainer) *AutoscalerReconciler {
 
 func (c *AutoscalerReconciler) Reconcile(sc *StackContainer) error {
 
-	if sc.Stack.Spec.HorizontalPodAutoscaler != nil {
+	if c.ssc.StackSet.Spec.StackTemplate.Spec.HorizontalPodAutoscaler != nil {
 		return nil
 	}
-
-	autoscaler := sc.Stack.Spec.Autoscaler
+	autoscaler := c.ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler
 	stacksetName := c.ssc.StackSet.Name
 	stackName := sc.Stack.Name
 
