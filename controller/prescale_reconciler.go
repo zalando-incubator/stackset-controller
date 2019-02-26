@@ -51,7 +51,7 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 		}
 
 		// If there is no associated HPA then manually update the replicas
-		if stack.Spec.HorizontalPodAutoscaler == nil {
+		if stack.Spec.HorizontalPodAutoscaler == nil && stack.Status.Prescaling.Replicas != 0 {
 			replicas := stack.Status.Prescaling.Replicas
 			deployment.Spec.Replicas = &replicas
 		}
@@ -65,7 +65,7 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 // minReplicas value from the Stack. This means that the HPA is allowed to scale down once the prescaling is done.
 func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscaling.HorizontalPodAutoscaler, deployment *appsv1.Deployment) error {
 	hpa.Spec.MaxReplicas = stack.Spec.HorizontalPodAutoscaler.MaxReplicas
-	if stack.Status.Prescaling.Active {
+	if stack.Status.Prescaling.Active && stack.Status.Prescaling.Replicas != 0 {
 		minReplicas := int32(math.Min(float64(stack.Status.Prescaling.Replicas), float64(stack.Spec.HorizontalPodAutoscaler.MaxReplicas)))
 		hpa.Spec.MinReplicas = &minReplicas
 		return nil
