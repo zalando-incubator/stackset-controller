@@ -2,6 +2,7 @@ package controller
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -27,6 +28,22 @@ const (
 	SQSQueueRegionTag     = "region"
 )
 
+type MetricsList []autoscaling.MetricSpec
+
+func (l MetricsList) Len() int {
+	return len(l)
+}
+
+func (l MetricsList) Swap(i, j int) {
+	temp := l[i]
+	l[i] = l[j]
+	l[j] = temp
+}
+
+func (l MetricsList) Less(i, j int) bool {
+	return l[i].Type < l[j].Type
+}
+
 type AutoscalerReconciler struct {
 	ssc StackSetContainer
 }
@@ -46,6 +63,7 @@ func (c *AutoscalerReconciler) Reconcile(sc *StackContainer) error {
 
 	if autoscaler != nil {
 		var generatedHPA zv1.HorizontalPodAutoscaler
+		generatedHPA.Annotations = nil
 		generatedHPA.MinReplicas = autoscaler.MinReplicas
 		generatedHPA.MaxReplicas = autoscaler.MaxReplicas
 		generatedHPA.Metrics = make([]autoscaling.MetricSpec, len(autoscaler.Metrics))
@@ -95,6 +113,7 @@ func (c *AutoscalerReconciler) Reconcile(sc *StackContainer) error {
 			generatedHPA.Metrics[i] = *generated
 		}
 		sc.Stack.Spec.HorizontalPodAutoscaler = &generatedHPA
+		sort.Sort(MetricsList(generatedHPA.Metrics))
 	}
 	return nil
 }

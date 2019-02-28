@@ -59,7 +59,7 @@ func (c *stacksReconciler) reconcile(ssc StackSetContainer) error {
 		err = c.manageStack(*sc, ssc)
 		if err != nil {
 			c.recorder.Event(&sc.Stack, v1.EventTypeWarning, "ManageStackFailed",
-				fmt.Sprintf("Failed to reoncile stack: %v", err.Error()))
+				fmt.Sprintf("Failed to reconcile stack: %v", err.Error()))
 		}
 	}
 	return nil
@@ -332,10 +332,6 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 				},
 			},
 		}
-	}
-
-	if hpa.Annotations == nil {
-		hpa.Annotations = map[string]string{}
 	}
 
 	hpa.Labels = deployment.Labels

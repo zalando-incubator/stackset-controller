@@ -243,3 +243,26 @@ func TestIngressMetricInvalid(t *testing.T) {
 	_, err := IngressMetric(metrics, "stack-name", "test-stack")
 	assert.Errorf(t, err, "created metric with invalid configuration")
 }
+
+func TestSortingMetrics(t *testing.T) {
+	container := generateSSAutoscalerStub(1, 10)
+	metrics := []zv1.AutoscalerMetrics{
+		{Type: CPUMetricName, AverageUtilization: pint32(50),},
+		{Type: IngressMetricName, Average: pint32(10)},
+		{Type: PodJSONMetricName, Average: pint32(10), Endpoint: &zv1.MetricsEndpoint{Name: "abc", Path: "/metrics", Port: 1222, Key: "test.abc"}},
+		{Type: AmazonSQSMetricName, Average: pint32(10), Queue: &zv1.MetricsQueue{Name: "test", Region: "region"}},
+	}
+	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = metrics
+	reconciler := NewAutoscalerReconciler(container)
+	sc := &StackContainer{}
+	err := reconciler.Reconcile(sc)
+	assert.NoError(t, err)
+	assert.EqualValues(t, v2beta1.ExternalMetricSourceType, sc.Stack.Spec.HorizontalPodAutoscaler.Metrics[0].Type)
+	assert.EqualValues(t, v2beta1.ObjectMetricSourceType, sc.Stack.Spec.HorizontalPodAutoscaler.Metrics[1].Type)
+	assert.EqualValues(t, v2beta1.PodsMetricSourceType, sc.Stack.Spec.HorizontalPodAutoscaler.Metrics[2].Type)
+	assert.EqualValues(t, v2beta1.ResourceMetricSourceType, sc.Stack.Spec.HorizontalPodAutoscaler.Metrics[3].Type)
+}
+
+func pint32(val int) *int32 {
+	return &[]int32{int32(val)}[0]
+}
