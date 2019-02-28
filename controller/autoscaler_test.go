@@ -6,6 +6,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
@@ -60,7 +61,7 @@ func generateSSAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueN
 				Name:   queueName,
 				Region: queueRegion,
 			},
-			Average: &utilization,
+			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
 	)
 	return container
@@ -77,7 +78,7 @@ func generateSSAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int
 				Key:  key,
 				Port: port,
 			},
-			Average: &utilization,
+			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
 	)
 	return container
@@ -87,7 +88,7 @@ func generateSSAutoscalerIngress(minReplicas, maxReplicas, utilization int32) St
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
 		container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:    IngressMetricName,
-			Average: &utilization,
+			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
 	)
 	return container
@@ -96,7 +97,7 @@ func generateSSAutoscalerIngress(minReplicas, maxReplicas, utilization int32) St
 func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	ssc := generateSSAutoscalerCPU(1, 10, 80)
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &StackContainer{}
+	sc := &StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -113,7 +114,7 @@ func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
 	ssc := generateSSAutoscalerMemory(1, 10, 80)
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &StackContainer{}
+	sc := &StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -129,7 +130,7 @@ func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
 	ssc := generateSSAutoscalerSQS(1, 10, 80, "test-queue", "test-region")
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &StackContainer{}
+	sc := &StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -148,7 +149,7 @@ func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersPodJson(t *testing.T) {
 	ssc := generateSSAutoscalerPodJson(1, 10, 80, 8080, "current-load", "/metrics", "$.current-load.counter")
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &StackContainer{}
+	sc := &StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -167,7 +168,10 @@ func TestStackSetController_ReconcileAutoscalersPodJson(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
 	ssc := generateSSAutoscalerIngress(1, 10, 80)
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &StackContainer{Stack: zv1.Stack{ObjectMeta: metav1.ObjectMeta{Name: "test-stack"}}}
+	sc := &StackContainer{Stack: zv1.Stack{
+		Spec:       zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler},
+		ObjectMeta: metav1.ObjectMeta{Name: "test-stack"}},
+	}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -248,15 +252,16 @@ func TestSortingMetrics(t *testing.T) {
 	container := generateSSAutoscalerStub(1, 10)
 	metrics := []zv1.AutoscalerMetrics{
 		{Type: CPUMetricName, AverageUtilization: pint32(50),},
-		{Type: IngressMetricName, Average: pint32(10)},
-		{Type: PodJSONMetricName, Average: pint32(10), Endpoint: &zv1.MetricsEndpoint{Name: "abc", Path: "/metrics", Port: 1222, Key: "test.abc"}},
-		{Type: AmazonSQSMetricName, Average: pint32(10), Queue: &zv1.MetricsQueue{Name: "test", Region: "region"}},
+		{Type: IngressMetricName, Average: resource.NewQuantity(10, resource.DecimalSI)},
+		{Type: PodJSONMetricName, Average: resource.NewQuantity(10, resource.DecimalSI), Endpoint: &zv1.MetricsEndpoint{Name: "abc", Path: "/metrics", Port: 1222, Key: "test.abc"}},
+		{Type: AmazonSQSMetricName, Average: resource.NewQuantity(10, resource.DecimalSI), Queue: &zv1.MetricsQueue{Name: "test", Region: "region"}},
 	}
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = metrics
 	reconciler := NewAutoscalerReconciler(container)
-	sc := &StackContainer{}
+	sc := &StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: container.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err)
+	assert.Len(t, sc.Stack.Spec.Autoscaler.Metrics, 4)
 	assert.EqualValues(t, v2beta1.ExternalMetricSourceType, sc.Stack.Spec.HorizontalPodAutoscaler.Metrics[0].Type)
 	assert.EqualValues(t, v2beta1.ObjectMetricSourceType, sc.Stack.Spec.HorizontalPodAutoscaler.Metrics[1].Type)
 	assert.EqualValues(t, v2beta1.PodsMetricSourceType, sc.Stack.Spec.HorizontalPodAutoscaler.Metrics[2].Type)
@@ -265,4 +270,17 @@ func TestSortingMetrics(t *testing.T) {
 
 func pint32(val int) *int32 {
 	return &[]int32{int32(val)}[0]
+}
+
+func TestAutoscalerReconciler_ReconcileWithHPA(t *testing.T) {
+	ssc := StackSetContainer{}
+	reconciler := NewAutoscalerReconciler(ssc)
+	sc := &StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{
+		Autoscaler:              &zv1.Autoscaler{MinReplicas: &[]int32{10}[0], MaxReplicas: 10},
+		HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{MinReplicas: &[]int32{0}[0], MaxReplicas: 20},
+	}}}
+	err := reconciler.Reconcile(sc)
+	assert.NoError(t, err, "error generated when HPA already present")
+	assert.EqualValues(t, 0, *sc.Stack.Spec.HorizontalPodAutoscaler.MinReplicas, "MinReplicas altered")
+	assert.EqualValues(t, 20, sc.Stack.Spec.HorizontalPodAutoscaler.MaxReplicas, "MaxReplicas altered")
 }

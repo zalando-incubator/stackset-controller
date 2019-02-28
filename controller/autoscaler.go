@@ -8,7 +8,6 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -54,10 +53,11 @@ func NewAutoscalerReconciler(ssc StackSetContainer) *AutoscalerReconciler {
 
 func (c *AutoscalerReconciler) Reconcile(sc *StackContainer) error {
 
-	if c.ssc.StackSet.Spec.StackTemplate.Spec.HorizontalPodAutoscaler != nil {
+	if sc.Stack.Spec.HorizontalPodAutoscaler != nil {
 		return nil
 	}
-	autoscaler := c.ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler
+
+	autoscaler := sc.Stack.Spec.Autoscaler
 	stacksetName := c.ssc.StackSet.Name
 	stackName := sc.Stack.Name
 
@@ -150,13 +150,10 @@ func SQSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	if metrics.Average == nil {
 		return nil, fmt.Errorf("average not specified")
 	}
-	quantity, err := resource.ParseQuantity(strconv.Itoa(int(*metrics.Average)))
-	if err != nil {
-		return nil, err
-	}
 	if metrics.Queue == nil || metrics.Queue.Name == "" || metrics.Queue.Region == "" {
 		return nil, fmt.Errorf("queue not specified correctly")
 	}
+	average := metrics.Average.DeepCopy()
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
@@ -164,7 +161,7 @@ func SQSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 			MetricSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{SQSQueueNameTag: metrics.Queue.Name, SQSQueueRegionTag: metrics.Queue.Region},
 			},
-			TargetAverageValue: &quantity,
+			TargetAverageValue: &average,
 		},
 	}
 	return generated, nil
@@ -174,15 +171,11 @@ func PodJsonMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[
 	if metrics.Average == nil {
 		return nil, nil, fmt.Errorf("average is not specified for metric")
 	}
-	quantity, err := resource.ParseQuantity(strconv.Itoa(int(*metrics.Average)))
-	if err != nil {
-		return nil, nil, err
-	}
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.PodsMetricSourceType,
 		Pods: &autoscaling.PodsMetricSource{
 			MetricName:         metrics.Endpoint.Name,
-			TargetAverageValue: quantity,
+			TargetAverageValue: metrics.Average.DeepCopy(),
 		},
 	}
 	if metrics.Endpoint == nil || metrics.Endpoint.Port == 0 || metrics.Endpoint.Path == "" || metrics.Endpoint.Key == "" || metrics.Endpoint.Name == "" {
@@ -199,10 +192,6 @@ func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 	if metrics.Average == nil {
 		return nil, fmt.Errorf("average value not specified for metric")
 	}
-	quantity, err := resource.ParseQuantity(strconv.Itoa(int(*metrics.Average)))
-	if err != nil {
-		return nil, err
-	}
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ObjectMetricSourceType,
 		Object: &autoscaling.ObjectMetricSource{
@@ -212,7 +201,7 @@ func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 				Kind:       "Ingress",
 				Name:       ingressName,
 			},
-			TargetValue: quantity,
+			TargetValue: metrics.Average.DeepCopy(),
 		},
 	}
 	return generated, nil

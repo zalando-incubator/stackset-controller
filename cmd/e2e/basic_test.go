@@ -24,6 +24,8 @@ type TestStacksetSpecFactory struct {
 	replicas       int32
 	hpaMaxReplicas int32
 	hpaMinReplicas int32
+	autoscaler     bool
+	metrics        []zv1.AutoscalerMetrics
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
@@ -105,6 +107,14 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		}
 	}
 
+	if f.autoscaler {
+		result.StackTemplate.Spec.Autoscaler = &zv1.Autoscaler{
+			MaxReplicas: f.hpaMaxReplicas,
+			MinReplicas: pint32(f.hpaMinReplicas),
+			Metrics:     f.metrics,
+		}
+	}
+
 	if f.ingress {
 		result.Ingress = &zv1.StackSetIngressSpec{
 			Hosts:       []string{hostname(f.stacksetName)},
@@ -112,6 +122,14 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		}
 	}
 	return result
+}
+
+func (f *TestStacksetSpecFactory) Autoscaler(minReplicas, maxReplicas int32, metrics []zv1.AutoscalerMetrics) *TestStacksetSpecFactory {
+	f.autoscaler = true
+	f.hpaMinReplicas = minReplicas
+	f.hpaMaxReplicas = maxReplicas
+	f.metrics = metrics
+	return f
 }
 
 func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec zv1.StackSetSpec) {

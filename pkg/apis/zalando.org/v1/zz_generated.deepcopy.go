@@ -59,8 +59,8 @@ func (in *AutoscalerMetrics) DeepCopyInto(out *AutoscalerMetrics) {
 	*out = *in
 	if in.Average != nil {
 		in, out := &in.Average, &out.Average
-		*out = new(int32)
-		**out = **in
+		x := (*in).DeepCopy()
+		*out = &x
 	}
 	if in.Endpoint != nil {
 		in, out := &in.Endpoint, &out.Endpoint

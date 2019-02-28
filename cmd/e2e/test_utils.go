@@ -10,7 +10,7 @@ import (
 	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -291,7 +291,7 @@ func waitForService(t *testing.T, name string) (*corev1.Service, error) {
 	return serviceInterface().Get(name, metav1.GetOptions{})
 }
 
-func waitForHPA(t *testing.T, name string) (*autoscalingv1.HorizontalPodAutoscaler, error) {
+func waitForHPA(t *testing.T, name string) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	err := resourceCreated(t, "hpa", name, hpaInterface()).await()
 	if err != nil {
 		return nil, err
