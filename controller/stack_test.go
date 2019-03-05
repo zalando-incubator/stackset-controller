@@ -14,6 +14,7 @@ import (
 
 func TestGetServicePorts(tt *testing.T) {
 	backendPort := intstr.FromInt(int(8080))
+	backendPort2 := intstr.FromInt(int(8081))
 	namedBackendPort := intstr.FromString("ingress")
 
 	for _, ti := range []struct {
@@ -41,6 +42,13 @@ func TestGetServicePorts(tt *testing.T) {
 										},
 									},
 								},
+								{
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: 8081,
+										},
+									},
+								},
 							},
 						},
 					},
@@ -48,10 +56,16 @@ func TestGetServicePorts(tt *testing.T) {
 			},
 			expectedPorts: []v1.ServicePort{
 				{
-					Name:       "port-0",
+					Name:       "port-0-0",
 					Protocol:   v1.ProtocolTCP,
 					Port:       8080,
 					TargetPort: backendPort,
+				},
+				{
+					Name:       "port-1-0",
+					Protocol:   v1.ProtocolTCP,
+					Port:       8081,
+					TargetPort: backendPort2,
 				},
 			},
 			backendPort: nil,
@@ -81,7 +95,7 @@ func TestGetServicePorts(tt *testing.T) {
 			},
 			expectedPorts: []v1.ServicePort{
 				{
-					Name:       "port-0",
+					Name:       "port-0-0",
 					Protocol:   v1.ProtocolTCP,
 					Port:       8080,
 					TargetPort: backendPort,
