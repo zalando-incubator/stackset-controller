@@ -502,9 +502,9 @@ func getServicePorts(backendPort *intstr.IntOrString, stack zv1.Stack) ([]v1.Ser
 // servicePortsFromTemplate gets service port from pod template.
 func servicePortsFromContainers(containers []v1.Container) []v1.ServicePort {
 	ports := make([]v1.ServicePort, 0)
-	for _, container := range containers {
-		for i, port := range container.Ports {
-			name := fmt.Sprintf("port-%d", i)
+	for i, container := range containers {
+		for j, port := range container.Ports {
+			name := fmt.Sprintf("port-%d-%d", i, j)
 			if port.Name != "" {
 				name = port.Name
 			}
