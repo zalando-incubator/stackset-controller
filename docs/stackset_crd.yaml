@@ -203,7 +203,9 @@ spec:
                                 - path
                                 - key
                               average:
-                                type: integer
+                                oneOf:
+                                - type: integer
+                                - type: string
                               queue:
                                 properties:
                                   name:

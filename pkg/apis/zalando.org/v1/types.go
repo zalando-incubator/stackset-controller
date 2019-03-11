@@ -3,6 +3,7 @@ package v1
 import (
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -81,11 +82,11 @@ type MetricsQueue struct {
 // AutoscalerMetrics is the type of metric to be be used for autoscaling
 // +k8s:deepcopy-gen=true
 type AutoscalerMetrics struct {
-	Type               string           `json:"type"`
-	Average            *int32           `json:"average,omitEmpty"`
-	Endpoint           *MetricsEndpoint `json:"endpoint,omitEmpty"`
-	AverageUtilization *int32           `json:"averageUtilization,omitEmpty"`
-	Queue              *MetricsQueue    `json:"queue,omitEmpty"`
+	Type               string             `json:"type"`
+	Average            *resource.Quantity `json:"average,omitEmpty"`
+	Endpoint           *MetricsEndpoint   `json:"endpoint,omitEmpty"`
+	AverageUtilization *int32             `json:"averageUtilization,omitempty"`
+	Queue              *MetricsQueue      `json:"queue,omitEmpty"`
 }
 
 // Autoscaler is the autoscaling definition for a stack
