@@ -35,6 +35,10 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 					}
 				}
 			}
+			// If no other stacks are currently active
+			if stack.Status.Prescaling.Replicas == 0 {
+				stack.Status.Prescaling.Replicas = *stack.Spec.Replicas
+			}
 		}
 		stack.Status.Prescaling.Active = true
 		// Update the timestamp in the prescaling information. This bumps the prescaling timeout
