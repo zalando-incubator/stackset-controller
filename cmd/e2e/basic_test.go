@@ -8,8 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	autoscalingv1 "k8s.io/api/autoscaling/v1"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -95,10 +94,10 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		result.StackTemplate.Spec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{
 			MaxReplicas: f.hpaMaxReplicas,
 			MinReplicas: pint32(f.hpaMinReplicas),
-			Metrics: []autoscalingv2beta1.MetricSpec{
+			Metrics: []autoscalingv2.MetricSpec{
 				{
-					Type: autoscalingv2beta1.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta1.ResourceMetricSource{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
 						Name:                     corev1.ResourceCPU,
 						TargetAverageUtilization: pint32(50),
 					},
@@ -169,7 +168,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		require.EqualValues(t, stackResourceLabels, hpa.Labels)
 		require.EqualValues(t, stacksetSpec.StackTemplate.Spec.Replicas, hpa.Spec.MinReplicas)
 		require.EqualValues(t, stacksetSpec.StackTemplate.Spec.HorizontalPodAutoscaler.MaxReplicas, hpa.Spec.MaxReplicas)
-		expectedRef := autoscalingv1.CrossVersionObjectReference{
+		expectedRef := autoscalingv2.CrossVersionObjectReference{
 			Kind:       "Deployment",
 			Name:       deployment.Name,
 			APIVersion: "apps/v1",
