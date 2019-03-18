@@ -39,6 +39,11 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 			if stack.Status.Prescaling.Replicas == 0 {
 				stack.Status.Prescaling.Replicas = *stack.Spec.Replicas
 			}
+
+			// Restrict the prescaling replicas to the maximum allowed by HPA if present
+			if stack.Spec.HorizontalPodAutoscaler != nil {
+				stack.Status.Prescaling.Replicas = int32(math.Min(float64(stack.Status.Prescaling.Replicas), float64(stack.Spec.HorizontalPodAutoscaler.MaxReplicas)))
+			}
 		}
 		stack.Status.Prescaling.Active = true
 		// Update the timestamp in the prescaling information. This bumps the prescaling timeout
@@ -70,8 +75,8 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*St
 func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscaling.HorizontalPodAutoscaler, deployment *appsv1.Deployment) error {
 	hpa.Spec.MaxReplicas = stack.Spec.HorizontalPodAutoscaler.MaxReplicas
 	if stack.Status.Prescaling.Active {
-		minReplicas := int32(math.Min(float64(stack.Status.Prescaling.Replicas), float64(stack.Spec.HorizontalPodAutoscaler.MaxReplicas)))
-		hpa.Spec.MinReplicas = &minReplicas
+		prescalingReplicas := stack.Status.Prescaling.Replicas
+		hpa.Spec.MinReplicas = &prescalingReplicas
 		return nil
 	}
 	hpa.Spec.MinReplicas = stack.Spec.HorizontalPodAutoscaler.MinReplicas
