@@ -2,23 +2,25 @@ package controller
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
-	"k8s.io/api/core/v1"
 	apiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kube_record "k8s.io/client-go/tools/record"
+)
+
+const (
+	stackGenerationAnnotationKey = "stackset-controller.zalando.org/stack-generation"
 )
 
 var (
@@ -87,20 +89,12 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	deployment := sc.Resources.Deployment
 	stack := sc.Stack
 
-	var origDeployment *appsv1.Deployment
+	origReplicas := int32(0)
 	if deployment != nil {
-		origDeployment = deployment.DeepCopy()
+		origReplicas = *deployment.Spec.Replicas
 	}
 
 	template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
-
-	// apply default pod template spec values into the stack template.
-	// This is sort of a hack to make sure the bare template from the stack
-	// resource represents the defaults so we can compare changes later on
-	// when deciding if the deployment resource should be updated or not.
-	// TODO: find less ugly solution.
-	template = applyPodTemplateSpecDefaults(template)
-
 	createDeployment := false
 
 	if deployment == nil {
@@ -193,39 +187,40 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
 			"CreateDeployment",
-			"Creating Deployment %s/%s for StackSet stack %s/%s",
+			"Creating Deployment '%s/%s' for Stack",
 			deployment.Namespace,
 			deployment.Name,
-			stack.Namespace,
-			stack.Name,
 		)
 		deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 		if err != nil {
 			return err
 		}
 	} else {
+		stackGeneration := getStackGeneration(deployment.ObjectMeta)
+
+		replicas := *deployment.Spec.Replicas
+
 		// only update the resource if there are changes
+		// We determine changes by comparing the stackGeneration
+		// (observed generation) stored on the deployment with the
+		// generation of the Stack.
+		// Since replicas are modified independently of the replicas
+		// defined on the stack we need to also check if those get
+		// changed.
 		// TODO: still if we add just the annotation it could mess with
 		// the HPA.
-		if !equality.Semantic.DeepEqual(origDeployment, deployment) {
-			c.logger.Debugf("Deployment %s/%s changed: %s",
-				deployment.Namespace, deployment.Name,
-				cmp.Diff(
-					origDeployment,
-					deployment,
-					cmpopts.IgnoreUnexported(resource.Quantity{}),
-				),
+		if stackGeneration != stack.Generation || origReplicas != replicas {
+			if deployment.Annotations == nil {
+				deployment.Annotations = make(map[string]string, 1)
+			}
+			deployment.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+			c.recorder.Eventf(&stack,
+				apiv1.EventTypeNormal,
+				"UpdateDeployment",
+				"Updating Deployment '%s/%s' for Stack",
+				deployment.Namespace,
+				deployment.Name,
 			)
-			// depends on https://github.com/zalando-incubator/stackset-controller/issues/49
-			// c.recorder.Eventf(&stack,
-			// 	apiv1.EventTypeNormal,
-			// 	"UpdateDeployment",
-			// 	"Updating Deployment %s/%s for StackSet stack %s/%s",
-			// 	deployment.Namespace,
-			// 	deployment.Name,
-			// 	stack.Namespace,
-			// 	stack.Name,
-			// )
 			deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Update(deployment)
 			if err != nil {
 				return err
@@ -270,9 +265,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
 			"UpdateStackStatus",
-			"Status changed for Stack %s/%s: %#v -> %#v",
-			stack.Namespace,
-			stack.Name,
+			"Status changed: %#v -> %#v",
 			stack.Status,
 			newStatus,
 		)
@@ -290,10 +283,14 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 // manageAutoscaling manages the HPA defined for the stack.
 func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc StackSetContainer, stackUnused bool) (*autoscaling.HorizontalPodAutoscaler, error) {
-	var origHPA *autoscaling.HorizontalPodAutoscaler
+	origMinReplicas := int32(0)
+	origMaxReplicas := int32(0)
+	if deployment != nil {
+	}
 	if hpa != nil {
 		hpa.Status = autoscaling.HorizontalPodAutoscalerStatus{}
-		origHPA = hpa.DeepCopy()
+		origMinReplicas = *hpa.Spec.MinReplicas
+		origMaxReplicas = hpa.Spec.MaxReplicas
 	}
 
 	// cleanup HPA if autoscaling is disabled or the stack has 0 traffic.
@@ -353,34 +350,37 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
 			"CreateHPA",
-			"Creating HPA %s/%s for Deployment %s/%s",
+			"Creating HPA '%s/%s' for Stack",
 			hpa.Namespace,
 			hpa.Name,
-			deployment.Namespace,
-			deployment.Name,
 		)
 		_, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(hpa)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		if !equality.Semantic.DeepEqual(origHPA, hpa) {
-			c.logger.Debugf("HPA %s/%s changed: %s",
-				hpa.Namespace, hpa.Name,
-				cmp.Diff(
-					origHPA,
-					hpa,
-					cmpopts.IgnoreUnexported(resource.Quantity{}),
-				),
-			)
+		stackGeneration := getStackGeneration(hpa.ObjectMeta)
+
+		// only update the resource if there are changes
+		// We determine changes by comparing the stackGeneration
+		// (observed generation) stored on the hpa with the
+		// generation of the Stack.
+		// Since min/max replicas are modified independently of the
+		// replicas defined on the stack during reconciliation, we
+		// need to also check if those get changed.
+		if stackGeneration != stack.Generation ||
+			origMinReplicas != *hpa.Spec.MinReplicas ||
+			origMaxReplicas != hpa.Spec.MaxReplicas {
+			if hpa.Annotations == nil {
+				hpa.Annotations = make(map[string]string, 1)
+			}
+			hpa.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			c.recorder.Eventf(&stack,
 				apiv1.EventTypeNormal,
 				"UpdateHPA",
-				"Updating HPA %s/%s for Deployment %s/%s",
+				"Updating HPA '%s/%s' for Stack",
 				hpa.Namespace,
 				hpa.Name,
-				deployment.Namespace,
-				deployment.Name,
 			)
 			hpa, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Update(hpa)
 			if err != nil {
@@ -397,13 +397,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	service := sc.Resources.Service
 	stack := sc.Stack
 
-	var origService *v1.Service
-	if service != nil {
-		origService = service.DeepCopy()
-	}
-
 	createService := false
-
 	if service == nil {
 		createService = true
 		service = &v1.Service{
@@ -444,27 +438,32 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
 			"CreateService",
-			"Creating Service %s/%s for StackSet stack %s/%s",
+			"Creating Service '%s/%s' for Stack",
 			service.Namespace,
 			service.Name,
-			stack.Namespace,
-			stack.Name,
 		)
 		_, err := c.client.CoreV1().Services(service.Namespace).Create(service)
 		if err != nil {
 			return err
 		}
 	} else {
-		if !equality.Semantic.DeepEqual(origService, service) {
-			c.logger.Debugf("Service %s/%s changed: %s", service.Namespace, service.Name, cmp.Diff(origService, service))
+		stackGeneration := getStackGeneration(service.ObjectMeta)
+
+		// only update the resource if there are changes
+		// We determine changes by comparing the stackGeneration
+		// (observed generation) stored on the service with the
+		// generation of the Stack.
+		if stackGeneration != stack.Generation {
+			if service.Annotations == nil {
+				service.Annotations = make(map[string]string, 1)
+			}
+			service.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			c.recorder.Eventf(&stack,
 				apiv1.EventTypeNormal,
 				"UpdateService",
-				"Updating Service %s/%s for StackSet stack %s/%s",
+				"Updating Service '%s/%s' for Stack",
 				service.Namespace,
 				service.Name,
-				stack.Namespace,
-				stack.Name,
 			)
 			_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
 			if err != nil {
@@ -545,94 +544,6 @@ func templateInjectLabels(template v1.PodTemplateSpec, labels map[string]string)
 	return template
 }
 
-// applyPodTemplateSpecDefaults inject default values into a pod template spec.
-func applyPodTemplateSpecDefaults(template v1.PodTemplateSpec) v1.PodTemplateSpec {
-	newTemplate := template.DeepCopy()
-
-	applyContainersDefaults(newTemplate.Spec.InitContainers)
-	applyContainersDefaults(newTemplate.Spec.Containers)
-
-	if newTemplate.Spec.RestartPolicy == "" {
-		newTemplate.Spec.RestartPolicy = v1.RestartPolicyAlways
-	}
-	if newTemplate.Spec.TerminationGracePeriodSeconds == nil {
-		gracePeriod := int64(v1.DefaultTerminationGracePeriodSeconds)
-		newTemplate.Spec.TerminationGracePeriodSeconds = &gracePeriod
-	}
-	if newTemplate.Spec.DNSPolicy == "" {
-		newTemplate.Spec.DNSPolicy = v1.DNSClusterFirst
-	}
-	if newTemplate.Spec.SecurityContext == nil {
-		newTemplate.Spec.SecurityContext = &v1.PodSecurityContext{}
-	}
-	if newTemplate.Spec.SchedulerName == "" {
-		newTemplate.Spec.SchedulerName = v1.DefaultSchedulerName
-	}
-	if newTemplate.Spec.DeprecatedServiceAccount != newTemplate.Spec.ServiceAccountName {
-		newTemplate.Spec.DeprecatedServiceAccount = newTemplate.Spec.ServiceAccountName
-	}
-	return *newTemplate
-}
-
-func applyContainersDefaults(containers []v1.Container) {
-	for i, container := range containers {
-		for j, port := range container.Ports {
-			if port.Protocol == "" {
-				containers[i].Ports[j].Protocol = v1.ProtocolTCP
-			}
-		}
-
-		for j, env := range container.Env {
-			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil && env.ValueFrom.FieldRef.APIVersion == "" {
-				containers[i].Env[j].ValueFrom.FieldRef.APIVersion = "v1"
-			}
-		}
-		if container.TerminationMessagePath == "" {
-			containers[i].TerminationMessagePath = v1.TerminationMessagePathDefault
-		}
-		if container.TerminationMessagePolicy == "" {
-			containers[i].TerminationMessagePolicy = v1.TerminationMessageReadFile
-		}
-		if container.ImagePullPolicy == "" {
-			containers[i].ImagePullPolicy = v1.PullIfNotPresent
-		}
-		if container.ReadinessProbe != nil {
-			if container.ReadinessProbe.Handler.HTTPGet != nil && container.ReadinessProbe.Handler.HTTPGet.Scheme == "" {
-				containers[i].ReadinessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
-			}
-			if container.ReadinessProbe.TimeoutSeconds == 0 {
-				containers[i].ReadinessProbe.TimeoutSeconds = 1
-			}
-			if container.ReadinessProbe.PeriodSeconds == 0 {
-				containers[i].ReadinessProbe.PeriodSeconds = 10
-			}
-			if container.ReadinessProbe.SuccessThreshold == 0 {
-				containers[i].ReadinessProbe.SuccessThreshold = 1
-			}
-			if container.ReadinessProbe.FailureThreshold == 0 {
-				containers[i].ReadinessProbe.FailureThreshold = 3
-			}
-		}
-		if container.LivenessProbe != nil {
-			if container.LivenessProbe.Handler.HTTPGet != nil && container.LivenessProbe.Handler.HTTPGet.Scheme == "" {
-				containers[i].LivenessProbe.Handler.HTTPGet.Scheme = v1.URISchemeHTTP
-			}
-			if container.LivenessProbe.TimeoutSeconds == 0 {
-				containers[i].LivenessProbe.TimeoutSeconds = 1
-			}
-			if container.LivenessProbe.PeriodSeconds == 0 {
-				containers[i].LivenessProbe.PeriodSeconds = 10
-			}
-			if container.LivenessProbe.SuccessThreshold == 0 {
-				containers[i].LivenessProbe.SuccessThreshold = 1
-			}
-			if container.LivenessProbe.FailureThreshold == 0 {
-				containers[i].LivenessProbe.FailureThreshold = 3
-			}
-		}
-	}
-}
-
 // limitLabels returns a limited set of labels based on the validKeys.
 func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[string]string {
 	newLabels := make(map[string]string, len(labels))
@@ -642,4 +553,15 @@ func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[st
 		}
 	}
 	return newLabels
+}
+
+func getStackGeneration(metadata metav1.ObjectMeta) int64 {
+	if g, ok := metadata.Annotations[stackGenerationAnnotationKey]; ok {
+		generation, err := strconv.ParseInt(g, 10, 64)
+		if err != nil {
+			return 0
+		}
+		return generation
+	}
+	return 0
 }

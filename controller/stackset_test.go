@@ -347,8 +347,9 @@ func int64Ptr(i int64) *int64 {
 func generateStackSet(stacksetName, namespace, version string, minReplicas, maxReplicas int) zv1.StackSet {
 	return zv1.StackSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      stacksetName,
-			Namespace: namespace,
+			Name:       stacksetName,
+			Namespace:  namespace,
+			Generation: 1,
 		},
 		Spec: zv1.StackSetSpec{
 			StackTemplate: zv1.StackTemplate{

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -34,6 +35,7 @@ const (
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 	PrescaleStacksAnnotationKey               = "alpha.stackset-controller.zalando.org/prescale-stacks"
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
+	stacksetGenerationAnnotationKey           = "stackset-controller.zalando.org/stackset-generation"
 
 	stacksetHeritageLabelKey   = "stackset"
 	stackVersionLabelKey       = "stack-version"
@@ -755,11 +757,6 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 		}
 	}
 
-	var origStack *zv1.Stack
-	if stack != nil {
-		origStack = stack.DeepCopy()
-	}
-
 	stackLabels := mergeLabels(
 		heritageLabels,
 		stackset.Labels,
@@ -799,35 +796,31 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 		c.recorder.Eventf(&stackset,
 			apiv1.EventTypeNormal,
 			"CreateStackSetStack",
-			"Creating StackSet stack %s/%s for StackSet %s/%s",
+			"Creating Stack '%s/%s' for StackSet",
 			stack.Namespace, stack.Name,
-			stackset.Namespace,
-			stackset.Name,
 		)
 		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
 		if err != nil {
 			return err
 		}
 	} else {
+		stacksetGeneration := getStackSetGeneration(stack.ObjectMeta)
+
 		// only update the resource if there are changes
-		if !equality.Semantic.DeepEqual(origStack, stack) {
-			c.logger.Debugf("Stack %s/%s changed: %s",
-				stack.Namespace, stack.Name,
-				cmp.Diff(
-					origStack,
-					stack,
-					cmpopts.IgnoreUnexported(resource.Quantity{}),
-				),
-			)
+		// We determine changes by comparing the stacksetGeneration
+		// (observed generation) stored on the stack with the
+		// generation of the StackSet.
+		if stacksetGeneration != stackset.Generation {
+			if stack.Annotations == nil {
+				stack.Annotations = make(map[string]string, 1)
+			}
+			stack.Annotations[stacksetGenerationAnnotationKey] = fmt.Sprintf("%d", stackset.Generation)
 
 			c.recorder.Eventf(&stackset,
 				apiv1.EventTypeNormal,
 				"UpdateStackSetStack",
-				"Updating StackSet stack %s/%s for StackSet %s/%s",
-				stack.Namespace,
-				stack.Name,
-				stackset.Namespace,
-				stackset.Name,
+				"Updating Stack '%s/%s' for StackSet",
+				stack.Namespace, stack.Name,
 			)
 			_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(stack)
 			if err != nil {
@@ -874,4 +867,15 @@ func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, boo
 		return 0, false
 	}
 	return resetDelay, true
+}
+
+func getStackSetGeneration(metadata metav1.ObjectMeta) int64 {
+	if g, ok := metadata.Annotations[stacksetGenerationAnnotationKey]; ok {
+		generation, err := strconv.ParseInt(g, 10, 64)
+		if err != nil {
+			return 0
+		}
+		return generation
+	}
+	return 0
 }
