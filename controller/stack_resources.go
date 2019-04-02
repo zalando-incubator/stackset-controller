@@ -5,6 +5,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // StackResources describes the resources of a stack.
@@ -28,12 +29,45 @@ func NewStackResources(stack zv1.Stack) StackResources {
 
 func NewDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
 	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        stack.Name,
+			Namespace:   stack.Namespace,
+			Annotations: map[string]string{},
+			Labels:      mapCopy(stack.Labels),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: stack.APIVersion,
+					Kind:       stack.Kind,
+					Name:       stack.Name,
+					UID:        stack.UID,
+				},
+			},
+		},
 		Spec:       appsv1.DeploymentSpec{
 			Replicas:                stack.Spec.Replicas,
-			Selector:                nil, // comes from StackSet instead of Stack
-			Template:                *stack.Spec.PodTemplate.DeepCopy(),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: limitLabels(stack.Labels, selectorLabels),
+			},
+			Template:                NewTemplateFromStack(stack),
 		},
 	}
+}
+
+func NewTemplateFromStack(stack zv1.Stack) v1.PodTemplateSpec {
+	template := *stack.Spec.PodTemplate.DeepCopy()
+
+	// Copy Labels from Stack.Labels to the Deployment
+	template.ObjectMeta.Labels = mapCopy(stack.Labels)
+
+	return template
+}
+
+func mapCopy(m map[string]string) map[string]string {
+	copy := map[string]string{}
+	for k, v := range m {
+		copy[k] = v
+	}
+	return copy
 }
 
 func NewHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
