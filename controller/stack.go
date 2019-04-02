@@ -94,12 +94,14 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		origReplicas = *deployment.Spec.Replicas
 	}
 
+	// TODO: Add to NewDeploymentFromStack
 	template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
 	createDeployment := false
 
 	if deployment == nil {
 		createDeployment = true
 		deployment = &appsv1.Deployment{
+			// TODO: Add to NewDeploymentFromStack
 			ObjectMeta: metav1.ObjectMeta{
 				Name:        stack.Name,
 				Namespace:   stack.Namespace,
@@ -114,6 +116,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 					},
 				},
 			},
+			// TODO: Add to NewDeploymentFromStack
 			Spec: appsv1.DeploymentSpec{
 				Selector: &metav1.LabelSelector{
 					MatchLabels: limitLabels(stack.Labels, selectorLabels),
@@ -123,6 +126,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
+	// TODO: Add to NewDeploymentFromStack
 	for k, v := range stack.Labels {
 		deployment.Labels[k] = v
 	}
@@ -228,6 +232,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
+	// TODO: Add to NewDeploymentFromStack
 	// set TypeMeta manually because of this bug:
 	// https://github.com/kubernetes/client-go/issues/308
 	deployment.APIVersion = "apps/v1"
