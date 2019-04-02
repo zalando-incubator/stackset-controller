@@ -5,11 +5,15 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 )
 
 func TestNewDeploymentFromStack(t *testing.T) {
 	stack := zv1.Stack{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"application": "all-fun"},
+		},
 		Spec: zv1.StackSpec{
 			Replicas: int32Ptr(7),
 			PodTemplate: v1.PodTemplateSpec{
@@ -20,11 +24,31 @@ func TestNewDeploymentFromStack(t *testing.T) {
 			},
 		},
 	}
+	//TODO: See why the Annotations are different
 	expectedDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"application": "all-fun"},
+			Annotations: map[string]string{},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: stack.APIVersion,
+					Kind:       stack.Kind,
+					Name:       stack.Name,
+					UID:        stack.UID,
+				},
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: int32Ptr(7),
-			Selector: nil,
+			Selector: &metav1.LabelSelector{},
 			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"application": "all-fun"},
+				},
 				Spec: v1.PodSpec{
 					Containers:    nil,
 					RestartPolicy: "hello",

@@ -46,8 +46,8 @@ func NewDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
 		// set TypeMeta manually because of this bug:
 		// https://github.com/kubernetes/client-go/issues/308
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "apps/v1",
 			Kind:       "Deployment",
+			APIVersion: "apps/v1",
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: stack.Spec.Replicas,
