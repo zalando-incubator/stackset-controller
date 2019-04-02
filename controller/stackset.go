@@ -17,8 +17,7 @@ import (
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"golang.org/x/sync/errgroup"
-	appsv1 "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -242,14 +241,6 @@ func (sc StackSetContainer) ScaledownTTL() time.Duration {
 type StackContainer struct {
 	Stack     zv1.Stack
 	Resources StackResources
-}
-
-// StackResources describes the resources of a stack.
-type StackResources struct {
-	Deployment *appsv1.Deployment
-	HPA        *autoscaling.HorizontalPodAutoscaler
-	Service    *v1.Service
-	Endpoints  *v1.Endpoints
 }
 
 // TrafficStatus represents the traffic status of an Ingress. ActualWeight is
