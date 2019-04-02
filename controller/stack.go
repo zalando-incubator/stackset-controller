@@ -103,10 +103,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		for k, v := range stack.Labels {
 			deployment.Labels[k] = v
 		}
-		// set TypeMeta manually because of this bug:
-		// https://github.com/kubernetes/client-go/issues/308
-		deployment.APIVersion = "apps/v1"
-		deployment.Kind = "Deployment"
 	}
 
 	// if autoscaling is disabled or if autoscaling is enabled
@@ -208,6 +204,14 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
+	// TODO: Add this to NewDeploymentFromStack once we figure out why it matters that
+	//  it is so late compared to other deployment-related stuff (i.e. why tests fails
+	//  when we put it in this function's first else branch).
+	// set TypeMeta manually because of this bug:
+	// https://github.com/kubernetes/client-go/issues/308
+	deployment.APIVersion = "apps/v1"
+	deployment.Kind = "Deployment"
+
 	hpa, err := c.manageAutoscaling(stack, sc.Resources.HPA, deployment, ssc, stackUnused)
 	if err != nil {
 		return err
@@ -260,8 +264,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc StackSetContainer, stackUnused bool) (*autoscaling.HorizontalPodAutoscaler, error) {
 	origMinReplicas := int32(0)
 	origMaxReplicas := int32(0)
-	if deployment != nil {
-	}
 	if hpa != nil {
 		hpa.Status = autoscaling.HorizontalPodAutoscalerStatus{}
 		origMinReplicas = *hpa.Spec.MinReplicas
