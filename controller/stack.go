@@ -24,6 +24,7 @@ const (
 )
 
 var (
+	// set implementation with 0 Byte value
 	selectorLabels = map[string]struct{}{
 		stacksetHeritageLabelKey: struct{}{},
 		stackVersionLabelKey:     struct{}{},
