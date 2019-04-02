@@ -91,44 +91,23 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	stack := sc.Stack
 
 	origReplicas := int32(0)
-	if deployment != nil {
-		origReplicas = *deployment.Spec.Replicas
-	}
-
-	template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
 	createDeployment := false
 
 	if deployment == nil {
 		createDeployment = true
-		deployment = &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        stack.Name,
-				Namespace:   stack.Namespace,
-				Annotations: map[string]string{},
-				Labels:      map[string]string{},
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: stack.APIVersion,
-						Kind:       stack.Kind,
-						Name:       stack.Name,
-						UID:        stack.UID,
-					},
-				},
-			},
-			Spec: appsv1.DeploymentSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: limitLabels(stack.Labels, selectorLabels),
-				},
-				Replicas: stack.Spec.Replicas,
-			},
+		deployment = NewDeploymentFromStack(stack)
+	} else {
+		origReplicas = *deployment.Spec.Replicas
+		template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
+		deployment.Spec.Template = template
+		for k, v := range stack.Labels {
+			deployment.Labels[k] = v
 		}
+		// set TypeMeta manually because of this bug:
+		// https://github.com/kubernetes/client-go/issues/308
+		deployment.APIVersion = "apps/v1"
+		deployment.Kind = "Deployment"
 	}
-
-	for k, v := range stack.Labels {
-		deployment.Labels[k] = v
-	}
-
-	deployment.Spec.Template = template
 
 	// if autoscaling is disabled or if autoscaling is enabled
 	// check if we need to explicitly set replicas on the deployment. There
@@ -228,11 +207,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			}
 		}
 	}
-
-	// set TypeMeta manually because of this bug:
-	// https://github.com/kubernetes/client-go/issues/308
-	deployment.APIVersion = "apps/v1"
-	deployment.Kind = "Deployment"
 
 	hpa, err := c.manageAutoscaling(stack, sc.Resources.HPA, deployment, ssc, stackUnused)
 	if err != nil {
