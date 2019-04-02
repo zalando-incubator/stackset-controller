@@ -123,7 +123,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	// TODO: Add to NewDeploymentFromStack
 	for k, v := range stack.Labels {
 		deployment.Labels[k] = v
 	}
@@ -229,7 +228,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	// TODO: Add to NewDeploymentFromStack
 	// set TypeMeta manually because of this bug:
 	// https://github.com/kubernetes/client-go/issues/308
 	deployment.APIVersion = "apps/v1"
