@@ -6,7 +6,6 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // StackResources describes the resources of a stack.
@@ -14,20 +13,9 @@ type StackResources struct {
 	Deployment *appsv1.Deployment
 	HPA        *autoscaling.HorizontalPodAutoscaler
 	Service    *v1.Service
-	Endpoints  *v1.Endpoints
-}
-
-// NewStackResources creates stack resources corresponding to the desired state described in stack.
-// This function contains "pure" logic extracted from stack.go/manageDeployment.
-func NewStackResources(stack zv1.Stack) StackResources {
-	var sr StackResources
-	sr.Deployment = newDeploymentFromStack(stack)
-	sr.HPA = newHPAFromStack(stack)
-	sr.Service = newServiceFromStack(stack)
-	// Returning empty Endpoints field because it will be filled by
+	// Endpoints field will be filled by
 	// the StackSetController.collectEndpoints
-
-	return sr
+	Endpoints *v1.Endpoints
 }
 
 func newDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
@@ -84,11 +72,11 @@ func newHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
 }
 
 func newServiceFromStack(stack zv1.Stack, servicePorts []v1.ServicePort) *v1.Service {
-	return 	&v1.Service{
+	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      stack.Name,
 			Namespace: stack.Namespace,
-			Labels: mapCopy(stack.Labels),
+			Labels:    mapCopy(stack.Labels),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: stack.APIVersion,
@@ -100,8 +88,8 @@ func newServiceFromStack(stack zv1.Stack, servicePorts []v1.ServicePort) *v1.Ser
 		},
 		Spec: v1.ServiceSpec{
 			Selector: limitLabels(stack.Labels, selectorLabels),
-			Type: v1.ServiceTypeClusterIP,
-			Ports: servicePorts,
+			Type:     v1.ServiceTypeClusterIP,
+			Ports:    servicePorts,
 		},
 	}
 
