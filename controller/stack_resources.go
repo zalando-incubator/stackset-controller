@@ -83,13 +83,7 @@ func newHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
 	return &autoscaling.HorizontalPodAutoscaler{}
 }
 
-func newServiceFromStack(stack zv1.Stack, backendPort *intstr.IntOrString) *v1.Service {
-	servicePorts, err := getServicePorts(backendPort, stack)
-	// TODO: figure out if we really need to return these errors
-	if err != nil {
-		return err
-	}
-
+func newServiceFromStack(stack zv1.Stack, servicePorts []v1.ServicePort) *v1.Service {
 	return 	&v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      stack.Name,

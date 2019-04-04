@@ -374,47 +374,19 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	service := sc.Resources.Service
 	stack := sc.Stack
 
-	createService := false
-	if service == nil {
-		createService = true
-		// TODO: move to newServiceFromStack
-		service = &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      stack.Name,
-				Namespace: stack.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: deployment.APIVersion,
-						Kind:       deployment.Kind,
-						Name:       deployment.Name,
-						UID:        deployment.UID,
-					},
-				},
-			},
-			Spec: v1.ServiceSpec{
-				Type: v1.ServiceTypeClusterIP,
-			},
-		}
-	}
-
-	// TODO: "copy" (not move) to newServiceFromStack
-	service.Labels = stack.Labels
-	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
-
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
 	if ssc.StackSet.Spec.Ingress != nil {
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
-
-	// TODO: "copy" (not move) to newServiceFromStack
 	servicePorts, err := getServicePorts(backendPort, stack)
 	if err != nil {
 		return err
 	}
-	service.Spec.Ports = servicePorts
 
-	if createService {
+	if service == nil {
+		service = newServiceFromStack(stack, servicePorts)
+
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
 			"CreateService",
@@ -426,7 +398,12 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		if err != nil {
 			return err
 		}
+
 	} else {
+		service.Labels = stack.Labels
+		service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
+
+		service.Spec.Ports = servicePorts
 		stackGeneration := getStackGeneration(service.ObjectMeta)
 
 		// only update the resource if there are changes
