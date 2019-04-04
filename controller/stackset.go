@@ -286,6 +286,8 @@ func getIngressTraffic(ingress *v1beta1.Ingress) (map[string]TrafficStatus, erro
 	return traffic, nil
 }
 
+// collectResources collects resources for all stacksets at once and stores them per StackSet/Stack so that we don't
+// overload the API requests with unnecessary requests
 func (c *StackSetController) collectResources() (map[types.UID]*StackSetContainer, error) {
 	stacksets := make(map[types.UID]*StackSetContainer, len(c.stacksetStore))
 	for uid, stackset := range c.stacksetStore {

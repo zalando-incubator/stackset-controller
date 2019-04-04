@@ -23,7 +23,9 @@ func NewStackResources(stack zv1.Stack) StackResources {
 	sr.Deployment = NewDeploymentFromStack(stack)
 	sr.HPA = NewHPAFromStack(stack)
 	sr.Service = NewServiceFromStack(stack)
-	sr.Endpoints = NewEndpointsFromStack(stack)
+	// Returning empty Endpoints field because it will be filled by
+	// the StackSetController.collectEndpoints
+
 	return sr
 }
 
@@ -82,8 +84,4 @@ func NewHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
 
 func NewServiceFromStack(stack zv1.Stack) *v1.Service {
 	return &v1.Service{}
-}
-
-func NewEndpointsFromStack(stack zv1.Stack) *v1.Endpoints {
-	return &v1.Endpoints{}
 }
