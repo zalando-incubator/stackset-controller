@@ -26,14 +26,14 @@ func TestNewDeploymentFromStack(t *testing.T) {
 			},
 		},
 	}
-	deployment := NewDeploymentFromStack(stack)
+	deployment := newDeploymentFromStack(stack)
 	require.Equal(t, stack.Name, deployment.Name,
-		"NewDeploymentFromStack should copy name")
+		"newDeploymentFromStack should copy name")
 	require.Equal(t, stack.Labels, deployment.Labels,
-		"NewDeploymentFromStack should copy top-level labels")
+		"newDeploymentFromStack should copy top-level labels")
 	require.Equal(t, stack.Labels, deployment.Spec.Template.Labels,
-		"NewDeploymentFromStack should copy pod template labels")
+		"newDeploymentFromStack should copy pod template labels")
 	require.Equal(t,
 		map[string]string{stackVersionLabelKey: "v2"}, deployment.Spec.Selector.MatchLabels,
-		"NewDeploymentFromStack should copy selector labels in MatchLabels")
+		"newDeploymentFromStack should copy selector labels in MatchLabels")
 }

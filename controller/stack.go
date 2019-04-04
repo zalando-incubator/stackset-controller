@@ -95,7 +95,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	if deployment == nil {
 		createDeployment = true
-		deployment = NewDeploymentFromStack(stack)
+		deployment = newDeploymentFromStack(stack)
 	} else {
 		origReplicas = *deployment.Spec.Replicas
 		template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
@@ -204,7 +204,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	// TODO: Add this to NewDeploymentFromStack once we figure out why it matters that
+	// TODO: Add this to newDeploymentFromStack once we figure out why it matters that
 	//  it is so late compared to other deployment-related stuff (i.e. why tests fails
 	//  when we put it in this function's first else branch).
 	// set TypeMeta manually because of this bug:
@@ -377,6 +377,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	createService := false
 	if service == nil {
 		createService = true
+		// TODO: move to newServiceFromStack
 		service = &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      stack.Name,
@@ -396,6 +397,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		}
 	}
 
+	// TODO: "copy" (not move) to newServiceFromStack
 	service.Labels = stack.Labels
 	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
 
@@ -405,6 +407,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
 
+	// TODO: "copy" (not move) to newServiceFromStack
 	servicePorts, err := getServicePorts(backendPort, stack)
 	if err != nil {
 		return err

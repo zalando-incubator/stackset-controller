@@ -6,6 +6,7 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // StackResources describes the resources of a stack.
@@ -20,16 +21,16 @@ type StackResources struct {
 // This function contains "pure" logic extracted from stack.go/manageDeployment.
 func NewStackResources(stack zv1.Stack) StackResources {
 	var sr StackResources
-	sr.Deployment = NewDeploymentFromStack(stack)
-	sr.HPA = NewHPAFromStack(stack)
-	sr.Service = NewServiceFromStack(stack)
+	sr.Deployment = newDeploymentFromStack(stack)
+	sr.HPA = newHPAFromStack(stack)
+	sr.Service = newServiceFromStack(stack)
 	// Returning empty Endpoints field because it will be filled by
 	// the StackSetController.collectEndpoints
 
 	return sr
 }
 
-func NewDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
+func newDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        stack.Name,
@@ -56,12 +57,12 @@ func NewDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: limitLabels(stack.Labels, selectorLabels),
 			},
-			Template: NewTemplateFromStack(stack),
+			Template: newPodTemplateFromStack(stack),
 		},
 	}
 }
 
-func NewTemplateFromStack(stack zv1.Stack) v1.PodTemplateSpec {
+func newPodTemplateFromStack(stack zv1.Stack) v1.PodTemplateSpec {
 	template := *stack.Spec.PodTemplate.DeepCopy()
 
 	// Copy Labels from Stack.Labels to the Deployment
@@ -78,10 +79,36 @@ func mapCopy(m map[string]string) map[string]string {
 	return copy
 }
 
-func NewHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
+func newHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
 	return &autoscaling.HorizontalPodAutoscaler{}
 }
 
-func NewServiceFromStack(stack zv1.Stack) *v1.Service {
-	return &v1.Service{}
+func newServiceFromStack(stack zv1.Stack, backendPort *intstr.IntOrString) *v1.Service {
+	servicePorts, err := getServicePorts(backendPort, stack)
+	// TODO: figure out if we really need to return these errors
+	if err != nil {
+		return err
+	}
+
+	return 	&v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      stack.Name,
+			Namespace: stack.Namespace,
+			Labels: mapCopy(stack.Labels),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: stack.APIVersion,
+					Kind:       stack.Kind,
+					Name:       stack.Name,
+					UID:        stack.UID,
+				},
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Selector: limitLabels(stack.Labels, selectorLabels),
+			Type: v1.ServiceTypeClusterIP,
+			Ports: servicePorts,
+		},
+	}
+
 }
