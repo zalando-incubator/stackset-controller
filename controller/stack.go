@@ -399,26 +399,25 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 			return err
 		}
 
-	} else {
+	} else if !stackAssignedToResource(stack, service) {
+		assignStackToResource(stack, service)
+
 		service.Labels = stack.Labels
 		service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
 
 		// get service ports to be used for the service
 		service.Spec.Ports = servicePorts
 
-		if !stackAssignedToResource(stack, service) {
-			assignStackToResource(stack, service)
-			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
-				"UpdateService",
-				"Updating Service '%s/%s' for Stack",
-				service.Namespace,
-				service.Name,
-			)
-			_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
-			if err != nil {
-				return err
-			}
+		c.recorder.Eventf(&stack,
+			apiv1.EventTypeNormal,
+			"UpdateService",
+			"Updating Service '%s/%s' for Stack",
+			service.Namespace,
+			service.Name,
+		)
+		_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
+		if err != nil {
+			return err
 		}
 	}
 
