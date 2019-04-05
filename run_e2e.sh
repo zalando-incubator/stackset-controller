@@ -36,4 +36,4 @@ zkubectl delete ns $controllerId
 # Kill all background jobs.
 echo "Jobs to kill:"
 jobs
-killall -i stackset-controller proxy
+killall -ir stackset-controller kubectl
