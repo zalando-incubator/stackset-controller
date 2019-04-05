@@ -7,6 +7,7 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"strconv"
 )
 
@@ -127,4 +128,22 @@ func assignStackToResource(stack zv1.Stack, resource metav1.Object) {
 	}
 	annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 	resource.SetAnnotations(annotations)
+}
+
+func syncServiceWithStack(service *v1.Service, stack zv1.Stack, backendPort *intstr.IntOrString) error {
+	if service == nil {
+		return fmt.Errorf(
+			"syncServiceWithStack expects an existing Service, not a nil pointer")
+	}
+	assignStackToResource(stack, service)
+
+	service.Labels = stack.Labels
+	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
+
+	servicePorts, err := getServicePorts(backendPort, stack)
+	if err != nil {
+		return err
+	}
+	service.Spec.Ports = servicePorts
+	return nil
 }

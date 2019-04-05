@@ -378,13 +378,12 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	if ssc.StackSet.Spec.Ingress != nil {
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
-	servicePorts, err := getServicePorts(backendPort, stack)
-	if err != nil {
-		return err
-	}
 
 	if service == nil {
-
+		servicePorts, err := getServicePorts(backendPort, stack)
+		if err != nil {
+			return err
+		}
 		service = newServiceFromStack(stack, servicePorts)
 
 		c.recorder.Eventf(&stack,
@@ -400,13 +399,9 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		}
 
 	} else if !stackAssignedToResource(stack, service) {
-		assignStackToResource(stack, service)
-
-		service.Labels = stack.Labels
-		service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
-
-		// get service ports to be used for the service
-		service.Spec.Ports = servicePorts
+		if err := syncServiceWithStack(service, stack, backendPort); err != nil {
+			return err
+		}
 
 		c.recorder.Eventf(&stack,
 			apiv1.EventTypeNormal,
