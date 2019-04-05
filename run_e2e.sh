@@ -13,9 +13,13 @@ zkubectl proxy&
 # Generate a controller ID for this run.
 controllerId=ssc-e2e-$(dd if=/dev/urandom bs=8 count=1 2>/dev/null | hexdump -e '"%x"')
 
+# We'll store the controller logs in a separate file to keep stdout clean.
+controllerLog=$(mktemp -p ssc-log-XXXX)
+echo ">>> Writing controller logs in $controllerLog"
+
 # Find and run the controller locally.
 sscPath=$(find build/ -name "stackset-controller" | head -n 1)
-command $sscPath --apiserver=http://127.0.0.1:8001 --controller-id=$controllerId&
+command $sscPath --apiserver=http://127.0.0.1:8001 --controller-id=$controllerId 2>$controllerLog&
 
 # Create the Kubernetes namespace to be used for this test run.
 zkubectl create ns $controllerId
