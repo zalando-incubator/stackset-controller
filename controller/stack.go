@@ -172,7 +172,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			return err
 		}
 	} else {
-		stackGeneration := getStackGeneration(deployment.ObjectMeta)
+		stackGeneration := _getStackGeneration(deployment.ObjectMeta)
 
 		replicas := *deployment.Spec.Replicas
 
@@ -336,7 +336,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			return nil, err
 		}
 	} else {
-		stackGeneration := getStackGeneration(hpa.ObjectMeta)
+		stackGeneration := _getStackGeneration(hpa.ObjectMeta)
 
 		// only update the resource if there are changes
 		// We determine changes by comparing the stackGeneration
@@ -405,17 +405,9 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 
 		// get service ports to be used for the service
 		service.Spec.Ports = servicePorts
-		stackGeneration := getStackGeneration(service.ObjectMeta)
 
-		// only update the resource if there are changes
-		// We determine changes by comparing the stackGeneration
-		// (observed generation) stored on the service with the
-		// generation of the Stack.
-		if stackGeneration != stack.Generation {
-			if service.Annotations == nil {
-				service.Annotations = make(map[string]string, 1)
-			}
-			service.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+		if !stackAssignedToResource(stack, service) {
+			assignStackToResource(stack, service)
 			c.recorder.Eventf(&stack,
 				apiv1.EventTypeNormal,
 				"UpdateService",
@@ -513,7 +505,7 @@ func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[st
 	return newLabels
 }
 
-func getStackGeneration(metadata metav1.ObjectMeta) int64 {
+func _getStackGeneration(metadata metav1.ObjectMeta) int64 {
 	if g, ok := metadata.Annotations[stackGenerationAnnotationKey]; ok {
 		generation, err := strconv.ParseInt(g, 10, 64)
 		if err != nil {
