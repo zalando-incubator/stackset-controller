@@ -14,7 +14,7 @@ zkubectl proxy&
 controllerId=ssc-e2e-$(dd if=/dev/urandom bs=8 count=1 2>/dev/null | hexdump -e '"%x"')
 
 # We'll store the controller logs in a separate file to keep stdout clean.
-controllerLog=$(mktemp -p ssc-log-XXXX)
+controllerLog=$(mktemp -p "" ssc-log-XXXXX.log)
 echo ">>> Writing controller logs in $controllerLog"
 
 # Find and run the controller locally.
