@@ -374,15 +374,17 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	service := sc.Resources.Service
 	stack := sc.Stack
 
+	var backendPort *intstr.IntOrString
+	if ssc.StackSet.Spec.Ingress != nil {
+		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
+	}
+	servicePorts, err := getServicePorts(backendPort, stack)
+	if err != nil {
+		return err
+	}
+
 	if service == nil {
-		var backendPort *intstr.IntOrString
-		if ssc.StackSet.Spec.Ingress != nil {
-			backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
-		}
-		servicePorts, err := getServicePorts(backendPort, stack)
-		if err != nil {
-			return err
-		}
+
 		service = newServiceFromStack(stack, servicePorts)
 
 		c.recorder.Eventf(&stack,
@@ -402,14 +404,6 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
 
 		// get service ports to be used for the service
-		var backendPort *intstr.IntOrString
-		if ssc.StackSet.Spec.Ingress != nil {
-			backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
-		}
-		servicePorts, err := getServicePorts(backendPort, stack)
-		if err != nil {
-			return err
-		}
 		service.Spec.Ports = servicePorts
 		stackGeneration := getStackGeneration(service.ObjectMeta)
 
