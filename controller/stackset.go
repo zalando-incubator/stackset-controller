@@ -698,6 +698,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 
 	// sort candidates by oldest
 	sort.Slice(gcCandidates, func(i, j int) bool {
+		// TODO: maybe we use use noTrafficSince instead of CreationTimeStamp to decide oldest
 		return gcCandidates[i].CreationTimestamp.Time.Before(gcCandidates[j].CreationTimestamp.Time)
 	})
 
@@ -705,7 +706,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	c.recorder.Eventf(&stackset,
 		apiv1.EventTypeNormal,
 		"ExeedStackHistoryLimit",
-		"Found %d Stack(s) exeeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
+		"Found %d Stack(s) exceeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
 		excessStacks,
 		historyLimit,
 		stackset.Namespace,
@@ -713,6 +714,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 		len(gcCandidates),
 	)
 
+	// We can only delete the no. of stacks that are both excess and gc candidates
 	gcLimit := int(math.Min(float64(excessStacks), float64(len(gcCandidates))))
 	return gcCandidates[:gcLimit]
 }
@@ -792,11 +794,18 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			"Creating Stack '%s/%s' for StackSet",
 			stack.Namespace, stack.Name,
 		)
+
+		// TODO: Creation of a stack should be recorded somehow.
+		//  This will allow deletion of even the "current" stack,
+		//  since the "current" part is just a small implementation detail of the deployment process.
 		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
 		if err != nil {
 			return err
 		}
 	} else {
+		//TODO: Stack template in the stackset is only considered when a new stack is created.
+		// Further changes to the spec should be ignored or forbidden to avoid confusion.
+		//TODO: Move this to it's own control loop
 		stacksetGeneration := getStackSetGeneration(stack.ObjectMeta)
 
 		// only update the resource if there are changes
