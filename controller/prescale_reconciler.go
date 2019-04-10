@@ -165,3 +165,7 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 
 	return availableBackends, backendWeights, nil
 }
+
+func (r *PrescaleTrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) error {
+	return nil
+}

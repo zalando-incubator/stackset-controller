@@ -59,3 +59,7 @@ func computeBackendWeights(stacks []entities.StackStatus, traffic map[string]ent
 
 	return availableBackends, backendWeights
 }
+
+func (r SimpleTrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) error {
+	return nil
+}

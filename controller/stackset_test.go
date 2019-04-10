@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -357,20 +356,6 @@ func TestGetOwnerUID(t *testing.T) {
 	uid, ok = getOwnerUID(metav1.ObjectMeta{})
 	assert.Equal(t, types.UID(""), uid)
 	assert.False(t, ok)
-}
-
-func TestSanitizeServicePorts(t *testing.T) {
-	service := &zv1.StackServiceSpec{
-		Ports: []v1.ServicePort{
-			{
-				Protocol: "",
-			},
-		},
-	}
-
-	service = sanitizeServicePorts(service)
-	assert.Len(t, service.Ports, 1)
-	assert.Equal(t, v1.ProtocolTCP, service.Ports[0].Protocol)
 }
 
 func TestMergeLabels(t *testing.T) {

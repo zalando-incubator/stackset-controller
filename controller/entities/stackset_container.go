@@ -39,18 +39,27 @@ type StackSetContainer struct {
 }
 
 // Stacks returns a slice of Stack resources.
-func (sc StackSetContainer) Stacks() []zv1.Stack {
-	stacks := make([]zv1.Stack, 0, len(sc.StackContainers))
-	for _, stackContainer := range sc.StackContainers {
+func (ssc StackSetContainer) Stacks() []zv1.Stack {
+	stacks := make([]zv1.Stack, 0, len(ssc.StackContainers))
+	for _, stackContainer := range ssc.StackContainers {
 		stacks = append(stacks, stackContainer.Stack)
 	}
 	return stacks
 }
 
+func (ssc StackSetContainer) StackFromName(name string) *zv1.Stack {
+	for _, sc := range ssc.StackContainers {
+		if sc.Stack.Name == name {
+			return &sc.Stack
+		}
+	}
+	return nil
+}
+
 // ScaledownTTL returns the ScaledownTTLSeconds value of a StackSet as a
 // time.Duration.
-func (sc StackSetContainer) ScaledownTTL() time.Duration {
-	if ttlSec := sc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds; ttlSec != nil {
+func (ssc StackSetContainer) ScaledownTTL() time.Duration {
+	if ttlSec := ssc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds; ttlSec != nil {
 		return time.Second * time.Duration(*ttlSec)
 	}
 	return 0

@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/stackset-controller/controller/canary"
 	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
@@ -82,43 +83,48 @@ func (c *StackSetController) Run(ctx context.Context) {
 		case <-time.After(time.Until(nextCheck)):
 			nextCheck = time.Now().Add(c.interval)
 
-			stackContainers, err := c.collectResources()
+			stackSetContainers, err := c.collectResources()
 			if err != nil {
 				c.logger.Errorf("Failed to collect resources: %v", err)
 				continue
 			}
 
 			var reconcileGroup errgroup.Group
-			for stackset, container := range stackContainers {
+			for ssId, ssc := range stackSetContainers {
 
-				container := *container
+				ssc := *ssc
 
 				reconcileGroup.Go(func() error {
-					if _, ok := c.stacksetStore[stackset]; ok {
-						err = c.ReconcileStack(container)
+					if _, ok := c.stacksetStore[ssId]; ok {
+						err = c.ReconcileStack(ssc)
 						if err != nil {
-							c.StackSetStatusUpdateFailed(container, err)
+							c.StackSetStatusUpdateFailed(ssc, err)
 							return err
 						}
 
-						err := c.ReconcileStacks(container)
+						err := c.ReconcileStacks(ssc)
 						if err != nil {
-							c.StackSetStatusUpdateFailed(container, err)
+							c.StackSetStatusUpdateFailed(ssc, err)
 							return err
 						}
 
-						err = c.ReconcileIngress(container)
-						if err != nil {
-							c.StackSetStatusUpdateFailed(container, err)
-							return err
-						}
-
-						err = c.ReconcileStackSetStatus(container)
+						err = ssc.TrafficReconciler.ReconcileStacks(&ssc)
 						if err != nil {
 							return err
 						}
 
-						err = c.StackSetGC(container)
+						err = c.ReconcileIngress(ssc)
+						if err != nil {
+							c.StackSetStatusUpdateFailed(ssc, err)
+							return err
+						}
+
+						err = c.ReconcileStackSetStatus(ssc)
+						if err != nil {
+							return err
+						}
+
+						err = c.StackSetGC(ssc)
 						if err != nil {
 							return err
 						}
@@ -138,7 +144,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 			stackset.APIVersion = "zalando.org/v1"
 			stackset.Kind = "StackSet"
 
-			// set default stackset defaults
 			setStackSetDefaults(&stackset)
 
 			// update/delete existing entry
@@ -229,6 +234,12 @@ func (c *StackSetController) collectResources() (map[types.UID]*entities.StackSe
 			stacksetContainer.TrafficReconciler = &PrescaleTrafficReconciler{
 				ResetHPAMinReplicasTimeout: resetDelay,
 			}
+		}
+
+		if _, ok := stackset.Annotations[canary.StacksetAnnotationKey]; ok {
+			stacksetContainer.TrafficReconciler = canary.NewTrafficReconcilerReal(
+				stacksetContainer.TrafficReconciler, c.client, c.recorder, c.logger,
+			)
 		}
 
 		stacksets[uid] = stacksetContainer
@@ -651,85 +662,69 @@ func generateStackName(stackset zv1.StackSet, version string) string {
 	return stackset.Name + "-" + version
 }
 
+// NewStackFromStackSet builds a new stack attached to set, according to set's stack template.
+func NewStackFromStackSet(set zv1.StackSet) *zv1.Stack {
+	version := currentStackVersion(set)
+
+	tSpec := set.Spec.StackTemplate.Spec
+
+	stack := entities.NewStack(
+		generateStackName(set, version),
+		set.Namespace,
+		version,
+		metav1.OwnerReference{
+			APIVersion: set.APIVersion,
+			Kind:       set.Kind,
+			Name:       set.Name,
+			UID:        set.UID,
+		},
+		zv1.StackSpec{
+			Replicas:                tSpec.Replicas,
+			HorizontalPodAutoscaler: tSpec.HorizontalPodAutoscaler.DeepCopy(),
+			Service:                 tSpec.Service.DeepCopy(),
+			PodTemplate:             *tSpec.PodTemplate.DeepCopy(),
+			Autoscaler:              tSpec.Autoscaler.DeepCopy(),
+		},
+	)
+
+	for k, v := range set.Labels {
+		stack.Labels[k] = v
+	}
+
+	return stack
+}
+
 // ReconcileStack brings the Stack created from the current StackSet definition
 // to the desired state.
 func (c *StackSetController) ReconcileStack(ssc entities.StackSetContainer) error {
 	stackset := ssc.StackSet
-	heritageLabels := map[string]string{
-		entities.StacksetHeritageLabelKey: stackset.Name,
-	}
-	observedStackVersion := stackset.Status.ObservedStackVersion
 	stackVersion := currentStackVersion(stackset)
 	stackName := generateStackName(stackset, stackVersion)
 
 	stacks := ssc.Stacks()
 
-	var stack *zv1.Stack
 	for _, s := range stacks {
 		if s.Name == stackName {
-			stack = &s
-			break
+			return nil
 		}
 	}
 
-	stackLabels := mergeLabels(
-		heritageLabels,
-		stackset.Labels,
-		map[string]string{entities.StackVersionLabelKey: stackVersion},
+	observedStackVersion := stackset.Status.ObservedStackVersion
+	if observedStackVersion == stackVersion {
+		return nil
+	}
+
+	stack := NewStackFromStackSet(stackset)
+
+	c.recorder.Eventf(&stackset,
+		apiv1.EventTypeNormal,
+		"CreatedStack",
+		"Created Stack '%s/%s'",
+		stack.Namespace, stack.Name,
 	)
 
-	if stack == nil && observedStackVersion != stackVersion {
-		stack = &zv1.Stack{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      stackName,
-				Namespace: ssc.StackSet.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: stackset.APIVersion,
-						Kind:       stackset.Kind,
-						Name:       stackset.Name,
-						UID:        stackset.UID,
-					},
-				},
-			},
-		}
-
-		stack.Labels = stackLabels
-		stack.Spec.PodTemplate = *stackset.Spec.StackTemplate.Spec.PodTemplate.DeepCopy()
-		stack.Spec.Replicas = stackset.Spec.StackTemplate.Spec.Replicas
-		stack.Spec.HorizontalPodAutoscaler = stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy()
-		stack.Spec.Autoscaler = stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy()
-		if stackset.Spec.StackTemplate.Spec.Service != nil {
-			stack.Spec.Service = sanitizeServicePorts(stackset.Spec.StackTemplate.Spec.Service)
-		}
-
-		c.recorder.Eventf(&stackset,
-			apiv1.EventTypeNormal,
-			"CreatedStack",
-			"Created Stack '%s/%s'",
-			stack.Namespace, stack.Name,
-		)
-
-		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// sanitizeServicePorts makes sure the ports has the default fields set if not
-// specified.
-func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
-	for i, port := range service.Ports {
-		// set default protocol if not specified
-		if port.Protocol == "" {
-			port.Protocol = v1.ProtocolTCP
-		}
-		service.Ports[i] = port
-	}
-	return service
+	_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
+	return err
 }
 
 func mergeLabels(labelMaps ...map[string]string) map[string]string {
