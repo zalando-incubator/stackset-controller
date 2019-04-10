@@ -63,11 +63,11 @@ func newPodTemplateFromStack(stack zv1.Stack) v1.PodTemplateSpec {
 }
 
 func mapCopy(m map[string]string) map[string]string {
-	copy := map[string]string{}
+	newMap := map[string]string{}
 	for k, v := range m {
-		copy[k] = v
+		newMap[k] = v
 	}
-	return copy
+	return newMap
 }
 
 func newHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
@@ -119,7 +119,6 @@ func getStackGeneration(resource metav1.Object) int64 {
 	return decodedGeneration
 }
 
-// TODO: Find better name.
 // assignResourceOwnershipToStack assigns a stack to a resource by specifying the stack's generation
 // in the resource's annotations.
 func assignResourceOwnershipToStack(stack zv1.Stack, resource metav1.Object) {
