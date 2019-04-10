@@ -37,3 +37,69 @@ func TestNewDeploymentFromStack(t *testing.T) {
 		map[string]string{stackVersionLabelKey: "v2"}, deployment.Spec.Selector.MatchLabels,
 		"newDeploymentFromStack should copy selector labels in MatchLabels")
 }
+
+func TestAssignResourceOwnershipToStack(t *testing.T) {
+	t.Run("add annotation to an object with nil Annotations", func(t *testing.T) {
+		// FIXME
+		//service := v1.Service{
+		//	ObjectMeta: metav1.ObjectMeta{
+		//		Annotations: nil,
+		//	},
+		//}
+	})
+	t.Run("add annotation to an object with empty Annotations", func(t *testing.T) {
+		// FIXME
+		//service := v1.Service{
+		//	ObjectMeta: metav1.ObjectMeta{
+		//		Annotations: make(map[string]string, 0),
+		//	},
+		//}
+	})
+	t.Run("add annotation to an object owned by another stack", func(t *testing.T) {
+		// FIXME
+		//service := v1.Service{
+		//	ObjectMeta: metav1.ObjectMeta{
+		//		Annotations: make(map[string]string, 0),
+		//	},
+		//}
+	})
+	t.Run("not add annotation to an object already owned by the stack", func(t *testing.T) {
+		// FIXME
+		//annotations := make(map[string]string, 0)
+		//service := v1.Service{
+		//	ObjectMeta: metav1.ObjectMeta{
+		//		Annotations: annotations,
+		//	},
+		//}
+	})
+	t.Run("unrelated annotations are not changed", func(t *testing.T) {
+		// TODO
+	})
+	t.Run("works on deployments too", func(t *testing.T) {
+		// TODO
+	})
+}
+
+func TestUpdateServiceSpecFromStack(t *testing.T) {
+	t.Run("error when called with a nil service", func(t *testing.T) {
+		// TODO
+	})
+	t.Run("error when backend port doesn't match service ports", func(t *testing.T) {
+		// TODO
+	})
+	t.Run("labels and ports are updated", func(t *testing.T) {
+		// TODO
+	})
+}
+
+func TestGetStackGeneration(t *testing.T) {
+	t.Run("returns 0 without generation annotation", func(t *testing.T) {
+		// TODO
+	})
+	t.Run("returns 0 with a non-integer generation", func(t *testing.T) {
+		// TODO
+	})
+	t.Run("returns the decoded generation", func(t *testing.T) {
+		// TODO
+	})
+}
