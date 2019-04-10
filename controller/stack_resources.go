@@ -97,9 +97,9 @@ func newServiceFromStack(stack zv1.Stack, servicePorts []v1.ServicePort) *v1.Ser
 	}
 }
 
-// stackAssignedToResource checks whether the stack is assigned to the resource
+// doesStackOwnResource checks whether the stack is assigned to the resource
 // by comparing the stack generation with the corresponding resource annotation.
-func stackAssignedToResource(stack zv1.Stack, resource metav1.Object) bool {
+func doesStackOwnResource(stack zv1.Stack, resource metav1.Object) bool {
 	// We only update the resource if there are changes.
 	// We determine changes by comparing the stackGeneration
 	// (observed generation) stored on the resource with the
@@ -119,9 +119,10 @@ func getStackGeneration(resource metav1.Object) int64 {
 	return decodedGeneration
 }
 
-// assignStackToResource assigns a stack to a resource by specifying the stack's generation
+// TODO: Find better name.
+// assignResourceOwnershipToStack assigns a stack to a resource by specifying the stack's generation
 // in the resource's annotations.
-func assignStackToResource(stack zv1.Stack, resource metav1.Object) {
+func assignResourceOwnershipToStack(stack zv1.Stack, resource metav1.Object) {
 	annotations := resource.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string, 1)
@@ -130,12 +131,12 @@ func assignStackToResource(stack zv1.Stack, resource metav1.Object) {
 	resource.SetAnnotations(annotations)
 }
 
-func syncServiceWithStack(service *v1.Service, stack zv1.Stack, backendPort *intstr.IntOrString) error {
+func updateServiceSpecFromStack(service *v1.Service, stack zv1.Stack, backendPort *intstr.IntOrString) error {
 	if service == nil {
 		return fmt.Errorf(
-			"syncServiceWithStack expects an existing Service, not a nil pointer")
+			"updateServiceSpecFromStack expects an existing Service, not a nil pointer")
 	}
-	assignStackToResource(stack, service)
+	assignResourceOwnershipToStack(stack, service)
 
 	service.Labels = stack.Labels
 	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)

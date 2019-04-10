@@ -375,10 +375,12 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	stack := sc.Stack
 
 	var backendPort *intstr.IntOrString
-	if ssc.StackSet.Spec.Ingress != nil {
+	if ssc.StackSet.Spec.Ingress != nil { // TODO: Ask about the use-case of a nil Ingress.
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
 
+	var kubeAction func(*v1.Service) (*v1.Service, error)
+	var reason, message string
 	if service == nil {
 		servicePorts, err := getServicePorts(backendPort, stack)
 		if err != nil {
@@ -386,36 +388,33 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		}
 		service = newServiceFromStack(stack, servicePorts)
 
-		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
-			"CreateService",
-			"Creating Service '%s/%s' for Stack",
-			service.Namespace,
-			service.Name,
-		)
-		_, err = c.client.CoreV1().Services(service.Namespace).Create(service)
-		if err != nil {
+		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
+		reason = "CreateService"
+		message = "Creating Service '%s/%s' for Stack"
+
+	} else if !doesStackOwnResource(stack, service) {
+		if err := updateServiceSpecFromStack(service, stack, backendPort); err != nil {
 			return err
 		}
 
-	} else if !stackAssignedToResource(stack, service) {
-		if err := syncServiceWithStack(service, stack, backendPort); err != nil {
-			return err
-		}
-
-		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
-			"UpdateService",
-			"Updating Service '%s/%s' for Stack",
-			service.Namespace,
-			service.Name,
-		)
-		_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
-		if err != nil {
-			return err
-		}
+		kubeAction = c.client.CoreV1().Services(service.Namespace).Update
+		reason = "UpdateService"
+		message = "Updating Service '%s/%s' for Stack"
+	} else { // service already exists and is up-to-date with respect to the stack.
+		return nil
 	}
 
+	c.recorder.Eventf(&stack,
+		apiv1.EventTypeNormal,
+		reason,
+		message,
+		service.Namespace,
+		service.Name,
+	)
+	_, err := kubeAction(service)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -428,7 +427,7 @@ func getServicePorts(backendPort *intstr.IntOrString, stack zv1.Stack) ([]v1.Ser
 		servicePorts = stack.Spec.Service.Ports
 	}
 
-	// validate that one port in the list map to the backendPort.
+	// validate that one port in the list maps to the backendPort.
 	if backendPort != nil {
 		for _, port := range servicePorts {
 			switch backendPort.Type {
