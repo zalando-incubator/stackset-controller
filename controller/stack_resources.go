@@ -74,7 +74,30 @@ func newHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
 	return &autoscaling.HorizontalPodAutoscaler{}
 }
 
-func newServiceFromStack(stack zv1.Stack, servicePorts []v1.ServicePort) *v1.Service {
+func newServiceFromStack(stack zv1.Stack, deployment *appsv1.Deployment) *v1.Service {
+	selectorLabels := limitLabels(stack.Labels, selectorLabels)
+	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      stack.Name,
+			Namespace: stack.Namespace,
+			Labels: stack.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{	// TODO: find out why we're not using the stack as a owner reference
+					APIVersion: deployment.APIVersion,
+					Kind:       deployment.Kind,
+					Name:       deployment.Name,
+					UID:        deployment.UID,
+				},
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Selector: selectorLabels,
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+}
+
+func newServiceFromStackBroken(stack zv1.Stack, servicePorts []v1.ServicePort, deployment *appsv1.Deployment) *v1.Service {
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      stack.Name,
@@ -82,10 +105,10 @@ func newServiceFromStack(stack zv1.Stack, servicePorts []v1.ServicePort) *v1.Ser
 			Labels:    mapCopy(stack.Labels),
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: stack.APIVersion,
-					Kind:       stack.Kind,
-					Name:       stack.Name,
-					UID:        stack.UID,
+					APIVersion: deployment.APIVersion,
+					Kind:       deployment.Kind,
+					Name:       deployment.Name,
+					UID:        deployment.UID,
 				},
 			},
 		},

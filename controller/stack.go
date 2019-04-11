@@ -378,28 +378,13 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	if service == nil {
 		createService = true
 		// TODO: move to newServiceFromStack
-		service = &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      stack.Name,
-				Namespace: stack.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: deployment.APIVersion,
-						Kind:       deployment.Kind,
-						Name:       deployment.Name,
-						UID:        deployment.UID,
-					},
-				},
-			},
-			Spec: v1.ServiceSpec{
-				Type: v1.ServiceTypeClusterIP,
-			},
-		}
+		service = newServiceFromStack(stack, deployment)
+	} else {
+		// TODO: "copy" (not move) to newServiceFromStack
+		service.Labels = stack.Labels
+		service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
 	}
 
-	// TODO: "copy" (not move) to newServiceFromStack
-	service.Labels = stack.Labels
-	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
 
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
@@ -471,7 +456,7 @@ func (c *stacksReconciler) manageService2(sc StackContainer, deployment *appsv1.
 		if err != nil {
 			return err
 		}
-		service = newServiceFromStack(stack, servicePorts)
+		service = newServiceFromStackBroken(stack, servicePorts, deployment)
 
 		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
 		reason = "CreateService"
