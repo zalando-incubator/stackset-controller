@@ -374,6 +374,91 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	service := sc.Resources.Service
 	stack := sc.Stack
 
+	createService := false
+	if service == nil {
+		createService = true
+		// TODO: move to newServiceFromStack
+		service = &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      stack.Name,
+				Namespace: stack.Namespace,
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: deployment.APIVersion,
+						Kind:       deployment.Kind,
+						Name:       deployment.Name,
+						UID:        deployment.UID,
+					},
+				},
+			},
+			Spec: v1.ServiceSpec{
+				Type: v1.ServiceTypeClusterIP,
+			},
+		}
+	}
+
+	// TODO: "copy" (not move) to newServiceFromStack
+	service.Labels = stack.Labels
+	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
+
+	// get service ports to be used for the service
+	var backendPort *intstr.IntOrString
+	if ssc.StackSet.Spec.Ingress != nil {
+		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
+	}
+
+	// TODO: "copy" (not move) to newServiceFromStack
+	servicePorts, err := getServicePorts(backendPort, stack)
+	if err != nil {
+		return err
+	}
+	service.Spec.Ports = servicePorts
+
+	if createService {
+		c.recorder.Eventf(&stack,
+			apiv1.EventTypeNormal,
+			"CreateService",
+			"Creating Service '%s/%s' for Stack",
+			service.Namespace,
+			service.Name,
+		)
+		_, err := c.client.CoreV1().Services(service.Namespace).Create(service)
+		if err != nil {
+			return err
+		}
+	} else {
+		stackGeneration := getStackGeneration(service)
+
+		// only update the resource if there are changes
+		// We determine changes by comparing the stackGeneration
+		// (observed generation) stored on the service with the
+		// generation of the Stack.
+		if stackGeneration != stack.Generation {
+			if service.Annotations == nil {
+				service.Annotations = make(map[string]string, 1)
+			}
+			service.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+			c.recorder.Eventf(&stack,
+				apiv1.EventTypeNormal,
+				"UpdateService",
+				"Updating Service '%s/%s' for Stack",
+				service.Namespace,
+				service.Name,
+			)
+			_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+//// manageService manages the service for a given stack.
+func (c *stacksReconciler) manageService2(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer) error {
+	service := sc.Resources.Service
+	stack := sc.Stack
+
 	var backendPort *intstr.IntOrString
 	if ssc.StackSet.Spec.Ingress != nil { // TODO: Ask about the use-case of a nil Ingress.
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
