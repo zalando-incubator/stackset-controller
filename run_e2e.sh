@@ -14,9 +14,7 @@ zkubectl proxy&
 controllerId=ssc-e2e-$(dd if=/dev/urandom bs=8 count=1 2>/dev/null | hexdump -e '"%x"')
 
 # We'll store the controller logs in a separate file to keep stdout clean.
-controllerLog="/tmp/ssc-log-XXXXX.log"
-# Empty the file, just in case
-:> $controllerLog
+controllerLog=$(mktemp /tmp/ssc-log-XXXXX.log)
 echo ">>> Writing controller logs in $controllerLog"
 
 # Find and run the controller locally.
@@ -32,14 +30,15 @@ env E2E_NAMESPACE=$controllerId \
     CLUSTER_DOMAIN=stups-test.zalan.do \
     CONTROLLER_ID=$controllerId \
     KUBECONFIG=$HOME/.kube/config \
-    go test -run TestStacksetCreateBasic -failfast -count=1 \
+    go test -parallel 64 -v -failfast -count=1 \
         github.com/zalando-incubator/stackset-controller/cmd/e2e \
     || true
 
 # Delete the test namespace.
-#zkubectl delete ns $controllerId
+zkubectl delete ns $controllerId
 
 # Kill all background jobs.
 echo "Jobs to kill:"
 jobs
-killall stackset-controller kubectl-v1.12.7
+pkill stackset-contro
+pkill -f kubectl
