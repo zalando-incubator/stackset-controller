@@ -17,7 +17,6 @@ before_install:
 script:
   - make check
   - make test
-  - maket lint
   - make build.docker
   - roveralls -ignore cmd/e2e
   - goveralls -v -coverprofile=roveralls.coverprofile -service=travis-ci
