@@ -1,13 +1,14 @@
 package controller
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/apps/v1beta1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"testing"
 )
 
 func TestNewDeploymentFromStack(t *testing.T) {

@@ -125,7 +125,7 @@ func MemoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ResourceMetricSourceType,
 		Resource: &autoscaling.ResourceMetricSource{
-			Name:                     v1.ResourceMemory,
+			Name: v1.ResourceMemory,
 			TargetAverageUtilization: metrics.AverageUtilization,
 		},
 	}
@@ -139,7 +139,7 @@ func CPUMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ResourceMetricSourceType,
 		Resource: &autoscaling.ResourceMetricSource{
-			Name:                     v1.ResourceCPU,
+			Name: v1.ResourceCPU,
 			TargetAverageUtilization: metrics.AverageUtilization,
 		},
 	}
