@@ -8,7 +8,7 @@ import (
 	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	scController "github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"k8s.io/api/extensions/v1beta1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	fakeK8s "k8s.io/client-go/kubernetes/fake"

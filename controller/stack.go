@@ -10,8 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
-	"k8s.io/api/core/v1"
-	apiv1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -160,7 +159,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	if createDeployment {
 		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"CreateDeployment",
 			"Creating Deployment '%s/%s' for Stack",
 			deployment.Namespace,
@@ -190,7 +189,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			}
 			deployment.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
+				v1.EventTypeNormal,
 				"UpdateDeployment",
 				"Updating Deployment '%s/%s' for Stack",
 				deployment.Namespace,
@@ -238,7 +237,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	if !equality.Semantic.DeepEqual(newStatus, stack.Status) {
 		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"UpdateStackStatus",
 			"Status changed: %#v -> %#v",
 			stack.Status,
@@ -270,7 +269,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 	if stack.Spec.HorizontalPodAutoscaler == nil || stackUnused {
 		if hpa != nil {
 			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
+				v1.EventTypeNormal,
 				"DeleteHPA",
 				"Deleting obsolete HPA %s/%s for Deployment %s/%s",
 				hpa.Namespace,
@@ -321,7 +320,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 
 	if createHPA {
 		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"CreateHPA",
 			"Creating HPA '%s/%s' for Stack",
 			hpa.Namespace,
@@ -349,7 +348,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			}
 			hpa.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
+				v1.EventTypeNormal,
 				"UpdateHPA",
 				"Updating HPA '%s/%s' for Stack",
 				hpa.Namespace,
@@ -409,7 +408,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	}
 
 	c.recorder.Eventf(&stack,
-		apiv1.EventTypeNormal,
+		v1.EventTypeNormal,
 		reason,
 		message,
 		service.Namespace,
