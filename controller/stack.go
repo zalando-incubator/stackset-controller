@@ -204,9 +204,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	// TODO: Add this to newDeploymentFromStack once we figure out why it matters that
-	//  it is so late compared to other deployment-related stuff (i.e. why tests fails
-	//  when we put it in this function's first else branch).
 	// set TypeMeta manually because of this bug:
 	// https://github.com/kubernetes/client-go/issues/308
 	deployment.APIVersion = "apps/v1"
@@ -376,7 +373,8 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
-	if ssc.StackSet.Spec.Ingress != nil { // TODO: Ask if it's even possible to have a nil Ingress.
+	// Shouldn't happen but technically possible
+	if ssc.StackSet.Spec.Ingress != nil {
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
 
@@ -388,7 +386,6 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	var kubeAction func(*v1.Service) (*v1.Service, error)
 	var reason, message string
 	if service == nil {
-		// TODO: move to newServiceFromStack
 		service = newServiceFromStack(servicePorts, stack, deployment)
 
 		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
