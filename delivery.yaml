@@ -8,9 +8,6 @@ pipeline:
     - /go/pkg/mod       # pkg cache for Go modules
     - ~/.cache/go-build # Go build cache
   commands:
-  - desc: install deps
-    cmd: |
-      dep ensure -v -vendor-only
   - desc: test
     cmd: |
       make check
