@@ -374,67 +374,54 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	service := sc.Resources.Service
 	stack := sc.Stack
 
-	createService := false
-	if service == nil {
-		createService = true
-		// TODO: move to newServiceFromStack
-		service = newServiceFromStack(stack, deployment)
-	} else {
-		// TODO: "copy" (not move) to newServiceFromStack
-		service.Labels = stack.Labels
-		service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
-	}
-
-
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
-	if ssc.StackSet.Spec.Ingress != nil {
+	if ssc.StackSet.Spec.Ingress != nil { // TODO: Ask if it's even possible to have a nil Ingress.
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
 
-	// TODO: "copy" (not move) to newServiceFromStack
 	servicePorts, err := getServicePorts(backendPort, stack)
 	if err != nil {
 		return err
 	}
-	service.Spec.Ports = servicePorts
 
-	if createService {
-		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
-			"CreateService",
-			"Creating Service '%s/%s' for Stack",
-			service.Namespace,
-			service.Name,
-		)
-		_, err := c.client.CoreV1().Services(service.Namespace).Create(service)
+	var kubeAction func(*v1.Service) (*v1.Service, error)
+	var reason, message string
+	if service == nil {
+		// TODO: move to newServiceFromStack
+		service = newServiceFromStack(servicePorts, stack, deployment)
+
+		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
+		reason = "CreateService"
+		message = "Creating Service '%s/%s' for Stack"
+
+		// only update the resource if there are changes
+	} else if !doesStackOwnResource(stack, service){
+
+		err := updateServiceSpecFromStack(service, stack, backendPort)
 		if err != nil {
 			return err
 		}
-	} else {
-		stackGeneration := getStackGeneration(service)
 
-		// only update the resource if there are changes
-		// We determine changes by comparing the stackGeneration
-		// (observed generation) stored on the service with the
-		// generation of the Stack.
-		if stackGeneration != stack.Generation {
-			if service.Annotations == nil {
-				service.Annotations = make(map[string]string, 1)
-			}
-			service.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
-			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
-				"UpdateService",
-				"Updating Service '%s/%s' for Stack",
-				service.Namespace,
-				service.Name,
-			)
-			_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
-			if err != nil {
-				return err
-			}
-		}
+		kubeAction = c.client.CoreV1().Services(service.Namespace).Update
+		reason = "UpdateService"
+		message = "Updating Service '%s/%s' for Stack"
+
+	} else {
+		// service already exists and is up-to-date with respect to the stack.
+		return nil
+	}
+
+	c.recorder.Eventf(&stack,
+		apiv1.EventTypeNormal,
+		reason,
+		message,
+		service.Namespace,
+		service.Name,
+	)
+	_, err = kubeAction(service)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -456,7 +443,7 @@ func (c *stacksReconciler) manageService2(sc StackContainer, deployment *appsv1.
 		if err != nil {
 			return err
 		}
-		service = newServiceFromStackBroken(stack, servicePorts, deployment)
+		service = newServiceFromStack(servicePorts, stack, deployment)
 
 		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
 		reason = "CreateService"
