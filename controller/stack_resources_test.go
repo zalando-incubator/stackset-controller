@@ -63,17 +63,17 @@ func newDummyGenerationAnnotations(generation string) map[string]string {
 func TestAssignResourceOwnershipToStack(t *testing.T) {
 	t.Run("add annotation to an object with nil Annotations", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(nil)
-		assignResourceOwnershipToStack(newDummyStackWithGeneration(7), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
 		require.Equal(t, newDummyGenerationAnnotations("7"), service.Annotations)
 	})
 	t.Run("add annotation to an object with empty Annotations", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(make(map[string]string))
-		assignResourceOwnershipToStack(newDummyStackWithGeneration(7), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
 		require.Equal(t, newDummyGenerationAnnotations("7"), service.Annotations)
 	})
 	t.Run("overwrite existing stack generation annotation on an object", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("1"))
-		assignResourceOwnershipToStack(newDummyStackWithGeneration(2), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
 		require.Equal(t, newDummyGenerationAnnotations("2"), service.Annotations)
 	})
 	t.Run("unrelated annotations are not changed", func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestAssignResourceOwnershipToStack(t *testing.T) {
 		actualAnnotations["other"] = "unchanged"
 		service := newDummyServiceWithAnnotations(actualAnnotations)
 
-		assignResourceOwnershipToStack(newDummyStackWithGeneration(2), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
 
 		expectedAnnotations := newDummyGenerationAnnotations("2")
 		expectedAnnotations["other"] = "unchanged"
@@ -89,7 +89,7 @@ func TestAssignResourceOwnershipToStack(t *testing.T) {
 	})
 	t.Run("works on deployments too", func(t *testing.T) {
 		deployment := v1beta1.Deployment{}
-		assignResourceOwnershipToStack(newDummyStackWithGeneration(3), &deployment)
+		setStackGenerationOnResource(newDummyStackWithGeneration(3), &deployment)
 		require.Equal(t, newDummyGenerationAnnotations("3"), deployment.Annotations)
 	})
 }

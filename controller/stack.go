@@ -393,7 +393,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		message = "Creating Service '%s/%s' for Stack"
 
 		// only update the resource if there are changes
-	} else if !doesStackOwnResource(stack, service){
+	} else if !isResourceUpToDate(stack, service){
 
 		err := updateServiceSpecFromStack(service, stack, backendPort)
 		if err != nil {

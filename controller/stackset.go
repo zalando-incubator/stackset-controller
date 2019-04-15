@@ -698,7 +698,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 
 	// sort candidates by oldest
 	sort.Slice(gcCandidates, func(i, j int) bool {
-		// TODO: maybe we use use noTrafficSince instead of CreationTimeStamp to decide oldest
+		// TODO: maybe we use noTrafficSince instead of CreationTimeStamp to decide oldest
 		return gcCandidates[i].CreationTimestamp.Time.Before(gcCandidates[j].CreationTimestamp.Time)
 	})
 
