@@ -17,8 +17,7 @@ import (
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"golang.org/x/sync/errgroup"
-	appsv1 "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -244,14 +243,6 @@ type StackContainer struct {
 	Resources StackResources
 }
 
-// StackResources describes the resources of a stack.
-type StackResources struct {
-	Deployment *appsv1.Deployment
-	HPA        *autoscaling.HorizontalPodAutoscaler
-	Service    *v1.Service
-	Endpoints  *v1.Endpoints
-}
-
 // TrafficStatus represents the traffic status of an Ingress. ActualWeight is
 // the actual traffic a particular backend is getting and DesiredWeight is the
 // user specified value that it should try to achieve.
@@ -295,6 +286,8 @@ func getIngressTraffic(ingress *v1beta1.Ingress) (map[string]TrafficStatus, erro
 	return traffic, nil
 }
 
+// collectResources collects resources for all stacksets at once and stores them per StackSet/Stack so that we don't
+// overload the API requests with unnecessary requests
 func (c *StackSetController) collectResources() (map[types.UID]*StackSetContainer, error) {
 	stacksets := make(map[types.UID]*StackSetContainer, len(c.stacksetStore))
 	for uid, stackset := range c.stacksetStore {
@@ -705,6 +698,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 
 	// sort candidates by oldest
 	sort.Slice(gcCandidates, func(i, j int) bool {
+		// TODO: maybe we use noTrafficSince instead of CreationTimeStamp to decide oldest
 		return gcCandidates[i].CreationTimestamp.Time.Before(gcCandidates[j].CreationTimestamp.Time)
 	})
 
@@ -712,7 +706,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	c.recorder.Eventf(&stackset,
 		apiv1.EventTypeNormal,
 		"ExeedStackHistoryLimit",
-		"Found %d Stack(s) exeeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
+		"Found %d Stack(s) exceeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
 		excessStacks,
 		historyLimit,
 		stackset.Namespace,
@@ -720,6 +714,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 		len(gcCandidates),
 	)
 
+	// We can only delete the no. of stacks that are both excess and gc candidates
 	gcLimit := int(math.Min(float64(excessStacks), float64(len(gcCandidates))))
 	return gcCandidates[:gcLimit]
 }
@@ -799,11 +794,18 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			"Creating Stack '%s/%s' for StackSet",
 			stack.Namespace, stack.Name,
 		)
+
+		// TODO: Creation of a stack should be recorded somehow.
+		//  This will allow deletion of even the "current" stack,
+		//  since the "current" part is just a small implementation detail of the deployment process.
 		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
 		if err != nil {
 			return err
 		}
 	} else {
+		//TODO: Stack template in the stackset is only considered when a new stack is created.
+		// Further changes to the spec should be ignored or forbidden to avoid confusion.
+		//TODO: Move this to it's own control loop
 		stacksetGeneration := getStackSetGeneration(stack.ObjectMeta)
 
 		// only update the resource if there are changes

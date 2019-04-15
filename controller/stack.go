@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -11,7 +10,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
-	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +22,7 @@ const (
 )
 
 var (
+	// set implementation with 0 Byte value
 	selectorLabels = map[string]struct{}{
 		stacksetHeritageLabelKey: struct{}{},
 		stackVersionLabelKey:     struct{}{},
@@ -90,44 +89,19 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	stack := sc.Stack
 
 	origReplicas := int32(0)
-	if deployment != nil {
-		origReplicas = *deployment.Spec.Replicas
-	}
-
-	template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
 	createDeployment := false
 
 	if deployment == nil {
 		createDeployment = true
-		deployment = &appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        stack.Name,
-				Namespace:   stack.Namespace,
-				Annotations: map[string]string{},
-				Labels:      map[string]string{},
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: stack.APIVersion,
-						Kind:       stack.Kind,
-						Name:       stack.Name,
-						UID:        stack.UID,
-					},
-				},
-			},
-			Spec: appsv1.DeploymentSpec{
-				Selector: &metav1.LabelSelector{
-					MatchLabels: limitLabels(stack.Labels, selectorLabels),
-				},
-				Replicas: stack.Spec.Replicas,
-			},
+		deployment = newDeploymentFromStack(stack)
+	} else {
+		origReplicas = *deployment.Spec.Replicas
+		template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
+		deployment.Spec.Template = template
+		for k, v := range stack.Labels {
+			deployment.Labels[k] = v
 		}
 	}
-
-	for k, v := range stack.Labels {
-		deployment.Labels[k] = v
-	}
-
-	deployment.Spec.Template = template
 
 	// if autoscaling is disabled or if autoscaling is enabled
 	// check if we need to explicitly set replicas on the deployment. There
@@ -185,7 +159,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	if createDeployment {
 		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"CreateDeployment",
 			"Creating Deployment '%s/%s' for Stack",
 			deployment.Namespace,
@@ -215,7 +189,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			}
 			deployment.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
+				v1.EventTypeNormal,
 				"UpdateDeployment",
 				"Updating Deployment '%s/%s' for Stack",
 				deployment.Namespace,
@@ -263,7 +237,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	if !equality.Semantic.DeepEqual(newStatus, stack.Status) {
 		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"UpdateStackStatus",
 			"Status changed: %#v -> %#v",
 			stack.Status,
@@ -285,8 +259,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc StackSetContainer, stackUnused bool) (*autoscaling.HorizontalPodAutoscaler, error) {
 	origMinReplicas := int32(0)
 	origMaxReplicas := int32(0)
-	if deployment != nil {
-	}
 	if hpa != nil {
 		hpa.Status = autoscaling.HorizontalPodAutoscalerStatus{}
 		origMinReplicas = *hpa.Spec.MinReplicas
@@ -297,7 +269,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 	if stack.Spec.HorizontalPodAutoscaler == nil || stackUnused {
 		if hpa != nil {
 			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
+				v1.EventTypeNormal,
 				"DeleteHPA",
 				"Deleting obsolete HPA %s/%s for Deployment %s/%s",
 				hpa.Namespace,
@@ -348,7 +320,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 
 	if createHPA {
 		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"CreateHPA",
 			"Creating HPA '%s/%s' for Stack",
 			hpa.Namespace,
@@ -376,7 +348,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			}
 			hpa.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
+				v1.EventTypeNormal,
 				"UpdateHPA",
 				"Updating HPA '%s/%s' for Stack",
 				hpa.Namespace,
@@ -397,33 +369,9 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	service := sc.Resources.Service
 	stack := sc.Stack
 
-	createService := false
-	if service == nil {
-		createService = true
-		service = &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      stack.Name,
-				Namespace: stack.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: deployment.APIVersion,
-						Kind:       deployment.Kind,
-						Name:       deployment.Name,
-						UID:        deployment.UID,
-					},
-				},
-			},
-			Spec: v1.ServiceSpec{
-				Type: v1.ServiceTypeClusterIP,
-			},
-		}
-	}
-
-	service.Labels = stack.Labels
-	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
-
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
+	// Shouldn't happen but technically possible
 	if ssc.StackSet.Spec.Ingress != nil {
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
@@ -432,46 +380,44 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	if err != nil {
 		return err
 	}
-	service.Spec.Ports = servicePorts
 
-	if createService {
-		c.recorder.Eventf(&stack,
-			apiv1.EventTypeNormal,
-			"CreateService",
-			"Creating Service '%s/%s' for Stack",
-			service.Namespace,
-			service.Name,
-		)
-		_, err := c.client.CoreV1().Services(service.Namespace).Create(service)
+	var kubeAction func(*v1.Service) (*v1.Service, error)
+	var reason, message string
+	if service == nil {
+		service = newServiceFromStack(servicePorts, stack, deployment)
+
+		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
+		reason = "CreateService"
+		message = "Creating Service '%s/%s' for Stack"
+
+		// only update the resource if there are changes
+	} else if !isResourceUpToDate(stack, service.ObjectMeta) {
+
+		err := updateServiceSpecFromStack(service, stack, backendPort)
 		if err != nil {
 			return err
 		}
-	} else {
-		stackGeneration := getStackGeneration(service.ObjectMeta)
 
-		// only update the resource if there are changes
-		// We determine changes by comparing the stackGeneration
-		// (observed generation) stored on the service with the
-		// generation of the Stack.
-		if stackGeneration != stack.Generation {
-			if service.Annotations == nil {
-				service.Annotations = make(map[string]string, 1)
-			}
-			service.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
-			c.recorder.Eventf(&stack,
-				apiv1.EventTypeNormal,
-				"UpdateService",
-				"Updating Service '%s/%s' for Stack",
-				service.Namespace,
-				service.Name,
-			)
-			_, err := c.client.CoreV1().Services(service.Namespace).Update(service)
-			if err != nil {
-				return err
-			}
-		}
+		kubeAction = c.client.CoreV1().Services(service.Namespace).Update
+		reason = "UpdateService"
+		message = "Updating Service '%s/%s' for Stack"
+
+	} else {
+		// service already exists and is up-to-date with respect to the stack.
+		return nil
 	}
 
+	c.recorder.Eventf(&stack,
+		v1.EventTypeNormal,
+		reason,
+		message,
+		service.Namespace,
+		service.Name,
+	)
+	_, err = kubeAction(service)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -484,7 +430,7 @@ func getServicePorts(backendPort *intstr.IntOrString, stack zv1.Stack) ([]v1.Ser
 		servicePorts = stack.Spec.Service.Ports
 	}
 
-	// validate that one port in the list map to the backendPort.
+	// validate that one port in the list maps to the backendPort.
 	if backendPort != nil {
 		for _, port := range servicePorts {
 			switch backendPort.Type {
@@ -553,15 +499,4 @@ func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[st
 		}
 	}
 	return newLabels
-}
-
-func getStackGeneration(metadata metav1.ObjectMeta) int64 {
-	if g, ok := metadata.Annotations[stackGenerationAnnotationKey]; ok {
-		generation, err := strconv.ParseInt(g, 10, 64)
-		if err != nil {
-			return 0
-		}
-		return generation
-	}
-	return 0
 }
