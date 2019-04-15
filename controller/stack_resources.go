@@ -70,10 +70,6 @@ func mapCopy(m map[string]string) map[string]string {
 	return newMap
 }
 
-func newHPAFromStack(stack zv1.Stack) *autoscaling.HorizontalPodAutoscaler {
-	return &autoscaling.HorizontalPodAutoscaler{}
-}
-
 func newServiceFromStack(servicePorts []v1.ServicePort, stack zv1.Stack, deployment *appsv1.Deployment) *v1.Service {
 	return &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
