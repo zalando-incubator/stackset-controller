@@ -392,7 +392,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		message = "Creating Service '%s/%s' for Stack"
 
 		// only update the resource if there are changes
-	} else if !isResourceUpToDate(stack, service.ObjectMeta){
+	} else if !isResourceUpToDate(stack, service.ObjectMeta) {
 
 		err := updateServiceSpecFromStack(service, stack, backendPort)
 		if err != nil {
