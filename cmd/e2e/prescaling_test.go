@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestPrescalingWithoutHPA(t *testing.T) {
@@ -73,6 +74,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	}
 	time.Sleep(time.Second * 10)
 	deployment, err = waitForDeployment(t, fullThirdStack)
+	require.NoError(t, err)
 	require.EqualValues(t, 1, *(deployment.Spec.Replicas))
 }
 

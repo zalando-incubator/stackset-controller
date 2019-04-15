@@ -2,13 +2,14 @@ package controller
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func generateSSAutoscalerStub(minReplicas, maxReplicas int32) StackSetContainer {
@@ -21,8 +22,7 @@ func generateSSAutoscalerStub(minReplicas, maxReplicas int32) StackSetContainer 
 							Autoscaler: &zv1.Autoscaler{
 								MinReplicas: &minReplicas,
 								MaxReplicas: maxReplicas,
-								Metrics: []zv1.AutoscalerMetrics{
-								},
+								Metrics:     []zv1.AutoscalerMetrics{},
 							},
 						},
 					},
@@ -251,7 +251,7 @@ func TestIngressMetricInvalid(t *testing.T) {
 func TestSortingMetrics(t *testing.T) {
 	container := generateSSAutoscalerStub(1, 10)
 	metrics := []zv1.AutoscalerMetrics{
-		{Type: CPUMetricName, AverageUtilization: pint32(50),},
+		{Type: CPUMetricName, AverageUtilization: pint32(50)},
 		{Type: IngressMetricName, Average: resource.NewQuantity(10, resource.DecimalSI)},
 		{Type: PodJSONMetricName, Average: resource.NewQuantity(10, resource.DecimalSI), Endpoint: &zv1.MetricsEndpoint{Name: "abc", Path: "/metrics", Port: 1222, Key: "test.abc"}},
 		{Type: AmazonSQSMetricName, Average: resource.NewQuantity(10, resource.DecimalSI), Queue: &zv1.MetricsQueue{Name: "test", Region: "region"}},

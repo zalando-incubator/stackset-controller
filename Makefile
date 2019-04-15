@@ -24,11 +24,7 @@ test: $(GENERATED)
 	go test -v $(GOPKGS)
 
 check:
-	golint $(GOPKGS)
-	go vet -v $(GOPKGS)
-
-dep:
-	dep ensure
+	golangci-lint run ./...
 
 $(GENERATED):
 	./hack/update-codegen.sh
