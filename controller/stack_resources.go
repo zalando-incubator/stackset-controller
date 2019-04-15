@@ -95,18 +95,18 @@ func newServiceFromStack(servicePorts []v1.ServicePort, stack zv1.Stack, deploym
 
 // isResourceUpToDate checks whether the stack is assigned to the resource
 // by comparing the stack generation with the corresponding resource annotation.
-func isResourceUpToDate(stack zv1.Stack, resource metav1.Object) bool {
-	// We only update the resource if there are changes.
+func isResourceUpToDate(stack zv1.Stack, resourceMeta metav1.ObjectMeta) bool {
+	// We only update the resourceMeta if there are changes.
 	// We determine changes by comparing the stackGeneration
-	// (observed generation) stored on the resource with the
+	// (observed generation) stored on the resourceMeta with the
 	// generation of the Stack.
-	actualGeneration := getStackGeneration(resource)
+	actualGeneration := getStackGeneration(resourceMeta)
 	return actualGeneration == stack.Generation
 }
 
 // getStackGeneration returns the generation of the stack associated to this resource.
 // This value is stored in an annotation of the resource object.
-func getStackGeneration(resource metav1.Object) int64 {
+func getStackGeneration(resource metav1.ObjectMeta) int64 {
 	encodedGeneration := resource.GetAnnotations()[stackGenerationAnnotationKey]
 	decodedGeneration, err := strconv.ParseInt(encodedGeneration, 10, 64)
 	if err != nil {

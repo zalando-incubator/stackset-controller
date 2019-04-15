@@ -97,15 +97,15 @@ func TestAssignResourceOwnershipToStack(t *testing.T) {
 func TestGetStackGeneration(t *testing.T) {
 	t.Run("returns 0 without generation annotation", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(nil)
-		require.Equal(t, int64(0), getStackGeneration(&service))
+		require.Equal(t, int64(0), getStackGeneration(service.ObjectMeta))
 	})
 	t.Run("returns 0 with a non-integer generation", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("hi"))
-		require.Equal(t, int64(0), getStackGeneration(&service))
+		require.Equal(t, int64(0), getStackGeneration(service.ObjectMeta))
 	})
 	t.Run("returns the decoded generation", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("192"))
-		require.Equal(t, int64(192), getStackGeneration(&service))
+		require.Equal(t, int64(192), getStackGeneration(service.ObjectMeta))
 	})
 }
 

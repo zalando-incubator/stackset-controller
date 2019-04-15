@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -11,8 +10,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
+	"k8s.io/api/core/v1"
 	apiv1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -172,7 +171,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			return err
 		}
 	} else {
-		stackGeneration := _getStackGeneration(deployment.ObjectMeta)
+		stackGeneration := getStackGeneration(deployment.ObjectMeta)
 
 		replicas := *deployment.Spec.Replicas
 
@@ -333,7 +332,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			return nil, err
 		}
 	} else {
-		stackGeneration := _getStackGeneration(hpa.ObjectMeta)
+		stackGeneration := getStackGeneration(hpa.ObjectMeta)
 
 		// only update the resource if there are changes
 		// We determine changes by comparing the stackGeneration
@@ -393,7 +392,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		message = "Creating Service '%s/%s' for Stack"
 
 		// only update the resource if there are changes
-	} else if !isResourceUpToDate(stack, service){
+	} else if !isResourceUpToDate(stack, service.ObjectMeta){
 
 		err := updateServiceSpecFromStack(service, stack, backendPort)
 		if err != nil {
@@ -501,15 +500,4 @@ func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[st
 		}
 	}
 	return newLabels
-}
-
-func _getStackGeneration(metadata metav1.ObjectMeta) int64 {
-	if g, ok := metadata.Annotations[stackGenerationAnnotationKey]; ok {
-		generation, err := strconv.ParseInt(g, 10, 64)
-		if err != nil {
-			return 0
-		}
-		return generation
-	}
-	return 0
 }
