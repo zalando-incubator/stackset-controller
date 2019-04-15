@@ -24,11 +24,6 @@ test: $(GENERATED)
 	go test -v $(GOPKGS)
 
 check:
-	golint $(GOPKGS)
-	go vet -v $(GOPKGS)
-
-lint:
-	lint:
 	golangci-lint run ./...
 
 $(GENERATED):
