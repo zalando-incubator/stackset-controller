@@ -583,9 +583,10 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	newStatus := zv1.StackSetStatus{
-		Stacks:            int32(len(stacks)),
-		StacksWithTraffic: stacksWithTraffic,
-		ReadyStacks:       readyStacks(stacks),
+		Stacks:               int32(len(stacks)),
+		StacksWithTraffic:    stacksWithTraffic,
+		ReadyStacks:          readyStacks(stacks),
+		ObservedStackVersion: currentStackVersion(stackset),
 	}
 
 	if !equality.Semantic.DeepEqual(newStatus, stackset.Status) {
@@ -738,7 +739,7 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 	heritageLabels := map[string]string{
 		stacksetHeritageLabelKey: stackset.Name,
 	}
-
+	observedStackVersion := stackset.Status.ObservedStackVersion
 	stackVersion := currentStackVersion(stackset)
 	stackName := generateStackName(stackset, stackVersion)
 
@@ -758,10 +759,7 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 		map[string]string{stackVersionLabelKey: stackVersion},
 	)
 
-	createStack := false
-
-	if stack == nil {
-		createStack = true
+	if stack == nil && observedStackVersion != stackVersion {
 		stack = &zv1.Stack{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      stackName,
@@ -776,18 +774,16 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 				},
 			},
 		}
-	}
 
-	stack.Labels = stackLabels
-	stack.Spec.PodTemplate = *stackset.Spec.StackTemplate.Spec.PodTemplate.DeepCopy()
-	stack.Spec.Replicas = stackset.Spec.StackTemplate.Spec.Replicas
-	stack.Spec.HorizontalPodAutoscaler = stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy()
-	stack.Spec.Autoscaler = stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy()
-	if stackset.Spec.StackTemplate.Spec.Service != nil {
-		stack.Spec.Service = sanitizeServicePorts(stackset.Spec.StackTemplate.Spec.Service)
-	}
+		stack.Labels = stackLabels
+		stack.Spec.PodTemplate = *stackset.Spec.StackTemplate.Spec.PodTemplate.DeepCopy()
+		stack.Spec.Replicas = stackset.Spec.StackTemplate.Spec.Replicas
+		stack.Spec.HorizontalPodAutoscaler = stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy()
+		stack.Spec.Autoscaler = stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy()
+		if stackset.Spec.StackTemplate.Spec.Service != nil {
+			stack.Spec.Service = sanitizeServicePorts(stackset.Spec.StackTemplate.Spec.Service)
+		}
 
-	if createStack {
 		c.recorder.Eventf(&stackset,
 			apiv1.EventTypeNormal,
 			"CreateStackSetStack",
@@ -801,32 +797,6 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
 		if err != nil {
 			return err
-		}
-	} else {
-		// TODO (#1750): Stack template in the stackset is only considered when a new stack is created.
-		// Further changes to the spec should be ignored or forbidden to avoid confusion.
-		stacksetGeneration := getStackSetGeneration(stack.ObjectMeta)
-
-		// only update the resource if there are changes
-		// We determine changes by comparing the stacksetGeneration
-		// (observed generation) stored on the stack with the
-		// generation of the StackSet.
-		if stacksetGeneration != stackset.Generation {
-			if stack.Annotations == nil {
-				stack.Annotations = make(map[string]string, 1)
-			}
-			stack.Annotations[stacksetGenerationAnnotationKey] = fmt.Sprintf("%d", stackset.Generation)
-
-			c.recorder.Eventf(&stackset,
-				apiv1.EventTypeNormal,
-				"UpdateStackSetStack",
-				"Updating Stack '%s/%s' for StackSet",
-				stack.Namespace, stack.Name,
-			)
-			_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(stack)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
