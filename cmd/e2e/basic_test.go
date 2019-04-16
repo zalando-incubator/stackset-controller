@@ -201,6 +201,14 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	}
 }
 
+func verifyStackSetStatus(t *testing.T, stacksetName, version string) {
+	// Verify that the stack status is updated successfully
+	err := stackSetStatusMatches(t, stacksetName, expectedStackSetStatus{
+		observedStackVersion: version,
+	}).await()
+	require.NoError(t, err)
+}
+
 func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64) {
 	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
 
@@ -290,6 +298,8 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
 	}
 
+	verifyStackSetStatus(t, stacksetName, initialVersion)
+
 	stacksetSpecFactory = NewTestStacksetSpecFactory(stacksetName)
 	updatedVersion := "v2"
 	if newHpa {
@@ -302,6 +312,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	err = updateStackset(stacksetName, updatedSpec)
 	require.NoError(t, err)
 	verifyStack(t, stacksetName, updatedVersion, updatedSpec)
+	verifyStackSetStatus(t, stacksetName, updatedVersion)
 
 	if newIngress {
 		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0})
