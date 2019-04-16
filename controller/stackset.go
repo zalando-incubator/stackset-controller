@@ -800,9 +800,8 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			stack.Namespace, stack.Name,
 		)
 	} else {
-		//TODO: Stack template in the stackset is only considered when a new stack is created.
+		// TODO (#1750): Stack template in the stackset is only considered when a new stack is created.
 		// Further changes to the spec should be ignored or forbidden to avoid confusion.
-		//TODO: Move this to it's own control loop
 		stacksetGeneration := getStackSetGeneration(stack.ObjectMeta)
 
 		// only update the resource if there are changes
@@ -815,16 +814,16 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			}
 			stack.Annotations[stacksetGenerationAnnotationKey] = fmt.Sprintf("%d", stackset.Generation)
 
+			c.recorder.Eventf(&stackset,
+				apiv1.EventTypeNormal,
+				"UpdateStackSetStack",
+				"Updating Stack '%s/%s' for StackSet",
+				stack.Namespace, stack.Name,
+			)
 			_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(stack)
 			if err != nil {
 				return err
 			}
-			c.recorder.Eventf(&stackset,
-				apiv1.EventTypeNormal,
-				"UpdatedStackSetStack",
-				"Updated Stack '%s/%s' for StackSet",
-				stack.Namespace, stack.Name,
-			)
 		}
 	}
 
