@@ -583,9 +583,11 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	newStatus := zv1.StackSetStatus{
-		Stacks:               int32(len(stacks)),
-		StacksWithTraffic:    stacksWithTraffic,
-		ReadyStacks:          readyStacks(stacks),
+		Stacks:            int32(len(stacks)),
+		StacksWithTraffic: stacksWithTraffic,
+		ReadyStacks:       readyStacks(stacks),
+		// Recording, the creation of stack. This allows deletion of even the "current" stack,
+		//  since the "current" part is just a small implementation detail of the deployment process.
 		ObservedStackVersion: currentStackVersion(stackset),
 	}
 
@@ -791,9 +793,6 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			stack.Namespace, stack.Name,
 		)
 
-		// TODO (#1750): Creation of a stack should be recorded somehow.
-		//  This will allow deletion of even the "current" stack,
-		//  since the "current" part is just a small implementation detail of the deployment process.
 		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
 		if err != nil {
 			return err
