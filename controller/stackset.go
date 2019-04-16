@@ -795,7 +795,7 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			stack.Namespace, stack.Name,
 		)
 
-		// TODO: Creation of a stack should be recorded somehow.
+		// TODO (#1750): Creation of a stack should be recorded somehow.
 		//  This will allow deletion of even the "current" stack,
 		//  since the "current" part is just a small implementation detail of the deployment process.
 		_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
@@ -803,9 +803,8 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			return err
 		}
 	} else {
-		//TODO: Stack template in the stackset is only considered when a new stack is created.
+		// TODO (#1750): Stack template in the stackset is only considered when a new stack is created.
 		// Further changes to the spec should be ignored or forbidden to avoid confusion.
-		//TODO: Move this to it's own control loop
 		stacksetGeneration := getStackSetGeneration(stack.ObjectMeta)
 
 		// only update the resource if there are changes
