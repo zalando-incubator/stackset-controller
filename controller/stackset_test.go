@@ -392,27 +392,3 @@ func TestStackSetController_ReconcileStackCreate(t *testing.T) {
 	assert.EqualValues(t, 10, *stack.Spec.Autoscaler.MinReplicas)
 	assert.EqualValues(t, 20, stack.Spec.Autoscaler.MaxReplicas)
 }
-
-func TestStackSetController_ReconcileStackUpdate(t *testing.T) {
-	kubeClient := fake.NewSimpleClientset()
-	ssClient := stacksetfake.NewSimpleClientset()
-	fakeClient := clientset.NewClientset(kubeClient, ssClient)
-	controller := NewStackSetController(fakeClient, "test-controller", time.Second)
-	ss := generateStackSet("stack", "test", "01", 10, 20)
-	existingStack := generateStack("stack-01", "test")
-	_, err := fakeClient.ZalandoV1().Stacks("test").Create(&existingStack)
-	assert.NoError(t, err, "failed to create test stack")
-	ssc := StackSetContainer{StackSet: ss, StackContainers: map[types.UID]*StackContainer{
-		"stack-01": {
-			Stack: existingStack,
-		},
-	}}
-	err = controller.ReconcileStack(ssc)
-	assert.NoError(t, err, "error reconciling stack")
-	stackName := generateStackName(ss, "01")
-	stack, err := fakeClient.ZalandoV1().Stacks("test").Get(stackName, metav1.GetOptions{})
-	assert.NoError(t, err, "failed to get created stack")
-	assert.NotNil(t, stack, "created stack cannot be referenced")
-	assert.EqualValues(t, 10, *stack.Spec.Autoscaler.MinReplicas)
-	assert.EqualValues(t, 20, stack.Spec.Autoscaler.MaxReplicas)
-}
