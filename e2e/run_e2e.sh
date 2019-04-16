@@ -30,7 +30,7 @@ env E2E_NAMESPACE=$controllerId \
     CLUSTER_DOMAIN=stups-test.zalan.do \
     CONTROLLER_ID=$controllerId \
     KUBECONFIG=$HOME/.kube/config \
-    go test -parallel 64 -v -failfast -count=1 \
+    go test -run TestStackTTLForLatestStack -v -failfast -count=1 \
         github.com/zalando-incubator/stackset-controller/cmd/e2e \
     || true
 
