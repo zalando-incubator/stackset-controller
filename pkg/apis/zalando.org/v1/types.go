@@ -142,6 +142,7 @@ type StackSetStatus struct {
 	// +optional
 	StacksWithTraffic int32 `json:"stacksWithTraffic,omitempty" protobuf:"varint,2,opt,name=stacksWithTraffic"`
 	// ObservedStackVersion is the version of Stack generated from the current StackSet definition.
+	// TODO: add a more detailed comment
 	// +optional
 	ObservedStackVersion string `json:"observedStackVersion,omitempty"`
 }
