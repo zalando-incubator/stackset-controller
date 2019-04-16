@@ -594,11 +594,9 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	newStatus := zv1.StackSetStatus{
-		Stacks:            int32(len(stacks)),
-		StacksWithTraffic: stacksWithTraffic,
-		ReadyStacks:       readyStacks(stacks),
-		// Recording, the creation of stack. This allows deletion of even the "current" stack,
-		//  since the "current" part is just a small implementation detail of the deployment process.
+		Stacks:               int32(len(stacks)),
+		StacksWithTraffic:    stacksWithTraffic,
+		ReadyStacks:          readyStacks(stacks),
 		ObservedStackVersion: currentStackVersion(stackset),
 	}
 
