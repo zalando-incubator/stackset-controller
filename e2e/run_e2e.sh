@@ -6,8 +6,8 @@ set -euf -o pipefail
 make build.local build/e2e
 
 # Forward API server calls to the stups-test cluster.
-#zkubectl login stups-test
-#zkubectl proxy&
+zkubectl login stups-test
+zkubectl proxy&
 # Listens on 127.0.0.1:8001.
 
 # Generate a controller ID for this run.
@@ -30,7 +30,7 @@ env E2E_NAMESPACE=$controllerId \
     CLUSTER_DOMAIN=stups-test.zalan.do \
     CONTROLLER_ID=$controllerId \
     KUBECONFIG=$HOME/.kube/config \
-    go test -run TestStackTTLForLatestStack -v -failfast -count=1 \
+    go test -parallel 64 -v -failfast -count=1 \
         github.com/zalando-incubator/stackset-controller/cmd/e2e \
     || true
 
@@ -41,4 +41,4 @@ zkubectl delete ns $controllerId
 echo "Jobs to kill:"
 jobs
 pkill stackset-contro
-#pkill -f kubectl
+pkill -f kubectl
