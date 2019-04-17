@@ -6,15 +6,15 @@ set -euf -o pipefail
 make build.local build/e2e
 
 # Forward API server calls to the stups-test cluster.
-zkubectl login stups-test
-zkubectl proxy&
+#zkubectl login stups-test
+#zkubectl proxy&
 # Listens on 127.0.0.1:8001.
 
 # Generate a controller ID for this run.
 controllerId=ssc-e2e-$(dd if=/dev/urandom bs=8 count=1 2>/dev/null | hexdump -e '"%x"')
 
 # We'll store the controller logs in a separate file to keep stdout clean.
-controllerLog=$(mktemp /tmp/ssc-log-XXXXX.log)
+controllerLog="/tmp/ssc-log-XXXXX.log"
 echo ">>> Writing controller logs in $controllerLog"
 
 # Find and run the controller locally.
@@ -30,7 +30,7 @@ env E2E_NAMESPACE=$controllerId \
     CLUSTER_DOMAIN=stups-test.zalan.do \
     CONTROLLER_ID=$controllerId \
     KUBECONFIG=$HOME/.kube/config \
-    go test -parallel 64 -v -failfast -count=1 \
+    go test -run TestStackTTLForLatestStack -v -failfast -count=1 \
         github.com/zalando-incubator/stackset-controller/cmd/e2e \
     || true
 
@@ -41,4 +41,4 @@ zkubectl delete ns $controllerId
 echo "Jobs to kill:"
 jobs
 pkill stackset-contro
-pkill -f kubectl
+#pkill -f kubectl

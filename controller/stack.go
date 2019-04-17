@@ -132,8 +132,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	currentStackName := generateStackName(ssc.StackSet, currentStackVersion(ssc.StackSet))
-	stackUnused := stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0
+	stackUnused := ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0
 
 	noTrafficSince := stack.Status.NoTrafficSince
 
