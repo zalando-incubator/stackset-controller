@@ -210,29 +210,6 @@ func stackStatusMatches(t *testing.T, stackName string, expectedStatus expectedS
 	})
 }
 
-type expectedStackSetStatus struct {
-	observedStackVersion string
-}
-
-func (expected expectedStackSetStatus) matches(stackSet *zv1.StackSet) error {
-	status := stackSet.Status
-	if expected.observedStackVersion != status.ObservedStackVersion {
-		return fmt.Errorf("%s: observedStackVersion %s != expected %s", stackSet.Name, status.ObservedStackVersion, expected.observedStackVersion)
-	}
-	return nil
-}
-
-func stackSetStatusMatches(t *testing.T, stackSetName string, expectedStatus expectedStackSetStatus) *awaiter {
-	return newAwaiter(t, fmt.Sprintf("stack %s to reach desired condition", stackSetName)).withPoll(func() (retry bool, err error) {
-		stackSet, err := stacksetClient.ZalandoV1().StackSets(namespace).Get(stackSetName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return true, expectedStatus.matches(stackSet)
-
-	})
-}
-
 func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 	meta := metav1.ObjectMeta{
 		Name:      name,
