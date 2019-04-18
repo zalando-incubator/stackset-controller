@@ -158,17 +158,17 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	}
 
 	if createDeployment {
-		c.recorder.Eventf(&stack,
-			v1.EventTypeNormal,
-			"CreateDeployment",
-			"Creating Deployment '%s/%s' for Stack",
-			deployment.Namespace,
-			deployment.Name,
-		)
 		deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Create(deployment)
 		if err != nil {
 			return err
 		}
+		c.recorder.Eventf(&stack,
+			v1.EventTypeNormal,
+			"CreatedDeployment",
+			"Created Deployment '%s/%s' for Stack",
+			deployment.Namespace,
+			deployment.Name,
+		)
 	} else {
 		stackGeneration := getStackGeneration(deployment.ObjectMeta)
 
@@ -188,17 +188,17 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 				deployment.Annotations = make(map[string]string, 1)
 			}
 			deployment.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
-			c.recorder.Eventf(&stack,
-				v1.EventTypeNormal,
-				"UpdateDeployment",
-				"Updating Deployment '%s/%s' for Stack",
-				deployment.Namespace,
-				deployment.Name,
-			)
 			deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Update(deployment)
 			if err != nil {
 				return err
 			}
+			c.recorder.Eventf(&stack,
+				v1.EventTypeNormal,
+				"UpdatedDeployment",
+				"Updated Deployment '%s/%s' for Stack",
+				deployment.Namespace,
+				deployment.Name,
+			)
 		}
 	}
 
@@ -236,13 +236,6 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	}
 
 	if !equality.Semantic.DeepEqual(newStatus, stack.Status) {
-		c.recorder.Eventf(&stack,
-			v1.EventTypeNormal,
-			"UpdateStackStatus",
-			"Status changed: %#v -> %#v",
-			stack.Status,
-			newStatus,
-		)
 		stack.Status = newStatus
 
 		// update status of stack
@@ -268,16 +261,20 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 	// cleanup HPA if autoscaling is disabled or the stack has 0 traffic.
 	if stack.Spec.HorizontalPodAutoscaler == nil || stackUnused {
 		if hpa != nil {
+			err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Delete(hpa.Name, nil)
+			if err != nil {
+				return nil, err
+			}
 			c.recorder.Eventf(&stack,
 				v1.EventTypeNormal,
-				"DeleteHPA",
-				"Deleting obsolete HPA %s/%s for Deployment %s/%s",
+				"DeletedHPA",
+				"Deleted obsolete HPA %s/%s for Deployment %s/%s",
 				hpa.Namespace,
 				hpa.Name,
 				deployment.Namespace,
 				deployment.Name,
 			)
-			return nil, c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Delete(hpa.Name, nil)
+			return nil, nil
 		}
 		return nil, nil
 	}
@@ -319,17 +316,17 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 	}
 
 	if createHPA {
-		c.recorder.Eventf(&stack,
-			v1.EventTypeNormal,
-			"CreateHPA",
-			"Creating HPA '%s/%s' for Stack",
-			hpa.Namespace,
-			hpa.Name,
-		)
 		_, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(hpa)
 		if err != nil {
 			return nil, err
 		}
+		c.recorder.Eventf(&stack,
+			v1.EventTypeNormal,
+			"CreatedHPA",
+			"Created HPA '%s/%s' for Stack",
+			hpa.Namespace,
+			hpa.Name,
+		)
 	} else {
 		stackGeneration := getStackGeneration(hpa.ObjectMeta)
 
@@ -347,17 +344,17 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 				hpa.Annotations = make(map[string]string, 1)
 			}
 			hpa.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
-			c.recorder.Eventf(&stack,
-				v1.EventTypeNormal,
-				"UpdateHPA",
-				"Updating HPA '%s/%s' for Stack",
-				hpa.Namespace,
-				hpa.Name,
-			)
 			hpa, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Update(hpa)
 			if err != nil {
 				return nil, err
 			}
+			c.recorder.Eventf(&stack,
+				v1.EventTypeNormal,
+				"UpdatedHPA",
+				"Updated HPA '%s/%s' for Stack",
+				hpa.Namespace,
+				hpa.Name,
+			)
 		}
 	}
 
@@ -387,8 +384,8 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		service = newServiceFromStack(servicePorts, stack, deployment)
 
 		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
-		reason = "CreateService"
-		message = "Creating Service '%s/%s' for Stack"
+		reason = "CreatedService"
+		message = "Created Service '%s/%s' for Stack"
 
 		// only update the resource if there are changes
 	} else if !isResourceUpToDate(stack, service.ObjectMeta) {
@@ -399,14 +396,18 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		}
 
 		kubeAction = c.client.CoreV1().Services(service.Namespace).Update
-		reason = "UpdateService"
-		message = "Updating Service '%s/%s' for Stack"
+		reason = "UpdatedService"
+		message = "Updated Service '%s/%s' for Stack"
 
 	} else {
 		// service already exists and is up-to-date with respect to the stack.
 		return nil
 	}
 
+	_, err = kubeAction(service)
+	if err != nil {
+		return err
+	}
 	c.recorder.Eventf(&stack,
 		v1.EventTypeNormal,
 		reason,
@@ -414,10 +415,6 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		service.Namespace,
 		service.Name,
 	)
-	_, err = kubeAction(service)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
