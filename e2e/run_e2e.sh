@@ -43,7 +43,7 @@ zkubectl create ns $controllerId
 env E2E_NAMESPACE=$controllerId \
     CONTROLLER_ID=$controllerId \
     KUBECONFIG=$HOME/.kube/config \
-    build/e2e -test.v .test.parallel 64 || true
+    build/e2e -test.v -test.parallel 64 || true
 
 # Delete the test namespace.
 zkubectl delete ns $controllerId
