@@ -152,7 +152,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 			if _, ok := c.stacksetStore[stackset.UID]; ok {
 				if e.Deleted || !c.hasOwnership(&stackset) {
 					delete(c.stacksetStore, stackset.UID)
-					c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "DeletedStackSet", "StackSet '%s/%s' deleted, removing references", stackset.Namespace, stackset.Name)
 					continue
 				}
 
