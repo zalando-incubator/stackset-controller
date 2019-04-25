@@ -104,19 +104,19 @@ func (c *StackSetController) Run(ctx context.Context) {
 					if _, ok := c.stacksetStore[stackset]; ok {
 						err = c.ReconcileStack(container)
 						if err != nil {
-							c.StackSetStatusUpdateFailed(container)
+							c.StackSetStatusUpdateFailed(container, err)
 							return err
 						}
 
 						err := c.ReconcileStacks(container)
 						if err != nil {
-							c.StackSetStatusUpdateFailed(container)
+							c.StackSetStatusUpdateFailed(container, err)
 							return err
 						}
 
 						err = c.ReconcileIngress(container)
 						if err != nil {
-							c.StackSetStatusUpdateFailed(container)
+							c.StackSetStatusUpdateFailed(container, err)
 							return err
 						}
 
@@ -151,7 +151,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 			// update/delete existing entry
 			if _, ok := c.stacksetStore[stackset.UID]; ok {
 				if e.Deleted || !c.hasOwnership(&stackset) {
-					c.recorder.Eventf(e.StackSet, apiv1.EventTypeNormal, "DeleteStackSet", "StackSet '%s/%s' deleted, removing references", stackset.Namespace, stackset.Name)
 					delete(c.stacksetStore, stackset.UID)
 					continue
 				}
@@ -350,11 +349,23 @@ func (c *StackSetController) collectResources() (map[types.UID]*StackSetContaine
 				// TODO: can fail for all!!!
 				c.recorder.Eventf(&ssc.StackSet,
 					apiv1.EventTypeWarning,
-					"GetIngressTraffic",
-					"Failed to get Ingress traffic for StackSet %s/%s: %v", ssc.StackSet.Namespace, ssc.StackSet.Name, err)
+					"FailedIngressTraffic",
+					"Failed to get Ingress traffic: %v", err)
 				return nil, err
 			}
 			ssc.Traffic = traffic
+			eventTraffic := ""
+			for k, v := range ssc.Traffic {
+				if v.ActualWeight != v.DesiredWeight {
+					eventTraffic = eventTraffic + fmt.Sprintf("%s: %.2f -> %.2f ", k, v.ActualWeight, v.DesiredWeight)
+				} else {
+					eventTraffic = eventTraffic + fmt.Sprintf("%s: %.2f ", k, v.ActualWeight)
+				}
+			}
+			c.recorder.Eventf(&ssc.StackSet,
+				apiv1.EventTypeNormal,
+				"AddedIngressTraffic",
+				"Added Ingress traffic: %s", eventTraffic)
 		}
 	}
 
@@ -589,15 +600,6 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	}
 
 	if !equality.Semantic.DeepEqual(newStatus, stackset.Status) {
-		c.recorder.Eventf(&stackset,
-			apiv1.EventTypeNormal,
-			"UpdateStackSetStatus",
-			"Status changed for StackSet %s/%s: %#v -> %#v",
-			stackset.Namespace,
-			stackset.Name,
-			stackset.Status,
-			newStatus,
-		)
 		stackset.Status = newStatus
 
 		// update status of stackset
@@ -610,12 +612,12 @@ func (c *StackSetController) ReconcileStackSetStatus(ssc StackSetContainer) erro
 	return nil
 }
 
-func (c *StackSetController) StackSetStatusUpdateFailed(ssc StackSetContainer) {
+func (c *StackSetController) StackSetStatusUpdateFailed(ssc StackSetContainer, err error) {
 	stackset := ssc.StackSet
 	c.recorder.Eventf(&stackset,
 		apiv1.EventTypeWarning,
 		"FailedUpdateStack",
-		"Failed to create/update stack")
+		"Failed to create/update stack: %v", err)
 }
 
 // readyStacks returns the number of ready Stacks given a slice of Stacks.
@@ -637,19 +639,17 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 	stacks := c.getStacksToGC(ssc)
 
 	for _, stack := range stacks {
-		c.recorder.Eventf(&stackset,
-			apiv1.EventTypeNormal,
-			"DeleteExcessStack",
-			"Deleting excess stack %s/%s for StackSet %s/%s",
-			stack.Namespace,
-			stack.Name,
-			stackset.Namespace,
-			stackset.Name,
-		)
 		err := c.client.ZalandoV1().Stacks(stack.Namespace).Delete(stack.Name, nil)
 		if err != nil {
 			return err
 		}
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"DeletedExcessStack",
+			"Deleted excess stack %s/%s",
+			stack.Namespace,
+			stack.Name,
+		)
 	}
 
 	return nil
@@ -706,11 +706,9 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	c.recorder.Eventf(&stackset,
 		apiv1.EventTypeNormal,
 		"ExeedStackHistoryLimit",
-		"Found %d Stack(s) exceeding the StackHistoryLimit (%d) for StackSet %s/%s. %d candidate(s) for GC",
+		"Found %d Stack(s) exceeding the StackHistoryLimit (%d). %d candidate(s) for GC",
 		excessStacks,
 		historyLimit,
-		stackset.Namespace,
-		stackset.Name,
 		len(gcCandidates),
 	)
 
@@ -788,13 +786,6 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 	}
 
 	if createStack {
-		c.recorder.Eventf(&stackset,
-			apiv1.EventTypeNormal,
-			"CreateStackSetStack",
-			"Creating Stack '%s/%s' for StackSet",
-			stack.Namespace, stack.Name,
-		)
-
 		// TODO: Creation of a stack should be recorded somehow.
 		//  This will allow deletion of even the "current" stack,
 		//  since the "current" part is just a small implementation detail of the deployment process.
@@ -802,6 +793,12 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 		if err != nil {
 			return err
 		}
+		c.recorder.Eventf(&stackset,
+			apiv1.EventTypeNormal,
+			"CreatedStack",
+			"Created Stack '%s/%s'",
+			stack.Namespace, stack.Name,
+		)
 	} else {
 		//TODO: Stack template in the stackset is only considered when a new stack is created.
 		// Further changes to the spec should be ignored or forbidden to avoid confusion.
@@ -818,16 +815,16 @@ func (c *StackSetController) ReconcileStack(ssc StackSetContainer) error {
 			}
 			stack.Annotations[stacksetGenerationAnnotationKey] = fmt.Sprintf("%d", stackset.Generation)
 
-			c.recorder.Eventf(&stackset,
-				apiv1.EventTypeNormal,
-				"UpdateStackSetStack",
-				"Updating Stack '%s/%s' for StackSet",
-				stack.Namespace, stack.Name,
-			)
 			_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(stack)
 			if err != nil {
 				return err
 			}
+			c.recorder.Eventf(&stackset,
+				apiv1.EventTypeNormal,
+				"UpdatedStackSetStack",
+				"Updated Stack '%s/%s' for StackSet",
+				stack.Namespace, stack.Name,
+			)
 		}
 	}
 

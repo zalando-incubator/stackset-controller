@@ -35,8 +35,14 @@ build.linux: $(LINUX_BINARIES)
 build/linux/e2e: $(GENERATED) $(SOURCES)
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c -o build/linux/$(notdir $@) $(BUILD_FLAGS) ./cmd/$(notdir $@)
 
+build/darwin/e2e: $(GENERATED) $(SOURCES)
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go test -c -o build/darwin/$(notdir $@) $(BUILD_FLAGS) ./cmd/$(notdir $@)
+
 build/linux/%: $(GENERATED) $(SOURCES)
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/linux/$(notdir $@) -ldflags "$(LDFLAGS)" ./cmd/$(notdir $@)
+
+build/darwin/%: $(GENERATED) $(SOURCES)
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/darwin/$(notdir $@) -ldflags "$(LDFLAGS)" ./cmd/$(notdir $@)
 
 build/e2e: $(GENERATED) $(SOURCES)
 	CGO_ENABLED=0 go test -c -o build/$(notdir $@) ./cmd/$(notdir $@)
