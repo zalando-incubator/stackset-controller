@@ -10,7 +10,7 @@ E2E_IMAGE      ?= $(IMAGE)-e2e
 TAG            ?= $(VERSION)
 SOURCES        = $(shell find . -name '*.go')
 GENERATED      = pkg/client pkg/apis/zalando.org/v1/zz_generated.deepcopy.go
-GOPKGS         = $(shell go list ./... | grep -v /e2e)
+GOPKGS         = $(shell go list ./... | grep -v /e2e | grep -v vendor)
 BUILD_FLAGS    ?= -v
 LDFLAGS        ?= -X main.version=$(VERSION) -w -s
 

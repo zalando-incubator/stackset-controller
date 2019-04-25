@@ -16,10 +16,12 @@ import (
 	authorizationv1beta1 "k8s.io/client-go/kubernetes/typed/authorization/v1beta1"
 	autoscalingv1 "k8s.io/client-go/kubernetes/typed/autoscaling/v1"
 	autoscalingv2beta1 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
+	autoscalingv2beta2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	batchv1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	batchv2alpha1 "k8s.io/client-go/kubernetes/typed/batch/v2alpha1"
 	certificatesv1beta1 "k8s.io/client-go/kubernetes/typed/certificates/v1beta1"
+	coordinationv1beta1 "k8s.io/client-go/kubernetes/typed/coordination/v1beta1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	eventsv1beta1 "k8s.io/client-go/kubernetes/typed/events/v1beta1"
 	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
@@ -60,6 +62,7 @@ type Interface interface {
 	// Deprecated: please explicitly pick a version if possible.
 	Autoscaling() autoscalingv1.AutoscalingV1Interface
 	AutoscalingV2beta1() autoscalingv2beta1.AutoscalingV2beta1Interface
+	AutoscalingV2beta2() autoscalingv2beta2.AutoscalingV2beta2Interface
 	BatchV1() batchv1.BatchV1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Batch() batchv1.BatchV1Interface
@@ -68,6 +71,9 @@ type Interface interface {
 	CertificatesV1beta1() certificatesv1beta1.CertificatesV1beta1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Certificates() certificatesv1beta1.CertificatesV1beta1Interface
+	CoordinationV1beta1() coordinationv1beta1.CoordinationV1beta1Interface
+	// Deprecated: please explicitly pick a version if possible.
+	Coordination() coordinationv1beta1.CoordinationV1beta1Interface
 	CoreV1() corev1.CoreV1Interface
 	// Deprecated: please explicitly pick a version if possible.
 	Core() corev1.CoreV1Interface
