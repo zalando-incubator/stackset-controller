@@ -71,6 +71,7 @@ spec:
                 limit:
                   type: integer
                   format: int32
+                  minimum: 1
             stackTemplate:
               properties:
                 spec:

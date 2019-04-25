@@ -660,7 +660,8 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	stackset := ssc.StackSet
 	stacks := ssc.Stacks()
 
-	historyLimit := defaultStackLifecycleLimit
+	// historyLimit is defaultStackLifecycleLimit + the stack that's getting traffic
+	historyLimit := defaultStackLifecycleLimit + 1
 	if stackset.Spec.StackLifecycle.Limit != nil {
 		historyLimit = int(*stackset.Spec.StackLifecycle.Limit)
 	}
