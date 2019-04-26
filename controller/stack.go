@@ -132,8 +132,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		}
 	}
 
-	currentStackName := generateStackName(ssc.StackSet, currentStackVersion(ssc.StackSet))
-	stackUnused := stack.Name != currentStackName && ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0
+	stackUnused := ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() <= 0
 
 	noTrafficSince := stack.Status.NoTrafficSince
 
@@ -207,7 +206,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 	deployment.APIVersion = "apps/v1"
 	deployment.Kind = "Deployment"
 
-	hpa, err := c.manageAutoscaling(stack, sc.Resources.HPA, deployment, ssc, stackUnused)
+	hpa, err := c.manageAutoscaling(stack, sc.Resources.HPA, deployment, ssc)
 	if err != nil {
 		return err
 	}
@@ -249,7 +248,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 }
 
 // manageAutoscaling manages the HPA defined for the stack.
-func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc StackSetContainer, stackUnused bool) (*autoscaling.HorizontalPodAutoscaler, error) {
+func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc StackSetContainer) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	origMinReplicas := int32(0)
 	origMaxReplicas := int32(0)
 	if hpa != nil {
@@ -258,8 +257,8 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 		origMaxReplicas = hpa.Spec.MaxReplicas
 	}
 
-	// cleanup HPA if autoscaling is disabled or the stack has 0 traffic.
-	if stack.Spec.HorizontalPodAutoscaler == nil || stackUnused {
+	// cleanup HPA if autoscaling is disabled.
+	if stack.Spec.HorizontalPodAutoscaler == nil {
 		if hpa != nil {
 			err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Delete(hpa.Name, nil)
 			if err != nil {
