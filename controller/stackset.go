@@ -659,9 +659,9 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	stackset := ssc.StackSet
 	stacks := ssc.Stacks()
+	stacksWithoutTraffic := len(stacks)
 
-	// historyLimit is defaultStackLifecycleLimit + the stack that's getting traffic
-	historyLimit := defaultStackLifecycleLimit + 1
+	historyLimit := defaultStackLifecycleLimit
 	if stackset.Spec.StackLifecycle.Limit != nil {
 		historyLimit = int(*stackset.Spec.StackLifecycle.Limit)
 	}
@@ -677,6 +677,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 
 		// never garbage collect stacks with traffic
 		if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() > 0 {
+			stacksWithoutTraffic -= 1
 			continue
 		}
 
@@ -693,7 +694,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	}
 
 	// only garbage collect if history limit is reached
-	if len(stacks) <= historyLimit {
+	if stacksWithoutTraffic <= historyLimit {
 		c.logger.Debugf("No Stacks to clean up for StackSet %s/%s (limit: %d/%d)", stackset.Namespace, stackset.Name, len(stacks), historyLimit)
 		return nil
 	}
