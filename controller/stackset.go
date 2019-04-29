@@ -659,7 +659,6 @@ func (c *StackSetController) StackSetGC(ssc StackSetContainer) error {
 func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	stackset := ssc.StackSet
 	stacks := ssc.Stacks()
-	stacksWithoutTraffic := len(stacks)
 
 	historyLimit := defaultStackLifecycleLimit
 	if stackset.Spec.StackLifecycle.Limit != nil {
@@ -677,7 +676,6 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 
 		// never garbage collect stacks with traffic
 		if ssc.Traffic != nil && ssc.Traffic[stack.Name].Weight() > 0 {
-			stacksWithoutTraffic -= 1
 			continue
 		}
 
@@ -694,7 +692,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 	}
 
 	// only garbage collect if history limit is reached
-	if stacksWithoutTraffic <= historyLimit {
+	if len(gcCandidates) <= historyLimit {
 		c.logger.Debugf("No Stacks to clean up for StackSet %s/%s (limit: %d/%d)", stackset.Namespace, stackset.Name, len(stacks), historyLimit)
 		return nil
 	}
@@ -705,7 +703,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 		return gcCandidates[i].CreationTimestamp.Time.Before(gcCandidates[j].CreationTimestamp.Time)
 	})
 
-	excessStacks := len(stacks) - historyLimit
+	excessStacks := len(gcCandidates) - historyLimit
 	c.recorder.Eventf(&stackset,
 		apiv1.EventTypeNormal,
 		"ExeedStackHistoryLimit",
@@ -715,9 +713,7 @@ func (c *StackSetController) getStacksToGC(ssc StackSetContainer) []zv1.Stack {
 		len(gcCandidates),
 	)
 
-	// We can only delete the no. of stacks that are both excess and gc candidates
-	gcLimit := int(math.Min(float64(excessStacks), float64(len(gcCandidates))))
-	return gcCandidates[:gcLimit]
+	return gcCandidates[:excessStacks]
 }
 
 func currentStackVersion(stackset zv1.StackSet) string {
