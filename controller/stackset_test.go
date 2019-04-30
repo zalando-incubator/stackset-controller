@@ -184,6 +184,62 @@ func TestGetStacksToGC(tt *testing.T) {
 			expectedNum: 0,
 		},
 		{
+			name: "test stacks with traffic don't count against limit",
+			stackSetContainer: StackSetContainer{
+				StackSet: zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{
+							Hosts: []string{"app.example.org"},
+						},
+						StackLifecycle: zv1.StackLifecycle{
+							Limit: int32Ptr(2),
+						},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					types.UID("uid"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack1",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-1 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-1 * time.Hour)},
+							},
+						},
+					},
+					types.UID("uid2"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack2",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-2 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
+							},
+						},
+					},
+					types.UID("uid3"): {
+						Stack: zv1.Stack{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:              "stack3",
+								CreationTimestamp: metav1.NewTime(time.Now().Add(-3 * time.Hour)),
+							},
+							Status: zv1.StackStatus{
+								NoTrafficSince: &metav1.Time{Time: time.Now().Add(-3 * time.Hour)},
+							},
+						},
+					},
+				},
+				Traffic: map[string]TrafficStatus{
+					"stack1": TrafficStatus{ActualWeight: 100},
+					"stack2": TrafficStatus{ActualWeight: 0},
+					"stack3": TrafficStatus{ActualWeight: 0},
+				},
+			},
+			expectedNum: 0,
+		},
+		{
 			name: "test not GC'ing a stack with no-traffic-since less than ScaledownTTLSeconds",
 			stackSetContainer: StackSetContainer{
 				StackSet: zv1.StackSet{
