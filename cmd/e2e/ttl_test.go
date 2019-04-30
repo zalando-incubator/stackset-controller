@@ -49,8 +49,8 @@ func TestStackTTLWithIngress(t *testing.T) {
 	stacksetName := "stackset-ttl-ingress"
 	specFactory := NewTestStacksetSpecFactory(stacksetName).StackGC(3, 0).Ingress()
 
-	// Create 5 stacks each with an ingress
-	for i := 0; i < 5; i++ {
+	// Create 6 stacks each with an ingress
+	for i := 0; i < 6; i++ {
 		stackVersion := fmt.Sprintf("v%d", i)
 		var err error
 		spec := specFactory.Create(stackVersion)
@@ -74,8 +74,8 @@ func TestStackTTLWithIngress(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// verify that only the last 3 created stacks are present
-	for i := 2; i < 5; i++ {
+	// verify that only the last 4 created stacks are present
+	for i := 2; i < 6; i++ {
 		deploymentName := fmt.Sprintf("%s-v%d", stacksetName, i)
 		require.True(t, stackExists(stacksetName, fmt.Sprintf("v%d", i)))
 		_, err := waitForDeployment(t, deploymentName)
