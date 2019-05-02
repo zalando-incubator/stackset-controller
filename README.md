@@ -72,7 +72,9 @@ spec:
     backendPort: 80
   stackLifecycle:
     scaledownTTLSeconds: 300
-    limit: 5 # total number of stacks to keep around.
+    limit: 5 # maximum number of scaled down stacks to keep. 
+             # If there are more than `limit` stacks, the oldest stacks which are scaled down 
+             # will be deleted.
   stackTemplate:
     spec:
       version: v1 # version of the Stack.
