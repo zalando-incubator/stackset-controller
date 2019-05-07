@@ -164,9 +164,10 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 		c.recorder.Eventf(&stack,
 			v1.EventTypeNormal,
 			"CreatedDeployment",
-			"Created Deployment '%s/%s' for Stack",
+			"Created Deployment '%s/%s' for Stack: replicas: %d",
 			deployment.Namespace,
 			deployment.Name,
+			*deployment.Spec.Replicas,
 		)
 	} else {
 		stackGeneration := getStackGeneration(deployment.ObjectMeta)
@@ -194,9 +195,11 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			c.recorder.Eventf(&stack,
 				v1.EventTypeNormal,
 				"UpdatedDeployment",
-				"Updated Deployment '%s/%s' for Stack",
+				"Updated Deployment '%s/%s' for Stack: replicas: %d -> %d",
 				deployment.Namespace,
 				deployment.Name,
+				origReplicas,
+				replicas,
 			)
 		}
 	}
@@ -322,9 +325,11 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 		c.recorder.Eventf(&stack,
 			v1.EventTypeNormal,
 			"CreatedHPA",
-			"Created HPA '%s/%s' for Stack",
+			"Created HPA '%s/%s' for Stack: minReplicas: %d, maxReplicas: %d",
 			hpa.Namespace,
 			hpa.Name,
+			*hpa.Spec.MinReplicas,
+			hpa.Spec.MaxReplicas,
 		)
 	} else {
 		stackGeneration := getStackGeneration(hpa.ObjectMeta)
@@ -350,9 +355,11 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			c.recorder.Eventf(&stack,
 				v1.EventTypeNormal,
 				"UpdatedHPA",
-				"Updated HPA '%s/%s' for Stack",
+				"Updated HPA '%s/%s' for Stack: minReplicas: %d -> %d, maxReplicas: %d -> %d",
 				hpa.Namespace,
 				hpa.Name,
+				origMinReplicas, *hpa.Spec.MinReplicas,
+				origMaxReplicas, hpa.Spec.MaxReplicas,
 			)
 		}
 	}
