@@ -396,7 +396,7 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 		},
 	}
 
-	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
+	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ssc.Traffic)
 
 	for backend, traffic := range availableWeights {
 		if traffic > 0 {
