@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
@@ -8,21 +9,13 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-// TrafficReconciler defines an interface for different traffic reconcilation
-// algorithms.
-type TrafficReconciler interface {
-	ReconcileDeployment(stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment) error
-	ReconcileHPA(stack *zv1.Stack, hpa *autoscaling.HorizontalPodAutoscaler, deployment *appsv1.Deployment) error
-	ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64)
-}
-
 // SimpleTrafficReconciler is the most simple traffic reconciler which
 // implements the default traffic switching supported in the
 // stackset-controller.
 type SimpleTrafficReconciler struct{}
 
 // ReconcileDeployment does not do anything for the simple reconciler.
-func (r SimpleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment) error {
+func (r SimpleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*entities.StackContainer, stack *zv1.Stack, traffic map[string]entities.TrafficStatus, deployment *appsv1.Deployment) error {
 	return nil
 }
 
@@ -34,12 +27,12 @@ func (r SimpleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscaling
 }
 
 // ReconcileIngress computes the ingress traffic to distribute to stacks.
-func (r SimpleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
-	stackStatuses := getStackStatuses(stacks)
+func (r SimpleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64) {
+	stackStatuses := entities.GetStackStatuses(stacks)
 	return computeBackendWeights(stackStatuses, traffic)
 }
 
-func computeBackendWeights(stacks []stackStatus, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
+func computeBackendWeights(stacks []entities.StackStatus, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64) {
 	backendWeights := make(map[string]float64, len(stacks))
 	availableBackends := make(map[string]float64, len(stacks))
 	for _, stack := range stacks {

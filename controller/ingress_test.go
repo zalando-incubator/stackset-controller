@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	scController "github.com/zalando-incubator/stackset-controller/pkg/clientset"
@@ -26,14 +27,14 @@ func TestReconcileIngress(t *testing.T) {
 
 	for _, tc := range []struct {
 		msg string
-		in  StackSetContainer
+		in  entities.StackSetContainer
 		out int
 	}{
 		{
 			msg: "Test an Ingress is created if specified in the StackSet",
-			in: StackSetContainer{
+			in: entities.StackSetContainer{
 				TrafficReconciler: SimpleTrafficReconciler{},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					"test": {},
 				},
 				StackSet: zv1.StackSet{
@@ -57,7 +58,7 @@ func TestReconcileIngress(t *testing.T) {
 		},
 		{ // TODO: Test that per stack ingresses were also cleaned up
 			msg: "Test Ingress gets deleted if not defined in StackSet Spec",
-			in: StackSetContainer{
+			in: entities.StackSetContainer{
 				TrafficReconciler: SimpleTrafficReconciler{},
 				Ingress:           &v1beta1.Ingress{},
 			},
@@ -65,9 +66,9 @@ func TestReconcileIngress(t *testing.T) {
 		},
 		{
 			msg: "Test that if an Ingress Spec is updated, the Ingress will also be updated",
-			in: StackSetContainer{
+			in: entities.StackSetContainer{
 				TrafficReconciler: SimpleTrafficReconciler{},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					"test": {},
 				},
 				StackSet: zv1.StackSet{
@@ -115,7 +116,7 @@ func TestReconcileIngress(t *testing.T) {
 	} {
 		t.Run(tc.msg, func(t *testing.T) {
 			controller := getFakeController()
-			// If the StackSetContainer has an ingress create & update it as setup
+			// If the entities.StackSetContainer has an ingress create & update it as setup
 			if tc.in.Ingress != nil {
 				stackIngress, err := controller.client.ExtensionsV1beta1().Ingresses(tc.in.StackSet.Namespace).Create(tc.in.Ingress)
 				require.NoError(t, err)

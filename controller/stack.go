@@ -5,6 +5,9 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
+	"github.com/zalando-incubator/stackset-controller/controller/keys"
+	"github.com/zalando-incubator/stackset-controller/controller/utils"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,18 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kube_record "k8s.io/client-go/tools/record"
-)
-
-const (
-	stackGenerationAnnotationKey = "stackset-controller.zalando.org/stack-generation"
-)
-
-var (
-	// set implementation with 0 Byte value
-	selectorLabels = map[string]struct{}{
-		stacksetHeritageLabelKey: struct{}{},
-		stackVersionLabelKey:     struct{}{},
-	}
 )
 
 // stacksReconciler is able to bring a set of Stacks of a StackSet to the
@@ -40,7 +31,7 @@ type stacksReconciler struct {
 }
 
 // ReconcileStacks brings a set of Stacks of a StackSet to the desired state.
-func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
+func (c *StackSetController) ReconcileStacks(ssc entities.StackSetContainer) error {
 	sr := &stacksReconciler{
 		logger: c.logger.WithFields(
 			log.Fields{
@@ -56,7 +47,7 @@ func (c *StackSetController) ReconcileStacks(ssc StackSetContainer) error {
 	return sr.reconcile(ssc)
 }
 
-func (c *stacksReconciler) reconcile(ssc StackSetContainer) error {
+func (c *stacksReconciler) reconcile(ssc entities.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		err := c.autoscalerReconciler.Reconcile(sc)
 		if err != nil {
@@ -75,7 +66,7 @@ func (c *stacksReconciler) reconcile(ssc StackSetContainer) error {
 
 // manageStack manages the stack by managing the related Deployment and Service
 // resources.
-func (c *stacksReconciler) manageStack(sc StackContainer, ssc StackSetContainer) error {
+func (c *stacksReconciler) manageStack(sc entities.StackContainer, ssc entities.StackSetContainer) error {
 	err := c.manageDeployment(sc, ssc)
 	if err != nil {
 		return err
@@ -84,7 +75,7 @@ func (c *stacksReconciler) manageStack(sc StackContainer, ssc StackSetContainer)
 }
 
 // manageDeployment manages the deployment owned by the stack.
-func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetContainer) error {
+func (c *stacksReconciler) manageDeployment(sc entities.StackContainer, ssc entities.StackSetContainer) error {
 	deployment := sc.Resources.Deployment
 	stack := sc.Stack
 
@@ -93,10 +84,10 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 
 	if deployment == nil {
 		createDeployment = true
-		deployment = newDeploymentFromStack(stack)
+		deployment = utils.NewDeploymentFromStack(stack)
 	} else {
 		origReplicas = *deployment.Spec.Replicas
-		template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
+		template := utils.TemplateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
 		deployment.Spec.Template = template
 		for k, v := range stack.Labels {
 			deployment.Labels[k] = v
@@ -170,7 +161,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			*deployment.Spec.Replicas,
 		)
 	} else {
-		stackGeneration := getStackGeneration(deployment.ObjectMeta)
+		stackGeneration := utils.GetStackGeneration(deployment.ObjectMeta)
 
 		replicas := *deployment.Spec.Replicas
 
@@ -187,7 +178,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 			if deployment.Annotations == nil {
 				deployment.Annotations = make(map[string]string, 1)
 			}
-			deployment.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+			deployment.Annotations[keys.StackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Update(deployment)
 			if err != nil {
 				return err
@@ -251,7 +242,7 @@ func (c *stacksReconciler) manageDeployment(sc StackContainer, ssc StackSetConta
 }
 
 // manageAutoscaling manages the HPA defined for the stack.
-func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc StackSetContainer) (*autoscalingv2.HorizontalPodAutoscaler, error) {
+func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2.HorizontalPodAutoscaler, deployment *appsv1.Deployment, ssc entities.StackSetContainer) (*autoscalingv2.HorizontalPodAutoscaler, error) {
 	origMinReplicas := int32(0)
 	origMaxReplicas := int32(0)
 	if hpa != nil {
@@ -332,7 +323,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			hpa.Spec.MaxReplicas,
 		)
 	} else {
-		stackGeneration := getStackGeneration(hpa.ObjectMeta)
+		stackGeneration := utils.GetStackGeneration(hpa.ObjectMeta)
 
 		// only update the resource if there are changes
 		// We determine changes by comparing the stackGeneration
@@ -347,7 +338,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			if hpa.Annotations == nil {
 				hpa.Annotations = make(map[string]string, 1)
 			}
-			hpa.Annotations[stackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+			hpa.Annotations[keys.StackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			hpa, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Update(hpa)
 			if err != nil {
 				return nil, err
@@ -368,7 +359,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 }
 
 // manageService manages the service for a given stack.
-func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.Deployment, ssc StackSetContainer) error {
+func (c *stacksReconciler) manageService(sc entities.StackContainer, deployment *appsv1.Deployment, ssc entities.StackSetContainer) error {
 	service := sc.Resources.Service
 	stack := sc.Stack
 
@@ -379,7 +370,7 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
 
-	servicePorts, err := getServicePorts(backendPort, stack)
+	servicePorts, err := utils.GetServicePorts(backendPort, stack)
 	if err != nil {
 		return err
 	}
@@ -387,16 +378,16 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 	var kubeAction func(*v1.Service) (*v1.Service, error)
 	var reason, message string
 	if service == nil {
-		service = newServiceFromStack(servicePorts, stack, deployment)
+		service = utils.NewServiceFromStack(servicePorts, stack, deployment)
 
 		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
 		reason = "CreatedService"
 		message = "Created Service '%s/%s' for Stack"
 
 		// only update the resource if there are changes
-	} else if !isResourceUpToDate(stack, service.ObjectMeta) {
+	} else if !utils.IsResourceUpToDate(stack, service.ObjectMeta) {
 
-		err := updateServiceSpecFromStack(service, stack, backendPort)
+		err := utils.UpdateServiceSpecFromStack(service, stack, backendPort)
 		if err != nil {
 			return err
 		}
@@ -422,84 +413,4 @@ func (c *stacksReconciler) manageService(sc StackContainer, deployment *appsv1.D
 		service.Name,
 	)
 	return nil
-}
-
-// getServicePorts gets the service ports to be used for the stack service.
-func getServicePorts(backendPort *intstr.IntOrString, stack zv1.Stack) ([]v1.ServicePort, error) {
-	var servicePorts []v1.ServicePort
-	if stack.Spec.Service == nil || len(stack.Spec.Service.Ports) == 0 {
-		servicePorts = servicePortsFromContainers(stack.Spec.PodTemplate.Spec.Containers)
-	} else {
-		servicePorts = stack.Spec.Service.Ports
-	}
-
-	// validate that one port in the list maps to the backendPort.
-	if backendPort != nil {
-		for _, port := range servicePorts {
-			switch backendPort.Type {
-			case intstr.Int:
-				if port.Port == backendPort.IntVal {
-					return servicePorts, nil
-				}
-			case intstr.String:
-				if port.Name == backendPort.StrVal {
-					return servicePorts, nil
-				}
-			}
-		}
-
-		return nil, fmt.Errorf("no service ports matching backendPort '%s'", backendPort.String())
-	}
-
-	return servicePorts, nil
-}
-
-// servicePortsFromTemplate gets service port from pod template.
-func servicePortsFromContainers(containers []v1.Container) []v1.ServicePort {
-	ports := make([]v1.ServicePort, 0)
-	for i, container := range containers {
-		for j, port := range container.Ports {
-			name := fmt.Sprintf("port-%d-%d", i, j)
-			if port.Name != "" {
-				name = port.Name
-			}
-			servicePort := v1.ServicePort{
-				Name:       name,
-				Protocol:   port.Protocol,
-				Port:       port.ContainerPort,
-				TargetPort: intstr.FromInt(int(port.ContainerPort)),
-			}
-			// set default protocol if not specified
-			if servicePort.Protocol == "" {
-				servicePort.Protocol = v1.ProtocolTCP
-			}
-			ports = append(ports, servicePort)
-		}
-	}
-	return ports
-}
-
-// templateInjectLabels injects labels into a pod template spec.
-func templateInjectLabels(template v1.PodTemplateSpec, labels map[string]string) v1.PodTemplateSpec {
-	if template.ObjectMeta.Labels == nil {
-		template.ObjectMeta.Labels = map[string]string{}
-	}
-
-	for key, value := range labels {
-		if _, ok := template.ObjectMeta.Labels[key]; !ok {
-			template.ObjectMeta.Labels[key] = value
-		}
-	}
-	return template
-}
-
-// limitLabels returns a limited set of labels based on the validKeys.
-func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[string]string {
-	newLabels := make(map[string]string, len(labels))
-	for k, v := range labels {
-		if _, ok := validKeys[k]; ok {
-			newLabels[k] = v
-		}
-	}
-	return newLabels
 }

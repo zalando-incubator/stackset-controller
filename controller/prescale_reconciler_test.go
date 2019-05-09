@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
@@ -17,9 +18,9 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 	for _, ti := range []struct {
 		msg                string
 		deployment         *appsv1.Deployment
-		stacks             map[types.UID]*StackContainer
+		stacks             map[types.UID]*entities.StackContainer
 		stack              *zv1.Stack
-		traffic            map[string]TrafficStatus
+		traffic            map[string]entities.TrafficStatus
 		err                error
 		expectedReplicas   int32
 		calculatedReplicas int
@@ -54,14 +55,14 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -79,7 +80,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -97,7 +98,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-3",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -109,7 +110,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
@@ -151,14 +152,14 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -176,7 +177,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -194,7 +195,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-3",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -206,7 +207,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
@@ -248,7 +249,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
@@ -284,14 +285,14 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 				},
 				Spec: zv1.StackSpec{},
 			},
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -309,7 +310,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -327,7 +328,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-3",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-3",
@@ -340,7 +341,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
@@ -388,14 +389,14 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -419,7 +420,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -437,7 +438,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-3",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-3",
@@ -450,7 +451,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
@@ -499,14 +500,14 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -524,7 +525,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -542,7 +543,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-3",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-3",
@@ -555,7 +556,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
@@ -604,14 +605,14 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -629,7 +630,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -647,7 +648,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 							Name: "svc-3",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-3",
@@ -660,7 +661,7 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  50.0,
 					DesiredWeight: 0.0,
@@ -762,22 +763,22 @@ func TestPrescaleReconcilerReconcileHPA(tt *testing.T) {
 func TestReconcileIngressTraffic(tt *testing.T) {
 	for _, ti := range []struct {
 		msg                      string
-		stacks                   map[types.UID]*StackContainer
+		stacks                   map[types.UID]*entities.StackContainer
 		ingress                  *v1beta1.Ingress
-		traffic                  map[string]TrafficStatus
+		traffic                  map[string]entities.TrafficStatus
 		expectedAvailableWeights map[string]float64
 		expectedAllWeights       map[string]float64
 	}{
 		{
 			msg: "stacks without active prescaling status should not get desired traffic if it was already 0",
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -792,7 +793,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -807,7 +808,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Name: "svc-3",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -819,7 +820,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  100.0,
 					DesiredWeight: 0.0,
@@ -846,14 +847,14 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		},
 		{
 			msg: "Prescaled stack should get desired traffic",
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -868,7 +869,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -886,7 +887,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -901,7 +902,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  100.0,
 					DesiredWeight: 0.0,
@@ -926,14 +927,14 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		},
 		{
 			msg: "Prescaled stack should get not desired traffic if not ready",
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -948,7 +949,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -966,7 +967,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -981,7 +982,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  100.0,
 					DesiredWeight: 0.0,
@@ -1008,14 +1009,14 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		},
 		{
 			msg: "Prescaled stack with actual traffic should not loose traffic if not all replicas are ready",
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -1030,7 +1031,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Name: "svc-2",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-2",
@@ -1048,7 +1049,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -1063,7 +1064,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
@@ -1088,14 +1089,14 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		},
 		{
 			msg: "test two prescaled stacks one is ready and one is not",
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -1113,7 +1114,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-2",
@@ -1136,7 +1137,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -1151,7 +1152,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,

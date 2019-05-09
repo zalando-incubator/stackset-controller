@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalando-incubator/stackset-controller/controller"
+	"github.com/zalando-incubator/stackset-controller/controller/keys"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
@@ -238,12 +238,12 @@ func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 		Name:      name,
 		Namespace: namespace,
 		Annotations: map[string]string{
-			controller.StacksetControllerControllerAnnotationKey: controllerId,
+			keys.StacksetControllerControllerAnnotationKey: controllerId,
 		},
 	}
 	if prescalingTimeout > 0 {
-		meta.Annotations[controller.PrescaleStacksAnnotationKey] = "yes"
-		meta.Annotations[controller.ResetHPAMinReplicasDelayAnnotationKey] = fmt.Sprintf("%dm", prescalingTimeout)
+		meta.Annotations[keys.PrescaleStacksAnnotationKey] = "yes"
+		meta.Annotations[keys.ResetHPAMinReplicasDelayAnnotationKey] = fmt.Sprintf("%dm", prescalingTimeout)
 	}
 	return meta
 }

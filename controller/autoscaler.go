@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
@@ -44,14 +45,14 @@ func (l MetricsList) Less(i, j int) bool {
 }
 
 type AutoscalerReconciler struct {
-	ssc StackSetContainer
+	ssc entities.StackSetContainer
 }
 
-func NewAutoscalerReconciler(ssc StackSetContainer) *AutoscalerReconciler {
+func NewAutoscalerReconciler(ssc entities.StackSetContainer) *AutoscalerReconciler {
 	return &AutoscalerReconciler{ssc: ssc}
 }
 
-func (c *AutoscalerReconciler) Reconcile(sc *StackContainer) error {
+func (c *AutoscalerReconciler) Reconcile(sc *entities.StackContainer) error {
 
 	if sc.Stack.Spec.HorizontalPodAutoscaler != nil {
 		return nil
