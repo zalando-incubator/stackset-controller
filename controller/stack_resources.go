@@ -57,10 +57,8 @@ func newDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
 func newPodTemplateFromStack(stack zv1.Stack) v1.PodTemplateSpec {
 	template := *stack.Spec.PodTemplate.DeepCopy()
 
-	// Copy Labels from Stack.Labels to the Deployment
-	template.ObjectMeta.Labels = mapCopy(stack.Labels)
-
-	return template
+	// add labels from Stack.Labels to pods
+	return templateInjectLabels(template, stack.Labels)
 }
 
 func mapCopy(m map[string]string) map[string]string {
