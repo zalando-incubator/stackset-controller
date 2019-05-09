@@ -2,12 +2,11 @@ package controller
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller/entities"
-	"github.com/zalando-incubator/stackset-controller/controller/keys"
-	"github.com/zalando-incubator/stackset-controller/controller/utils"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
@@ -18,6 +17,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	kube_record "k8s.io/client-go/tools/record"
+)
+
+var (
+	// set implementation with 0 Byte value
+	selectorLabels = map[string]struct{}{
+		entities.StacksetHeritageLabelKey: {},
+		entities.StackVersionLabelKey:     {},
+	}
 )
 
 // stacksReconciler is able to bring a set of Stacks of a StackSet to the
@@ -84,10 +91,10 @@ func (c *stacksReconciler) manageDeployment(sc entities.StackContainer, ssc enti
 
 	if deployment == nil {
 		createDeployment = true
-		deployment = utils.NewDeploymentFromStack(stack)
+		deployment = newDeploymentFromStack(stack)
 	} else {
 		origReplicas = *deployment.Spec.Replicas
-		template := utils.TemplateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
+		template := templateInjectLabels(stack.Spec.PodTemplate, stack.Labels)
 		deployment.Spec.Template = template
 		for k, v := range stack.Labels {
 			deployment.Labels[k] = v
@@ -161,7 +168,7 @@ func (c *stacksReconciler) manageDeployment(sc entities.StackContainer, ssc enti
 			*deployment.Spec.Replicas,
 		)
 	} else {
-		stackGeneration := utils.GetStackGeneration(deployment.ObjectMeta)
+		stackGeneration := getStackGeneration(deployment.ObjectMeta)
 
 		replicas := *deployment.Spec.Replicas
 
@@ -178,7 +185,7 @@ func (c *stacksReconciler) manageDeployment(sc entities.StackContainer, ssc enti
 			if deployment.Annotations == nil {
 				deployment.Annotations = make(map[string]string, 1)
 			}
-			deployment.Annotations[keys.StackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+			deployment.Annotations[entities.StackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			deployment, err = c.client.AppsV1().Deployments(deployment.Namespace).Update(deployment)
 			if err != nil {
 				return err
@@ -323,7 +330,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			hpa.Spec.MaxReplicas,
 		)
 	} else {
-		stackGeneration := utils.GetStackGeneration(hpa.ObjectMeta)
+		stackGeneration := getStackGeneration(hpa.ObjectMeta)
 
 		// only update the resource if there are changes
 		// We determine changes by comparing the stackGeneration
@@ -338,7 +345,7 @@ func (c *stacksReconciler) manageAutoscaling(stack zv1.Stack, hpa *autoscalingv2
 			if hpa.Annotations == nil {
 				hpa.Annotations = make(map[string]string, 1)
 			}
-			hpa.Annotations[keys.StackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+			hpa.Annotations[entities.StackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
 			hpa, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Update(hpa)
 			if err != nil {
 				return nil, err
@@ -370,7 +377,7 @@ func (c *stacksReconciler) manageService(sc entities.StackContainer, deployment 
 		backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
 	}
 
-	servicePorts, err := utils.GetServicePorts(backendPort, stack)
+	servicePorts, err := getServicePorts(backendPort, stack)
 	if err != nil {
 		return err
 	}
@@ -378,16 +385,16 @@ func (c *stacksReconciler) manageService(sc entities.StackContainer, deployment 
 	var kubeAction func(*v1.Service) (*v1.Service, error)
 	var reason, message string
 	if service == nil {
-		service = utils.NewServiceFromStack(servicePorts, stack, deployment)
+		service = newServiceFromStack(servicePorts, stack, deployment)
 
 		kubeAction = c.client.CoreV1().Services(service.Namespace).Create
 		reason = "CreatedService"
 		message = "Created Service '%s/%s' for Stack"
 
 		// only update the resource if there are changes
-	} else if !utils.IsResourceUpToDate(stack, service.ObjectMeta) {
+	} else if !isResourceUpToDate(stack, service.ObjectMeta) {
 
-		err := utils.UpdateServiceSpecFromStack(service, stack, backendPort)
+		err := updateServiceSpecFromStack(service, stack, backendPort)
 		if err != nil {
 			return err
 		}
@@ -413,4 +420,205 @@ func (c *stacksReconciler) manageService(sc entities.StackContainer, deployment 
 		service.Name,
 	)
 	return nil
+}
+
+// getServicePorts gets the service ports to be used for the stack service.
+func getServicePorts(backendPort *intstr.IntOrString, stack zv1.Stack) ([]v1.ServicePort, error) {
+	var servicePorts []v1.ServicePort
+	if stack.Spec.Service == nil || len(stack.Spec.Service.Ports) == 0 {
+		servicePorts = servicePortsFromContainers(stack.Spec.PodTemplate.Spec.Containers)
+	} else {
+		servicePorts = stack.Spec.Service.Ports
+	}
+
+	// validate that one port in the list maps to the backendPort.
+	if backendPort != nil {
+		for _, port := range servicePorts {
+			switch backendPort.Type {
+			case intstr.Int:
+				if port.Port == backendPort.IntVal {
+					return servicePorts, nil
+				}
+			case intstr.String:
+				if port.Name == backendPort.StrVal {
+					return servicePorts, nil
+				}
+			}
+		}
+
+		return nil, fmt.Errorf("no service ports matching backendPort '%s'", backendPort.String())
+	}
+
+	return servicePorts, nil
+}
+
+// servicePortsFromTemplate gets service port from pod template.
+func servicePortsFromContainers(containers []v1.Container) []v1.ServicePort {
+	ports := make([]v1.ServicePort, 0)
+	for i, container := range containers {
+		for j, port := range container.Ports {
+			name := fmt.Sprintf("port-%d-%d", i, j)
+			if port.Name != "" {
+				name = port.Name
+			}
+			servicePort := v1.ServicePort{
+				Name:       name,
+				Protocol:   port.Protocol,
+				Port:       port.ContainerPort,
+				TargetPort: intstr.FromInt(int(port.ContainerPort)),
+			}
+			// set default protocol if not specified
+			if servicePort.Protocol == "" {
+				servicePort.Protocol = v1.ProtocolTCP
+			}
+			ports = append(ports, servicePort)
+		}
+	}
+	return ports
+}
+
+func mapCopy(m map[string]string) map[string]string {
+	newMap := map[string]string{}
+	for k, v := range m {
+		newMap[k] = v
+	}
+	return newMap
+}
+
+// isResourceUpToDate checks whether the stack is assigned to the resource
+// by comparing the stack generation with the corresponding resource annotation.
+func isResourceUpToDate(stack zv1.Stack, resourceMeta metav1.ObjectMeta) bool {
+	// We only update the resourceMeta if there are changes.
+	// We determine changes by comparing the stackGeneration
+	// (observed generation) stored on the resourceMeta with the
+	// generation of the Stack.
+	actualGeneration := getStackGeneration(resourceMeta)
+	return actualGeneration == stack.Generation
+}
+
+// getStackGeneration returns the generation of the stack associated to this resource.
+// This value is stored in an annotation of the resource object.
+func getStackGeneration(resource metav1.ObjectMeta) int64 {
+	encodedGeneration := resource.GetAnnotations()[entities.StackGenerationAnnotationKey]
+	decodedGeneration, err := strconv.ParseInt(encodedGeneration, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return decodedGeneration
+}
+
+// setStackGenerationOnResource assigns a stack to a resource by specifying the stack's generation
+// in the resource's annotations.
+func setStackGenerationOnResource(stack zv1.Stack, resource metav1.Object) {
+	annotations := resource.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string, 1)
+	}
+	annotations[entities.StackGenerationAnnotationKey] = fmt.Sprintf("%d", stack.Generation)
+	resource.SetAnnotations(annotations)
+}
+
+func updateServiceSpecFromStack(service *v1.Service, stack zv1.Stack, backendPort *intstr.IntOrString) error {
+	if service == nil {
+		return fmt.Errorf(
+			"updateServiceSpecFromStack expects an existing Service, not a nil pointer")
+	}
+	setStackGenerationOnResource(stack, service)
+
+	service.Labels = stack.Labels
+	service.Spec.Selector = limitLabels(stack.Labels, selectorLabels)
+
+	servicePorts, err := getServicePorts(backendPort, stack)
+	if err != nil {
+		return err
+	}
+	service.Spec.Ports = servicePorts
+	return nil
+}
+
+func newPodTemplateFromStack(stack zv1.Stack) v1.PodTemplateSpec {
+	template := *stack.Spec.PodTemplate.DeepCopy()
+
+	// add labels from Stack.Labels to pods
+	return templateInjectLabels(template, stack.Labels)
+}
+
+// templateInjectLabels injects labels into a pod template spec.
+func templateInjectLabels(template v1.PodTemplateSpec, labels map[string]string) v1.PodTemplateSpec {
+	if template.ObjectMeta.Labels == nil {
+		template.ObjectMeta.Labels = map[string]string{}
+	}
+
+	for key, value := range labels {
+		if _, ok := template.ObjectMeta.Labels[key]; !ok {
+			template.ObjectMeta.Labels[key] = value
+		}
+	}
+	return template
+}
+
+// limitLabels returns a limited set of labels based on the validKeys.
+func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[string]string {
+	newLabels := make(map[string]string, len(labels))
+	for k, v := range labels {
+		if _, ok := validKeys[k]; ok {
+			newLabels[k] = v
+		}
+	}
+	return newLabels
+}
+
+func newDeploymentFromStack(stack zv1.Stack) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        stack.Name,
+			Namespace:   stack.Namespace,
+			Annotations: map[string]string{},
+			Labels:      mapCopy(stack.Labels),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: stack.APIVersion,
+					Kind:       stack.Kind,
+					Name:       stack.Name,
+					UID:        stack.UID,
+				},
+			},
+		},
+		// set TypeMeta manually because of this bug:
+		// https://github.com/kubernetes/client-go/issues/308
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployment",
+			APIVersion: "apps/v1",
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: stack.Spec.Replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: limitLabels(stack.Labels, selectorLabels),
+			},
+			Template: newPodTemplateFromStack(stack),
+		},
+	}
+}
+
+func newServiceFromStack(servicePorts []v1.ServicePort, stack zv1.Stack, deployment *appsv1.Deployment) *v1.Service {
+	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      stack.Name,
+			Namespace: stack.Namespace,
+			Labels:    mapCopy(stack.Labels),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: deployment.APIVersion,
+					Kind:       deployment.Kind,
+					Name:       deployment.Name,
+					UID:        deployment.UID,
+				},
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Selector: limitLabels(stack.Labels, selectorLabels),
+			Type:     v1.ServiceTypeClusterIP,
+			Ports:    servicePorts,
+		},
+	}
 }

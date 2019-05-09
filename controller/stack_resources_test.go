@@ -4,8 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zalando-incubator/stackset-controller/controller/keys"
-	"github.com/zalando-incubator/stackset-controller/controller/utils"
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/apps/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -17,8 +16,8 @@ func TestNewDeploymentFromStack(t *testing.T) {
 	stack := zv1.Stack{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"application":             "all-fun",
-				keys.StackVersionLabelKey: "v2",
+				"application":                 "all-fun",
+				entities.StackVersionLabelKey: "v2",
 			},
 		},
 		Spec: zv1.StackSpec{
@@ -31,7 +30,7 @@ func TestNewDeploymentFromStack(t *testing.T) {
 			},
 		},
 	}
-	deployment := utils.NewDeploymentFromStack(stack)
+	deployment := newDeploymentFromStack(stack)
 	require.Equal(t, stack.Name, deployment.Name,
 		"newDeploymentFromStack should copy name")
 	require.Equal(t, stack.Labels, deployment.Labels,
@@ -39,7 +38,7 @@ func TestNewDeploymentFromStack(t *testing.T) {
 	require.Equal(t, stack.Labels, deployment.Spec.Template.Labels,
 		"newDeploymentFromStack should copy pod template labels")
 	require.Equal(t,
-		map[string]string{keys.StackVersionLabelKey: "v2"}, deployment.Spec.Selector.MatchLabels,
+		map[string]string{entities.StackVersionLabelKey: "v2"}, deployment.Spec.Selector.MatchLabels,
 		"newDeploymentFromStack should copy selector labels in MatchLabels")
 }
 
@@ -60,23 +59,23 @@ func newDummyStackWithGeneration(generation int64) zv1.Stack {
 }
 
 func newDummyGenerationAnnotations(generation string) map[string]string {
-	return map[string]string{keys.StackGenerationAnnotationKey: generation}
+	return map[string]string{entities.StackGenerationAnnotationKey: generation}
 }
 
 func TestAssignResourceOwnershipToStack(t *testing.T) {
 	t.Run("add annotation to an object with nil Annotations", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(nil)
-		utils.SetStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
 		require.Equal(t, newDummyGenerationAnnotations("7"), service.Annotations)
 	})
 	t.Run("add annotation to an object with empty Annotations", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(make(map[string]string))
-		utils.SetStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
 		require.Equal(t, newDummyGenerationAnnotations("7"), service.Annotations)
 	})
 	t.Run("overwrite existing stack generation annotation on an object", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("1"))
-		utils.SetStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
 		require.Equal(t, newDummyGenerationAnnotations("2"), service.Annotations)
 	})
 	t.Run("unrelated annotations are not changed", func(t *testing.T) {
@@ -84,7 +83,7 @@ func TestAssignResourceOwnershipToStack(t *testing.T) {
 		actualAnnotations["other"] = "unchanged"
 		service := newDummyServiceWithAnnotations(actualAnnotations)
 
-		utils.SetStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
+		setStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
 
 		expectedAnnotations := newDummyGenerationAnnotations("2")
 		expectedAnnotations["other"] = "unchanged"
@@ -92,7 +91,7 @@ func TestAssignResourceOwnershipToStack(t *testing.T) {
 	})
 	t.Run("works on deployments too", func(t *testing.T) {
 		deployment := v1beta1.Deployment{}
-		utils.SetStackGenerationOnResource(newDummyStackWithGeneration(3), &deployment)
+		setStackGenerationOnResource(newDummyStackWithGeneration(3), &deployment)
 		require.Equal(t, newDummyGenerationAnnotations("3"), deployment.Annotations)
 	})
 }
@@ -100,21 +99,21 @@ func TestAssignResourceOwnershipToStack(t *testing.T) {
 func TestGetStackGeneration(t *testing.T) {
 	t.Run("returns 0 without generation annotation", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(nil)
-		require.Equal(t, int64(0), utils.GetStackGeneration(service.ObjectMeta))
+		require.Equal(t, int64(0), getStackGeneration(service.ObjectMeta))
 	})
 	t.Run("returns 0 with a non-integer generation", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("hi"))
-		require.Equal(t, int64(0), utils.GetStackGeneration(service.ObjectMeta))
+		require.Equal(t, int64(0), getStackGeneration(service.ObjectMeta))
 	})
 	t.Run("returns the decoded generation", func(t *testing.T) {
 		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("192"))
-		require.Equal(t, int64(192), utils.GetStackGeneration(service.ObjectMeta))
+		require.Equal(t, int64(192), getStackGeneration(service.ObjectMeta))
 	})
 }
 
 func TestUpdateServiceSpecFromStack(t *testing.T) {
 	t.Run("error when called with a nil service", func(t *testing.T) {
-		require.Error(t, utils.UpdateServiceSpecFromStack(nil, zv1.Stack{}, nil))
+		require.Error(t, updateServiceSpecFromStack(nil, zv1.Stack{}, nil))
 	})
 	t.Run("error when backend port doesn't match service ports", func(t *testing.T) {
 		service := v1.Service{
@@ -123,7 +122,7 @@ func TestUpdateServiceSpecFromStack(t *testing.T) {
 			},
 		}
 		backendPort := intstr.FromInt(987)
-		require.Error(t, utils.UpdateServiceSpecFromStack(
+		require.Error(t, updateServiceSpecFromStack(
 			&service,
 			newDummyStackWithGeneration(0),
 			&backendPort,
@@ -142,7 +141,7 @@ func TestUpdateServiceSpecFromStack(t *testing.T) {
 			},
 		}
 
-		err := utils.UpdateServiceSpecFromStack(&service, stack, nil)
+		err := updateServiceSpecFromStack(&service, stack, nil)
 
 		require.Nilf(t, err, "updateServiceSpecFromStack should not return an error")
 		require.Equal(t, map[string]string{"a": "b", "cd": "ef"}, service.Labels)

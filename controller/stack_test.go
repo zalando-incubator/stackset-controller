@@ -1,4 +1,4 @@
-package utils_test
+package controller
 
 import (
 	"errors"
@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zalando-incubator/stackset-controller/controller/utils"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -218,7 +217,7 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
-			ports, err := utils.GetServicePorts(ti.backendPort, ti.stack)
+			ports, err := getServicePorts(ti.backendPort, ti.stack)
 			if ti.err != nil {
 				require.Error(t, err)
 			} else {
@@ -239,7 +238,7 @@ func TestTemplateInjectLabels(t *testing.T) {
 		},
 	}
 
-	newTemplate := utils.TemplateInjectLabels(template, labels)
+	newTemplate := templateInjectLabels(template, labels)
 	assert.Equal(t, expectedTemplate, newTemplate)
 }
 
@@ -253,5 +252,5 @@ func TestLimitLabels(t *testing.T) {
 		"foo": struct{}{},
 	}
 
-	assert.Len(t, utils.LimitLabels(labels, validKeys), 1)
+	assert.Len(t, limitLabels(labels, validKeys), 1)
 }

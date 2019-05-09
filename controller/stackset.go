@@ -13,7 +13,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller/entities"
-	"github.com/zalando-incubator/stackset-controller/controller/keys"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
@@ -222,7 +221,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*entities.StackSe
 		}
 
 		// use prescaling logic if enabled with an annotation
-		if _, ok := stackset.Annotations[keys.PrescaleStacksAnnotationKey]; ok {
+		if _, ok := stackset.Annotations[entities.PrescaleStacksAnnotationKey]; ok {
 			resetDelay := DefaultResetMinReplicasDelay
 			if resetDelayValue, ok := getResetMinReplicasDelay(stackset.Annotations); ok {
 				resetDelay = resetDelayValue
@@ -425,7 +424,7 @@ func getOwnerUID(objectMeta metav1.ObjectMeta) (types.UID, bool) {
 // "" and there's no annotation set.
 func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 	if stackset.Annotations != nil {
-		if owner, ok := stackset.Annotations[keys.StacksetControllerControllerAnnotationKey]; ok {
+		if owner, ok := stackset.Annotations[entities.StacksetControllerControllerAnnotationKey]; ok {
 			return owner == c.controllerID
 		}
 	}
@@ -657,7 +656,7 @@ func generateStackName(stackset zv1.StackSet, version string) string {
 func (c *StackSetController) ReconcileStack(ssc entities.StackSetContainer) error {
 	stackset := ssc.StackSet
 	heritageLabels := map[string]string{
-		keys.StacksetHeritageLabelKey: stackset.Name,
+		entities.StacksetHeritageLabelKey: stackset.Name,
 	}
 	observedStackVersion := stackset.Status.ObservedStackVersion
 	stackVersion := currentStackVersion(stackset)
@@ -676,7 +675,7 @@ func (c *StackSetController) ReconcileStack(ssc entities.StackSetContainer) erro
 	stackLabels := mergeLabels(
 		heritageLabels,
 		stackset.Labels,
-		map[string]string{keys.StackVersionLabelKey: stackVersion},
+		map[string]string{entities.StackVersionLabelKey: stackVersion},
 	)
 
 	if stack == nil && observedStackVersion != stackVersion {
@@ -746,7 +745,7 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 // getResetMinReplicasDelay parses and returns the reset delay if set in the
 // stackset annotation.
 func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, bool) {
-	resetDelayStr, ok := annotations[keys.ResetHPAMinReplicasDelayAnnotationKey]
+	resetDelayStr, ok := annotations[entities.ResetHPAMinReplicasDelayAnnotationKey]
 	if !ok {
 		return 0, false
 	}
@@ -758,7 +757,7 @@ func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, boo
 }
 
 func getStackSetGeneration(metadata metav1.ObjectMeta) int64 {
-	if g, ok := metadata.Annotations[keys.StacksetGenerationAnnotationKey]; ok {
+	if g, ok := metadata.Annotations[entities.StacksetGenerationAnnotationKey]; ok {
 		generation, err := strconv.ParseInt(g, 10, 64)
 		if err != nil {
 			return 0

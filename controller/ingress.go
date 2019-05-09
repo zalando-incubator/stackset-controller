@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller/entities"
-	"github.com/zalando-incubator/stackset-controller/controller/keys"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	apiv1 "k8s.io/api/core/v1"
@@ -345,7 +344,7 @@ func (c *ingressReconciler) ingressForStack(stackset *zv1.StackSet, stack *zv1.S
 func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, origIngress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
 	stackset := &ssc.StackSet
 	heritageLabels := map[string]string{
-		keys.StacksetHeritageLabelKey: stackset.Name,
+		entities.StacksetHeritageLabelKey: stackset.Name,
 	}
 
 	labels := mergeLabels(

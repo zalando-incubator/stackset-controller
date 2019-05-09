@@ -1,4 +1,4 @@
-package keys
+package entities
 
 const (
 	StackGenerationAnnotationKey              = "stackset-controller.zalando.org/stack-generation"
