@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	stacksetfake "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 
@@ -21,12 +22,12 @@ import (
 func TestGetStacksToGC(tt *testing.T) {
 	for _, tc := range []struct {
 		name              string
-		stackSetContainer StackSetContainer
+		stackSetContainer entities.StackSetContainer
 		expectedNum       int
 	}{
 		{
 			name: "test GC oldest stack",
-			stackSetContainer: StackSetContainer{
+			stackSetContainer: entities.StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
 						Ingress: &zv1.StackSetIngressSpec{
@@ -37,7 +38,7 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					types.UID("uid"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
@@ -66,7 +67,7 @@ func TestGetStacksToGC(tt *testing.T) {
 		},
 		{
 			name: "test GC oldest stack (without ingress defined)",
-			stackSetContainer: StackSetContainer{
+			stackSetContainer: entities.StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
 						StackLifecycle: zv1.StackLifecycle{
@@ -74,7 +75,7 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					types.UID("uid"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
@@ -97,7 +98,7 @@ func TestGetStacksToGC(tt *testing.T) {
 		},
 		{
 			name: "test don't GC stacks when all are getting traffic",
-			stackSetContainer: StackSetContainer{
+			stackSetContainer: entities.StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
 						Ingress: &zv1.StackSetIngressSpec{
@@ -108,7 +109,7 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					types.UID("uid"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
@@ -132,16 +133,16 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				Traffic: map[string]TrafficStatus{
-					"stack1": TrafficStatus{ActualWeight: 50},
-					"stack2": TrafficStatus{ActualWeight: 50},
+				Traffic: map[string]entities.TrafficStatus{
+					"stack1": entities.TrafficStatus{ActualWeight: 50},
+					"stack2": entities.TrafficStatus{ActualWeight: 50},
 				},
 			},
 			expectedNum: 0,
 		},
 		{
 			name: "test don't GC stacks when there are less than limit",
-			stackSetContainer: StackSetContainer{
+			stackSetContainer: entities.StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
 						Ingress: &zv1.StackSetIngressSpec{
@@ -152,7 +153,7 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					types.UID("uid"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
@@ -176,16 +177,16 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				Traffic: map[string]TrafficStatus{
-					"stack1": TrafficStatus{ActualWeight: 0},
-					"stack2": TrafficStatus{ActualWeight: 0},
+				Traffic: map[string]entities.TrafficStatus{
+					"stack1": entities.TrafficStatus{ActualWeight: 0},
+					"stack2": entities.TrafficStatus{ActualWeight: 0},
 				},
 			},
 			expectedNum: 0,
 		},
 		{
 			name: "test stacks with traffic don't count against limit",
-			stackSetContainer: StackSetContainer{
+			stackSetContainer: entities.StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
 						Ingress: &zv1.StackSetIngressSpec{
@@ -196,7 +197,7 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					types.UID("uid"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
@@ -231,17 +232,17 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				Traffic: map[string]TrafficStatus{
-					"stack1": TrafficStatus{ActualWeight: 100},
-					"stack2": TrafficStatus{ActualWeight: 0},
-					"stack3": TrafficStatus{ActualWeight: 0},
+				Traffic: map[string]entities.TrafficStatus{
+					"stack1": entities.TrafficStatus{ActualWeight: 100},
+					"stack2": entities.TrafficStatus{ActualWeight: 0},
+					"stack3": entities.TrafficStatus{ActualWeight: 0},
 				},
 			},
 			expectedNum: 0,
 		},
 		{
 			name: "test not GC'ing a stack with no-traffic-since less than ScaledownTTLSeconds",
-			stackSetContainer: StackSetContainer{
+			stackSetContainer: entities.StackSetContainer{
 				StackSet: zv1.StackSet{
 					Spec: zv1.StackSetSpec{
 						Ingress: &zv1.StackSetIngressSpec{
@@ -253,7 +254,7 @@ func TestGetStacksToGC(tt *testing.T) {
 						},
 					},
 				},
-				StackContainers: map[types.UID]*StackContainer{
+				StackContainers: map[types.UID]*entities.StackContainer{
 					types.UID("uid"): {
 						Stack: zv1.Stack{
 							ObjectMeta: metav1.ObjectMeta{
@@ -312,8 +313,8 @@ func TestSetStackSetDefaults(t *testing.T) {
 }
 
 func TestStacks(t *testing.T) {
-	sc := StackSetContainer{
-		StackContainers: map[types.UID]*StackContainer{
+	sc := entities.StackSetContainer{
+		StackContainers: map[types.UID]*entities.StackContainer{
 			types.UID("uid"): {
 				Stack: zv1.Stack{},
 			},
@@ -324,7 +325,7 @@ func TestStacks(t *testing.T) {
 
 func TestScaledownTTL(t *testing.T) {
 	scaledownTTL := defaultScaledownTTLSeconds
-	sc := StackSetContainer{
+	sc := entities.StackSetContainer{
 		StackSet: zv1.StackSet{
 			Spec: zv1.StackSetSpec{
 				StackLifecycle: zv1.StackLifecycle{
@@ -438,7 +439,7 @@ func TestStackSetController_ReconcileStackCreate(t *testing.T) {
 	fakeClient := clientset.NewClientset(kubeClient, ssClient)
 	controller := NewStackSetController(fakeClient, "test-controller", time.Second)
 	ss := generateStackSet("stack", "test", "01", 10, 20)
-	ssc := StackSetContainer{StackSet: ss}
+	ssc := entities.StackSetContainer{StackSet: ss}
 	err := controller.ReconcileStack(ssc)
 	assert.NoError(t, err, "error reconciling stack")
 	stackName := generateStackName(ss, "01")

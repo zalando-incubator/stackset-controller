@@ -4,6 +4,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
@@ -23,7 +24,7 @@ type PrescaleTrafficReconciler struct {
 // ReconcileDeployment calculates the number of replicas required when prescaling is active. If there is no associated
 // HPA then the replicas of the deployment are increased directly. Finally once traffic switching is complete the
 // prescaling status is set to false
-func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*StackContainer, stack *zv1.Stack, traffic map[string]TrafficStatus, deployment *appsv1.Deployment) error {
+func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*entities.StackContainer, stack *zv1.Stack, traffic map[string]entities.TrafficStatus, deployment *appsv1.Deployment) error {
 	// If traffic needs to be increased
 	if traffic != nil && traffic[stack.Name].DesiredWeight > 0 && traffic[stack.Name].ActualWeight < traffic[stack.Name].DesiredWeight {
 		// If prescaling is not active then calculate the replicas required
@@ -95,7 +96,7 @@ func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscal
 //   weights.
 // * If no stacks are getting traffic fall back to desired weight without
 //   checking health.
-func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*StackContainer, ingress *v1beta1.Ingress, traffic map[string]TrafficStatus) (map[string]float64, map[string]float64) {
+func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64) {
 	backendWeights := make(map[string]float64, len(stacks))
 	currentWeights := make(map[string]float64, len(stacks))
 	availableBackends := make(map[string]float64, len(stacks))

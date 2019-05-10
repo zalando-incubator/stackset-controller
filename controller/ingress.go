@@ -9,14 +9,14 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	log "github.com/sirupsen/logrus"
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	apiv1 "k8s.io/api/core/v1"
-	v1beta1 "k8s.io/api/extensions/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	kube_record "k8s.io/client-go/tools/record"
 )
 
@@ -38,12 +38,12 @@ type ingressReconciler struct {
 }
 
 // ReconcileIngress brings Ingresses of a StackSet to the desired state.
-func (c *StackSetController) ReconcileIngress(sc StackSetContainer) error {
+func (c *StackSetController) ReconcileIngress(sc entities.StackSetContainer) error {
 	ir := c.newIngressReconciler(sc)
 	return ir.reconcile(sc)
 }
 
-func (c *StackSetController) newIngressReconciler(sc StackSetContainer) *ingressReconciler {
+func (c *StackSetController) newIngressReconciler(sc entities.StackSetContainer) *ingressReconciler {
 	return &ingressReconciler{
 		logger: c.logger.WithFields(
 			log.Fields{
@@ -57,7 +57,7 @@ func (c *StackSetController) newIngressReconciler(sc StackSetContainer) *ingress
 	}
 }
 
-func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
+func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 	stacks := sc.Stacks()
 
 	// cleanup Ingress if ingress is disabled.
@@ -163,38 +163,6 @@ func (c *ingressReconciler) reconcile(sc StackSetContainer) error {
 	}
 
 	return nil
-}
-
-type stackStatus struct {
-	Stack     zv1.Stack
-	Available bool
-}
-
-func getStackStatuses(stacks map[types.UID]*StackContainer) []stackStatus {
-	statuses := make([]stackStatus, 0, len(stacks))
-	for _, stack := range stacks {
-		status := stackStatus{
-			Stack: stack.Stack,
-		}
-
-		// check that service has at least one endpoint, otherwise it
-		// should not get traffic.
-		endpoints := stack.Resources.Endpoints
-		if endpoints == nil {
-			status.Available = false
-		} else {
-			readyEndpoints := 0
-			for _, subset := range endpoints.Subsets {
-				readyEndpoints += len(subset.Addresses)
-			}
-
-			status.Available = readyEndpoints > 0
-		}
-
-		statuses = append(statuses, status)
-	}
-
-	return statuses
 }
 
 func (c *ingressReconciler) stackIngress(stackset zv1.StackSet, stack zv1.Stack) error {
@@ -373,10 +341,10 @@ func (c *ingressReconciler) ingressForStack(stackset *zv1.StackSet, stack *zv1.S
 }
 
 // ingressForStackSet
-func (c *ingressReconciler) ingressForStackSet(ssc StackSetContainer, origIngress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
+func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, origIngress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
 	stackset := &ssc.StackSet
 	heritageLabels := map[string]string{
-		stacksetHeritageLabelKey: stackset.Name,
+		entities.StacksetHeritageLabelKey: stackset.Name,
 	}
 
 	labels := mergeLabels(

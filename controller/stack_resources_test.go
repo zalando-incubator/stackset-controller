@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/apps/v1beta1"
 	v1 "k8s.io/api/core/v1"
@@ -15,8 +16,8 @@ func TestNewDeploymentFromStack(t *testing.T) {
 	stack := zv1.Stack{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				"application":        "all-fun",
-				stackVersionLabelKey: "v2",
+				"application":                 "all-fun",
+				entities.StackVersionLabelKey: "v2",
 			},
 		},
 		Spec: zv1.StackSpec{
@@ -37,7 +38,7 @@ func TestNewDeploymentFromStack(t *testing.T) {
 	require.Equal(t, stack.Labels, deployment.Spec.Template.Labels,
 		"newDeploymentFromStack should copy pod template labels")
 	require.Equal(t,
-		map[string]string{stackVersionLabelKey: "v2"}, deployment.Spec.Selector.MatchLabels,
+		map[string]string{entities.StackVersionLabelKey: "v2"}, deployment.Spec.Selector.MatchLabels,
 		"newDeploymentFromStack should copy selector labels in MatchLabels")
 }
 
@@ -58,7 +59,7 @@ func newDummyStackWithGeneration(generation int64) zv1.Stack {
 }
 
 func newDummyGenerationAnnotations(generation string) map[string]string {
-	return map[string]string{stackGenerationAnnotationKey: generation}
+	return map[string]string{entities.StackGenerationAnnotationKey: generation}
 }
 
 func TestAssignResourceOwnershipToStack(t *testing.T) {
