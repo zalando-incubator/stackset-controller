@@ -1179,14 +1179,14 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		},
 		{
 			msg: "test two prescaled stacks one is ready and one is not with both receiving traffic",
-			stacks: map[types.UID]*StackContainer{
+			stacks: map[types.UID]*entities.StackContainer{
 				types.UID("1"): {
 					Stack: zv1.Stack{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "svc-1",
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name:        "svc-1",
@@ -1204,7 +1204,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-2",
@@ -1227,7 +1227,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
 						},
 					},
-					Resources: StackResources{
+					Resources: entities.StackResources{
 						Deployment: &appsv1.Deployment{
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "svc-3",
@@ -1242,7 +1242,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 					},
 				},
 			},
-			traffic: map[string]TrafficStatus{
+			traffic: map[string]entities.TrafficStatus{
 				"svc-1": {
 					ActualWeight:  0.0,
 					DesiredWeight: 0.0,
@@ -1270,7 +1270,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
 			trafficReconciler := PrescaleTrafficReconciler{}
-			availableWeights, allWeights := trafficReconciler.ReconcileIngress(ti.stacks, ti.traffic)
+			availableWeights, allWeights := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
 			require.Equal(t, ti.expectedAvailableWeights, availableWeights)
 			require.Equal(t, ti.expectedAllWeights, allWeights)
 		})
