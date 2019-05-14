@@ -1167,7 +1167,9 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			expectedAvailableWeights: map[string]float64{
+				"svc-1": 0.0,
 				"svc-2": 100.0,
+				"svc-3": 0.0,
 			},
 			expectedAllWeights: map[string]float64{
 				"svc-1": 0.0,
@@ -1255,6 +1257,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			expectedAvailableWeights: map[string]float64{
+				"svc-1": 0.0,
 				"svc-2": 50.0,
 				"svc-3": 50.0,
 			},

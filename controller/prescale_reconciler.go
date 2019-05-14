@@ -100,6 +100,7 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 	backendWeights := make(map[string]float64, len(stacks))
 	currentWeights := make(map[string]float64, len(stacks))
 	availableBackends := make(map[string]float64, len(stacks))
+	var notReadyBackends int32
 	for _, stack := range stacks {
 		backendWeights[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
 		currentWeights[stack.Stack.Name] = traffic[stack.Stack.Name].ActualWeight
@@ -109,14 +110,17 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 		// prescale if stack is currently less than desired traffic
 		if traffic[stack.Stack.Name].ActualWeight < traffic[stack.Stack.Name].DesiredWeight && deployment != nil {
 			if stack.Stack.Status.Prescaling.Active {
-				var desired int32 = 1
+				var actualReplicas int32 = 1
+				desiredReplicas := stack.Stack.Status.Prescaling.Replicas
 				if deployment.Spec.Replicas != nil {
-					desired = *deployment.Spec.Replicas
+					actualReplicas = *deployment.Spec.Replicas
 				}
 
-				if desired >= stack.Stack.Status.Prescaling.Replicas &&
-					deployment.Status.ReadyReplicas >= stack.Stack.Status.Prescaling.Replicas {
+				if actualReplicas >= desiredReplicas &&
+					deployment.Status.ReadyReplicas >= desiredReplicas {
 					availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
+				} else {
+					notReadyBackends++
 				}
 			}
 			continue
@@ -133,7 +137,7 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 		normalizeWeights(backendWeights)
 	}
 
-	if len(availableBackends) == 0 {
+	if len(availableBackends) == 0 || notReadyBackends > 0 {
 		availableBackends = currentWeights
 	}
 
