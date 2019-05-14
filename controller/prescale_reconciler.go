@@ -137,6 +137,7 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 		normalizeWeights(backendWeights)
 	}
 
+	// don't switch traffic (return currentWeights as is) if 1 or more backends aren't ready yet
 	if len(availableBackends) == 0 || notReadyBackends > 0 {
 		availableBackends = currentWeights
 	}
