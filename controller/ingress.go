@@ -385,6 +385,10 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 		},
 	}
 
+	if ingress.Annotations == nil {
+		ingress.Annotations = map[string]string{}
+	}
+
 	// insert annotations
 	for k, v := range stackset.Spec.Ingress.Annotations {
 		ingress.Annotations[k] = v
