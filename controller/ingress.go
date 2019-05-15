@@ -116,13 +116,25 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 		if err == errNoPaths {
 			return nil
 		}
+
+		var reason string
+		var message string
+
+		switch e := err.(type) {
+		case trafficSwitchingError:
+			reason = "TrafficNotSwitched"
+			message = "Traffic for StackSet %s/%s not switched: " + e.Error()
+		default:
+			reason = "GenerateIngress"
+			message = "Failed to generate Ingress for StackSet %s/%s: " + e.Error()
+		}
+
 		c.recorder.Eventf(&sc.StackSet,
 			apiv1.EventTypeWarning,
-			"GenerateIngress",
-			"Failed to generate Ingress for StackSet %s/%s: %v",
+			reason,
+			message,
 			sc.StackSet.Namespace,
 			sc.StackSet.Name,
-			err,
 		)
 		return err
 	}
@@ -410,7 +422,10 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 
 func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingress *v1beta1.Ingress) error {
 	stackset := &ssc.StackSet
-	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
+	availableWeights, allWeights, err := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
+	if err != nil {
+		return err
+	}
 
 	rule := v1beta1.IngressRule{
 		IngressRuleValue: v1beta1.IngressRuleValue{

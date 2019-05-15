@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -19,6 +20,14 @@ const (
 
 type PrescaleTrafficReconciler struct {
 	ResetHPAMinReplicasTimeout time.Duration
+}
+
+type trafficSwitchingError struct {
+	err string
+}
+
+func (t trafficSwitchingError) Error() string {
+	return t.err
 }
 
 // ReconcileDeployment calculates the number of replicas required when prescaling is active. If there is no associated
@@ -96,7 +105,7 @@ func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscal
 //   weights.
 // * If no stacks are getting traffic fall back to desired weight without
 //   checking health.
-func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64) {
+func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64, error) {
 	backendWeights := make(map[string]float64, len(stacks))
 	currentWeights := make(map[string]float64, len(stacks))
 	availableBackends := make(map[string]float64, len(stacks))
@@ -144,5 +153,11 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 
 	normalizeWeights(availableBackends)
 
-	return availableBackends, backendWeights
+	var err trafficSwitchingError
+	if notReadyBackends > 0 {
+		msg := fmt.Sprintf("%d stacks are not ready yet", notReadyBackends)
+		err = trafficSwitchingError{err: msg}
+	}
+
+	return availableBackends, backendWeights, err
 }

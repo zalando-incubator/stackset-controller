@@ -1270,7 +1270,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
 			trafficReconciler := PrescaleTrafficReconciler{}
-			availableWeights, allWeights := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
+			availableWeights, allWeights, _ := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
 			require.Equal(t, ti.expectedAvailableWeights, availableWeights)
 			require.Equal(t, ti.expectedAllWeights, allWeights)
 		})

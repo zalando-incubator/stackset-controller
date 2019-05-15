@@ -27,9 +27,10 @@ func (r SimpleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscaling
 }
 
 // ReconcileIngress computes the ingress traffic to distribute to stacks.
-func (r SimpleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64) {
+func (r SimpleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64, error) {
 	stackStatuses := entities.GetStackStatuses(stacks)
-	return computeBackendWeights(stackStatuses, traffic)
+	availableBackends, allBackends := computeBackendWeights(stackStatuses, traffic)
+	return availableBackends, allBackends, nil
 }
 
 func computeBackendWeights(stacks []entities.StackStatus, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64) {
