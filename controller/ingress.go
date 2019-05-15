@@ -100,6 +100,19 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 
 	ingress, err := c.ingressForStackSet(sc, sc.Ingress)
 	if err != nil {
+		c.recorder.Eventf(&sc.StackSet,
+			apiv1.EventTypeWarning,
+			"GenerateIngress",
+			"Failed to generate Ingress for StackSet %s/%s: %v",
+			sc.StackSet.Namespace,
+			sc.StackSet.Name,
+			err,
+		)
+		return err
+	}
+
+	err = trafficSwitchingAnnotationsForIngress(sc, ingress)
+	if err != nil {
 		if err == errNoPaths {
 			return nil
 		}
@@ -372,6 +385,10 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 		},
 	}
 
+	if ingress.Annotations == nil {
+		ingress.Annotations = map[string]string{}
+	}
+
 	// insert annotations
 	for k, v := range stackset.Spec.Ingress.Annotations {
 		ingress.Annotations[k] = v
@@ -388,6 +405,13 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 		ingress.ResourceVersion = origIngress.ResourceVersion
 	}
 
+	return ingress, nil
+}
+
+func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingress *v1beta1.Ingress) error {
+	stackset := &ssc.StackSet
+	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
+
 	rule := v1beta1.IngressRule{
 		IngressRuleValue: v1beta1.IngressRuleValue{
 			HTTP: &v1beta1.HTTPIngressRuleValue{
@@ -395,8 +419,6 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 			},
 		},
 	}
-
-	availableWeights, allWeights := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
 
 	for backend, traffic := range availableWeights {
 		if traffic > 0 {
@@ -412,7 +434,7 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 	}
 
 	if len(rule.IngressRuleValue.HTTP.Paths) == 0 {
-		return nil, errNoPaths
+		return errNoPaths
 	}
 
 	// sort backends by name to have a consistent generated ingress
@@ -430,12 +452,12 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 
 	availableWeightsData, err := json.Marshal(&availableWeights)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	allWeightsData, err := json.Marshal(&allWeights)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if ingress.Annotations == nil {
@@ -445,7 +467,7 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 	ingress.Annotations[backendWeightsAnnotationKey] = string(availableWeightsData)
 	ingress.Annotations[stackTrafficWeightsAnnotationKey] = string(allWeightsData)
 
-	return ingress, nil
+	return nil
 }
 
 // allZero returns true if all weights defined in the map are 0.
