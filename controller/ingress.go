@@ -100,6 +100,19 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 
 	ingress, err := c.ingressForStackSet(sc, sc.Ingress)
 	if err != nil {
+		c.recorder.Eventf(&sc.StackSet,
+			apiv1.EventTypeWarning,
+			"GenerateIngress",
+			"Failed to generate Ingress for StackSet %s/%s: %v",
+			sc.StackSet.Namespace,
+			sc.StackSet.Name,
+			err,
+		)
+		return err
+	}
+
+	err = trafficSwitchingAnnotationsForIngress(sc, ingress)
+	if err != nil {
 		if err == errNoPaths {
 			return nil
 		}
@@ -113,8 +126,6 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 		)
 		return err
 	}
-
-	err = trafficSwitchingAnnotationsForIngress(sc, ingress)
 
 	if sc.Ingress == nil {
 		_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
@@ -390,10 +401,6 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 		ingress.ResourceVersion = origIngress.ResourceVersion
 	}
 
-	if ingress.Annotations == nil {
-		ingress.Annotations = map[string]string{}
-	}
-
 	return ingress, nil
 }
 
@@ -447,6 +454,10 @@ func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingre
 	allWeightsData, err := json.Marshal(&allWeights)
 	if err != nil {
 		return err
+	}
+
+	if ingress.Annotations == nil {
+		ingress.Annotations = map[string]string{}
 	}
 
 	ingress.Annotations[backendWeightsAnnotationKey] = string(availableWeightsData)
