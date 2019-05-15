@@ -768,6 +768,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		traffic                  map[string]entities.TrafficStatus
 		expectedAvailableWeights map[string]float64
 		expectedAllWeights       map[string]float64
+		err                      error
 	}{
 		{
 			msg: "stacks without active prescaling status should not get desired traffic if it was already 0",
@@ -1176,6 +1177,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				"svc-2": 50.0,
 				"svc-3": 50.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 		{
 			msg: "test two prescaled stacks one is ready and one is not with both receiving traffic",
@@ -1266,11 +1268,13 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				"svc-2": 30.0,
 				"svc-3": 70.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
 			trafficReconciler := PrescaleTrafficReconciler{}
-			availableWeights, allWeights, _ := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
+			availableWeights, allWeights, err := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
+			require.Error(t, err)
 			require.Equal(t, ti.expectedAvailableWeights, availableWeights)
 			require.Equal(t, ti.expectedAllWeights, allWeights)
 		})
