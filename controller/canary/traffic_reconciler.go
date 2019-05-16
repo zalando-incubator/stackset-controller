@@ -31,7 +31,6 @@ func NewTrafficReconcilerReal(
 	rec record.EventRecorder,
 	logger logrus.FieldLogger,
 ) *TrafficReconciler {
-
 	return &TrafficReconciler{
 		baseReconciler: base,
 		checker:        annotationChecker{},
@@ -131,7 +130,7 @@ func (r *TrafficReconciler) ReconcileIngress(
 	return r.baseReconciler.ReconcileIngress(stacks, ingress, traffic)
 }
 
-// ReconcileStacks creates baseline and manages Green lifecycle via annotations.
+// ReconcileStacks creates Baseline and manages Green lifecycle via annotations.
 func (r *TrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) error {
 	logger := r.env.Logger.WithField(
 		"stackset",
@@ -149,8 +148,10 @@ func (r *TrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) err
 			}
 			continue
 		}
-		logger = logger.WithField("blue", d.blue.Name)
-		logger = logger.WithField("desiredSwitchPeriod", d.desiredSwitchDuration)
+		logger = logger.WithFields(logrus.Fields{
+			"blue":                d.blue.Name,
+			"desiredSwitchPeriod": d.desiredSwitchDuration,
+		})
 
 		if d.baseline == nil {
 			if err := createBaseline(r.env.WithLogger(logger), *d, &ssc.StackSet); err != nil {
@@ -272,8 +273,7 @@ func createBaseline(env Env, d tsInput, set *zv1.StackSet) error {
 	if err != nil {
 		return err
 	}
-	d.green.Annotations[baselineAnnotationKey] = baseline.Name
-	_, err = env.Client.UpdateStack(set, d.green.Stack, "add baseline annotation")
+	_, err = env.SetAnnotation(set, baseline, baselineAnnotationKey, baselineName)
 	if err != nil {
 		e := env.Client.RemoveStack(set, baseline.Name, "failed to update green annotations")
 		env.Logger.Errorf("failed to clean up aborted baseline stack: %s", e)
