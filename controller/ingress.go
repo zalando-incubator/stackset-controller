@@ -117,7 +117,7 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 			return nil
 		}
 
-		switch e := err.(type) {
+		switch err.(type) {
 		case trafficSwitchingError:
 			c.recorder.Eventf(&sc.StackSet,
 				apiv1.EventTypeWarning,
@@ -125,7 +125,7 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 				"Traffic for StackSet %s/%s not switched: %v",
 				sc.StackSet.Namespace,
 				sc.StackSet.Name,
-				e,
+				err,
 			)
 		default:
 			c.recorder.Eventf(&sc.StackSet,
@@ -134,7 +134,7 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 				"Failed to generate Ingress for StackSet %s/%s: %v",
 				sc.StackSet.Namespace,
 				sc.StackSet.Name,
-				e,
+				err,
 			)
 			return err
 		}
