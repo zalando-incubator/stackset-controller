@@ -117,26 +117,28 @@ func (c *ingressReconciler) reconcile(sc entities.StackSetContainer) error {
 			return nil
 		}
 
-		var reason string
-		var message string
-
 		switch e := err.(type) {
 		case trafficSwitchingError:
-			reason = "TrafficNotSwitched"
-			message = "Traffic for StackSet %s/%s not switched: " + e.Error()
+			c.recorder.Eventf(&sc.StackSet,
+				apiv1.EventTypeWarning,
+				"TrafficNotSwitched",
+				"Traffic for StackSet %s/%s not switched: %v",
+				sc.StackSet.Namespace,
+				sc.StackSet.Name,
+				e,
+			)
 		default:
-			reason = "GenerateIngress"
-			message = "Failed to generate Ingress for StackSet %s/%s: " + e.Error()
+			c.recorder.Eventf(&sc.StackSet,
+				apiv1.EventTypeWarning,
+				"GenerateIngress",
+				"Failed to generate Ingress for StackSet %s/%s: %v",
+				sc.StackSet.Namespace,
+				sc.StackSet.Name,
+				e,
+			)
+			return err
 		}
 
-		c.recorder.Eventf(&sc.StackSet,
-			apiv1.EventTypeWarning,
-			reason,
-			message,
-			sc.StackSet.Namespace,
-			sc.StackSet.Name,
-		)
-		return err
 	}
 
 	if sc.Ingress == nil {
@@ -422,10 +424,7 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 
 func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingress *v1beta1.Ingress) error {
 	stackset := &ssc.StackSet
-	availableWeights, allWeights, err := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
-	if err != nil {
-		return err
-	}
+	availableWeights, allWeights, trafficSwitchingErr := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
 
 	rule := v1beta1.IngressRule{
 		IngressRuleValue: v1beta1.IngressRuleValue{
@@ -482,7 +481,7 @@ func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingre
 	ingress.Annotations[backendWeightsAnnotationKey] = string(availableWeightsData)
 	ingress.Annotations[stackTrafficWeightsAnnotationKey] = string(allWeightsData)
 
-	return nil
+	return trafficSwitchingErr
 }
 
 // allZero returns true if all weights defined in the map are 0.
