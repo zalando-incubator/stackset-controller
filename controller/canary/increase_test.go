@@ -50,8 +50,8 @@ func Test_Phase1(t *testing.T) {
 		"C",
 		*percent.NewFromInt(45),
 		*percent.NewFromInt(100),
-		2 * 60 * 1000 * time.Millisecond,
-		1 * 60 * 1000 * time.Millisecond,
+		2*60*1000*time.Millisecond,
+		1*60*1000*time.Millisecond,
 	)
 
 	assert.Equal(t, expectedMap, newTraffic)
