@@ -86,6 +86,12 @@ func (p *Percent) Is100() bool {
 // X < 0 if p < q, X == 0 if p == q, and X > 0 if p > q.
 // It panics if either p or q have an error.
 func (p *Percent) Cmp(q *Percent) int {
+	if p.err != nil {
+		panic(fmt.Sprintf("can't call Cmp on invalid Percent: %v", p.err))
+	}
+	if q.err != nil {
+		panic(fmt.Sprintf("can't call Cmp on invalid Percent: %v", q.err))
+	}
 	return p.val - q.val
 }
 
