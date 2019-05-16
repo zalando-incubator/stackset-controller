@@ -481,7 +481,10 @@ func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingre
 	ingress.Annotations[backendWeightsAnnotationKey] = string(availableWeightsData)
 	ingress.Annotations[stackTrafficWeightsAnnotationKey] = string(allWeightsData)
 
-	return trafficSwitchingErr
+	if trafficSwitchingErr != nil {
+		return trafficSwitchingErr
+	}
+	return nil
 }
 
 // allZero returns true if all weights defined in the map are 0.

@@ -153,11 +153,11 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 
 	normalizeWeights(availableBackends)
 
-	var err trafficSwitchingError
 	if notReadyBackends > 0 {
 		msg := fmt.Sprintf("%d stacks are not ready yet", notReadyBackends)
-		err = trafficSwitchingError{err: msg}
+		err := trafficSwitchingError{err: msg}
+		return availableBackends, backendWeights, err
 	}
 
-	return availableBackends, backendWeights, err
+	return availableBackends, backendWeights, nil
 }
