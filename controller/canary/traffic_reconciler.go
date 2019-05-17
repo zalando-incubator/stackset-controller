@@ -91,7 +91,7 @@ func (r *TrafficReconciler) ReconcileIngress(
 	stacks map[types.UID]*entities.StackContainer,
 	ingress *v1beta1.Ingress,
 	traffic map[string]entities.TrafficStatus,
-) (map[string]float64, map[string]float64) {
+) (map[string]float64, map[string]float64, error) {
 	for greenName, greenState := range r.greenStates {
 		var err error
 		switch greenState.ingressAction {

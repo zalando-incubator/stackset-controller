@@ -32,6 +32,33 @@ func Test_Unchanged_GreenTraffic(t *testing.T) {
 
 func Test_Phase1(t *testing.T) {
 	trafficMap := TrafficMap{
+		"A": entities.NewTrafficStatusSame(20),
+		"B": entities.NewTrafficStatusSame(40),
+		"C": entities.NewTrafficStatusSame(40),
+	}
+
+	expectedMap := TrafficMap{
+		"A": entities.NewTrafficStatus(20, 80),
+		"B": entities.NewTrafficStatus(40, 10),
+		"C": entities.NewTrafficStatus(40, 10),
+	}
+
+	newTraffic, _ := increaseTraffic(
+		trafficMap,
+		"A",
+		"B",
+		"C",
+		*percent.NewFromInt(40),
+		*percent.NewFromInt(100),
+		10*60*1000*time.Millisecond,
+		1*60*1000*time.Millisecond,
+	)
+
+	assert.Equal(t, expectedMap, newTraffic)
+}
+
+func Test_Phase2(t *testing.T) {
+	trafficMap := TrafficMap{
 		"A": entities.NewTrafficStatusSame(0),
 		"B": entities.NewTrafficStatusSame(55),
 		"C": entities.NewTrafficStatusSame(45),
