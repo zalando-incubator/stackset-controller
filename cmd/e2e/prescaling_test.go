@@ -226,3 +226,78 @@ func TestPrescalingPreventDelete(t *testing.T) {
 		time.Sleep(15 * time.Second)
 	}
 }
+
+func TestPrescalingWaitsForBackends(t *testing.T) {
+	// Create 3 stacks with traffic 0.0, 50.0 & 50.0
+	// Switch traffic to be 0.0, 30, 70.0
+	// Verify that actual traffic changes correctly
+
+	t.Parallel()
+	stacksetName := "stackset-prescale-backends-wait"
+	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 0).Replicas(3)
+
+	// create stack with 3 replicas
+	firstStack := "v1"
+	spec := specFactory.Create(firstStack)
+	err := createStackSet(stacksetName, 1, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, firstStack)
+	require.NoError(t, err)
+
+	// create second stack with 3 replicas
+	secondStack := "v2"
+	spec = specFactory.Create(secondStack)
+	err = updateStackset(stacksetName, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, secondStack)
+	require.NoError(t, err)
+
+	// create third stack with 3 replicas
+	thirdStack := "v3"
+	spec = specFactory.Create(thirdStack)
+	err = updateStackset(stacksetName, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, thirdStack)
+	require.NoError(t, err)
+
+	_, err = waitForIngress(t, stacksetName)
+	require.NoError(t, err)
+
+	// switch traffic so that all three stacks are receiving 0%, 50% & 50% traffic and verify traffic has actually switched
+	fullFirstStack := fmt.Sprintf("%s-%s", stacksetName, firstStack)
+	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, secondStack)
+	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, thirdStack)
+
+	desiredTraffic := map[string]float64{
+		fullFirstStack:  50,
+		fullSecondStack: 50,
+		fullThirdStack:  0,
+	}
+	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	require.NoError(t, err)
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	require.NoError(t, err)
+
+	// switch traffic so that all three stacks are receiving 0%, 30% & 70% traffic respectively
+	desiredTraffic = map[string]float64{
+		fullFirstStack:  0,
+		fullSecondStack: 30,
+		fullThirdStack:  70,
+	}
+	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	require.NoError(t, err)
+
+	// Verify that a single traffic never gets 100% of the traffic
+	unDesiredTraffic := map[string]float64{
+		fullFirstStack:  0,
+		fullSecondStack: 100,
+		fullThirdStack:  0,
+	}
+
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, unDesiredTraffic).withTimeout(time.Minute * 4).await()
+
+	require.Error(t, err, "A single stack got a 100% of the traffic")
+
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	require.NoError(t, err)
+}

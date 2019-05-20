@@ -43,13 +43,13 @@ zkubectl create ns $controllerId
 env E2E_NAMESPACE=$controllerId \
     CONTROLLER_ID=$controllerId \
     KUBECONFIG=$HOME/.kube/config \
-    build/e2e -test.v -test.parallel 64 || true
+    build/e2e -test.v -test.run TestPrescalingWaitsForBackends || true
 
 # Delete the test namespace.
-zkubectl delete ns $controllerId
+#zkubectl delete ns $controllerId
 
 # Kill all background jobs.
 echo "Jobs to kill:"
 jobs
-pkill stackset-controller
-pkill -f kubectl
+#pkill stackset-controller
+#pkill -f kubectl
