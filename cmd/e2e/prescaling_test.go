@@ -269,9 +269,9 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, thirdStack)
 
 	desiredTraffic := map[string]float64{
-		fullFirstStack:  50,
+		fullFirstStack:  0,
 		fullSecondStack: 50,
-		fullThirdStack:  0,
+		fullThirdStack:  50,
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
