@@ -40,7 +40,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// create third stack with only 1 replica and wait for the deployment to be created
@@ -61,7 +61,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// recheck the deployment of the last stack and verify that the number of replicas is the sum of the previous stacks
@@ -111,7 +111,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// create a third stack with only one replica and verify the deployment has only one pod
@@ -133,7 +133,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// verify that the third stack now has 6 replicas till the end of the prescaling period
@@ -183,7 +183,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTrafficMap)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap).withTimeout(2 * time.Minute).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
 	require.NoError(t, err)
 
 	// update stackset with third version
@@ -202,7 +202,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTrafficMap)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap).withTimeout(2 * time.Minute).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
 	require.NoError(t, err)
 
 	// verify that all stack deployments are still present and their prescaling is active
@@ -275,7 +275,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// switch traffic so that all three stacks are receiving 0%, 30% & 70% traffic respectively
@@ -287,6 +287,8 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
 
+	//TODO: instead of doing this add a func to trafficWeightsUpdated that takes an optional function and fails
+	// immediately if the func returns an error
 	// Verify that a single traffic never gets 100% of the traffic
 	unDesiredTraffic := map[string]float64{
 		fullFirstStack:  0,
@@ -294,10 +296,10 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 		fullThirdStack:  0,
 	}
 
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, unDesiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, unDesiredTraffic, nil).withTimeout(time.Minute * 4).await()
 
 	require.Error(t, err, "A single stack got a 100% of the traffic")
 
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 }

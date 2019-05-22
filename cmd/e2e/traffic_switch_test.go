@@ -29,7 +29,7 @@ func TestTrafficSwitch(t *testing.T) {
 	require.NoError(t, err)
 
 	initialWeights := map[string]float64{firstStack: 100}
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, initialWeights).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, initialWeights, nil).await()
 	require.NoError(t, err)
 
 	err = stackStatusMatches(t, firstStack, expectedStackStatus{
@@ -47,7 +47,7 @@ func TestTrafficSwitch(t *testing.T) {
 	desiredWeights := map[string]float64{firstStack: 50, updatedStack: 50}
 	err = setDesiredTrafficWeights(stacksetName, desiredWeights)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredWeights).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredWeights, nil).await()
 	require.NoError(t, err)
 
 	err = stackStatusMatches(t, firstStack, expectedStackStatus{
@@ -65,7 +65,7 @@ func TestTrafficSwitch(t *testing.T) {
 	newDesiredWeights := map[string]float64{updatedStack: 100}
 	err = setDesiredTrafficWeights(stacksetName, newDesiredWeights)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, newDesiredWeights).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, newDesiredWeights, nil).await()
 	require.NoError(t, err)
 
 	err = stackStatusMatches(t, firstStack, expectedStackStatus{

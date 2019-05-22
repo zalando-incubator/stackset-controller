@@ -155,7 +155,7 @@ func removeZeroWeights(weights map[string]float64) {
 	}
 }
 
-func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64) *awaiter {
+func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64, asserter func(map[string]float64) error) *awaiter {
 	removeZeroWeights(expectedWeights)
 	return newAwaiter(t, fmt.Sprintf("update of traffic weights in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
 		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
@@ -165,6 +165,14 @@ func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, ex
 
 		actualWeights := ingressTrafficWeights(ingress, kind)
 		removeZeroWeights(actualWeights)
+
+		if asserter != nil {
+			err = asserter(actualWeights)
+			if err != nil {
+				return false, err
+			}
+		}
+
 		if !reflect.DeepEqual(actualWeights, expectedWeights) {
 			return true, fmt.Errorf("%s: weights %v != expected %v", ingressName, actualWeights, expectedWeights)
 		}
