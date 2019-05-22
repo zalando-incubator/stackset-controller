@@ -119,7 +119,7 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 		// prescale if stack is currently less than desired traffic
 		if traffic[stack.Stack.Name].ActualWeight < traffic[stack.Stack.Name].DesiredWeight && deployment != nil {
 			var actualReplicas int32 = 1
-			var desiredReplicas int32 = 1
+			var desiredReplicas int32
 			if deployment.Spec.Replicas != nil {
 				actualReplicas = *deployment.Spec.Replicas
 			}
