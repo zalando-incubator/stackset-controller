@@ -118,21 +118,25 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 
 		// prescale if stack is currently less than desired traffic
 		if traffic[stack.Stack.Name].ActualWeight < traffic[stack.Stack.Name].DesiredWeight && deployment != nil {
-			if stack.Stack.Status.Prescaling.Active {
-				var actualReplicas int32 = 1
-				desiredReplicas := stack.Stack.Status.Prescaling.Replicas
-				if deployment.Spec.Replicas != nil {
-					actualReplicas = *deployment.Spec.Replicas
-				}
-
-				if actualReplicas >= desiredReplicas &&
-					deployment.Status.ReadyReplicas >= desiredReplicas {
-					availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
-				} else {
-					notReadyBackends++
-				}
+			var actualReplicas int32 = 1
+			var desiredReplicas int32 = 1
+			if deployment.Spec.Replicas != nil {
+				actualReplicas = *deployment.Spec.Replicas
 			}
-			continue
+
+			if stack.Stack.Status.Prescaling.Active {
+				desiredReplicas = stack.Stack.Status.Prescaling.Replicas
+			} else {
+				// When if prescaling is inactive the deployment.Spec.Replicas is the desired replicas count
+				desiredReplicas = actualReplicas
+			}
+
+			if actualReplicas >= desiredReplicas &&
+				deployment.Status.ReadyReplicas >= desiredReplicas {
+				availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
+			} else {
+				notReadyBackends++
+			}
 		} else if traffic[stack.Stack.Name].ActualWeight > 0 && traffic[stack.Stack.Name].DesiredWeight > 0 {
 			availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
 		}

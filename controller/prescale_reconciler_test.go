@@ -845,6 +845,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				"svc-2": 0.0,
 				"svc-3": 100.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 		{
 			msg: "Prescaled stack should get desired traffic",
@@ -1007,6 +1008,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				"svc-2": 0.0,
 				"svc-3": 100.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 		{
 			msg: "Prescaled stack with actual traffic should not loose traffic if not all replicas are ready",
@@ -1327,7 +1329,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 								Name: "svc-3",
 							},
 							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{117}[0],
+								Replicas: &[]int32{10}[0],
 							},
 							Status: appsv1.DeploymentStatus{
 								ReadyReplicas: 10,
@@ -1417,10 +1419,10 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 								Name: "svc-3",
 							},
 							Spec: appsv1.DeploymentSpec{
-								Replicas: &[]int32{117}[0],
+								Replicas: &[]int32{10}[0],
 							},
 							Status: appsv1.DeploymentStatus{
-								ReadyReplicas: 10,
+								ReadyReplicas: 9,
 							},
 						},
 					},
@@ -1442,14 +1444,16 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			expectedAvailableWeights: map[string]float64{
-				"svc-2": 30.0,
-				"svc-3": 70.0,
+				"svc-1": 0.0,
+				"svc-2": 50.0,
+				"svc-3": 50.0,
 			},
 			expectedAllWeights: map[string]float64{
 				"svc-1": 0.0,
 				"svc-2": 30.0,
 				"svc-3": 70.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
@@ -1461,6 +1465,8 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 			// Check err later because the weights returned still matter
 			if ti.err != nil {
 				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 
 		})
