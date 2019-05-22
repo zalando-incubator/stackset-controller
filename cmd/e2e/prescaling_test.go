@@ -287,19 +287,22 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
 
-	//TODO: instead of doing this add a func to trafficWeightsUpdated that takes an optional function and fails
-	// immediately if the func returns an error
-	// Verify that a single traffic never gets 100% of the traffic
-	unDesiredTraffic := map[string]float64{
-		fullFirstStack:  0,
-		fullSecondStack: 100,
-		fullThirdStack:  0,
-	}
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, func(actualTraffic map[string]float64) error {
+		// err out if the traffic for any of the stacks is outside of the expected range
+		if actualTraffic[fullFirstStack] > 0 {
+			return fmt.Errorf("%v traffic not exactly %v", actualTraffic[fullFirstStack], 0)
+		}
 
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, unDesiredTraffic, nil).withTimeout(time.Minute * 4).await()
+		if actualTraffic[fullSecondStack] > 50 || actualTraffic[fullSecondStack] < 30 {
+			return fmt.Errorf("%v traffic not between %v and %v", actualTraffic[fullSecondStack], 30, 50)
+		}
 
-	require.Error(t, err, "A single stack got a 100% of the traffic")
+		if actualTraffic[fullThirdStack] > 70 || actualTraffic[fullThirdStack] < 50 {
+			return fmt.Errorf("%v traffic not between %v and %v", actualTraffic[fullThirdStack], 50, 70)
+		}
 
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
+		return nil
+
+	}).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 }
