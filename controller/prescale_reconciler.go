@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -19,6 +20,14 @@ const (
 
 type PrescaleTrafficReconciler struct {
 	ResetHPAMinReplicasTimeout time.Duration
+}
+
+type trafficSwitchingError struct {
+	err string
+}
+
+func (t trafficSwitchingError) Error() string {
+	return t.err
 }
 
 // ReconcileDeployment calculates the number of replicas required when prescaling is active. If there is no associated
@@ -96,10 +105,11 @@ func (r *PrescaleTrafficReconciler) ReconcileHPA(stack *zv1.Stack, hpa *autoscal
 //   weights.
 // * If no stacks are getting traffic fall back to desired weight without
 //   checking health.
-func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64) {
+func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entities.StackContainer, ingress *v1beta1.Ingress, traffic map[string]entities.TrafficStatus) (map[string]float64, map[string]float64, error) {
 	backendWeights := make(map[string]float64, len(stacks))
 	currentWeights := make(map[string]float64, len(stacks))
 	availableBackends := make(map[string]float64, len(stacks))
+	var notReadyBackends int32
 	for _, stack := range stacks {
 		backendWeights[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
 		currentWeights[stack.Stack.Name] = traffic[stack.Stack.Name].ActualWeight
@@ -108,18 +118,25 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 
 		// prescale if stack is currently less than desired traffic
 		if traffic[stack.Stack.Name].ActualWeight < traffic[stack.Stack.Name].DesiredWeight && deployment != nil {
-			if stack.Stack.Status.Prescaling.Active {
-				var desired int32 = 1
-				if deployment.Spec.Replicas != nil {
-					desired = *deployment.Spec.Replicas
-				}
-
-				if desired >= stack.Stack.Status.Prescaling.Replicas &&
-					deployment.Status.ReadyReplicas >= stack.Stack.Status.Prescaling.Replicas {
-					availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
-				}
+			var actualReplicas int32 = 1
+			var desiredReplicas int32
+			if deployment.Spec.Replicas != nil {
+				actualReplicas = *deployment.Spec.Replicas
 			}
-			continue
+
+			if stack.Stack.Status.Prescaling.Active {
+				desiredReplicas = stack.Stack.Status.Prescaling.Replicas
+			} else {
+				// When if prescaling is inactive the deployment.Spec.Replicas is the desired replicas count
+				desiredReplicas = actualReplicas
+			}
+
+			if actualReplicas >= desiredReplicas &&
+				deployment.Status.ReadyReplicas >= desiredReplicas {
+				availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
+			} else {
+				notReadyBackends++
+			}
 		} else if traffic[stack.Stack.Name].ActualWeight > 0 && traffic[stack.Stack.Name].DesiredWeight > 0 {
 			availableBackends[stack.Stack.Name] = traffic[stack.Stack.Name].DesiredWeight
 		}
@@ -133,11 +150,18 @@ func (r *PrescaleTrafficReconciler) ReconcileIngress(stacks map[types.UID]*entit
 		normalizeWeights(backendWeights)
 	}
 
-	if len(availableBackends) == 0 {
+	// don't switch traffic (return currentWeights as is) if 1 or more backends aren't ready yet
+	if len(availableBackends) == 0 || notReadyBackends > 0 {
 		availableBackends = currentWeights
 	}
 
 	normalizeWeights(availableBackends)
 
-	return availableBackends, backendWeights
+	if notReadyBackends > 0 {
+		msg := fmt.Sprintf("%d stacks are not ready yet", notReadyBackends)
+		err := trafficSwitchingError{err: msg}
+		return availableBackends, backendWeights, err
+	}
+
+	return availableBackends, backendWeights, nil
 }
