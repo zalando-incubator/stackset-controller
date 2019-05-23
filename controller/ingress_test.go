@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	fakeController "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	scController "github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/reconciler"
 	"k8s.io/api/extensions/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,14 +27,14 @@ func TestReconcileIngress(t *testing.T) {
 
 	for _, tc := range []struct {
 		msg string
-		in  entities.StackSetContainer
+		in  core.StackSetContainer
 		out int
 	}{
 		{
 			msg: "Test an Ingress is created if specified in the StackSet",
-			in: entities.StackSetContainer{
+			in: core.StackSetContainer{
 				TrafficReconciler: SimpleTrafficReconciler{},
-				StackContainers: map[types.UID]*entities.StackContainer{
+				StackContainers: map[types.UID]*core.StackContainer{
 					"test": {},
 				},
 				StackSet: zv1.StackSet{
@@ -58,7 +58,7 @@ func TestReconcileIngress(t *testing.T) {
 		},
 		{ // TODO: Test that per stack ingresses were also cleaned up
 			msg: "Test Ingress gets deleted if not defined in StackSet Spec",
-			in: entities.StackSetContainer{
+			in: core.StackSetContainer{
 				TrafficReconciler: SimpleTrafficReconciler{},
 				Ingress:           &v1beta1.Ingress{},
 			},
@@ -66,9 +66,9 @@ func TestReconcileIngress(t *testing.T) {
 		},
 		{
 			msg: "Test that if an Ingress Spec is updated, the Ingress will also be updated",
-			in: entities.StackSetContainer{
+			in: core.StackSetContainer{
 				TrafficReconciler: SimpleTrafficReconciler{},
-				StackContainers: map[types.UID]*entities.StackContainer{
+				StackContainers: map[types.UID]*core.StackContainer{
 					"test": {},
 				},
 				StackSet: zv1.StackSet{
@@ -123,7 +123,7 @@ func TestReconcileIngress(t *testing.T) {
 				tc.in.Ingress = stackIngress
 			}
 
-			err := controller.ReconcileIngress(tc.in)
+			err := controller.ReconcileStackSetIngress(tc.in)
 
 			require.NoError(t, err)
 			ingressList, err := controller.client.ExtensionsV1beta1().Ingresses(tc.in.StackSet.Namespace).List(v1.ListOptions{})

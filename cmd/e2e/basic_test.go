@@ -131,6 +131,13 @@ func (f *TestStacksetSpecFactory) Autoscaler(minReplicas, maxReplicas int32, met
 	return f
 }
 
+func replicas(value *int32) int32 {
+	if value == nil {
+		return -1
+	}
+	return *value
+}
+
 func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec zv1.StackSetSpec) {
 	stackResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName, stackVersionLabelKey: currentVersion}
 
@@ -144,7 +151,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	deployment, err := waitForDeployment(t, stack.Name)
 	require.NoError(t, err)
 	require.EqualValues(t, stackResourceLabels, deployment.Labels)
-	require.EqualValues(t, deployment.Spec.Replicas, stack.Spec.Replicas)
+	require.EqualValues(t, replicas(deployment.Spec.Replicas), replicas(stack.Spec.Replicas))
 	require.EqualValues(t, stackResourceLabels, deployment.Spec.Template.Labels)
 
 	// Verify service
@@ -166,7 +173,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		hpa, err := waitForHPA(t, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, hpa.Labels)
-		require.EqualValues(t, stacksetSpec.StackTemplate.Spec.Replicas, hpa.Spec.MinReplicas)
+		require.EqualValues(t, replicas(stacksetSpec.StackTemplate.Spec.Replicas), replicas(hpa.Spec.MinReplicas))
 		require.EqualValues(t, stacksetSpec.StackTemplate.Spec.HorizontalPodAutoscaler.MaxReplicas, hpa.Spec.MaxReplicas)
 		expectedRef := autoscalingv2.CrossVersionObjectReference{
 			Kind:       "Deployment",

@@ -24,6 +24,8 @@ func TestTrafficSwitch(t *testing.T) {
 	spec = factory.Create(updatedVersion)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, updatedVersion)
+	require.NoError(t, err)
 
 	_, err = waitForIngress(t, stacksetName)
 	require.NoError(t, err)

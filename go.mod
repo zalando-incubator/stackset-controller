@@ -29,7 +29,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_golang v0.8.0
 	github.com/prometheus/client_model v0.0.0-20180712105110-5c3871d89910 // indirect
-	github.com/prometheus/common v0.0.0-20180801064454-c7de2306084e // indirect
+	github.com/prometheus/common v0.0.0-20180801064454-c7de2306084e
 	github.com/prometheus/procfs v0.0.0-20180725123919-05ee40e3a273 // indirect
 	github.com/sirupsen/logrus v1.0.6
 	github.com/spf13/pflag v1.0.2 // indirect
@@ -47,5 +47,8 @@ require (
 	k8s.io/api v0.0.0-20181004124137-fd83cbc87e76
 	k8s.io/apimachinery v0.0.0-20180913025736-6dd46049f395
 	k8s.io/client-go v9.0.0+incompatible
+	k8s.io/code-generator v0.0.0-20181128191024-b1289fc74931 // indirect
+	k8s.io/gengo v0.0.0-20190327210449-e17681d19d3a // indirect
+	k8s.io/klog v0.3.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30 // indirect
 )

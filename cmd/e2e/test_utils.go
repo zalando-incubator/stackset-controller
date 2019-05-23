@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zalando-incubator/stackset-controller/controller/entities"
+	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
@@ -23,6 +23,7 @@ type weightKind string
 
 const (
 	defaultWaitTimeout = 30 * time.Second
+	trafficSwitchWaitTimeout = 60 * time.Second
 
 	stacksetHeritageLabelKey = "stackset"
 	stackVersionLabelKey     = "stack-version"
@@ -60,9 +61,9 @@ var (
 							Scheme: corev1.URISchemeHTTP,
 						},
 					},
-					InitialDelaySeconds: 10,
+					InitialDelaySeconds: 5,
 					TimeoutSeconds:      5,
-					PeriodSeconds:       5,
+					PeriodSeconds:       3,
 					SuccessThreshold:    3,
 					FailureThreshold:    3,
 				},
@@ -157,6 +158,10 @@ func removeZeroWeights(weights map[string]float64) {
 
 func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64) *awaiter {
 	removeZeroWeights(expectedWeights)
+	timeout := defaultWaitTimeout
+	if kind == weightKindActual {
+		timeout = trafficSwitchWaitTimeout
+	}
 	return newAwaiter(t, fmt.Sprintf("update of traffic weights in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
 		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
 		if err != nil {
@@ -169,7 +174,7 @@ func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, ex
 			return true, fmt.Errorf("%s: weights %v != expected %v", ingressName, actualWeights, expectedWeights)
 		}
 		return false, nil
-	})
+	}).withTimeout(timeout)
 }
 
 type expectedStackStatus struct {
@@ -238,12 +243,12 @@ func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 		Name:      name,
 		Namespace: namespace,
 		Annotations: map[string]string{
-			entities.StacksetControllerControllerAnnotationKey: controllerId,
+			controller.StacksetControllerControllerAnnotationKey: controllerId,
 		},
 	}
 	if prescalingTimeout > 0 {
-		meta.Annotations[entities.PrescaleStacksAnnotationKey] = "yes"
-		meta.Annotations[entities.ResetHPAMinReplicasDelayAnnotationKey] = fmt.Sprintf("%dm", prescalingTimeout)
+		meta.Annotations[controller.PrescaleStacksAnnotationKey] = "yes"
+		meta.Annotations[controller.ResetHPAMinReplicasDelayAnnotationKey] = fmt.Sprintf("%dm", prescalingTimeout)
 	}
 	return meta
 }

@@ -7,14 +7,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/reconciler"
 	"k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func generateSSAutoscalerStub(minReplicas, maxReplicas int32) entities.StackSetContainer {
-	container := entities.StackSetContainer{
+func generateSSAutoscalerStub(minReplicas, maxReplicas int32) core.StackSetContainer {
+	container := core.StackSetContainer{
 		StackSet: zv1.StackSet{
 			Spec: zv1.StackSetSpec{
 				StackTemplate: zv1.StackTemplate{
@@ -34,7 +35,7 @@ func generateSSAutoscalerStub(minReplicas, maxReplicas int32) entities.StackSetC
 	return container
 }
 
-func generateSSAutoscalerCPU(minReplicas, maxReplicas, utilization int32) entities.StackSetContainer {
+func generateSSAutoscalerCPU(minReplicas, maxReplicas, utilization int32) core.StackSetContainer {
 	container := generateSSAutoscalerStub(minReplicas, maxReplicas)
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
 		container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
@@ -44,7 +45,7 @@ func generateSSAutoscalerCPU(minReplicas, maxReplicas, utilization int32) entiti
 	return container
 }
 
-func generateSSAutoscalerMemory(minReplicas, maxReplicas, utilization int32) entities.StackSetContainer {
+func generateSSAutoscalerMemory(minReplicas, maxReplicas, utilization int32) core.StackSetContainer {
 	container := generateSSAutoscalerStub(minReplicas, maxReplicas)
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
 		container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
@@ -53,7 +54,7 @@ func generateSSAutoscalerMemory(minReplicas, maxReplicas, utilization int32) ent
 		})
 	return container
 }
-func generateSSAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueName, queueRegion string) entities.StackSetContainer {
+func generateSSAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueName, queueRegion string) core.StackSetContainer {
 	container := generateSSAutoscalerStub(minReplicas, maxReplicas)
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
 		container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
@@ -68,7 +69,7 @@ func generateSSAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueN
 	return container
 }
 
-func generateSSAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int32, name, path, key string) entities.StackSetContainer {
+func generateSSAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int32, name, path, key string) core.StackSetContainer {
 	container := generateSSAutoscalerStub(minReplicas, maxReplicas)
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
 		container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
@@ -84,7 +85,7 @@ func generateSSAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int
 	)
 	return container
 }
-func generateSSAutoscalerIngress(minReplicas, maxReplicas, utilization int32) entities.StackSetContainer {
+func generateSSAutoscalerIngress(minReplicas, maxReplicas, utilization int32) core.StackSetContainer {
 	container := generateSSAutoscalerStub(minReplicas, maxReplicas)
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = append(
 		container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
@@ -98,7 +99,7 @@ func generateSSAutoscalerIngress(minReplicas, maxReplicas, utilization int32) en
 func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	ssc := generateSSAutoscalerCPU(1, 10, 80)
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &entities.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
+	sc := &reconciler.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -115,7 +116,7 @@ func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
 	ssc := generateSSAutoscalerMemory(1, 10, 80)
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &entities.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
+	sc := &reconciler.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -131,7 +132,7 @@ func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
 	ssc := generateSSAutoscalerSQS(1, 10, 80, "test-queue", "test-region")
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &entities.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
+	sc := &reconciler.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -150,7 +151,7 @@ func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersPodJson(t *testing.T) {
 	ssc := generateSSAutoscalerPodJson(1, 10, 80, 8080, "current-load", "/metrics", "$.current-load.counter")
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &entities.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
+	sc := &reconciler.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err, "failed to reconcile autoscaler")
 	hpa := sc.Stack.Spec.HorizontalPodAutoscaler
@@ -169,7 +170,7 @@ func TestStackSetController_ReconcileAutoscalersPodJson(t *testing.T) {
 func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
 	ssc := generateSSAutoscalerIngress(1, 10, 80)
 	reconciler := NewAutoscalerReconciler(ssc)
-	sc := &entities.StackContainer{Stack: zv1.Stack{
+	sc := &reconciler.StackContainer{Stack: zv1.Stack{
 		Spec:       zv1.StackSpec{Autoscaler: ssc.StackSet.Spec.StackTemplate.Spec.Autoscaler},
 		ObjectMeta: metav1.ObjectMeta{Name: "test-stack"}},
 	}
@@ -259,7 +260,7 @@ func TestSortingMetrics(t *testing.T) {
 	}
 	container.StackSet.Spec.StackTemplate.Spec.Autoscaler.Metrics = metrics
 	reconciler := NewAutoscalerReconciler(container)
-	sc := &entities.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: container.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
+	sc := &reconciler.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{Autoscaler: container.StackSet.Spec.StackTemplate.Spec.Autoscaler}}}
 	err := reconciler.Reconcile(sc)
 	assert.NoError(t, err)
 	assert.Len(t, sc.Stack.Spec.Autoscaler.Metrics, 4)
@@ -274,7 +275,7 @@ func pint32(val int) *int32 {
 }
 
 func TestAutoscalerReconciler_ReconcileWithHPA(t *testing.T) {
-	ssc := entities.StackSetContainer{}
+	ssc := core.StackSetContainer{}
 	reconciler := NewAutoscalerReconciler(ssc)
 	sc := &entities.StackContainer{Stack: zv1.Stack{Spec: zv1.StackSpec{
 		Autoscaler:              &zv1.Autoscaler{MinReplicas: &[]int32{10}[0], MaxReplicas: 10},

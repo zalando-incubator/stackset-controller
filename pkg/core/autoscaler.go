@@ -1,11 +1,10 @@
-package controller
+package core
 
 import (
 	"fmt"
 	"sort"
 	"strconv"
 
-	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
@@ -13,19 +12,19 @@ import (
 )
 
 const (
-	AmazonSQSMetricName   = "AmazonSQS"
-	PodJSONMetricName     = "PodJSON"
-	IngressMetricName     = "Ingress"
-	CPUMetricName         = "CPU"
-	MemoryMetricName      = "Memory"
-	ZMONMetricName        = "ZMON"
+	amazonSQSMetricName   = "AmazonSQS"
+	podJSONMetricName     = "PodJSON"
+	ingressMetricName     = "Ingress"
+	cpuMetricName         = "CPU"
+	memoryMetricName      = "Memory"
+	zmonMetricName        = "ZMON"
 	requestsPerSecondName = "requests-per-second"
 	metricConfigJSONPath  = "metric-config.pods.%s.json-path/path"
 	metricConfigJSONKey   = "metric-config.pods.%s.json-path/json-key"
 	metricConfigJSONPort  = "metric-config.pods.%s.json-path/port"
-	SQSQueueLengthTag     = "sqs-queue-length"
-	SQSQueueNameTag       = "queue-name"
-	SQSQueueRegionTag     = "region"
+	sqsQueueLengthTag     = "sqs-queue-length"
+	sqsQueueNameTag       = "queue-name"
+	sqsQueueRegionTag     = "region"
 )
 
 type MetricsList []autoscaling.MetricSpec
@@ -44,82 +43,47 @@ func (l MetricsList) Less(i, j int) bool {
 	return l[i].Type < l[j].Type
 }
 
-type AutoscalerReconciler struct {
-	ssc entities.StackSetContainer
-}
+func convertCustomMetrics(stacksetName, stackName string, metrics []zv1.AutoscalerMetrics) ([]autoscaling.MetricSpec, map[string]string, error) {
+	var resultMetrics MetricsList
+	resultAnnotations := make(map[string]string)
 
-func NewAutoscalerReconciler(ssc entities.StackSetContainer) *AutoscalerReconciler {
-	return &AutoscalerReconciler{ssc: ssc}
-}
-
-func (c *AutoscalerReconciler) Reconcile(sc *entities.StackContainer) error {
-
-	if sc.Stack.Spec.HorizontalPodAutoscaler != nil {
-		return nil
-	}
-
-	autoscaler := sc.Stack.Spec.Autoscaler
-	stacksetName := c.ssc.StackSet.Name
-	stackName := sc.Stack.Name
-
-	if autoscaler != nil {
-		var generatedHPA zv1.HorizontalPodAutoscaler
-		generatedHPA.Annotations = nil
-		generatedHPA.MinReplicas = autoscaler.MinReplicas
-		generatedHPA.MaxReplicas = autoscaler.MaxReplicas
-		generatedHPA.Metrics = make([]autoscaling.MetricSpec, len(autoscaler.Metrics))
-
-		for i, m := range autoscaler.Metrics {
-			var (
-				generated *autoscaling.MetricSpec
-				err       error
-			)
-			switch m.Type {
-			case AmazonSQSMetricName:
-				generated, err = SQSMetric(m)
-				if err != nil {
-					return err
-				}
-			case PodJSONMetricName:
-				g, annotations, err := PodJsonMetric(m)
-				if err != nil {
-					return err
-				}
-				generatedHPA.Annotations = make(map[string]string)
-				for k, v := range annotations {
-					generatedHPA.Annotations[k] = v
-				}
-				generated = g
-			case IngressMetricName:
-				generated, err = IngressMetric(m, stacksetName, stackName)
-				if err != nil {
-					return err
-				}
-			case ZMONMetricName:
-				return fmt.Errorf("not implemented metric type: %s", ZMONMetricName)
-			case CPUMetricName:
-				generated, err = CPUMetric(m)
-				if err != nil {
-					return err
-				}
-			case MemoryMetricName:
-				generated, err = MemoryMetric(m)
-				if err != nil {
-					return err
-				}
-			default:
-				return fmt.Errorf("metric type %s not supported", m.Type)
-			}
-
-			generatedHPA.Metrics[i] = *generated
+	for _, m := range metrics {
+		var (
+			generated   *autoscaling.MetricSpec
+			annotations map[string]string
+			err         error
+		)
+		switch m.Type {
+		case amazonSQSMetricName:
+			generated, err = sqsMetric(m)
+		case podJSONMetricName:
+			generated, annotations, err = podJsonMetric(m)
+		case ingressMetricName:
+			generated, err = ingressMetric(m, stacksetName, stackName)
+		case zmonMetricName:
+			err = fmt.Errorf("not implemented metric type: %s", zmonMetricName)
+		case cpuMetricName:
+			generated, err = cpuMetric(m)
+		case memoryMetricName:
+			generated, err = memoryMetric(m)
+		default:
+			err = fmt.Errorf("metric type %s not supported", m.Type)
 		}
-		sc.Stack.Spec.HorizontalPodAutoscaler = &generatedHPA
-		sort.Sort(MetricsList(generatedHPA.Metrics))
+
+		if err != nil {
+			return nil, nil, err
+		}
+		resultMetrics = append(resultMetrics, *generated)
+		for k, v := range annotations {
+			resultAnnotations[k] = v
+		}
 	}
-	return nil
+
+	sort.Sort(resultMetrics)
+	return resultMetrics, resultAnnotations, nil
 }
 
-func MemoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
+func memoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	if metrics.AverageUtilization == nil {
 		return nil, fmt.Errorf("utilization is not specified")
 	}
@@ -133,7 +97,7 @@ func MemoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error
 	return generated, nil
 }
 
-func CPUMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
+func cpuMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	if metrics.AverageUtilization == nil {
 		return nil, fmt.Errorf("utilization is not specified")
 	}
@@ -147,7 +111,7 @@ func CPUMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	return generated, nil
 }
 
-func SQSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
+func sqsMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	if metrics.Average == nil {
 		return nil, fmt.Errorf("average not specified")
 	}
@@ -158,9 +122,9 @@ func SQSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
-			MetricName: SQSQueueLengthTag,
+			MetricName: sqsQueueLengthTag,
 			MetricSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{SQSQueueNameTag: metrics.Queue.Name, SQSQueueRegionTag: metrics.Queue.Region},
+				MatchLabels: map[string]string{sqsQueueNameTag: metrics.Queue.Name, sqsQueueRegionTag: metrics.Queue.Region},
 			},
 			TargetAverageValue: &average,
 		},
@@ -168,7 +132,7 @@ func SQSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	return generated, nil
 }
 
-func PodJsonMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[string]string, error) {
+func podJsonMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[string]string, error) {
 	if metrics.Average == nil {
 		return nil, nil, fmt.Errorf("average is not specified for metric")
 	}
@@ -189,7 +153,8 @@ func PodJsonMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[
 	}
 	return generated, annotations, nil
 }
-func IngressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName string) (*autoscaling.MetricSpec, error) {
+
+func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName string) (*autoscaling.MetricSpec, error) {
 	if metrics.Average == nil {
 		return nil, fmt.Errorf("average value not specified for metric")
 	}

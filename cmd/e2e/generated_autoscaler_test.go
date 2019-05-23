@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/autoscaling/v2beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -13,14 +12,14 @@ import (
 
 func makeCPUAutoscalerMetrics(utilization int32) zv1.AutoscalerMetrics {
 	return zv1.AutoscalerMetrics{
-		Type:               controller.CPUMetricName,
+		Type:               "CPU",
 		AverageUtilization: pint32(utilization),
 	}
 }
 
 func makeExternalAutoscalerMetrics(queueName, region string, averageQueueLength int64) zv1.AutoscalerMetrics {
 	return zv1.AutoscalerMetrics{
-		Type:    controller.AmazonSQSMetricName,
+		Type:    "AmazonSQS",
 		Average: resource.NewQuantity(averageQueueLength, resource.DecimalSI),
 		Queue:   &zv1.MetricsQueue{Name: queueName, Region: region},
 	}
@@ -28,12 +27,13 @@ func makeExternalAutoscalerMetrics(queueName, region string, averageQueueLength 
 
 func makeObjectAutoscalerMetrics(average int64) zv1.AutoscalerMetrics {
 	return zv1.AutoscalerMetrics{
-		Type:    controller.IngressMetricName,
+		Type:    "Ingress",
 		Average: resource.NewQuantity(average, resource.DecimalSI),
 	}
 }
 
 func TestGenerateAutoscaler(t *testing.T) {
+	t.Parallel()
 	stacksetName := "generated-autoscaler"
 	metrics := []zv1.AutoscalerMetrics{
 		makeCPUAutoscalerMetrics(50),
