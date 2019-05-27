@@ -1463,12 +1463,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 			require.Equal(t, ti.expectedAllWeights, allWeights)
 
 			// Check err later because the weights returned still matter
-			if ti.err != nil {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-
+			require.Equal(t, ti.err, err)
 		})
 	}
 }
