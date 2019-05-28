@@ -14,18 +14,3 @@ type TrafficStatus struct {
 func (t TrafficStatus) Weight() float64 {
 	return math.Max(t.ActualWeight, t.DesiredWeight)
 }
-
-// Helper constructors for common TrafficStatus values
-func NewTrafficStatusSame(weight float64) TrafficStatus {
-	return TrafficStatus{
-		ActualWeight:  weight,
-		DesiredWeight: weight,
-	}
-}
-
-func NewTrafficStatus(actualWeight, desiredWeight float64) TrafficStatus {
-	return TrafficStatus{
-		ActualWeight:  actualWeight,
-		DesiredWeight: desiredWeight,
-	}
-}

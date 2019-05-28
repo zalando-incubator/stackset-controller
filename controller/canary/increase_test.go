@@ -9,11 +9,26 @@ import (
 	"github.com/zalando-incubator/stackset-controller/controller/entities"
 )
 
+// Helper test constructors for common TrafficStatus values
+func NewTrafficStatusSame(weight float64) entities.TrafficStatus {
+	return entities.TrafficStatus{
+		ActualWeight:  weight,
+		DesiredWeight: weight,
+	}
+}
+
+func NewTrafficStatus(actualWeight, desiredWeight float64) entities.TrafficStatus {
+	return entities.TrafficStatus{
+		ActualWeight:  actualWeight,
+		DesiredWeight: desiredWeight,
+	}
+}
+
 func Test_Unchanged_GreenTraffic(t *testing.T) {
 	trafficMap := TrafficMap{
-		"A": entities.NewTrafficStatusSame(100),
-		"B": entities.NewTrafficStatusSame(0),
-		"C": entities.NewTrafficStatusSame(0),
+		"A": NewTrafficStatusSame(100),
+		"B": NewTrafficStatusSame(0),
+		"C": NewTrafficStatusSame(0),
 	}
 
 	newTraffic, _ := increaseTraffic(
@@ -21,8 +36,8 @@ func Test_Unchanged_GreenTraffic(t *testing.T) {
 		"A",
 		"B",
 		"C",
-		*percent.NewFromInt(95),
-		*percent.NewFromInt(95),
+		percent.NewFromInt(95),
+		percent.NewFromInt(95),
 		time.Millisecond,
 		time.Millisecond,
 	)
@@ -32,15 +47,15 @@ func Test_Unchanged_GreenTraffic(t *testing.T) {
 
 func Test_Phase1(t *testing.T) {
 	trafficMap := TrafficMap{
-		"A": entities.NewTrafficStatusSame(20),
-		"B": entities.NewTrafficStatusSame(40),
-		"C": entities.NewTrafficStatusSame(40),
+		"A": NewTrafficStatusSame(20),
+		"B": NewTrafficStatusSame(40),
+		"C": NewTrafficStatusSame(40),
 	}
 
 	expectedMap := TrafficMap{
-		"A": entities.NewTrafficStatus(20, 80),
-		"B": entities.NewTrafficStatus(40, 10),
-		"C": entities.NewTrafficStatus(40, 10),
+		"A": NewTrafficStatus(20, 80),
+		"B": NewTrafficStatus(40, 10),
+		"C": NewTrafficStatus(40, 10),
 	}
 
 	newTraffic, _ := increaseTraffic(
@@ -48,8 +63,8 @@ func Test_Phase1(t *testing.T) {
 		"A",
 		"B",
 		"C",
-		*percent.NewFromInt(40),
-		*percent.NewFromInt(100),
+		percent.NewFromInt(40),
+		percent.NewFromInt(100),
 		10*60*1000*time.Millisecond,
 		1*60*1000*time.Millisecond,
 	)
@@ -59,15 +74,15 @@ func Test_Phase1(t *testing.T) {
 
 func Test_Phase2(t *testing.T) {
 	trafficMap := TrafficMap{
-		"A": entities.NewTrafficStatusSame(0),
-		"B": entities.NewTrafficStatusSame(55),
-		"C": entities.NewTrafficStatusSame(45),
+		"A": NewTrafficStatusSame(0),
+		"B": NewTrafficStatusSame(55),
+		"C": NewTrafficStatusSame(45),
 	}
 
 	expectedMap := TrafficMap{
-		"A": entities.NewTrafficStatusSame(0),
-		"B": entities.NewTrafficStatus(55, 50),
-		"C": entities.NewTrafficStatus(45, 50),
+		"A": NewTrafficStatusSame(0),
+		"B": NewTrafficStatus(55, 50),
+		"C": NewTrafficStatus(45, 50),
 	}
 
 	newTraffic, _ := increaseTraffic(
@@ -75,8 +90,8 @@ func Test_Phase2(t *testing.T) {
 		"A",
 		"B",
 		"C",
-		*percent.NewFromInt(45),
-		*percent.NewFromInt(100),
+		percent.NewFromInt(45),
+		percent.NewFromInt(100),
 		2*60*1000*time.Millisecond,
 		1*60*1000*time.Millisecond,
 	)

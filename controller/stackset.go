@@ -236,6 +236,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*entities.StackSe
 			}
 		}
 
+		// use the gradual canary deployments if enabled with an annotation
 		if _, ok := stackset.Annotations[canary.StacksetAnnotationKey]; ok {
 			stacksetContainer.TrafficReconciler = canary.NewTrafficReconcilerReal(
 				stacksetContainer.TrafficReconciler, c.client, c.recorder, c.logger,
@@ -716,6 +717,10 @@ func (c *StackSetController) ReconcileStack(ssc entities.StackSetContainer) erro
 
 	stack := NewStackFromStackSet(stackset)
 
+	if _, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack); err != nil {
+		return err
+	}
+
 	c.recorder.Eventf(&stackset,
 		apiv1.EventTypeNormal,
 		"CreatedStack",
@@ -723,8 +728,7 @@ func (c *StackSetController) ReconcileStack(ssc entities.StackSetContainer) erro
 		stack.Namespace, stack.Name,
 	)
 
-	_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
-	return err
+	return nil
 }
 
 func mergeLabels(labelMaps ...map[string]string) map[string]string {

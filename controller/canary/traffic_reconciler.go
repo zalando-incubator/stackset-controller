@@ -22,7 +22,7 @@ type TrafficReconciler struct {
 	baseReconciler entities.TrafficReconciler
 	checker        ExpectationChecker
 	greenStates    map[string]tsState
-	env            Env
+	context        CanaryContext
 }
 
 func NewTrafficReconcilerReal(
@@ -35,7 +35,7 @@ func NewTrafficReconcilerReal(
 		baseReconciler: base,
 		checker:        annotationChecker{},
 		greenStates:    nil,
-		env: Env{
+		context: CanaryContext{
 			Client: NewRealKubeClient(client, rec, logger),
 			Logger: logger,
 		},
@@ -104,7 +104,8 @@ func (r *TrafficReconciler) ReconcileIngress(
 			}
 			traffic, err = rollbacker.Rollback(traffic)
 			if err != nil {
-				r.env.Logger.Errorf("failed to rollback: %s", err)
+				r.context.Logger.Errorf("failed to rollback: %s", err)
+				return nil, nil, err
 			}
 		case actionIncrease:
 			elapsedTime := time.Now().Sub(greenState.switchStartTime)
@@ -123,20 +124,22 @@ func (r *TrafficReconciler) ReconcileIngress(
 			if err == nil {
 				traffic = newTraffic
 			} else {
-				r.env.Logger.Errorf("failed to increase traffic: %s", err)
+				r.context.Logger.Errorf("failed to increase traffic: %s", err)
+				return nil, nil, err
 			}
 		}
 	}
+
 	return r.baseReconciler.ReconcileIngress(stacks, ingress, traffic)
 }
 
 // ReconcileStacks creates Baseline and manages Green lifecycle via annotations.
 func (r *TrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) error {
-	logger := r.env.Logger.WithField(
+	logger := r.context.Logger.WithField(
 		"stackset",
 		fmt.Sprintf("%s/%s", ssc.StackSet.Namespace, ssc.StackSet.Name),
 	)
-	logger.Info("ReconcileStacks started")
+	logger.Debug("ReconcileStacks started")
 	newGreenStates := map[string]tsState{}
 	for _, sc := range allGreenStacks(ssc.StackContainers) {
 		logger := logger.WithField("green", sc.Name)
@@ -154,7 +157,7 @@ func (r *TrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) err
 		})
 
 		if d.baseline == nil {
-			if err := createBaseline(r.env.WithLogger(logger), *d, &ssc.StackSet); err != nil {
+			if err := createBaseline(r.context.WithLogger(logger), *d, &ssc.StackSet); err != nil {
 				logger.Errorf("failed to create baseline: %s", err)
 			}
 			continue // Traffic will be assigned at the next stackset-controller run.
@@ -179,7 +182,7 @@ func (r *TrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) err
 			totalActualTraffic:    totalActualTraffic,
 			ingressAction:         actionDoNothing,
 		}
-		e := r.env.WithLogger(logger)
+		e := r.context.WithLogger(logger)
 		if d.switchStartTime.IsZero() || d.green.actualTraffic.IsZero() {
 			if !manageStateForNoTraffic(e, &state, *d, &ssc.StackSet) {
 				continue
@@ -192,7 +195,7 @@ func (r *TrafficReconciler) ReconcileStacks(ssc *entities.StackSetContainer) err
 			}
 		} else {
 			state.ingressAction = actionRollback
-			r.env.Client.MarkStackNotGreen(&ssc.StackSet, d.green.Stack, "rollback")
+			r.context.Client.MarkStackNotGreen(&ssc.StackSet, d.green.Stack, "rollback")
 		}
 		newGreenStates[d.green.Name] = state
 	}
@@ -259,9 +262,9 @@ func newTsInput(green *zv1.Stack, allStacks map[types.UID]*entities.StackContain
 	}, nil
 }
 
-func createBaseline(env Env, d tsInput, set *zv1.StackSet) error {
+func createBaseline(context CanaryContext, d tsInput, set *zv1.StackSet) error {
 	baselineName := d.green.Name + "-baseline"
-	env.Logger.Infof("creating baseline stack %q", baselineName)
+	context.Logger.Infof("creating baseline stack %q", baselineName)
 	baselineSpec := zv1.StackSpec{ // Same infrastructure as green but same code as blue!
 		Replicas:                d.green.Spec.Replicas,
 		HorizontalPodAutoscaler: d.green.Spec.HorizontalPodAutoscaler.DeepCopy(),
@@ -269,24 +272,24 @@ func createBaseline(env Env, d tsInput, set *zv1.StackSet) error {
 		PodTemplate:             d.blue.Spec.PodTemplate,
 		Autoscaler:              d.green.Spec.Autoscaler.DeepCopy(),
 	}
-	baseline, err := env.Client.CreateStack(set, baselineName, "default", baselineSpec)
+	baseline, err := context.Client.CreateStack(set, baselineName, "default", baselineSpec)
 	if err != nil {
 		return err
 	}
-	_, err = env.SetAnnotation(set, baseline, baselineAnnotationKey, baselineName)
+	_, err = context.SetAnnotation(set, baseline, baselineAnnotationKey, baselineName)
 	if err != nil {
-		e := env.Client.RemoveStack(set, baseline.Name, "failed to update green annotations")
-		env.Logger.Errorf("failed to clean up aborted baseline stack: %s", e)
+		e := context.Client.RemoveStack(set, baseline.Name, "failed to update green annotations")
+		context.Logger.Errorf("failed to clean up aborted baseline stack: %s", e)
 	}
 	return err
 }
 
-func manageStateForNoTraffic(env Env, state *tsState, d tsInput, set *zv1.StackSet) bool {
-	env.Logger.Infof("starting switching traffic to green")
+func manageStateForNoTraffic(context CanaryContext, state *tsState, d tsInput, set *zv1.StackSet) bool {
+	context.Logger.Infof("starting switching traffic to green")
 	var err error
-	state.switchStartTime, err = markStartTrafficSwitch(env, set, &d.green)
+	state.switchStartTime, err = markStartTrafficSwitch(context, set, &d.green)
 	if err != nil {
-		env.Logger.Errorf("failed to update %s: %v", d.green, err)
+		context.Logger.Errorf("failed to update %s: %v", d.green, err)
 		return false
 	}
 	state.ingressAction = actionIncrease
@@ -294,24 +297,24 @@ func manageStateForNoTraffic(env Env, state *tsState, d tsInput, set *zv1.StackS
 }
 
 func manageStateForExpectationsFulfilled(
-	env Env,
+	context CanaryContext,
 	state *tsState,
 	d tsInput,
 	set *zv1.StackSet,
 	totalActualTraffic percent.Percent,
 ) bool {
-	if cmp := d.green.actualTraffic.Cmp(&totalActualTraffic); cmp >= 0 {
+	if cmp := d.green.actualTraffic.Cmp(totalActualTraffic); cmp >= 0 {
 		// We are finished with the traffic switch.
 		if cmp > 0 {
-			env.Logger.Warnf(
+			context.Logger.Warnf(
 				"traffic for %s (%s) is larger than targeted final traffic (%s)",
 				d.green, d.green.actualTraffic, totalActualTraffic,
 			)
 		}
-		return manageObsPeriod(env, d, set)
+		return manageObsPeriod(context, d, set)
 	}
 	if d.baseline.actualTraffic.IsZero() {
-		env.Logger.Info("waiting for latest baseline traffic increase to be applied")
+		context.Logger.Info("waiting for latest baseline traffic increase to be applied")
 		state.ingressAction = actionDoNothing
 	} else {
 		state.ingressAction = actionIncrease
@@ -319,29 +322,29 @@ func manageStateForExpectationsFulfilled(
 	return true
 }
 
-func manageObsPeriod(env Env, d tsInput, set *zv1.StackSet) bool {
-	env.Logger.Infof("%s is in observation period", d.green)
+func manageObsPeriod(context CanaryContext, d tsInput, set *zv1.StackSet) bool {
+	context.Logger.Infof("%s is in observation period", d.green)
 	obsPeriod, obsStart, err := readObservationData(d.green)
 	if err != nil {
-		env.Logger.Error(err)
+		context.Logger.Error(err)
 		return false
 	}
 	if obsPeriod == 0 {
 		// Gradual deployment successfully finished without observation period!
-		env.Client.MarkStackNotGreen(set, d.green.Stack, "reached target traffic, no observation period")
+		context.Client.MarkStackNotGreen(set, d.green.Stack, "reached target traffic, no observation period")
 		return false // Everything is fine but we don't want to keep the state.
 	}
 	if obsStart.IsZero() {
-		_, err := markStartObservation(env, set, &d.green)
+		_, err := markStartObservation(context, set, &d.green)
 		if err != nil {
-			env.Logger.Errorf("failed to start observation period: %v", err)
+			context.Logger.Errorf("failed to start observation period: %v", err)
 			return false
 		}
 		return true
 	}
 	if obsStart.Add(obsPeriod).Before(time.Now()) {
 		// Gradual deployment successfully finished after observation period!
-		env.Client.MarkStackNotGreen(set, d.green.Stack, fmt.Sprintf(
+		context.Client.MarkStackNotGreen(set, d.green.Stack, fmt.Sprintf(
 			"reached target traffic, observation period %v over (started at %v)",
 			obsPeriod, obsStart,
 		))
@@ -350,18 +353,18 @@ func manageObsPeriod(env Env, d tsInput, set *zv1.StackSet) bool {
 	return true
 }
 
-func markStartTrafficSwitch(env Env, set *zv1.StackSet, green *canaryStack) (time.Time, error) {
-	return markStartOf(env, set, green, switchStartKey)
+func markStartTrafficSwitch(context CanaryContext, set *zv1.StackSet, green *canaryStack) (time.Time, error) {
+	return markStartOf(context, set, green, switchStartKey)
 }
 
-func markStartObservation(env Env, set *zv1.StackSet, green *canaryStack) (time.Time, error) {
-	return markStartOf(env, set, green, finalStartKey)
+func markStartObservation(context CanaryContext, set *zv1.StackSet, green *canaryStack) (time.Time, error) {
+	return markStartOf(context, set, green, finalStartKey)
 }
 
-func markStartOf(env Env, set *zv1.StackSet, green *canaryStack, key string) (time.Time, error) {
-	env.Logger.Debugf("setting %s of %s to now", key, *green)
+func markStartOf(context CanaryContext, set *zv1.StackSet, green *canaryStack, key string) (time.Time, error) {
+	context.Logger.Debugf("setting %s of %s to now", key, *green)
 	t := time.Now()
-	updatedStack, err := env.SetAnnotation(set, green.Stack, key, t.Format(time.RFC3339))
+	updatedStack, err := context.SetAnnotation(set, green.Stack, key, t.Format(time.RFC3339))
 	if err == nil {
 		green.Stack = updatedStack
 	}
@@ -421,9 +424,9 @@ func baselineStackFor(green canaryStack, scs map[types.UID]*entities.StackContai
 func totalActualTrafficFor(stacks []canaryStack) percent.Percent {
 	total := percent.NewFromInt(0)
 	for _, s := range stacks {
-		total = total.Add(&s.actualTraffic)
+		total = total.Add(s.actualTraffic)
 	}
-	return *total
+	return total
 }
 
 func readObservationData(green canaryStack) (time.Duration, time.Time, error) {

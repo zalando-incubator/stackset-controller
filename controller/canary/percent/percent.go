@@ -28,30 +28,30 @@ type Percent struct {
 // NewFromFloat converts a float64 into a Percent value.
 // Since Percent has a precision of only one decimal place, f is rounded to the closest 0.1.
 // An "error" Percent is returned if f represents a value larger than 100 or negative.
-func NewFromFloat(f float64) *Percent {
+func NewFromFloat(f float64) Percent {
 	expanded := math.Round(f * 10)
 	if expanded < 0 || expanded > 1000 || math.IsNaN(expanded) {
-		return &Percent{err: fmt.Errorf("invalid percentage: %v", f)}
+		return Percent{err: fmt.Errorf("invalid percentage: %v", f)}
 	}
-	return &Percent{val: int(expanded)}
+	return Percent{val: int(expanded)}
 }
 
 // NewFromInt converts an int into a Percent value.
 // An error is returned if n represents a value larger than 100 or negative.
-func NewFromInt(n int) *Percent {
+func NewFromInt(n int) Percent {
 	if n < 0 || n > 100 {
-		return &Percent{err: fmt.Errorf("invalid percentage: %v", n)}
+		return Percent{err: fmt.Errorf("invalid percentage: %v", n)}
 	}
-	return &Percent{val: int(n * 10)}
+	return Percent{val: int(n * 10)}
 }
 
 // Error returns the error associated with this percentage, if any.
-func (p *Percent) Error() error {
+func (p Percent) Error() error {
 	return p.err
 }
 
 // AsFloat converts p into a string. It panics if p has an error.
-func (p *Percent) String() string {
+func (p Percent) String() string {
 	if p.err != nil {
 		panic(fmt.Sprintf("can't call String on invalid Percent: %v", p.err))
 	}
@@ -59,7 +59,7 @@ func (p *Percent) String() string {
 }
 
 // AsFloat converts p into a float64. It panics if p has an error.
-func (p *Percent) AsFloat() float64 {
+func (p Percent) AsFloat() float64 {
 	if p.err != nil {
 		panic(fmt.Sprintf("can't call AsFloat on invalid Percent: %v", p.err))
 	}
@@ -67,7 +67,7 @@ func (p *Percent) AsFloat() float64 {
 }
 
 // IsZero returns true if and only if p represents 0%. It panics if p has an error.
-func (p *Percent) IsZero() bool {
+func (p Percent) IsZero() bool {
 	if p.err != nil {
 		panic(fmt.Sprintf("can't call IsZero on invalid Percent: %v", p.err))
 	}
@@ -75,7 +75,7 @@ func (p *Percent) IsZero() bool {
 }
 
 // Is100 returns true if and only if p represents 100%. It panics if p has an error.
-func (p *Percent) Is100() bool {
+func (p Percent) Is100() bool {
 	if p.err != nil {
 		panic(fmt.Sprintf("can't call Is100 on invalid Percent: %v", p.err))
 	}
@@ -85,7 +85,7 @@ func (p *Percent) Is100() bool {
 // Cmp compares p and q and returns X such as:
 // X < 0 if p < q, X == 0 if p == q, and X > 0 if p > q.
 // It panics if either p or q have an error.
-func (p *Percent) Cmp(q *Percent) int {
+func (p Percent) Cmp(q Percent) int {
 	if p.err != nil {
 		panic(fmt.Sprintf("can't call Cmp on invalid Percent: %v", p.err))
 	}
@@ -95,7 +95,7 @@ func (p *Percent) Cmp(q *Percent) int {
 	return p.val - q.val
 }
 
-func shortCircuitErrors(res, p, q *Percent) bool {
+func shortCircuitErrors(res, p, q Percent) bool {
 	if p.err != nil {
 		res.err = p.err
 		return true
@@ -109,8 +109,8 @@ func shortCircuitErrors(res, p, q *Percent) bool {
 
 // Add sets z to the sum x+y and returns z.
 // The result has an error if either x or y have an error, or if x+y is larger than 100.
-func (p *Percent) Add(q *Percent) *Percent {
-	res := &Percent{}
+func (p Percent) Add(q Percent) Percent {
+	res := Percent{}
 	if shortCircuitErrors(res, p, q) {
 		return res
 	}
@@ -125,8 +125,8 @@ func (p *Percent) Add(q *Percent) *Percent {
 
 // AddCapped returns min(p+q, 100).
 // The result has an error if either x or y have an error.
-func (p *Percent) AddCapped(q *Percent) *Percent {
-	res := &Percent{val: 1000}
+func (p Percent) AddCapped(q Percent) Percent {
+	res := Percent{val: 1000}
 	if shortCircuitErrors(res, p, q) {
 		return res
 	}
@@ -139,8 +139,8 @@ func (p *Percent) AddCapped(q *Percent) *Percent {
 
 // SubCapped returns max(p-q, 0).
 // The result has an error if either x or y have an error.
-func (p *Percent) SubCapped(q *Percent) *Percent {
-	res := &Percent{}
+func (p Percent) SubCapped(q Percent) Percent {
+	res := Percent{}
 	if shortCircuitErrors(res, p, q) {
 		return res
 	}
@@ -153,8 +153,8 @@ func (p *Percent) SubCapped(q *Percent) *Percent {
 
 // Mul sets z to the product x×y and returns z.
 // The result has an error if either x or y have an error.
-func (p *Percent) Mul(q *Percent) *Percent {
-	res := &Percent{}
+func (p Percent) Mul(q Percent) Percent {
+	res := Percent{}
 	if shortCircuitErrors(res, p, q) {
 		return res
 	}

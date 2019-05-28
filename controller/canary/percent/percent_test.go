@@ -11,10 +11,10 @@ import (
 
 func TestPercent_String(t *testing.T) {
 	pc100 := percent.NewFromInt(100)
-	assert.Equal(t, "100%", pc100.String())
+	assert.Equal(t, `100%`, pc100.String())
 
 	pc25_1 := percent.NewFromFloat(25.1)
-	assert.Equal(t, "25.1%", fmt.Sprintf("%v", pc25_1))
+	assert.Equal(t, `25.1%`, fmt.Sprintf("%v", pc25_1))
 }
 
 func TestPercent_AsFloat(t *testing.T) {

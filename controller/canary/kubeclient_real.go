@@ -46,14 +46,22 @@ func (c *RealKubeClient) CreateStack(
 	for k, v := range set.Labels {
 		stack.Labels[k] = v
 	}
+
+	newStack, err := c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
+	if err != nil {
+		c.log.Errorf("Could not create Stack %s: %s", stack.Name, err)
+		return nil, err
+	}
+
 	c.recorder.Eventf(
 		set,
 		apiv1.EventTypeNormal,
 		"CreateStackSetStack",
-		"Creating Stack '%s/%s' for StackSet",
+		"Created Stack '%s/%s' for StackSet",
 		stack.Namespace, stack.Name,
 	)
-	return c.client.ZalandoV1().Stacks(stack.Namespace).Create(stack)
+
+	return newStack, nil
 }
 
 func (c *RealKubeClient) UpdateStack(

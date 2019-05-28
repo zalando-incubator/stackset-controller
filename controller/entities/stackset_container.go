@@ -47,15 +47,6 @@ func (ssc StackSetContainer) Stacks() []zv1.Stack {
 	return stacks
 }
 
-func (ssc StackSetContainer) StackFromName(name string) *zv1.Stack {
-	for _, sc := range ssc.StackContainers {
-		if sc.Stack.Name == name {
-			return &sc.Stack
-		}
-	}
-	return nil
-}
-
 // ScaledownTTL returns the ScaledownTTLSeconds value of a StackSet as a
 // time.Duration.
 func (ssc StackSetContainer) ScaledownTTL() time.Duration {

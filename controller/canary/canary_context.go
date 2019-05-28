@@ -7,14 +7,14 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 )
 
-type Env struct {
+type CanaryContext struct {
 	Client KubeClient
 	Logger logrus.FieldLogger
 }
 
-func (e Env) WithLogger(logger logrus.FieldLogger) Env {
-	return Env{
-		Client: e.Client,
+func (c CanaryContext) WithLogger(logger logrus.FieldLogger) CanaryContext {
+	return CanaryContext{
+		Client: c.Client,
 		Logger: logger,
 	}
 }
@@ -28,13 +28,13 @@ type KubeClient interface {
 	MarkStackNotGreen(set *zv1.StackSet, stack *zv1.Stack, reason string)
 }
 
-func (e Env) SetAnnotation(
+func (c CanaryContext) SetAnnotation(
 	set *zv1.StackSet,
 	stack *zv1.Stack,
 	key, value string,
 ) (*zv1.Stack, error) {
 	stack.Annotations[key] = value
 	msg := fmt.Sprintf("set annotation %q to %q", key, value)
-	e.Logger.Debugf("stack %s/%s: %s", stack.Namespace, stack.Name, msg)
-	return e.Client.UpdateStack(set, stack, msg)
+	c.Logger.Debugf("stack %s/%s: %s", stack.Namespace, stack.Name, msg)
+	return c.Client.UpdateStack(set, stack, msg)
 }

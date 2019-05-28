@@ -20,7 +20,7 @@ func increaseTraffic(
 		),
 	))
 
-	if greenActualTraffic == *newGreenTraffic {
+	if greenActualTraffic == newGreenTraffic {
 		return trafficMap, nil
 	}
 
@@ -31,7 +31,7 @@ func increaseTraffic(
 		newTrafficMap, err = ComputeNewTraffic(
 			trafficMap,
 			greenName,
-			*newGreenTraffic,
+			newGreenTraffic,
 			modifiableStacks,
 		)
 	} else { // Phase 1
@@ -39,7 +39,7 @@ func increaseTraffic(
 		newTrafficMap, err = ComputeNewTraffic(
 			trafficMap,
 			blueName,
-			*newBlueTraffic,
+			newBlueTraffic,
 			modifiableStacks,
 		)
 	}

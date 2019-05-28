@@ -45,7 +45,7 @@ func (cs *canaryStack) readActualTraffic(tm TrafficMap) error {
 	trafficPercent := percent.NewFromFloat(trafficStatus.ActualWeight)
 	err := trafficPercent.Error()
 	if err == nil {
-		cs.actualTraffic = *trafficPercent
+		cs.actualTraffic = trafficPercent
 	}
 	return err
 }
