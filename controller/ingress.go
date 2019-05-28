@@ -425,6 +425,9 @@ func (c *ingressReconciler) ingressForStackSet(ssc entities.StackSetContainer, o
 func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingress *v1beta1.Ingress) error {
 	stackset := &ssc.StackSet
 	availableWeights, allWeights, trafficSwitchingErr := ssc.TrafficReconciler.ReconcileIngress(ssc.StackContainers, ingress, ssc.Traffic)
+	if trafficSwitchingErr != nil {
+		return trafficSwitchingErr
+	}
 
 	rule := v1beta1.IngressRule{
 		IngressRuleValue: v1beta1.IngressRuleValue{
@@ -481,9 +484,6 @@ func trafficSwitchingAnnotationsForIngress(ssc entities.StackSetContainer, ingre
 	ingress.Annotations[backendWeightsAnnotationKey] = string(availableWeightsData)
 	ingress.Annotations[stackTrafficWeightsAnnotationKey] = string(allWeightsData)
 
-	if trafficSwitchingErr != nil {
-		return trafficSwitchingErr
-	}
 	return nil
 }
 
