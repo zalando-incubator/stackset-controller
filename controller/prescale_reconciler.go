@@ -38,24 +38,27 @@ func (r *PrescaleTrafficReconciler) ReconcileDeployment(stacks map[types.UID]*en
 	if traffic != nil && traffic[stack.Name].DesiredWeight > 0 && traffic[stack.Name].ActualWeight < traffic[stack.Name].DesiredWeight {
 		// If prescaling is not active then calculate the replicas required
 		if !stack.Status.Prescaling.Active {
+			var prescalingReplicas int32
 			for _, stackContainer := range stacks {
 				if traffic[stackContainer.Stack.Name].ActualWeight > 0 {
 					if stackContainer.Resources.Deployment != nil && stackContainer.Resources.Deployment.Spec.Replicas != nil {
-						stack.Status.Prescaling.Replicas += int32(*stackContainer.Resources.Deployment.Spec.Replicas)
+						prescalingReplicas += *stackContainer.Resources.Deployment.Spec.Replicas
 					}
 				}
 			}
 			// If no other stacks are currently active
-			if stack.Status.Prescaling.Replicas == 0 {
-				stack.Status.Prescaling.Replicas = *stack.Spec.Replicas
+			if prescalingReplicas == 0 {
+				prescalingReplicas = *stack.Spec.Replicas
 			}
 
 			// Restrict the prescaling replicas to the maximum allowed by HPA if present
 			if stack.Spec.HorizontalPodAutoscaler != nil {
-				stack.Status.Prescaling.Replicas = int32(math.Min(float64(stack.Status.Prescaling.Replicas), float64(stack.Spec.HorizontalPodAutoscaler.MaxReplicas)))
+				prescalingReplicas = int32(math.Min(float64(prescalingReplicas), float64(stack.Spec.HorizontalPodAutoscaler.MaxReplicas)))
 			}
+
+			stack.Status.Prescaling.Active = true
+			stack.Status.Prescaling.Replicas = prescalingReplicas
 		}
-		stack.Status.Prescaling.Active = true
 		// Update the timestamp in the prescaling information. This bumps the prescaling timeout
 		currentTime := metav1.NewTime(time.Now())
 		stack.Status.Prescaling.LastTrafficIncrease = &currentTime
