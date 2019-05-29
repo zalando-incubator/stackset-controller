@@ -63,12 +63,12 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 
 	return metav1.ObjectMeta{
-		Name:        sc.Stack.Name,
-		Namespace:   sc.Stack.Namespace,
+		Name:      sc.Stack.Name,
+		Namespace: sc.Stack.Namespace,
 		Annotations: map[string]string{
 			StackGenerationAnnotationKey: strconv.FormatInt(sc.Stack.Generation, 10),
 		},
-		Labels:      resourceLabels,
+		Labels: resourceLabels,
 		OwnerReferences: []metav1.OwnerReference{
 			{
 				APIVersion: sc.Stack.APIVersion,
@@ -81,12 +81,12 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 }
 
 // getServicePorts gets the service ports to be used for the stack service.
-func (sc *StackContainer) getServicePorts(backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
+func getServicePorts(stackSpec zv1.StackSpec, backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
 	var servicePorts []v1.ServicePort
-	if sc.Stack.Spec.Service == nil || len(sc.Stack.Spec.Service.Ports) == 0 {
-		servicePorts = servicePortsFromContainers(sc.Stack.Spec.PodTemplate.Spec.Containers)
+	if stackSpec.Service == nil || len(stackSpec.Service.Ports) == 0 {
+		servicePorts = servicePortsFromContainers(stackSpec.PodTemplate.Spec.Containers)
 	} else {
-		servicePorts = sc.Stack.Spec.Service.Ports
+		servicePorts = stackSpec.Service.Ports
 	}
 
 	// validate that one port in the list maps to the backendPort.
@@ -239,7 +239,7 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 		backendPort = &sc.ingressSpec.BackendPort
 	}
 
-	servicePorts, err := sc.getServicePorts(backendPort)
+	servicePorts, err := getServicePorts(sc.Stack.Spec, backendPort)
 	if err != nil {
 		return nil, err
 	}

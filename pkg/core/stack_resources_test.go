@@ -1,10 +1,9 @@
-package controller
+package core
 
 import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/api/core/v1"
@@ -19,34 +18,29 @@ func TestGetServicePorts(tt *testing.T) {
 
 	for _, ti := range []struct {
 		msg           string
-		stack         zv1.Stack
+		stackSpec     zv1.StackSpec
 		backendPort   *intstr.IntOrString
 		expectedPorts []v1.ServicePort
 		err           error
 	}{
 		{
 			msg: "test using ports from pod spec",
-			stack: zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: zv1.StackSpec{
-					Service: nil,
-					PodTemplate: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								{
-									Ports: []v1.ContainerPort{
-										{
-											ContainerPort: 8080,
-										},
+			stackSpec: zv1.StackSpec{
+				Service: nil,
+				PodTemplate: v1.PodTemplateSpec{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Ports: []v1.ContainerPort{
+									{
+										ContainerPort: 8080,
 									},
 								},
-								{
-									Ports: []v1.ContainerPort{
-										{
-											ContainerPort: 8081,
-										},
+							},
+							{
+								Ports: []v1.ContainerPort{
+									{
+										ContainerPort: 8081,
 									},
 								},
 							},
@@ -72,20 +66,15 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with ingress",
-			stack: zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: zv1.StackSpec{
-					Service: nil,
-					PodTemplate: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								{
-									Ports: []v1.ContainerPort{
-										{
-											ContainerPort: 8080,
-										},
+			stackSpec: zv1.StackSpec{
+				Service: nil,
+				PodTemplate: v1.PodTemplateSpec{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Ports: []v1.ContainerPort{
+									{
+										ContainerPort: 8080,
 									},
 								},
 							},
@@ -105,21 +94,16 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with named ingress port",
-			stack: zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: zv1.StackSpec{
-					Service: nil,
-					PodTemplate: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								{
-									Ports: []v1.ContainerPort{
-										{
-											Name:          "ingress",
-											ContainerPort: 8080,
-										},
+			stackSpec: zv1.StackSpec{
+				Service: nil,
+				PodTemplate: v1.PodTemplateSpec{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Ports: []v1.ContainerPort{
+									{
+										Name:          "ingress",
+										ContainerPort: 8080,
 									},
 								},
 							},
@@ -139,21 +123,16 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with invalid named ingress port",
-			stack: zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: zv1.StackSpec{
-					Service: nil,
-					PodTemplate: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								{
-									Ports: []v1.ContainerPort{
-										{
-											Name:          "ingress-invalid",
-											ContainerPort: 8080,
-										},
+			stackSpec: zv1.StackSpec{
+				Service: nil,
+				PodTemplate: v1.PodTemplateSpec{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Ports: []v1.ContainerPort{
+									{
+										Name:          "ingress-invalid",
+										ContainerPort: 8080,
 									},
 								},
 							},
@@ -174,30 +153,25 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from service definition",
-			stack: zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: zv1.StackSpec{
-					Service: &zv1.StackServiceSpec{
-						Ports: []v1.ServicePort{
-							{
-								Name:       "ingress",
-								Protocol:   v1.ProtocolTCP,
-								Port:       8080,
-								TargetPort: backendPort,
-							},
+			stackSpec: zv1.StackSpec{
+				Service: &zv1.StackServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:       "ingress",
+							Protocol:   v1.ProtocolTCP,
+							Port:       8080,
+							TargetPort: backendPort,
 						},
 					},
-					PodTemplate: v1.PodTemplateSpec{
-						Spec: v1.PodSpec{
-							Containers: []v1.Container{
-								{
-									Ports: []v1.ContainerPort{
-										{
-											Name:          "ingress-invalid",
-											ContainerPort: 8080,
-										},
+				},
+				PodTemplate: v1.PodTemplateSpec{
+					Spec: v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Ports: []v1.ContainerPort{
+									{
+										Name:          "ingress-invalid",
+										ContainerPort: 8080,
 									},
 								},
 							},
@@ -217,7 +191,7 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
-			ports, err := getServicePorts(ti.backendPort, ti.stack)
+			ports, err := getServicePorts(ti.stackSpec, ti.backendPort)
 			if ti.err != nil {
 				require.Error(t, err)
 			} else {
@@ -232,14 +206,14 @@ func TestTemplateInjectLabels(t *testing.T) {
 	template := v1.PodTemplateSpec{}
 	labels := map[string]string{"foo": "bar"}
 
-	expectedTemplate := v1.PodTemplateSpec{
+	expectedTemplate := &v1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: labels,
 		},
 	}
 
-	newTemplate := templateInjectLabels(template, labels)
-	assert.Equal(t, expectedTemplate, newTemplate)
+	newTemplate := templateInjectLabels(&template, labels)
+	require.Equal(t, expectedTemplate, newTemplate)
 }
 
 func TestLimitLabels(t *testing.T) {
@@ -249,8 +223,8 @@ func TestLimitLabels(t *testing.T) {
 	}
 
 	validKeys := map[string]struct{}{
-		"foo": struct{}{},
+		"foo": {},
 	}
 
-	assert.Len(t, limitLabels(labels, validKeys), 1)
+	require.Len(t, limitLabels(labels, validKeys), 1)
 }
