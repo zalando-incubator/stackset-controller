@@ -40,7 +40,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// create third stack with only 1 replica and wait for the deployment to be created
@@ -61,7 +61,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// recheck the deployment of the last stack and verify that the number of replicas is the sum of the previous stacks
@@ -111,7 +111,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// create a third stack with only one replica and verify the deployment has only one pod
@@ -133,7 +133,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// verify that the third stack now has 6 replicas till the end of the prescaling period
@@ -183,7 +183,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTrafficMap)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap).withTimeout(2 * time.Minute).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
 	require.NoError(t, err)
 
 	// update stackset with third version
@@ -202,7 +202,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTrafficMap)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap).withTimeout(2 * time.Minute).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
 	require.NoError(t, err)
 
 	// verify that all stack deployments are still present and their prescaling is active
@@ -225,4 +225,84 @@ func TestPrescalingPreventDelete(t *testing.T) {
 		require.EqualValues(t, 3, *thirdDeployment.Spec.Replicas)
 		time.Sleep(15 * time.Second)
 	}
+}
+
+func TestPrescalingWaitsForBackends(t *testing.T) {
+	// Create 3 stacks with traffic 0.0, 50.0 & 50.0
+	// Switch traffic to be 0.0, 30, 70.0
+	// Verify that actual traffic changes correctly
+
+	t.Parallel()
+	stacksetName := "stackset-prescale-backends-wait"
+	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 0).Replicas(3)
+
+	// create stack with 3 replicas
+	firstStack := "v1"
+	spec := specFactory.Create(firstStack)
+	err := createStackSet(stacksetName, 1, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, firstStack)
+	require.NoError(t, err)
+
+	// create second stack with 3 replicas
+	secondStack := "v2"
+	spec = specFactory.Create(secondStack)
+	err = updateStackset(stacksetName, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, secondStack)
+	require.NoError(t, err)
+
+	// create third stack with 3 replicas
+	thirdStack := "v3"
+	spec = specFactory.Create(thirdStack)
+	err = updateStackset(stacksetName, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, thirdStack)
+	require.NoError(t, err)
+
+	_, err = waitForIngress(t, stacksetName)
+	require.NoError(t, err)
+
+	// switch traffic so that all three stacks are receiving 0%, 50% & 50% traffic and verify traffic has actually switched
+	fullFirstStack := fmt.Sprintf("%s-%s", stacksetName, firstStack)
+	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, secondStack)
+	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, thirdStack)
+
+	desiredTraffic := map[string]float64{
+		fullFirstStack:  0,
+		fullSecondStack: 50,
+		fullThirdStack:  50,
+	}
+	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	require.NoError(t, err)
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
+	require.NoError(t, err)
+
+	// switch traffic so that all three stacks are receiving 0%, 30% & 70% traffic respectively
+	desiredTraffic = map[string]float64{
+		fullFirstStack:  0,
+		fullSecondStack: 30,
+		fullThirdStack:  70,
+	}
+	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	require.NoError(t, err)
+
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, func(actualTraffic map[string]float64) error {
+		// err out if the traffic for any of the stacks is outside of the expected range
+		if actualTraffic[fullFirstStack] > 0 {
+			return fmt.Errorf("%v traffic not exactly %v", actualTraffic[fullFirstStack], 0)
+		}
+
+		if actualTraffic[fullSecondStack] > 50 || actualTraffic[fullSecondStack] < 30 {
+			return fmt.Errorf("%v traffic not between %v and %v", actualTraffic[fullSecondStack], 30, 50)
+		}
+
+		if actualTraffic[fullThirdStack] > 70 || actualTraffic[fullThirdStack] < 50 {
+			return fmt.Errorf("%v traffic not between %v and %v", actualTraffic[fullThirdStack], 50, 70)
+		}
+
+		return nil
+
+	}).withTimeout(time.Minute * 4).await()
+	require.NoError(t, err)
 }

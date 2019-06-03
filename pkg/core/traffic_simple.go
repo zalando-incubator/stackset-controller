@@ -1,6 +1,7 @@
 package core
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -20,6 +21,7 @@ func (SimpleTrafficReconciler) Reconcile(stacks map[string]*StackContainer) erro
 		actualWeights[stackName] = stack.desiredTrafficWeight
 	}
 	if len(nonReadyStacks) > 0 {
+		sort.Strings(nonReadyStacks)
 		return newTrafficSwitchError("stacks %s not ready", strings.Join(nonReadyStacks, ", "))
 	}
 

@@ -681,6 +681,111 @@ func TestPrescaleReconcilerReconcileDeployment(tt *testing.T) {
 			calculatedReplicas: 3,
 			timestampUpdated:   true,
 		},
+		{
+			msg: "reset prescaling replica count when calculating prescaling replicas",
+			deployment: &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "svc-3",
+					Annotations: map[string]string{},
+				},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &[]int32{3}[0],
+				},
+			},
+			stack: &zv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "svc-3",
+				},
+				Spec: zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &[]int32{1}[0],
+						MaxReplicas: 30,
+					},
+					Replicas: pint32(3),
+				},
+				Status: zv1.StackStatus{
+					Prescaling: zv1.PrescalingStatus{
+						Active:              false,
+						Replicas:            10,
+						LastTrafficIncrease: &metav1.Time{Time: time.Now().Add(-2 * time.Hour)},
+					},
+				},
+			},
+			stacks: map[types.UID]*entities.StackContainer{
+				types.UID("1"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-1",
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-1",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+						},
+					},
+				},
+				types.UID("2"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-2",
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-2",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+						},
+					},
+				},
+				types.UID("3"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-3",
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-3",
+								Annotations: map[string]string{},
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+						},
+					},
+				},
+			},
+			traffic: map[string]entities.TrafficStatus{
+				"svc-1": {
+					ActualWeight:  50.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-2": {
+					ActualWeight:  50.0,
+					DesiredWeight: 50.0,
+				},
+				"svc-3": {
+					ActualWeight:  0.0,
+					DesiredWeight: 50.0,
+				},
+			},
+			expectedReplicas:   3,
+			prescalingActive:   true,
+			calculatedReplicas: 6,
+			timestampUpdated:   true,
+		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
 			trafficReconciler := PrescaleTrafficReconciler{ResetHPAMinReplicasTimeout: DefaultResetMinReplicasDelay}
@@ -769,6 +874,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 		traffic                  map[string]entities.TrafficStatus
 		expectedAvailableWeights map[string]float64
 		expectedAllWeights       map[string]float64
+		err                      error
 	}{
 		{
 			msg: "stacks without active prescaling status should not get desired traffic if it was already 0",
@@ -845,6 +951,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				"svc-2": 0.0,
 				"svc-3": 100.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 		{
 			msg: "Prescaled stack should get desired traffic",
@@ -1007,6 +1114,7 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				"svc-2": 0.0,
 				"svc-3": 100.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 		{
 			msg: "Prescaled stack with actual traffic should not loose traffic if not all replicas are ready",
@@ -1168,20 +1276,300 @@ func TestReconcileIngressTraffic(tt *testing.T) {
 				},
 			},
 			expectedAvailableWeights: map[string]float64{
+				"svc-1": 0.0,
 				"svc-2": 100.0,
+				"svc-3": 0.0,
 			},
 			expectedAllWeights: map[string]float64{
 				"svc-1": 0.0,
 				"svc-2": 50.0,
 				"svc-3": 50.0,
 			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
+		},
+		{
+			msg: "test two prescaled stacks one is ready and one is not with both receiving traffic",
+			stacks: map[types.UID]*entities.StackContainer{
+				types.UID("1"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-1",
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-1",
+								Annotations: map[string]string{},
+							},
+						},
+					},
+				},
+				types.UID("2"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-2",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 3},
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "svc-2",
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+							Status: appsv1.DeploymentStatus{
+								ReadyReplicas: 3,
+							},
+						},
+					},
+				},
+				types.UID("3"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-3",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: true, Replicas: 10},
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "svc-3",
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{117}[0],
+							},
+							Status: appsv1.DeploymentStatus{
+								ReadyReplicas: 9, // 9/10 ready
+							},
+						},
+					},
+				},
+			},
+			traffic: map[string]entities.TrafficStatus{
+				"svc-1": {
+					ActualWeight:  0.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-2": {
+					ActualWeight:  50.0,
+					DesiredWeight: 30.0,
+				},
+				// Cause the normalization logic to get triggered
+				"svc-3": {
+					ActualWeight:  50.0,
+					DesiredWeight: 70.0,
+				},
+			},
+			expectedAvailableWeights: map[string]float64{
+				"svc-1": 0.0,
+				"svc-2": 50.0,
+				"svc-3": 50.0,
+			},
+			expectedAllWeights: map[string]float64{
+				"svc-1": 0.0,
+				"svc-2": 30.0,
+				"svc-3": 70.0,
+			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
+		},
+		{
+			msg: "test two stacks (with prescaling inactive) both ready and both receiving traffic",
+			stacks: map[types.UID]*entities.StackContainer{
+				types.UID("1"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-1",
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-1",
+								Annotations: map[string]string{},
+							},
+						},
+					},
+				},
+				types.UID("2"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-2",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: false, Replicas: 3},
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "svc-2",
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+							Status: appsv1.DeploymentStatus{
+								ReadyReplicas: 3,
+							},
+						},
+					},
+				},
+				types.UID("3"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-3",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: false, Replicas: 10},
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "svc-3",
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{10}[0],
+							},
+							Status: appsv1.DeploymentStatus{
+								ReadyReplicas: 10,
+							},
+						},
+					},
+				},
+			},
+			traffic: map[string]entities.TrafficStatus{
+				"svc-1": {
+					ActualWeight:  0.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-2": {
+					ActualWeight:  50.0,
+					DesiredWeight: 30.0,
+				},
+				// Cause the normalization logic to get triggered
+				"svc-3": {
+					ActualWeight:  50.0,
+					DesiredWeight: 70.0,
+				},
+			},
+			expectedAvailableWeights: map[string]float64{
+				"svc-2": 30.0,
+				"svc-3": 70.0,
+			},
+			expectedAllWeights: map[string]float64{
+				"svc-1": 0.0,
+				"svc-2": 30.0,
+				"svc-3": 70.0,
+			},
+		},
+		{
+			msg: "test two stacks (with prescaling inactive) one is ready and one is not with both receiving traffic",
+			stacks: map[types.UID]*entities.StackContainer{
+				types.UID("1"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-1",
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name:        "svc-1",
+								Annotations: map[string]string{},
+							},
+						},
+					},
+				},
+				types.UID("2"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-2",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: false, Replicas: 3},
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "svc-2",
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{3}[0],
+							},
+							Status: appsv1.DeploymentStatus{
+								ReadyReplicas: 3,
+							},
+						},
+					},
+				},
+				types.UID("3"): {
+					Stack: zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "svc-3",
+						},
+						Status: zv1.StackStatus{
+							Prescaling: zv1.PrescalingStatus{Active: false, Replicas: 10},
+						},
+					},
+					Resources: entities.StackResources{
+						Deployment: &appsv1.Deployment{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "svc-3",
+							},
+							Spec: appsv1.DeploymentSpec{
+								Replicas: &[]int32{10}[0],
+							},
+							Status: appsv1.DeploymentStatus{
+								ReadyReplicas: 9,
+							},
+						},
+					},
+				},
+			},
+			traffic: map[string]entities.TrafficStatus{
+				"svc-1": {
+					ActualWeight:  0.0,
+					DesiredWeight: 0.0,
+				},
+				"svc-2": {
+					ActualWeight:  50.0,
+					DesiredWeight: 30.0,
+				},
+				// Cause the normalization logic to get triggered
+				"svc-3": {
+					ActualWeight:  50.0,
+					DesiredWeight: 70.0,
+				},
+			},
+			expectedAvailableWeights: map[string]float64{
+				"svc-1": 0.0,
+				"svc-2": 50.0,
+				"svc-3": 50.0,
+			},
+			expectedAllWeights: map[string]float64{
+				"svc-1": 0.0,
+				"svc-2": 30.0,
+				"svc-3": 70.0,
+			},
+			err: trafficSwitchingError{"1 stacks are not ready yet"},
 		},
 	} {
 		tt.Run(ti.msg, func(t *testing.T) {
 			trafficReconciler := PrescaleTrafficReconciler{}
-			availableWeights, allWeights := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
+			availableWeights, allWeights, err := trafficReconciler.ReconcileIngress(ti.stacks, ti.ingress, ti.traffic)
 			require.Equal(t, ti.expectedAvailableWeights, availableWeights)
 			require.Equal(t, ti.expectedAllWeights, allWeights)
+
+			// Check err later because the weights returned still matter
+			require.Equal(t, ti.err, err)
 		})
 	}
 }

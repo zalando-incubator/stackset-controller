@@ -23,7 +23,7 @@ type weightKind string
 
 const (
 	defaultWaitTimeout = 30 * time.Second
-	trafficSwitchWaitTimeout = 60 * time.Second
+	trafficSwitchWaitTimeout = 150 * time.Second
 
 	stacksetHeritageLabelKey = "stackset"
 	stackVersionLabelKey     = "stack-version"
@@ -156,7 +156,13 @@ func removeZeroWeights(weights map[string]float64) {
 	}
 }
 
-func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64) *awaiter {
+// passed to trafficWeightsUpdated as a parameter
+// func that takes zero inclusive actual traffic weights as a parameter and
+// returns an error if they don't meet some criteria.
+// will never be retried
+type trafficAsserter func(map[string]float64) error
+
+func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
 	removeZeroWeights(expectedWeights)
 	timeout := defaultWaitTimeout
 	if kind == weightKindActual {
@@ -169,7 +175,16 @@ func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, ex
 		}
 
 		actualWeights := ingressTrafficWeights(ingress, kind)
+
+		if asserter != nil {
+			err = asserter(actualWeights)
+			if err != nil {
+				return false, err
+			}
+		}
+
 		removeZeroWeights(actualWeights)
+
 		if !reflect.DeepEqual(actualWeights, expectedWeights) {
 			return true, fmt.Errorf("%s: weights %v != expected %v", ingressName, actualWeights, expectedWeights)
 		}

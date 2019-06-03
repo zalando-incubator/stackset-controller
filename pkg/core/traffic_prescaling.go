@@ -1,6 +1,8 @@
 package core
 
 import (
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -56,38 +58,30 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 	// * If stack is getting traffic but ReadyReplicas < prescaleReplicas, don't remove traffic from it.
 	// * If no stacks are currently being prescaled fall back to the current weights.
 	// * If no stacks are getting traffic fall back to desired weight without checking health.
-	currentWeights := make(map[string]float64, len(stacks))
+	var nonReadyStacks []string
 	actualWeights := make(map[string]float64, len(stacks))
-	for _, stack := range stacks {
-		currentWeights[stack.Stack.Name] = stack.actualTrafficWeight
-
-		deployment := stack.Resources.Deployment
-
-		if stack.actualTrafficWeight < stack.desiredTrafficWeight && stack.deploymentUpdated {
-			if stack.Stack.Status.Prescaling.Active {
-				var desired int32 = 1
-				if deployment.Spec.Replicas != nil {
-					desired = *deployment.Spec.Replicas
-				}
-
-				if desired >= stack.Stack.Status.Prescaling.Replicas && deployment.Status.ReadyReplicas >= stack.Stack.Status.Prescaling.Replicas {
-					actualWeights[stack.Stack.Name] = stack.desiredTrafficWeight
-				}
+	for stackName, stack := range stacks {
+		// Check if we're increasing traffic but the stack is not ready
+		if stack.desiredTrafficWeight > stack.actualTrafficWeight {
+			var desiredReplicas = stack.deploymentReplicas
+			if stack.prescalingActive {
+				desiredReplicas = stack.prescalingReplicas
 			}
-			continue
-		} else if stack.actualTrafficWeight > 0 && stack.desiredTrafficWeight > 0 {
-			actualWeights[stack.Stack.Name] = stack.desiredTrafficWeight
+			if !stack.IsReady() || stack.updatedReplicas < desiredReplicas || stack.readyReplicas < desiredReplicas {
+				nonReadyStacks = append(nonReadyStacks, stackName)
+				continue
+			}
 		}
+
+		actualWeights[stackName] = stack.desiredTrafficWeight
 	}
 
-	if !allZero(currentWeights) {
-		normalizeWeights(currentWeights)
+	if len(nonReadyStacks) > 0 {
+		sort.Strings(nonReadyStacks)
+		return newTrafficSwitchError("stacks %s not ready", strings.Join(nonReadyStacks, ", "))
 	}
 
-	if len(actualWeights) == 0 {
-		actualWeights = currentWeights
-	}
-
+	// TODO: think of case were all are zero and the service/deployment is deleted.
 	normalizeWeights(actualWeights)
 
 	for stackName, stack := range stacks {

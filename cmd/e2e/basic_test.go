@@ -254,9 +254,9 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	}}
 	require.EqualValues(t, globalIngressRules, globalIngress.Spec.Rules)
 
-	err = trafficWeightsUpdated(t, stacksetName, weightKindDesired, expectedWeights).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, expectedWeights).await()
+	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, expectedWeights, nil).await()
 	require.NoError(t, err)
 }
 
