@@ -56,6 +56,8 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 
 	stack := ssc.stackByName(stackName)
 
+	// If the current stack doesn't exist, check that we haven't created it before. We shouldn't recreate
+	// it if it was removed for any reason.
 	if stack == nil && observedStackVersion != stackVersion {
 		var service *zv1.StackServiceSpec
 		if stackset.Spec.StackTemplate.Spec.Service != nil {
@@ -117,8 +119,8 @@ func (ssc *StackSetContainer) UpdateStacksetStatus() error {
 	return nil
 }
 
-// MarkForRemoval marks stacks that should be deleted
-func (ssc *StackSetContainer) MarkForRemoval() error {
+// MarkExpiredStacks marks stacks that should be deleted
+func (ssc *StackSetContainer) MarkExpiredStacks() error {
 	historyLimit := defaultStackLifecycleLimit
 	if ssc.StackSet.Spec.StackLifecycle.Limit != nil {
 		historyLimit = int(*ssc.StackSet.Spec.StackLifecycle.Limit)

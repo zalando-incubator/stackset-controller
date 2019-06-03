@@ -684,12 +684,12 @@ func (c *StackSetController) ReconcileStackSet(container core.StackSetContainer)
 		c.recorder.Eventf(
 			container.StackSet,
 			v1.EventTypeWarning,
-			"FailedSwitchTraffic",
+			"TrafficNotSwitched",
 			err.Error())
 	}
 
 	// Mark stacks that should be removed
-	err = container.MarkForRemoval()
+	err = container.MarkExpiredStacks()
 	if err != nil {
 		return err
 	}
