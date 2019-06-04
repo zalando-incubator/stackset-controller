@@ -66,7 +66,7 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 		Name:      sc.Stack.Name,
 		Namespace: sc.Stack.Namespace,
 		Annotations: map[string]string{
-			StackGenerationAnnotationKey: strconv.FormatInt(sc.Stack.Generation, 10),
+			stackGenerationAnnotationKey: strconv.FormatInt(sc.Stack.Generation, 10),
 		},
 		Labels: resourceLabels,
 		OwnerReferences: []metav1.OwnerReference{

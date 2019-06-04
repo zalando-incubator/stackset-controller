@@ -186,8 +186,8 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 	for _, sc := range ssc.StackContainers {
 		// set TypeMeta manually because of this bug:
 		// https://github.com/kubernetes/client-go/issues/308
-		sc.Stack.APIVersion = "zalando.org/v1"
-		sc.Stack.Kind = "Stack"
+		sc.Stack.APIVersion = apiVersion
+		sc.Stack.Kind = stackKind
 
 		sc.stacksetName = ssc.StackSet.Name
 		sc.ingressSpec = ssc.StackSet.Spec.Ingress

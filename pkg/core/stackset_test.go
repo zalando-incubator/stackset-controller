@@ -7,8 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestExpiredStacks(t *testing.T) {
@@ -200,8 +202,8 @@ func TestStackSetNewStack(t *testing.T) {
 			name: "stack needs to be created",
 			stackset: &zv1.StackSet{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: "zalando.org/v1",
-					Kind:       "StackSet",
+					APIVersion: apiVersion,
+					Kind:       stackSetKind,
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -230,8 +232,8 @@ func TestStackSetNewStack(t *testing.T) {
 						},
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: "zalando.org/v1",
-								Kind:       "StackSet",
+								APIVersion: apiVersion,
+								Kind:       stackSetKind,
 								Name:       "foo",
 								UID:        "1234-abc-2134",
 							},
@@ -305,8 +307,8 @@ func TestStackSetUpdateFromResources(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
-				require.Equal(t, "zalando.org/v1", sc.Stack.APIVersion)
-				require.Equal(t, "Stack", sc.Stack.Kind)
+				require.Equal(t, apiVersion, sc.Stack.APIVersion)
+				require.Equal(t, stackKind, sc.Stack.Kind)
 
 				require.Equal(t, c.StackSet.Name, sc.stacksetName)
 
@@ -361,4 +363,151 @@ func TestGenerateStackSetStatus(t *testing.T) {
 		ObservedStackVersion: "v1",
 	}
 	require.Equal(t, expected, c.GenerateStackSetStatus())
+}
+
+func TestStackSetGenerateIngress(t *testing.T) {
+	stackContainer := func(name string, desiredTrafficWeight, actualTrafficWeight float64) *StackContainer {
+		return &StackContainer{
+			Stack: &zv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: name,
+				},
+			},
+			desiredTrafficWeight: desiredTrafficWeight,
+			actualTrafficWeight:  actualTrafficWeight,
+		}
+	}
+
+	c := &StackSetContainer{
+		StackSet: &zv1.StackSet{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: apiVersion,
+				Kind:       stackSetKind,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"stackset-label": "foobar",
+				},
+				UID: "abc-123",
+			},
+			Spec: zv1.StackSetSpec{
+				Ingress: &zv1.StackSetIngressSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      map[string]string{"ignored": "label"},
+						Annotations: map[string]string{"ingress": "annotation"},
+					},
+					Hosts:       []string{"example.org", "example.com"},
+					BackendPort: intstr.FromInt(80),
+					Path:        "example",
+				},
+			},
+		},
+		StackContainers: map[types.UID]*StackContainer{
+			"v1": stackContainer("foo-v1", 0.125, 0.25),
+			"v2": stackContainer("foo-v2", 0.5, 0.125),
+			"v3": stackContainer("foo-v3", 0.625, 0.625),
+			"v4": stackContainer("foo-v4", 0, 0),
+		},
+	}
+	ingress, err := c.GenerateIngress()
+	require.NoError(t, err)
+	expected := &extensions.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"stackset":       "foo",
+				"stackset-label": "foobar",
+			},
+			Annotations: map[string]string{
+				"ingress":                           "annotation",
+				"zalando.org/stack-traffic-weights": `{"foo-v1":0.125,"foo-v2":0.5,"foo-v3":0.625}`,
+				"zalando.org/backend-weights":       `{"foo-v1":0.25,"foo-v2":0.125,"foo-v3":0.625}`,
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: apiVersion,
+					Kind:       stackSetKind,
+					Name:       "foo",
+					UID:        "abc-123",
+				},
+			},
+		},
+		Spec: extensions.IngressSpec{
+			Rules: []extensions.IngressRule{
+				{
+					Host: "example.org",
+					IngressRuleValue: extensions.IngressRuleValue{
+						HTTP: &extensions.HTTPIngressRuleValue{
+							Paths: []extensions.HTTPIngressPath{
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v1",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v2",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v3",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "example.com",
+					IngressRuleValue: extensions.IngressRuleValue{
+						HTTP: &extensions.HTTPIngressRuleValue{
+							Paths: []extensions.HTTPIngressPath{
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v1",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v2",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v3",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	require.Equal(t, expected, ingress)
+}
+
+func TestStackSetGenerateIngressNone(t *testing.T) {
+	c := &StackSetContainer{
+		StackSet: &zv1.StackSet{},
+	}
+	ingress, err := c.GenerateIngress()
+	require.NoError(t, err)
+	require.Nil(t, ingress)
 }

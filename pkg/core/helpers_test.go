@@ -40,12 +40,12 @@ func TestGetStackGeneration(t *testing.T) {
 		},
 		{
 			name:        "returns 0 with an invalid annotation",
-			annotations: map[string]string{StackGenerationAnnotationKey: "foo"},
+			annotations: map[string]string{stackGenerationAnnotationKey: "foo"},
 			expected:    0,
 		},
 		{
 			name:        "returns parsed annotation value",
-			annotations: map[string]string{StackGenerationAnnotationKey: "192"},
+			annotations: map[string]string{stackGenerationAnnotationKey: "192"},
 			expected:    192,
 		},
 	} {

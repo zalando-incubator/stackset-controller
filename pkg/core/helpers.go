@@ -11,7 +11,11 @@ import (
 )
 
 const (
-	StackGenerationAnnotationKey = "stackset-controller.zalando.org/stack-generation"
+	apiVersion   = "zalando.org/v1"
+	stackSetKind = "StackSet"
+	stackKind    = "Stack"
+
+	stackGenerationAnnotationKey = "stackset-controller.zalando.org/stack-generation"
 )
 
 func mergeLabels(labelMaps ...map[string]string) map[string]string {
@@ -38,7 +42,7 @@ func IsResourceUpToDate(stack *zv1.Stack, resourceMeta metav1.ObjectMeta) bool {
 // getStackGeneration returns the generation of the stack associated to this resource.
 // This value is stored in an annotation of the resource object.
 func getStackGeneration(resource metav1.ObjectMeta) int64 {
-	encodedGeneration := resource.GetAnnotations()[StackGenerationAnnotationKey]
+	encodedGeneration := resource.GetAnnotations()[stackGenerationAnnotationKey]
 	decodedGeneration, err := strconv.ParseInt(encodedGeneration, 10, 64)
 	if err != nil {
 		return 0
