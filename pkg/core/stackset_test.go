@@ -317,3 +317,48 @@ func TestStackSetUpdateFromResources(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateStackSetStatus(t *testing.T) {
+	stackContainer := func(pendingRemoval, ready bool, hasTraffic bool) *StackContainer {
+		result := &StackContainer{
+			Stack:          &zv1.Stack{},
+			PendingRemoval: pendingRemoval,
+		}
+		if ready {
+			result.deploymentUpdated = true
+			result.deploymentReplicas = 3
+			result.readyReplicas = 3
+			result.updatedReplicas = 3
+		}
+		if hasTraffic {
+			result.desiredTrafficWeight = 0.3
+			result.actualTrafficWeight = 0.3
+		}
+		return result
+	}
+
+	c := &StackSetContainer{
+		StackSet: &zv1.StackSet{
+			Status: zv1.StackSetStatus{
+				Stacks:               1,
+				ReadyStacks:          2,
+				StacksWithTraffic:    3,
+				ObservedStackVersion: "v1",
+			},
+		},
+		StackContainers: map[types.UID]*StackContainer{
+			"v1": stackContainer(true, true, false),
+			"v2": stackContainer(false, true, true),
+			"v3": stackContainer(false, true, false),
+			"v4": stackContainer(false, false, false),
+		},
+	}
+
+	expected := &zv1.StackSetStatus{
+		Stacks:               3,
+		ReadyStacks:          2,
+		StacksWithTraffic:    1,
+		ObservedStackVersion: "v1",
+	}
+	require.Equal(t, expected, c.GenerateStackSetStatus())
+}

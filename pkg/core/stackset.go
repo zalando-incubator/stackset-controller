@@ -96,29 +96,6 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 	return nil, ""
 }
 
-// NewStack brings the Status to the desired state
-func (ssc *StackSetContainer) UpdateStacksetStatus() error {
-	var stacksWithTraffic, readyStacks int32
-
-	for _, stack := range ssc.StackContainers {
-		if stack.HasTraffic() {
-			stacksWithTraffic++
-		}
-		if stack.IsReady() {
-			readyStacks++
-		}
-	}
-
-	status := ssc.StackSet.Status
-
-	status.Stacks = int32(len(ssc.StackContainers))
-	status.StacksWithTraffic = stacksWithTraffic
-	status.ReadyStacks = readyStacks
-	status.ObservedStackVersion = ssc.StackSet.Status.ObservedStackVersion
-
-	return nil
-}
-
 // MarkExpiredStacks marks stacks that should be deleted
 func (ssc *StackSetContainer) MarkExpiredStacks() error {
 	historyLimit := defaultStackLifecycleLimit
@@ -254,9 +231,11 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 	}
 
 	for _, sc := range ssc.StackContainers {
-		if !sc.PendingRemoval {
-			result.Stacks += 1
+		if sc.PendingRemoval {
+			continue
 		}
+
+		result.Stacks += 1
 		if sc.HasTraffic() {
 			result.StacksWithTraffic += 1
 		}
