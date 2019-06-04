@@ -147,6 +147,113 @@ func TestSanitizeServicePorts(t *testing.T) {
 	require.Equal(t, v1.ProtocolTCP, service.Ports[0].Protocol)
 }
 
+func TestStackSetNewStack(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		stackset          *zv1.StackSet
+		stacks            map[types.UID]*StackContainer
+		expectedStack     *StackContainer
+		expectedStackName string
+	}{
+		{
+			name: "stack already exists",
+			stackset: &zv1.StackSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+				Spec: zv1.StackSetSpec{
+					StackTemplate: zv1.StackTemplate{
+						Spec: zv1.StackSpecTemplate{
+							Version: "v1",
+						},
+					},
+				},
+			},
+			stacks: map[types.UID]*StackContainer{
+				"foo": {
+					Stack: &zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{Name: "foo-v1"},
+					},
+				},
+			},
+			expectedStack:     nil,
+			expectedStackName: "",
+		},
+		{
+			name: "stack already created",
+			stackset: &zv1.StackSet{
+				ObjectMeta: metav1.ObjectMeta{Name: "foo"},
+				Spec: zv1.StackSetSpec{
+					StackTemplate: zv1.StackTemplate{
+						Spec: zv1.StackSpecTemplate{
+							Version: "v1",
+						},
+					},
+				},
+				Status: zv1.StackSetStatus{
+					ObservedStackVersion: "v1",
+				},
+			},
+			stacks:            map[types.UID]*StackContainer{},
+			expectedStack:     nil,
+			expectedStackName: "",
+		},
+		{
+			name: "stack needs to be created",
+			stackset: &zv1.StackSet{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "zalando.org/v1",
+					Kind:       "StackSet",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+					UID:       "1234-abc-2134",
+					Labels:    map[string]string{"custom": "label"},
+				},
+				Spec: zv1.StackSetSpec{
+					StackTemplate: zv1.StackTemplate{
+						Spec: zv1.StackSpecTemplate{
+							Version: "v1",
+						},
+					},
+				},
+			},
+			stacks: map[types.UID]*StackContainer{},
+			expectedStack: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1",
+						Namespace: "bar",
+						Labels: map[string]string{
+							StacksetHeritageLabelKey: "foo",
+							"custom":                 "label",
+							StackVersionLabelKey:     "v1",
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: "zalando.org/v1",
+								Kind:       "StackSet",
+								Name:       "foo",
+								UID:        "1234-abc-2134",
+							},
+						},
+					},
+				},
+			},
+			expectedStackName: "v1",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stackset := &StackSetContainer{
+				StackSet:        tc.stackset,
+				StackContainers: tc.stacks,
+			}
+			newStack, newStackName := stackset.NewStack()
+			require.EqualValues(t, tc.expectedStack, newStack)
+			require.EqualValues(t, tc.expectedStackName, newStackName)
+		})
+	}
+}
+
 func dummyStacksetContainer() *StackSetContainer {
 	return &StackSetContainer{
 		StackSet: &zv1.StackSet{
