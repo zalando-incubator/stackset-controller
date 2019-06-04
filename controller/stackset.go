@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"sync"
 	"time"
 
@@ -34,7 +33,6 @@ const (
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 
 	defaultResetMinReplicasDelay = 10 * time.Minute
-	defaultScaledownTTLSeconds   = int64(300)
 )
 
 // StackSetController is the main controller. It watches for changes to
@@ -395,7 +393,6 @@ func (c *StackSetController) startWatch(ctx context.Context) {
 func (c *StackSetController) add(obj interface{}) {
 	stackset, ok := obj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object: %s", reflect.TypeOf(obj))
 		return
 	}
 
@@ -408,13 +405,11 @@ func (c *StackSetController) add(obj interface{}) {
 func (c *StackSetController) update(oldObj, newObj interface{}) {
 	newStackset, ok := newObj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object: %s", reflect.TypeOf(newObj))
 		return
 	}
 
 	oldStackset, ok := oldObj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object: %s", reflect.TypeOf(oldObj))
 		return
 	}
 
@@ -433,7 +428,6 @@ func (c *StackSetController) update(oldObj, newObj interface{}) {
 func (c *StackSetController) del(obj interface{}) {
 	stackset, ok := obj.(*zv1.StackSet)
 	if !ok {
-		c.logger.Error("Failed to get StackSet object: %s", reflect.TypeOf(obj))
 		return
 	}
 
