@@ -184,11 +184,6 @@ func (ssc *StackSetContainer) updateTrafficFromIngress() error {
 // UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
 func (ssc *StackSetContainer) UpdateFromResources() error {
 	for _, sc := range ssc.StackContainers {
-		// set TypeMeta manually because of this bug:
-		// https://github.com/kubernetes/client-go/issues/308
-		sc.Stack.APIVersion = apiVersion
-		sc.Stack.Kind = stackKind
-
 		sc.stacksetName = ssc.StackSet.Name
 		sc.ingressSpec = ssc.StackSet.Spec.Ingress
 		if ssc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds == nil {

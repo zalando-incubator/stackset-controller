@@ -307,9 +307,6 @@ func TestStackSetUpdateFromResources(t *testing.T) {
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
-				require.Equal(t, apiVersion, sc.Stack.APIVersion)
-				require.Equal(t, stackKind, sc.Stack.Kind)
-
 				require.Equal(t, c.StackSet.Name, sc.stacksetName)
 
 				require.EqualValues(t, c.StackSet.Spec.Ingress, sc.ingressSpec)

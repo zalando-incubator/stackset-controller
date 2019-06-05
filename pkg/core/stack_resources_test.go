@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	v1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -227,4 +228,95 @@ func TestLimitLabels(t *testing.T) {
 	}
 
 	require.Len(t, limitLabels(labels, validKeys), 1)
+}
+
+func TestStackGenerateIngress(t *testing.T) {
+	c := &StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "foo-v1",
+				Namespace:  "bar",
+				UID:        "abc-123",
+				Generation: 11,
+				Labels:     map[string]string{"stack-label": "foobar"},
+			},
+		},
+		stacksetName: "foo",
+		ingressSpec: &zv1.StackSetIngressSpec{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      map[string]string{"ignored": "label"},
+				Annotations: map[string]string{"ingress": "annotation"},
+			},
+			Hosts:       []string{"example.org", "example.com"},
+			BackendPort: intstr.FromInt(80),
+			Path:        "example",
+		},
+	}
+	ingress, err := c.GenerateIngress()
+	require.NoError(t, err)
+	expected := &extensions.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo-v1",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"stack-label": "foobar",
+			},
+			Annotations: map[string]string{
+				"ingress":                    "annotation",
+				stackGenerationAnnotationKey: "11",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: apiVersion,
+					Kind:       stackKind,
+					Name:       "foo-v1",
+					UID:        "abc-123",
+				},
+			},
+		},
+		Spec: extensions.IngressSpec{
+			Rules: []extensions.IngressRule{
+				{
+					Host: "foo-v1.org",
+					IngressRuleValue: extensions.IngressRuleValue{
+						HTTP: &extensions.HTTPIngressRuleValue{
+							Paths: []extensions.HTTPIngressPath{
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v1",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "foo-v1.com",
+					IngressRuleValue: extensions.IngressRuleValue{
+						HTTP: &extensions.HTTPIngressRuleValue{
+							Paths: []extensions.HTTPIngressPath{
+								{
+									Path: "example",
+									Backend: extensions.IngressBackend{
+										ServiceName: "foo-v1",
+										ServicePort: intstr.FromInt(80),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	require.Equal(t, expected, ingress)
+}
+
+func TestStackGenerateIngressNone(t *testing.T) {
+	c := &StackContainer{}
+	ingress, err := c.GenerateIngress()
+	require.NoError(t, err)
+	require.Nil(t, ingress)
 }
