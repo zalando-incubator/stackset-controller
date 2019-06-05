@@ -145,34 +145,20 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 
 	var updatedReplicas *int32
 
-	// Stack scaled down manually
-	if desiredReplicas == 0 && sc.deploymentReplicas != 0 {
-		updatedReplicas = wrapReplicas(0)
-	}
-
-	// Stack scaled down because it doesn't receive traffic
-	if sc.ScaledDown() && sc.deploymentReplicas != 0 {
-		updatedReplicas = wrapReplicas(0)
-	}
-
-	// Stack not scaled down, but the deployment doesn't have any replicas
-	if !sc.ScaledDown() && desiredReplicas != 0 && sc.deploymentReplicas == 0 {
-		updatedReplicas = wrapReplicas(desiredReplicas)
-	}
-
-	// Stack scaled up, replica count different from the deployment, HPA unused
-	if !sc.ScaledDown() && desiredReplicas != 0 && desiredReplicas != sc.deploymentReplicas && !sc.IsAutoscaled() {
-		updatedReplicas = wrapReplicas(desiredReplicas)
+	if desiredReplicas != 0 && !sc.ScaledDown() {
+		// Stack scaled up, rescale the deployment if it's at 0 replicas, or if HPA is unused and we don't run autoscaling
+		if sc.deploymentReplicas == 0 || (!sc.IsAutoscaled() && desiredReplicas != sc.deploymentReplicas) {
+			updatedReplicas = wrapReplicas(desiredReplicas)
+		}
+	} else {
+		// Stack scaled down (manually or because it doesn't receive traffic), check if we need to scale down the deployment
+		if sc.deploymentReplicas != 0 {
+			updatedReplicas = wrapReplicas(0)
+		}
 	}
 
 	return &appsv1.Deployment{
 		ObjectMeta: sc.resourceMeta(),
-		// set TypeMeta manually because of this bug:
-		// https://github.com/kubernetes/client-go/issues/308
-		TypeMeta: metav1.TypeMeta{
-			Kind:       kindDeployment,
-			APIVersion: apiVersionAppsV1,
-		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: updatedReplicas,
 			Selector: &metav1.LabelSelector{
