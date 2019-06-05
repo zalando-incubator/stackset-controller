@@ -320,3 +320,73 @@ func TestStackGenerateIngressNone(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, ingress)
 }
+
+func TestStackGenerateService(t *testing.T) {
+	c := &StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "foo-v1",
+				Namespace:  "bar",
+				UID:        "abc-123",
+				Generation: 11,
+				Labels: map[string]string{
+					StacksetHeritageLabelKey: "foo",
+					StackVersionLabelKey:     "v1",
+					"stack-label":            "foobar",
+				},
+			},
+			Spec: zv1.StackSpec{
+				Service: &zv1.StackServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+						},
+					},
+				},
+			},
+		},
+		stacksetName: "foo",
+		ingressSpec: &zv1.StackSetIngressSpec{
+			BackendPort: intstr.FromInt(80),
+		},
+	}
+	service, err := c.GenerateService()
+	require.NoError(t, err)
+	expected := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo-v1",
+			Namespace: "bar",
+			Labels: map[string]string{
+				StacksetHeritageLabelKey: "foo",
+				StackVersionLabelKey:     "v1",
+				"stack-label":            "foobar",
+			},
+			Annotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: apiVersion,
+					Kind:       stackKind,
+					Name:       "foo-v1",
+					UID:        "abc-123",
+				},
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{
+				{
+					Port:       80,
+					TargetPort: intstr.FromInt(8080),
+				},
+			},
+			Selector: map[string]string{
+				StacksetHeritageLabelKey: "foo",
+				StackVersionLabelKey:     "v1",
+			},
+			Type: v1.ServiceTypeClusterIP,
+		},
+	}
+	require.Equal(t, expected, service)
+}
