@@ -217,7 +217,9 @@ func (sc *StackContainer) updateFromResources() {
 
 	status := sc.Stack.Status
 	sc.noTrafficSince = unwrapTime(status.NoTrafficSince)
-	sc.prescalingActive = status.Prescaling.Active
-	sc.prescalingReplicas = status.Prescaling.Replicas
-	sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
+	if status.Prescaling.Active {
+		sc.prescalingActive = true
+		sc.prescalingReplicas = status.Prescaling.Replicas
+		sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
+	}
 }

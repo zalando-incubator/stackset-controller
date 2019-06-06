@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	apps "k8s.io/api/apps/v1"
+	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -315,6 +317,153 @@ func TestStackSetUpdateFromResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStackUpdateFromResources(t *testing.T) {
+	runTest := func(name string, testFn func(t *testing.T, container *StackContainer)) {
+		container := &StackContainer{
+			Stack: &zv1.Stack{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "foo-v1",
+				},
+			},
+		}
+		t.Run(name, func(t *testing.T) {
+			testFn(t, container)
+		})
+	}
+
+	hourAgo := time.Now().Add(-time.Hour)
+
+	runTest("stackset replicas default to 1", func(t *testing.T, container *StackContainer) {
+		container.Stack.Spec.Replicas = nil
+		container.updateFromResources()
+		require.EqualValues(t, 1, container.stackReplicas)
+	})
+	runTest("stackset replicas are parsed from the spec", func(t *testing.T, container *StackContainer) {
+		container.Stack.Spec.Replicas = wrapReplicas(3)
+		container.updateFromResources()
+		require.EqualValues(t, 3, container.stackReplicas)
+	})
+
+	runTest("desired replicas are set to 0 if there's no HPA", func(t *testing.T, container *StackContainer) {
+		container.updateFromResources()
+		require.EqualValues(t, 0, container.desiredReplicas)
+	})
+	runTest("desired replicas are parsed from the HPA", func(t *testing.T, container *StackContainer) {
+		container.Resources.HPA = &autoscaling.HorizontalPodAutoscaler{
+			Status: autoscaling.HorizontalPodAutoscalerStatus{
+				DesiredReplicas: 7,
+			},
+		}
+		container.updateFromResources()
+		require.EqualValues(t, 7, container.desiredReplicas)
+	})
+
+	runTest("noTrafficSince can be unset", func(t *testing.T, container *StackContainer) {
+		container.updateFromResources()
+		require.EqualValues(t, time.Time{}, container.noTrafficSince)
+	})
+	runTest("noTrafficSince is parsed from the status", func(t *testing.T, container *StackContainer) {
+		container.Stack.Status.NoTrafficSince = &metav1.Time{Time: hourAgo}
+		container.updateFromResources()
+		require.EqualValues(t, hourAgo, container.noTrafficSince)
+	})
+
+	runTest("missing deployment is handled fine", func(t *testing.T, container *StackContainer) {
+		container.updateFromResources()
+		require.EqualValues(t, false, container.deploymentUpdated)
+		require.EqualValues(t, 0, container.createdReplicas)
+		require.EqualValues(t, 0, container.readyReplicas)
+		require.EqualValues(t, 0, container.updatedReplicas)
+	})
+	runTest("replica information is parsed from the deployment", func(t *testing.T, container *StackContainer) {
+		container.Resources.Deployment = &apps.Deployment{
+			Spec: apps.DeploymentSpec{
+				Replicas: wrapReplicas(3),
+			},
+			Status: apps.DeploymentStatus{
+				Replicas:        11,
+				UpdatedReplicas: 7,
+				ReadyReplicas:   5,
+			},
+		}
+		container.updateFromResources()
+		require.EqualValues(t, 3, container.deploymentReplicas)
+		require.EqualValues(t, 11, container.createdReplicas)
+		require.EqualValues(t, 5, container.readyReplicas)
+		require.EqualValues(t, 7, container.updatedReplicas)
+	})
+	runTest("missing deployment replicas default to 1", func(t *testing.T, container *StackContainer) {
+		container.Resources.Deployment = &apps.Deployment{
+			Spec: apps.DeploymentSpec{
+				Replicas: nil,
+			},
+		}
+		container.updateFromResources()
+		require.EqualValues(t, 1, container.deploymentReplicas)
+	})
+	runTest("deployment isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Resources.Deployment = &apps.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 5,
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: "10",
+				},
+			},
+			Status: apps.DeploymentStatus{
+				ObservedGeneration: 5,
+			},
+		}
+		container.updateFromResources()
+		require.EqualValues(t, false, container.deploymentUpdated)
+	})
+	runTest("deployment isn't considered updated if observedGeneration is different", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Resources.Deployment = &apps.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 5,
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: "11",
+				},
+			},
+			Status: apps.DeploymentStatus{
+				ObservedGeneration: 4,
+			},
+		}
+		container.updateFromResources()
+		require.EqualValues(t, false, container.deploymentUpdated)
+	})
+	runTest("deployment is considered updated if observedGeneration is the same", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Resources.Deployment = &apps.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: 5,
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: "11",
+				},
+			},
+			Status: apps.DeploymentStatus{
+				ObservedGeneration: 5,
+			},
+		}
+		container.updateFromResources()
+		require.EqualValues(t, true, container.deploymentUpdated)
+	})
+
+	runTest("prescaling information is parsed from the status", func(t *testing.T, container *StackContainer) {
+		container.Stack.Status.Prescaling = zv1.PrescalingStatus{
+			Active:              true,
+			Replicas:            11,
+			LastTrafficIncrease: &metav1.Time{Time: hourAgo},
+		}
+		container.updateFromResources()
+		require.EqualValues(t, 1, container.stackReplicas)
+		require.EqualValues(t, true, container.prescalingActive)
+		require.EqualValues(t, 11, container.prescalingReplicas)
+		require.EqualValues(t, hourAgo, container.prescalingLastTrafficIncrease)
+	})
 }
 
 func TestUpdateTrafficFromIngress(t *testing.T) {
