@@ -287,6 +287,14 @@ func (sc *StackContainer) GenerateIngress() (*extensions.Ingress, error) {
 }
 
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
+	prescaling := zv1.PrescalingStatus{}
+	if sc.prescalingActive {
+		prescaling = zv1.PrescalingStatus{
+			Active:              sc.prescalingActive,
+			Replicas:            sc.prescalingReplicas,
+			LastTrafficIncrease: wrapTime(sc.prescalingLastTrafficIncrease),
+		}
+	}
 	return &zv1.StackStatus{
 		ActualTrafficWeight:  sc.actualTrafficWeight,
 		DesiredTrafficWeight: sc.desiredTrafficWeight,
@@ -294,11 +302,7 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 		ReadyReplicas:        sc.readyReplicas,
 		UpdatedReplicas:      sc.updatedReplicas,
 		DesiredReplicas:      sc.desiredReplicas,
-		Prescaling: zv1.PrescalingStatus{
-			Active:              sc.prescalingActive,
-			Replicas:            sc.prescalingReplicas,
-			LastTrafficIncrease: wrapTime(sc.prescalingLastTrafficIncrease),
-		},
-		NoTrafficSince: wrapTime(sc.noTrafficSince),
+		Prescaling:           prescaling,
+		NoTrafficSince:       wrapTime(sc.noTrafficSince),
 	}
 }
