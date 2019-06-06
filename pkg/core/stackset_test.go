@@ -317,6 +317,84 @@ func TestStackSetUpdateFromResources(t *testing.T) {
 	}
 }
 
+func TestUpdateTrafficFromIngress(t *testing.T) {
+	for _, tc := range []struct {
+		name                   string
+		desiredWeights         string
+		actualWeights          string
+		expectedDesiredWeights map[string]float64
+		expectedActualWeights  map[string]float64
+	}{
+		{
+			name: "no weights are present",
+		},
+		{
+			name:                   "desired and actual weights are parsed correctly",
+			desiredWeights:         `{"foo-v1": 25, "foo-v2": 50, "foo-v3": 25}`,
+			actualWeights:          `{"foo-v1": 62.5, "foo-v2": 12.5, "foo-v3": 25}`,
+			expectedDesiredWeights: map[string]float64{"foo-v1": 25, "foo-v2": 50, "foo-v3": 25},
+			expectedActualWeights:  map[string]float64{"foo-v1": 62.5, "foo-v2": 12.5, "foo-v3": 25},
+		},
+		{
+			name:                   "unknown stacks are removed, remaining weights are renormalised",
+			desiredWeights:         `{"foo-v4": 50, "foo-v2": 25, "foo-v3": 25}`,
+			actualWeights:          `{"foo-v4": 50, "foo-v2": 12.5, "foo-v3": 37.5}`,
+			expectedDesiredWeights: map[string]float64{"foo-v2": 50, "foo-v3": 50},
+			expectedActualWeights:  map[string]float64{"foo-v2": 25, "foo-v3": 75},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stack := func(name string) *StackContainer {
+				return &StackContainer{
+					Stack: &zv1.Stack{
+						ObjectMeta: metav1.ObjectMeta{Name: name},
+					},
+				}
+			}
+
+			stack1 := stack("foo-v1")
+			stack2 := stack("foo-v2")
+			stack3 := stack("foo-v3")
+
+			ssc := &StackSetContainer{
+				StackSet: &zv1.StackSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{},
+					},
+				},
+				Ingress: &extensions.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:        "foo",
+						Annotations: map[string]string{},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					"v1": stack1,
+					"v2": stack2,
+					"v3": stack3,
+				},
+			}
+
+			if tc.desiredWeights != "" {
+				ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey] = tc.desiredWeights
+			}
+			if tc.actualWeights != "" {
+				ssc.Ingress.Annotations[backendWeightsAnnotationKey] = tc.actualWeights
+			}
+
+			err := ssc.UpdateFromResources()
+			require.NoError(t, err)
+			for _, sc := range ssc.StackContainers {
+				require.Equal(t, tc.expectedDesiredWeights[sc.Stack.Name], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
+				require.Equal(t, tc.expectedActualWeights[sc.Stack.Name], sc.actualTrafficWeight, "stack %s", sc.Stack.Name)
+			}
+		})
+	}
+}
+
 func TestGenerateStackSetStatus(t *testing.T) {
 	stackContainer := func(pendingRemoval, ready bool, hasTraffic bool) *StackContainer {
 		result := &StackContainer{
