@@ -81,6 +81,9 @@ func (ssc *StackSetContainer) ManageTraffic() error {
 			sc.desiredTrafficWeight = 0
 			sc.actualTrafficWeight = 0
 			sc.noTrafficSince = time.Time{}
+			sc.prescalingActive = false
+			sc.prescalingReplicas = 0
+			sc.prescalingLastTrafficIncrease = time.Time{}
 		}
 		return nil
 	}
