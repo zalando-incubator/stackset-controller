@@ -29,7 +29,7 @@ func newTrafficSwitchError(format string, args ...interface{}) error {
 
 type TrafficReconciler interface {
 	// Handle the traffic switching and/or scaling logic.
-	Reconcile(stacks map[string]*StackContainer) error
+	Reconcile(stacks map[string]*StackContainer, currentTimestamp time.Time) error
 }
 
 // allZero returns true if all weights defined in the map are 0.
@@ -70,7 +70,7 @@ func normalizeWeights(backendWeights map[string]float64) {
 }
 
 // ManageTraffic handles the traffic reconciler logic
-func (ssc *StackSetContainer) ManageTraffic() error {
+func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 	// No ingress -> no traffic management required
 	if ssc.StackSet.Spec.Ingress == nil {
 		for _, sc := range ssc.StackContainers {
@@ -120,7 +120,7 @@ func (ssc *StackSetContainer) ManageTraffic() error {
 
 	// Run the traffic reconciler which will update the actual weights according to the desired weights. The resulting
 	// weights **must** be normalised.
-	err := ssc.TrafficReconciler.Reconcile(stacks)
+	err := ssc.TrafficReconciler.Reconcile(stacks, currentTimestamp)
 
 	// Update the actual weights from the reconciled ones
 	if err == nil {
@@ -143,7 +143,7 @@ func (ssc *StackSetContainer) ManageTraffic() error {
 		if stack.HasTraffic() {
 			stack.noTrafficSince = time.Time{}
 		} else if stack.noTrafficSince.IsZero() {
-			stack.noTrafficSince = time.Now()
+			stack.noTrafficSince = currentTimestamp
 		}
 	}
 	return err

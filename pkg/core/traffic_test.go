@@ -60,7 +60,7 @@ func TestTrafficSwitchNoIngress(t *testing.T) {
 				},
 				TrafficReconciler: reconciler,
 			}
-			err := c.ManageTraffic()
+			err := c.ManageTraffic(time.Now())
 			require.NoError(t, err)
 			for _, sc := range c.StackContainers {
 				require.EqualValues(t, 0, sc.desiredTrafficWeight)
@@ -123,7 +123,7 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 				},
 				TrafficReconciler: SimpleTrafficReconciler{},
 			}
-			err := c.ManageTraffic()
+			err := c.ManageTraffic(time.Now())
 			expected := &trafficSwitchError{
 				reason: "stacks foo-v1 not ready",
 			}
@@ -301,7 +301,7 @@ func TestTrafficSwitchSimple(t *testing.T) {
 				TrafficReconciler: SimpleTrafficReconciler{},
 			}
 
-			err := c.ManageTraffic()
+			err := c.ManageTraffic(time.Now())
 			if tc.expectedError != "" {
 				require.Error(t, err)
 				require.Equal(t, tc.expectedError, err.Error())
@@ -315,6 +315,43 @@ func TestTrafficSwitchSimple(t *testing.T) {
 			for name, weight := range tc.expectedActualWeights {
 				require.Equal(t, weight, c.StackContainers[types.UID(name)].actualTrafficWeight, "actual weight, stack %s", name)
 			}
+		})
+	}
+}
+
+func TestTrafficSwitchNoTrafficSince(t *testing.T) {
+	for reconcilerName, reconciler := range map[string]TrafficReconciler{
+		"simple": SimpleTrafficReconciler{},
+		"prescale": PrescalingTrafficReconciler{
+			ResetHPAMinReplicasTimeout: time.Minute,
+		},
+	} {
+		t.Run(reconcilerName, func(t *testing.T) {
+			c := StackSetContainer{
+				StackSet: &zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{},
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					"foo-v1": stackContainer("foo-v1", 90, 0, false, hourAgo, time.Time{}),
+					"foo-v2": stackContainer("foo-v2", 0, 90, false, hourAgo, time.Time{}),
+					"foo-v3": stackContainer("foo-v3", 10, 10, false, hourAgo, time.Time{}),
+					"foo-v4": stackContainer("foo-v4", 0, 0, false, hourAgo, time.Time{}),
+					"foo-v5": stackContainer("foo-v5", 0, 0, false, hourAgo, fiveMinutesAgo),
+				},
+				TrafficReconciler: reconciler,
+			}
+
+			switchTimestamp := time.Now()
+			err := c.ManageTraffic(switchTimestamp)
+			require.Error(t, err)
+
+			require.Equal(t, time.Time{}, c.StackContainers["foo-v1"].noTrafficSince, "stacks with desired but no actual traffic must not have noTrafficSince")
+			require.Equal(t, time.Time{}, c.StackContainers["foo-v2"].noTrafficSince, "stacks with actual but no desired traffic must not have noTrafficSince")
+			require.Equal(t, time.Time{}, c.StackContainers["foo-v3"].noTrafficSince, "stacks with both desired and actual traffic must not have noTrafficSince")
+			require.Equal(t, switchTimestamp, c.StackContainers["foo-v4"].noTrafficSince, "stacks with no traffic must have the value noTrafficSince preserved")
+			require.Equal(t, fiveMinutesAgo, c.StackContainers["foo-v5"].noTrafficSince, "stacks with no traffic and empty noTrafficSince should have it populated")
 		})
 	}
 }

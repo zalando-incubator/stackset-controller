@@ -669,7 +669,7 @@ func (c *StackSetController) ReconcileStackSet(container core.StackSetContainer)
 	}
 
 	// Update the stacks with the currently selected traffic reconciler
-	err = container.ManageTraffic()
+	err = container.ManageTraffic(time.Now())
 	if err != nil {
 		if !core.IsTrafficSwitchError(err) {
 			return err

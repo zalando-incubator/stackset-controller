@@ -3,6 +3,7 @@ package core
 import (
 	"sort"
 	"strings"
+	"time"
 )
 
 // SimpleTrafficReconciler is the most simple traffic reconciler which
@@ -10,7 +11,7 @@ import (
 // stackset-controller.
 type SimpleTrafficReconciler struct{}
 
-func (SimpleTrafficReconciler) Reconcile(stacks map[string]*StackContainer) error {
+func (SimpleTrafficReconciler) Reconcile(stacks map[string]*StackContainer, currentTimestamp time.Time) error {
 	actualWeights := make(map[string]float64, len(stacks))
 
 	var nonReadyStacks []string

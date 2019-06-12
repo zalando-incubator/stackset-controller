@@ -13,7 +13,7 @@ type PrescalingTrafficReconciler struct {
 	ResetHPAMinReplicasTimeout time.Duration
 }
 
-func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer) error {
+func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer, currentTimestamp time.Time) error {
 	// Calculate how many replicas stacks with traffic have at the moment
 	totalReplicas := int32(0)
 	for _, stack := range stacks {
@@ -43,7 +43,7 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 			}
 
 			stack.prescalingActive = true
-			stack.prescalingLastTrafficIncrease = time.Now()
+			stack.prescalingLastTrafficIncrease = currentTimestamp
 		}
 
 		if stack.prescalingActive && !stack.prescalingLastTrafficIncrease.IsZero() && time.Since(stack.prescalingLastTrafficIncrease) > r.ResetHPAMinReplicasTimeout {
