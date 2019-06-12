@@ -125,13 +125,13 @@ func TestExpiredStacks(t *testing.T) {
 				if tc.ingress {
 					stack.ingressSpec = &zv1.StackSetIngressSpec{}
 				}
-				c.StackContainers[types.UID(stack.Stack.Name)] = stack
+				c.StackContainers[types.UID(stack.Name())] = stack
 			}
 
 			err := c.MarkExpiredStacks()
 			require.NoError(t, err)
 			for _, stack := range tc.stacks {
-				require.Equal(t, tc.expected[stack.Stack.Name], stack.PendingRemoval, "stack %s", stack.Stack.Name)
+				require.Equal(t, tc.expected[stack.Name()], stack.PendingRemoval, "stack %s", stack.Stack.Name)
 			}
 		})
 	}
@@ -537,8 +537,8 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
 			for _, sc := range ssc.StackContainers {
-				require.Equal(t, tc.expectedDesiredWeights[sc.Stack.Name], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
-				require.Equal(t, tc.expectedActualWeights[sc.Stack.Name], sc.actualTrafficWeight, "stack %s", sc.Stack.Name)
+				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
+				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.actualTrafficWeight, "stack %s", sc.Stack.Name)
 			}
 		})
 	}

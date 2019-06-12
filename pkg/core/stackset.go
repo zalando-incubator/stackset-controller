@@ -175,18 +175,18 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 
 	for _, sc := range ssc.StackContainers {
 		if sc.actualTrafficWeight > 0 {
-			actualWeights[sc.Stack.Name] = sc.actualTrafficWeight
+			actualWeights[sc.Name()] = sc.actualTrafficWeight
 
 			rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, extensions.HTTPIngressPath{
 				Path: stackset.Spec.Ingress.Path,
 				Backend: extensions.IngressBackend{
-					ServiceName: sc.Stack.Name,
+					ServiceName: sc.Name(),
 					ServicePort: stackset.Spec.Ingress.BackendPort,
 				},
 			})
 		}
 		if sc.desiredTrafficWeight > 0 {
-			desiredWeights[sc.Stack.Name] = sc.desiredTrafficWeight
+			desiredWeights[sc.Name()] = sc.desiredTrafficWeight
 		}
 	}
 

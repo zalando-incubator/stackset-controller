@@ -63,8 +63,8 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 
 	return metav1.ObjectMeta{
-		Name:      sc.Stack.Name,
-		Namespace: sc.Stack.Namespace,
+		Name:      sc.Name(),
+		Namespace: sc.Namespace(),
 		Annotations: map[string]string{
 			stackGenerationAnnotationKey: strconv.FormatInt(sc.Stack.Generation, 10),
 		},
@@ -73,7 +73,7 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 			{
 				APIVersion: apiVersion,
 				Kind:       stackKind,
-				Name:       sc.Stack.Name,
+				Name:       sc.Name(),
 				UID:        sc.Stack.UID,
 			},
 		},
@@ -187,7 +187,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 			ScaleTargetRef: autoscaling.CrossVersionObjectReference{
 				APIVersion: apiVersionAppsV1,
 				Kind:       kindDeployment,
-				Name:       sc.Stack.Name,
+				Name:       sc.Name(),
 			},
 		},
 	}
@@ -196,7 +196,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		result.Spec.MinReplicas = autoscalerSpec.MinReplicas
 		result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
 
-		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Stack.Name, autoscalerSpec.Metrics)
+		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), autoscalerSpec.Metrics)
 		if err != nil {
 			return nil, err
 		}
@@ -266,7 +266,7 @@ func (sc *StackContainer) GenerateIngress() (*extensions.Ingress, error) {
 	path := extensions.HTTPIngressPath{
 		Path: sc.ingressSpec.Path,
 		Backend: extensions.IngressBackend{
-			ServiceName: sc.Stack.Name,
+			ServiceName: sc.Name(),
 			ServicePort: sc.ingressSpec.BackendPort,
 		},
 	}
@@ -275,7 +275,7 @@ func (sc *StackContainer) GenerateIngress() (*extensions.Ingress, error) {
 	// create rule per hostname
 	for _, host := range sc.ingressSpec.Hosts {
 		r := rule
-		newHost, err := createSubdomain(host, sc.Stack.Name)
+		newHost, err := createSubdomain(host, sc.Name())
 		if err != nil {
 			return nil, err
 		}

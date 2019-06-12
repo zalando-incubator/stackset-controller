@@ -459,14 +459,14 @@ func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error
 		stack := sc.Stack.DeepCopy()
 		err := doUpdateStatus(func(retry bool) error {
 			if retry {
-				updated, err := c.client.ZalandoV1().Stacks(sc.Stack.Namespace).Get(stack.Name, metav1.GetOptions{})
+				updated, err := c.client.ZalandoV1().Stacks(sc.Namespace()).Get(stack.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
 				stack = updated
 			}
 			stack.Status = *sc.GenerateStackStatus()
-			_, err := c.client.ZalandoV1().Stacks(sc.Stack.Namespace).UpdateStatus(stack)
+			_, err := c.client.ZalandoV1().Stacks(sc.Namespace()).UpdateStatus(stack)
 			return err
 		})
 		if err != nil {
@@ -505,7 +505,7 @@ func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) erro
 		return nil
 	}
 
-	created, err := c.client.ZalandoV1().Stacks(newStack.Stack.Namespace).Create(newStack.Stack)
+	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(newStack.Stack)
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedCreateStack", err)
 	}
@@ -514,7 +514,7 @@ func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) erro
 		apiv1.EventTypeNormal,
 		"CreatedStack",
 		"Created stack %s",
-		newStack.Stack.Name)
+		newStack.Name())
 
 	// Update observedStackVersion
 	ssc.StackSet.Status.ObservedStackVersion = newStackVersion

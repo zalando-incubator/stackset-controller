@@ -117,6 +117,14 @@ func (sc *StackContainer) ScaledDown() bool {
 	return !sc.noTrafficSince.IsZero() && time.Since(sc.noTrafficSince) > sc.scaledownTTL
 }
 
+func (sc *StackContainer) Name() string {
+	return sc.Stack.Name
+}
+
+func (sc *StackContainer) Namespace() string {
+	return sc.Stack.Namespace
+}
+
 // StackResources describes the resources of a stack.
 type StackResources struct {
 	Deployment *appsv1.Deployment
@@ -127,7 +135,7 @@ type StackResources struct {
 
 func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
 	for _, container := range ssc.StackContainers {
-		if container.Stack.Name == name {
+		if container.Name() == name {
 			return container
 		}
 	}
@@ -142,7 +150,7 @@ func (ssc *StackSetContainer) updateTrafficFromIngress() error {
 	if ssc.StackSet.Spec.Ingress != nil && ssc.Ingress != nil && len(ssc.StackContainers) > 0 {
 		stacksetNames := make(map[string]struct{})
 		for _, sc := range ssc.StackContainers {
-			stacksetNames[sc.Stack.Name] = struct{}{}
+			stacksetNames[sc.Name()] = struct{}{}
 		}
 
 		if weights, ok := ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
@@ -174,8 +182,8 @@ func (ssc *StackSetContainer) updateTrafficFromIngress() error {
 	}
 
 	for _, container := range ssc.StackContainers {
-		container.desiredTrafficWeight = desired[container.Stack.Name]
-		container.actualTrafficWeight = actual[container.Stack.Name]
+		container.desiredTrafficWeight = desired[container.Name()]
+		container.actualTrafficWeight = actual[container.Name()]
 	}
 
 	return nil

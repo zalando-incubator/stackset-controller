@@ -86,7 +86,7 @@ func (ssc *StackSetContainer) ManageTraffic() error {
 
 	stacks := make(map[string]*StackContainer)
 	for _, stack := range ssc.StackContainers {
-		stacks[stack.Stack.Name] = stack
+		stacks[stack.Name()] = stack
 	}
 
 	// Collect the desired weights
@@ -108,7 +108,7 @@ func (ssc *StackSetContainer) ManageTraffic() error {
 			if fallbackStack == nil {
 				return errNoStacks
 			}
-			weights[fallbackStack.Stack.Name] = 100
+			weights[fallbackStack.Name()] = 100
 		} else {
 			normalizeWeights(weights)
 		}
