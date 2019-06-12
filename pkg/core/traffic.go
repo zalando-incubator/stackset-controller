@@ -19,12 +19,8 @@ func (e *trafficSwitchError) Error() string {
 }
 
 func IsTrafficSwitchError(err error) bool {
-	switch err.(type) {
-	case *trafficSwitchError:
-		return true
-	default:
-		return false
-	}
+	_, ok := err.(*trafficSwitchError)
+	return ok
 }
 
 func newTrafficSwitchError(format string, args ...interface{}) error {
@@ -101,21 +97,29 @@ func (ssc *StackSetContainer) ManageTraffic() error {
 		actualWeights[stackName] = stack.actualTrafficWeight
 	}
 
-	// Normalize the desired weights and ensure that at least one stack gets traffic
-	if allZero(desiredWeights) {
-		fallbackStack := findFallbackStack(stacks)
-		if fallbackStack == nil {
-			return errNoStacks
+	// Normalize the weights and ensure that at least one stack gets traffic. This is done for both desired
+	// and actual weights, because otherwise we might end up in a situation where the desired weights are
+	// automagically fixed before reconciling traffic, but the reconciler still has the old actual weights
+	// that for example don't add up to 100.
+	for _, weights := range []map[string]float64{desiredWeights, actualWeights} {
+		// No traffic at all; select a fallback stack and send all traffic there
+		if allZero(weights) {
+			fallbackStack := findFallbackStack(stacks)
+			if fallbackStack == nil {
+				return errNoStacks
+			}
+			weights[fallbackStack.Stack.Name] = 100
+		} else {
+			normalizeWeights(weights)
 		}
-		desiredWeights[fallbackStack.Stack.Name] = 100
-	} else {
-		normalizeWeights(desiredWeights)
 	}
 	for stackName, stack := range stacks {
 		stack.desiredTrafficWeight = desiredWeights[stackName]
+		stack.actualTrafficWeight = actualWeights[stackName]
 	}
 
-	// Run the traffic reconciler which will update the actual weights according to the desired weights
+	// Run the traffic reconciler which will update the actual weights according to the desired weights. The resulting
+	// weights **must** be normalised.
 	err := ssc.TrafficReconciler.Reconcile(stacks)
 
 	// Update the actual weights from the reconciled ones
@@ -154,7 +158,7 @@ func findFallbackStack(stacks map[string]*StackContainer) *StackContainer {
 		if earliest == nil || stack.Stack.CreationTimestamp.Before(&earliest.Stack.CreationTimestamp) {
 			earliest = stack
 		}
-		if !stack.noTrafficSince.IsZero() && (recentlyUsed == nil || !recentlyUsed.noTrafficSince.IsZero() && stack.noTrafficSince.Before(recentlyUsed.noTrafficSince)) {
+		if !stack.noTrafficSince.IsZero() && (recentlyUsed == nil || stack.noTrafficSince.After(recentlyUsed.noTrafficSince)) {
 			recentlyUsed = stack
 		}
 	}
