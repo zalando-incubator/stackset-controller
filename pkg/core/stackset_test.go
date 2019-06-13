@@ -18,20 +18,6 @@ import (
 func TestExpiredStacks(t *testing.T) {
 	now := time.Now()
 
-	stackContainer := func(name string, creationTime time.Time, noTrafficSince time.Time, desiredTraffic, actualTraffic float64) *StackContainer {
-		return &StackContainer{
-			Stack: &zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              name,
-					CreationTimestamp: metav1.NewTime(creationTime),
-				},
-			},
-			desiredTrafficWeight: desiredTraffic,
-			actualTrafficWeight:  actualTraffic,
-			noTrafficSince:       noTrafficSince,
-		}
-	}
-
 	for _, tc := range []struct {
 		name                string
 		limit               int32
@@ -45,8 +31,8 @@ func TestExpiredStacks(t *testing.T) {
 			limit:   1,
 			ingress: true,
 			stacks: []*StackContainer{
-				stackContainer("stack1", now.Add(-1*time.Hour), now.Add(-1*time.Hour), 0, 0),
-				stackContainer("stack2", now.Add(-2*time.Hour), now.Add(-1*time.Hour), 0, 0),
+				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
 			},
 			expected: map[string]bool{"stack2": true},
 		},
@@ -55,8 +41,8 @@ func TestExpiredStacks(t *testing.T) {
 			limit:   1,
 			ingress: false,
 			stacks: []*StackContainer{
-				stackContainer("stack1", now.Add(-1*time.Hour), time.Time{}, 0, 0),
-				stackContainer("stack2", now.Add(-2*time.Hour), time.Time{}, 0, 0),
+				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).stack(),
 			},
 			expected: map[string]bool{"stack2": true},
 		},
@@ -65,8 +51,8 @@ func TestExpiredStacks(t *testing.T) {
 			limit:   1,
 			ingress: true,
 			stacks: []*StackContainer{
-				stackContainer("stack1", now.Add(-1*time.Hour), now.Add(-1*time.Hour), 1, 0),
-				stackContainer("stack2", now.Add(-2*time.Hour), now.Add(-2*time.Hour), 0, 1),
+				testStack("stack1").createdAt(now.Add(-1*time.Hour)).noTrafficSince(now.Add(-1*time.Hour)).traffic(1, 0).stack(),
+				testStack("stack2").createdAt(now.Add(-2*time.Hour)).noTrafficSince(now.Add(-2*time.Hour)).traffic(0, 1).stack(),
 			},
 			expected: nil,
 		},
@@ -75,8 +61,8 @@ func TestExpiredStacks(t *testing.T) {
 			limit:   3,
 			ingress: true,
 			stacks: []*StackContainer{
-				stackContainer("stack1", now.Add(-1*time.Hour), now.Add(-1*time.Hour), 0, 0),
-				stackContainer("stack2", now.Add(-2*time.Hour), now.Add(-2*time.Hour), 0, 0),
+				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-2 * time.Hour)).stack(),
 			},
 			expected: nil,
 		},
@@ -85,9 +71,9 @@ func TestExpiredStacks(t *testing.T) {
 			limit:   2,
 			ingress: true,
 			stacks: []*StackContainer{
-				stackContainer("stack1", now.Add(-1*time.Hour), now.Add(-1*time.Hour), 1, 1),
-				stackContainer("stack2", now.Add(-2*time.Hour), now.Add(-2*time.Hour), 0, 0),
-				stackContainer("stack3", now.Add(-3*time.Hour), now.Add(-3*time.Hour), 0, 0),
+				testStack("stack1").createdAt(now.Add(-1*time.Hour)).noTrafficSince(now.Add(-1*time.Hour)).traffic(1, 1).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-2 * time.Hour)).stack(),
+				testStack("stack3").createdAt(now.Add(-3 * time.Hour)).noTrafficSince(now.Add(-3 * time.Hour)).stack(),
 			},
 			expected: nil,
 		},
@@ -97,8 +83,8 @@ func TestExpiredStacks(t *testing.T) {
 			ingress:             true,
 			scaledownTTLSeconds: 300,
 			stacks: []*StackContainer{
-				stackContainer("stack1", now.Add(-1*time.Hour), now.Add(-200*time.Second), 0, 0),
-				stackContainer("stack2", now.Add(-2*time.Hour), now.Add(-250*time.Second), 0, 0),
+				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-200 * time.Second)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-250 * time.Second)).stack(),
 			},
 			expected: nil,
 		},
@@ -172,11 +158,7 @@ func TestStackSetNewStack(t *testing.T) {
 				},
 			},
 			stacks: map[types.UID]*StackContainer{
-				"foo": {
-					Stack: &zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{Name: "foo-v1"},
-					},
-				},
+				"foo": testStack("foo-v1").stack(),
 			},
 			expectedStack:     nil,
 			expectedStackName: "",
@@ -321,15 +303,8 @@ func TestStackSetUpdateFromResources(t *testing.T) {
 
 func TestStackUpdateFromResources(t *testing.T) {
 	runTest := func(name string, testFn func(t *testing.T, container *StackContainer)) {
-		container := &StackContainer{
-			Stack: &zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "foo-v1",
-				},
-			},
-		}
 		t.Run(name, func(t *testing.T) {
-			testFn(t, container)
+			testFn(t, testStack("foo-v1").stack())
 		})
 	}
 
@@ -493,17 +468,9 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			stack := func(name string) *StackContainer {
-				return &StackContainer{
-					Stack: &zv1.Stack{
-						ObjectMeta: metav1.ObjectMeta{Name: name},
-					},
-				}
-			}
-
-			stack1 := stack("foo-v1")
-			stack2 := stack("foo-v2")
-			stack3 := stack("foo-v3")
+			stack1 := testStack("foo-v1").stack()
+			stack2 := testStack("foo-v2").stack()
+			stack3 := testStack("foo-v3").stack()
 
 			ssc := &StackSetContainer{
 				StackSet: &zv1.StackSet{
@@ -545,24 +512,6 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 }
 
 func TestGenerateStackSetStatus(t *testing.T) {
-	stackContainer := func(pendingRemoval, ready bool, hasTraffic bool) *StackContainer {
-		result := &StackContainer{
-			Stack:          &zv1.Stack{},
-			PendingRemoval: pendingRemoval,
-		}
-		if ready {
-			result.deploymentUpdated = true
-			result.deploymentReplicas = 3
-			result.readyReplicas = 3
-			result.updatedReplicas = 3
-		}
-		if hasTraffic {
-			result.desiredTrafficWeight = 0.3
-			result.actualTrafficWeight = 0.3
-		}
-		return result
-	}
-
 	c := &StackSetContainer{
 		StackSet: &zv1.StackSet{
 			Status: zv1.StackSetStatus{
@@ -573,10 +522,10 @@ func TestGenerateStackSetStatus(t *testing.T) {
 			},
 		},
 		StackContainers: map[types.UID]*StackContainer{
-			"v1": stackContainer(true, true, false),
-			"v2": stackContainer(false, true, true),
-			"v3": stackContainer(false, true, false),
-			"v4": stackContainer(false, false, false),
+			"v1": testStack("v1").pendingRemoval().ready(3).stack(),
+			"v2": testStack("v2").ready(3).traffic(1, 1).stack(),
+			"v3": testStack("v3").ready(3).stack(),
+			"v4": testStack("v4").stack(),
 		},
 	}
 
@@ -590,18 +539,6 @@ func TestGenerateStackSetStatus(t *testing.T) {
 }
 
 func TestStackSetGenerateIngress(t *testing.T) {
-	stackContainer := func(name string, desiredTrafficWeight, actualTrafficWeight float64) *StackContainer {
-		return &StackContainer{
-			Stack: &zv1.Stack{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: name,
-				},
-			},
-			desiredTrafficWeight: desiredTrafficWeight,
-			actualTrafficWeight:  actualTrafficWeight,
-		}
-	}
-
 	c := &StackSetContainer{
 		StackSet: &zv1.StackSet{
 			TypeMeta: metav1.TypeMeta{
@@ -629,10 +566,10 @@ func TestStackSetGenerateIngress(t *testing.T) {
 			},
 		},
 		StackContainers: map[types.UID]*StackContainer{
-			"v1": stackContainer("foo-v1", 0.125, 0.25),
-			"v2": stackContainer("foo-v2", 0.5, 0.125),
-			"v3": stackContainer("foo-v3", 0.625, 0.625),
-			"v4": stackContainer("foo-v4", 0, 0),
+			"v1": testStack("foo-v1").traffic(0.125, 0.25).stack(),
+			"v2": testStack("foo-v2").traffic(0.5, 0.125).stack(),
+			"v3": testStack("foo-v3").traffic(0.625, 0.625).stack(),
+			"v4": testStack("foo-v4").traffic(0, 0).stack(),
 		},
 	}
 	ingress, err := c.GenerateIngress()

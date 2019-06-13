@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -14,28 +13,6 @@ var (
 	hourAgo        = time.Now().Add(-time.Hour)
 	fiveMinutesAgo = time.Now().Add(-5 * time.Minute)
 )
-
-func stackContainer(name string, desiredTrafficWeight, actualTrafficWeight float64, ready bool, createdAt time.Time, noTrafficSince time.Time) *StackContainer {
-	result := &StackContainer{
-		Stack: &zv1.Stack{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:              name,
-				CreationTimestamp: metav1.Time{Time: createdAt},
-			},
-		},
-		actualTrafficWeight:  actualTrafficWeight,
-		desiredTrafficWeight: desiredTrafficWeight,
-		noTrafficSince:       noTrafficSince,
-		deploymentUpdated:    true,
-		deploymentReplicas:   1,
-		updatedReplicas:      1,
-		readyReplicas:        0,
-	}
-	if ready {
-		result.readyReplicas = 1
-	}
-	return result
-}
 
 func TestTrafficSwitchNoIngress(t *testing.T) {
 	for reconcilerName, reconciler := range map[string]TrafficReconciler{
@@ -45,18 +22,13 @@ func TestTrafficSwitchNoIngress(t *testing.T) {
 		},
 	} {
 		t.Run(reconcilerName, func(t *testing.T) {
-			prescaledStack := stackContainer("foo-v1", 50, 50, true, hourAgo, time.Time{})
-			prescaledStack.prescalingActive = false
-			prescaledStack.prescalingReplicas = 3
-			prescaledStack.prescalingLastTrafficIncrease = time.Now()
-
 			c := StackSetContainer{
 				StackSet: &zv1.StackSet{
 					Spec: zv1.StackSetSpec{},
 				},
 				StackContainers: map[types.UID]*StackContainer{
-					"v1": prescaledStack,
-					"v2": stackContainer("foo-v2", 50, 50, true, hourAgo, time.Time{}),
+					"v1": testStack("foo-v1").ready(3).traffic(50, 50).prescaling(3, time.Now()).stack(),
+					"v2": testStack("foo-v2").ready(3).traffic(50, 50).stack(),
 				},
 				TrafficReconciler: reconciler,
 			}
@@ -77,6 +49,7 @@ func TestTrafficSwitchNoIngress(t *testing.T) {
 func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 	for _, tc := range []struct {
 		name               string
+		stack              *StackContainer
 		deploymentUpdated  bool
 		deploymentReplicas int32
 		updatedReplicas    int32
@@ -105,12 +78,6 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			initialStack := stackContainer("foo-v1", 70, 30, true, hourAgo, time.Time{})
-			initialStack.deploymentUpdated = tc.deploymentUpdated
-			initialStack.deploymentReplicas = tc.deploymentReplicas
-			initialStack.updatedReplicas = tc.updatedReplicas
-			initialStack.readyReplicas = tc.readyReplicas
-
 			c := StackSetContainer{
 				StackSet: &zv1.StackSet{
 					Spec: zv1.StackSetSpec{
@@ -118,8 +85,8 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 					},
 				},
 				StackContainers: map[types.UID]*StackContainer{
-					"v1": initialStack,
-					"v2": stackContainer("foo-v2", 30, 70, true, hourAgo, time.Time{}),
+					"v1": testStack("foo-v1").traffic(70, 30).deployment(tc.deploymentUpdated, tc.deploymentReplicas, tc.updatedReplicas, tc.readyReplicas).stack(),
+					"v2": testStack("foo-v2").traffic(30, 70).ready(3).stack(),
 				},
 				TrafficReconciler: SimpleTrafficReconciler{},
 			}
@@ -143,9 +110,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 		{
 			name: "traffic is switched if all the stacks are ready",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 25, 70, true, hourAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 50, 30, true, hourAgo, time.Time{}),
-				"foo-v3": stackContainer("foo-v3", 25, 0, true, hourAgo, time.Time{}),
+				"foo-v1": testStack("foo-v1").traffic(25, 70).ready(1).stack(),
+				"foo-v2": testStack("foo-v2").traffic(50, 30).ready(1).stack(),
+				"foo-v3": testStack("foo-v3").traffic(25, 0).ready(1).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -161,9 +128,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 		{
 			name: "traffic is switched even if some of the stacks are not ready, if their traffic weight is reduced",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 25, 70, false, hourAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 50, 30, true, hourAgo, time.Time{}),
-				"foo-v3": stackContainer("foo-v3", 25, 0, true, hourAgo, time.Time{}),
+				"foo-v1": testStack("foo-v1").traffic(25, 70).stack(),
+				"foo-v2": testStack("foo-v2").traffic(50, 30).ready(1).stack(),
+				"foo-v3": testStack("foo-v3").traffic(25, 0).ready(1).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -179,9 +146,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 		{
 			name: "traffic weights are normalised",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 1, 7, true, hourAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 2, 3, true, hourAgo, time.Time{}),
-				"foo-v3": stackContainer("foo-v3", 1, 0, true, hourAgo, time.Time{}),
+				"foo-v1": testStack("foo-v1").traffic(1, 7).ready(1).stack(),
+				"foo-v2": testStack("foo-v2").traffic(2, 3).ready(1).stack(),
+				"foo-v3": testStack("foo-v3").traffic(1, 0).ready(1).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -197,9 +164,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 		{
 			name: "traffic weights are normalised even if actual traffic switching fails",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 1, 7, false, hourAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 2, 3, false, hourAgo, time.Time{}),
-				"foo-v3": stackContainer("foo-v3", 1, 0, false, hourAgo, time.Time{}),
+				"foo-v1": testStack("foo-v1").traffic(1, 7).stack(),
+				"foo-v2": testStack("foo-v2").traffic(2, 3).stack(),
+				"foo-v3": testStack("foo-v3").traffic(1, 0).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -216,9 +183,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 		{
 			name: "if there are no stacks with a desired traffic weight, send traffic to the stack that had it most recently",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 0, 10, false, hourAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 0, 30, false, hourAgo, fiveMinutesAgo),
-				"foo-v3": stackContainer("foo-v3", 0, 60, false, hourAgo, hourAgo),
+				"foo-v1": testStack("foo-v1").traffic(0, 10).stack(),
+				"foo-v2": testStack("foo-v2").traffic(0, 30).noTrafficSince(fiveMinutesAgo).stack(),
+				"foo-v3": testStack("foo-v3").traffic(0, 60).noTrafficSince(hourAgo).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 0,
@@ -235,9 +202,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 		{
 			name: "if there are no stacks with a desired traffic weight, and no stacks had traffic recently, send traffic to the earliest created stack",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 0, 10, false, fiveMinutesAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 0, 30, false, hourAgo, time.Time{}),
-				"foo-v3": stackContainer("foo-v3", 0, 60, false, fiveMinutesAgo, time.Time{}),
+				"foo-v1": testStack("foo-v1").traffic(0, 10).createdAt(fiveMinutesAgo).stack(),
+				"foo-v2": testStack("foo-v2").traffic(0, 30).stack(),
+				"foo-v3": testStack("foo-v3").traffic(0, 60).createdAt(fiveMinutesAgo).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 0,
@@ -254,9 +221,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 		{
 			name: "if there are no stacks with traffic, send traffic to the stack that had it most recently",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 25, 0, false, hourAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 50, 0, false, hourAgo, fiveMinutesAgo),
-				"foo-v3": stackContainer("foo-v3", 25, 0, false, hourAgo, hourAgo),
+				"foo-v1": testStack("foo-v1").traffic(25, 0).stack(),
+				"foo-v2": testStack("foo-v2").traffic(50, 0).noTrafficSince(fiveMinutesAgo).stack(),
+				"foo-v3": testStack("foo-v3").traffic(25, 0).noTrafficSince(hourAgo).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -271,11 +238,11 @@ func TestTrafficSwitchSimple(t *testing.T) {
 			expectedError: "stacks foo-v1, foo-v3 not ready",
 		},
 		{
-			name: "if there are no stacks traffic, and no stacks had traffic recently, send traffic to the earliest created stack",
+			name: "if there are no stacks with traffic, and no stacks had traffic recently, send traffic to the earliest created stack",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": stackContainer("foo-v1", 25, 0, false, fiveMinutesAgo, time.Time{}),
-				"foo-v2": stackContainer("foo-v2", 50, 0, false, hourAgo, time.Time{}),
-				"foo-v3": stackContainer("foo-v3", 25, 0, false, fiveMinutesAgo, time.Time{}),
+				"foo-v1": testStack("foo-v1").traffic(25, 0).createdAt(fiveMinutesAgo).stack(),
+				"foo-v2": testStack("foo-v2").traffic(50, 0).stack(),
+				"foo-v3": testStack("foo-v3").traffic(25, 0).createdAt(fiveMinutesAgo).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -319,6 +286,159 @@ func TestTrafficSwitchSimple(t *testing.T) {
 	}
 }
 
+func TestTrafficSwitchPrescaling(t *testing.T) {
+	for _, tc := range []struct {
+		name                   string
+		stacks                 map[types.UID]*StackContainer
+		expectedDesiredWeights map[string]float64
+		expectedActualWeights  map[string]float64
+		expectedError          string
+	}{
+		{
+			name: "traffic is switched even if some of the stacks are not ready, if their traffic weight is reduced",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(25, 70).stack(),
+				"foo-v2": testStack("foo-v2").traffic(50, 30).ready(1).stack(),
+				"foo-v3": testStack("foo-v3").traffic(25, 0).ready(1).stack(),
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 25,
+				"foo-v2": 50,
+				"foo-v3": 25,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 25,
+				"foo-v2": 50,
+				"foo-v3": 25,
+			},
+		},
+		{
+			name: "traffic weights are normalised even if actual traffic switching fails",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(1, 7).stack(),
+				"foo-v2": testStack("foo-v2").traffic(2, 3).stack(),
+				"foo-v3": testStack("foo-v3").traffic(1, 0).stack(),
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 25,
+				"foo-v2": 50,
+				"foo-v3": 25,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 70,
+				"foo-v2": 30,
+				"foo-v3": 0,
+			},
+			expectedError: "stacks foo-v2, foo-v3 not ready",
+		},
+		{
+			name: "if there are no stacks with a desired traffic weight, send traffic to the stack that had it most recently",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(0, 10).stack(),
+				"foo-v2": testStack("foo-v2").traffic(0, 30).noTrafficSince(fiveMinutesAgo).stack(),
+				"foo-v3": testStack("foo-v3").traffic(0, 60).noTrafficSince(hourAgo).stack(),
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 0,
+				"foo-v2": 100,
+				"foo-v3": 0,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 10,
+				"foo-v2": 30,
+				"foo-v3": 60,
+			},
+			expectedError: "stacks foo-v2 not ready",
+		},
+		{
+			name: "if there are no stacks with a desired traffic weight, and no stacks had traffic recently, send traffic to the earliest created stack",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(0, 10).createdAt(fiveMinutesAgo).stack(),
+				"foo-v2": testStack("foo-v2").traffic(0, 30).stack(),
+				"foo-v3": testStack("foo-v3").traffic(0, 60).createdAt(fiveMinutesAgo).stack(),
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 0,
+				"foo-v2": 100,
+				"foo-v3": 0,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 10,
+				"foo-v2": 30,
+				"foo-v3": 60,
+			},
+			expectedError: "stacks foo-v2 not ready",
+		},
+		{
+			name: "if there are no stacks with traffic, send traffic to the stack that had it most recently",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(25, 0).stack(),
+				"foo-v2": testStack("foo-v2").traffic(50, 0).noTrafficSince(fiveMinutesAgo).stack(),
+				"foo-v3": testStack("foo-v3").traffic(25, 0).noTrafficSince(hourAgo).stack(),
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 25,
+				"foo-v2": 50,
+				"foo-v3": 25,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 0,
+				"foo-v2": 100,
+				"foo-v3": 0,
+			},
+			expectedError: "stacks foo-v1, foo-v3 not ready",
+		},
+		{
+			name: "if there are no stacks with traffic, and no stacks had traffic recently, send traffic to the earliest created stack",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(25, 0).createdAt(fiveMinutesAgo).stack(),
+				"foo-v2": testStack("foo-v2").traffic(50, 0).stack(),
+				"foo-v3": testStack("foo-v3").traffic(25, 0).createdAt(fiveMinutesAgo).stack(),
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 25,
+				"foo-v2": 50,
+				"foo-v3": 25,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 0,
+				"foo-v2": 100,
+				"foo-v3": 0,
+			},
+			expectedError: "stacks foo-v1, foo-v3 not ready",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := StackSetContainer{
+				StackSet: &zv1.StackSet{
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{},
+					},
+				},
+				StackContainers: tc.stacks,
+				TrafficReconciler: PrescalingTrafficReconciler{
+					ResetHPAMinReplicasTimeout: 5 * time.Minute,
+				},
+			}
+
+			err := c.ManageTraffic(time.Now())
+			if tc.expectedError != "" {
+				require.Error(t, err)
+				require.Equal(t, tc.expectedError, err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+
+			for name, weight := range tc.expectedDesiredWeights {
+				require.Equal(t, weight, c.StackContainers[types.UID(name)].desiredTrafficWeight, "desired weight, stack %s", name)
+			}
+			for name, weight := range tc.expectedActualWeights {
+				require.Equal(t, weight, c.StackContainers[types.UID(name)].actualTrafficWeight, "actual weight, stack %s", name)
+			}
+		})
+	}
+}
+
 func TestTrafficSwitchNoTrafficSince(t *testing.T) {
 	for reconcilerName, reconciler := range map[string]TrafficReconciler{
 		"simple": SimpleTrafficReconciler{},
@@ -334,11 +454,11 @@ func TestTrafficSwitchNoTrafficSince(t *testing.T) {
 					},
 				},
 				StackContainers: map[types.UID]*StackContainer{
-					"foo-v1": stackContainer("foo-v1", 90, 0, false, hourAgo, time.Time{}),
-					"foo-v2": stackContainer("foo-v2", 0, 90, false, hourAgo, time.Time{}),
-					"foo-v3": stackContainer("foo-v3", 10, 10, false, hourAgo, time.Time{}),
-					"foo-v4": stackContainer("foo-v4", 0, 0, false, hourAgo, time.Time{}),
-					"foo-v5": stackContainer("foo-v5", 0, 0, false, hourAgo, fiveMinutesAgo),
+					"foo-v1": testStack("foo-v1").traffic(90, 0).stack(),
+					"foo-v2": testStack("foo-v2").traffic(0, 90).stack(),
+					"foo-v3": testStack("foo-v3").traffic(10, 10).stack(),
+					"foo-v4": testStack("foo-v4").traffic(0, 0).stack(),
+					"foo-v5": testStack("foo-v5").traffic(0, 0).noTrafficSince(fiveMinutesAgo).stack(),
 				},
 				TrafficReconciler: reconciler,
 			}
