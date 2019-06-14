@@ -12,6 +12,7 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -203,4 +204,64 @@ func TestCollectResources(t *testing.T) {
 			require.Equal(t, tc.expected, resources)
 		})
 	}
+}
+
+func TestCreateCurrentStack(t *testing.T) {
+	env := NewTestEnvironment()
+
+	replicas := int32(1)
+
+	stackset := testStackset("foo", "default", "123")
+	stackset.Spec.StackTemplate.Spec = zv1.StackSpecTemplate{
+		Version: "v1",
+		StackSpec: zv1.StackSpec{
+			Replicas: &replicas,
+			PodTemplate: v1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:  "foo",
+							Image: "nginx",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := env.CreateStacksets([]zv1.StackSet{stackset})
+	require.NoError(t, err)
+
+	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v1", metav1.GetOptions{})
+	require.True(t, errors.IsNotFound(err))
+
+	container := core.StackSetContainer{
+		StackSet:          &stackset,
+		StackContainers:   map[types.UID]*core.StackContainer{},
+		TrafficReconciler: &core.SimpleTrafficReconciler{},
+	}
+
+	// Check that the stack is created and the container is updated afterwards
+	err = env.controller.CreateCurrentStack(container)
+	require.NoError(t, err)
+
+	stack, err := env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v1", metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, stackset.Spec.StackTemplate.Spec.StackSpec, stack.Spec)
+	require.Equal(t, map[types.UID]*core.StackContainer{
+		stack.UID: {
+			Stack: stack,
+		},
+	}, container.StackContainers)
+	require.Equal(t, "v1", stackset.Status.ObservedStackVersion)
+
+	// Check that we don't create the stack if not needed
+	stackset.Status.ObservedStackVersion = "v2"
+	stackset.Spec.StackTemplate.Spec.Version = "v2"
+
+	err = env.controller.CreateCurrentStack(container)
+	require.NoError(t, err)
+
+	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v2", metav1.GetOptions{})
+	require.True(t, errors.IsNotFound(err))
 }
