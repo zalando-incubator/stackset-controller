@@ -41,6 +41,7 @@ func TestCollectResources(t *testing.T) {
 
 	testStackA1 := testStack("foo-v1", testStacksetA.Namespace, "abc1", testStacksetA)
 	testStackA2 := testStack("foo-v2", testStacksetA.Namespace, "abc2", testStacksetA)
+	testDeploymentA2 := apps.Deployment{ObjectMeta: stackOwned(testStackA2)}
 	testStackB1 := testStack("bar-v1", testStacksetB.Namespace, "def3", testStacksetB)
 
 	testPrescalingStackset := testStackset("baz", "namespace", "456")
@@ -125,9 +126,9 @@ func TestCollectResources(t *testing.T) {
 			stacksets: []zv1.StackSet{testStacksetA, testStacksetB},
 			stacks:    []zv1.Stack{testStackA1, testStackA2, testStackB1},
 			deployments: []apps.Deployment{
-				{ObjectMeta: stackOwned(testStackA2)}, // stack owned
-				{ObjectMeta: testOrphanMeta},          // owned by unknown stack
-				{ObjectMeta: testUnownedA1Meta},       // same name, but not owned by a stack
+				testDeploymentA2,                // stack owned
+				{ObjectMeta: testOrphanMeta},    // owned by unknown stack
+				{ObjectMeta: testUnownedA1Meta}, // same name, but not owned by a stack
 			},
 			ingresses: []extensions.Ingress{
 				{ObjectMeta: stackOwned(testStackA2)},      // stack owned
@@ -171,6 +172,39 @@ func TestCollectResources(t *testing.T) {
 					StackContainers: map[types.UID]*core.StackContainer{
 						testStackB1.UID: {
 							Stack: &testStackB1,
+						},
+					},
+					TrafficReconciler: &core.SimpleTrafficReconciler{},
+				},
+			},
+		},
+		{
+			name:      "service and HPA owned by the deployment are supported as well",
+			stacksets: []zv1.StackSet{testStacksetA},
+			stacks:    []zv1.Stack{testStackA2},
+			deployments: []apps.Deployment{
+				testDeploymentA2, // stack owned
+			},
+			ingresses: []extensions.Ingress{
+				{ObjectMeta: deploymentOwned(testDeploymentA2)}, // deployment owned, not supported
+			},
+			services: []v1.Service{
+				{ObjectMeta: deploymentOwned(testDeploymentA2)}, // deployment owned
+			},
+			hpas: []autoscaling.HorizontalPodAutoscaler{
+				{ObjectMeta: deploymentOwned(testDeploymentA2)}, // deployment owned, not supported
+			},
+			expected: map[types.UID]*core.StackSetContainer{
+				testStacksetA.UID: {
+					StackSet: &testStacksetA,
+					StackContainers: map[types.UID]*core.StackContainer{
+						testStackA2.UID: {
+							Stack: &testStackA2,
+							Resources: core.StackResources{
+								Deployment: &apps.Deployment{ObjectMeta: stackOwned(testStackA2)},
+								HPA:        &autoscaling.HorizontalPodAutoscaler{ObjectMeta: deploymentOwned(testDeploymentA2)},
+								Service:    &v1.Service{ObjectMeta: deploymentOwned(testDeploymentA2)},
+							},
 						},
 					},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},

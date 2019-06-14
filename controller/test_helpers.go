@@ -150,6 +150,21 @@ func stackOwned(owner zv1.Stack) metav1.ObjectMeta {
 	}
 }
 
+func deploymentOwned(owner apps.Deployment) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      owner.Name,
+		Namespace: owner.Namespace,
+		OwnerReferences: []metav1.OwnerReference{
+			{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       owner.Name,
+				UID:        owner.UID,
+			},
+		},
+	}
+}
+
 func stacksetOwned(owner zv1.StackSet) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      owner.Name,
