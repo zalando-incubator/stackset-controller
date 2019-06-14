@@ -50,6 +50,13 @@ func (f *testStackFactory) traffic(desiredTrafficWeight, actualTrafficWeight flo
 	return f
 }
 
+func (f *testStackFactory) maxReplicas(replicas int32) *testStackFactory {
+	f.container.Stack.Spec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{
+		MaxReplicas: replicas,
+	}
+	return f
+}
+
 func (f *testStackFactory) createdAt(creationTime time.Time) *testStackFactory {
 	f.container.Stack.CreationTimestamp = metav1.Time{Time: creationTime}
 	return f
