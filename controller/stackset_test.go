@@ -265,3 +265,49 @@ func TestCreateCurrentStack(t *testing.T) {
 	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v2", metav1.GetOptions{})
 	require.True(t, errors.IsNotFound(err))
 }
+
+func TestCleanupOldStacks(t *testing.T) {
+	env := NewTestEnvironment()
+
+	stackset := testStackset("foo", "default", "123")
+	testStack1 := testStack("foo-v1", stackset.Namespace, "abc1", stackset)
+	testStack2 := testStack("foo-v2", stackset.Namespace, "abc2", stackset)
+	testStack3 := testStack("foo-v3", stackset.Namespace, "abc3", stackset)
+	testStack4 := testStack("foo-v4", stackset.Namespace, "abc4", stackset)
+
+	err := env.CreateStacksets([]zv1.StackSet{stackset})
+	require.NoError(t, err)
+
+	err = env.CreateStacks([]zv1.Stack{testStack1, testStack2, testStack3, testStack4})
+	require.NoError(t, err)
+
+	container := core.StackSetContainer{
+		StackSet: &stackset,
+		StackContainers: map[types.UID]*core.StackContainer{
+			testStack1.UID: {
+				Stack:          &testStack1,
+				PendingRemoval: true,
+			},
+			testStack2.UID: {
+				Stack:          &testStack2,
+				PendingRemoval: true,
+			},
+			testStack3.UID: {
+				Stack:          &testStack3,
+				PendingRemoval: false,
+			},
+			testStack4.UID: {
+				Stack:          &testStack4,
+				PendingRemoval: false,
+			},
+		},
+		TrafficReconciler: &core.SimpleTrafficReconciler{},
+	}
+
+	err = env.controller.CleanupOldStacks(container)
+	require.NoError(t, err)
+
+	result, err := env.client.ZalandoV1().Stacks(stackset.Namespace).List(metav1.ListOptions{})
+	require.NoError(t, err)
+	require.Equal(t, []zv1.Stack{testStack3, testStack4}, result.Items)
+}
