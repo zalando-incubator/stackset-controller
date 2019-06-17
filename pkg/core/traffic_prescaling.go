@@ -6,9 +6,8 @@ import (
 	"time"
 )
 
-// PrescalingTrafficReconciler is the most simple traffic reconciler which
-// implements the default traffic switching supported in the
-// stackset-controller.
+// PrescalingTrafficReconciler is a traffic reconciler that forcibly scales up the deployment
+// before switching traffic
 type PrescalingTrafficReconciler struct {
 	ResetHPAMinReplicasTimeout time.Duration
 }
