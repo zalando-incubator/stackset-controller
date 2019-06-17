@@ -105,7 +105,7 @@ func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2bet
 	}
 
 	// Check if we need to update the HPA
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) && existing.Spec.MaxReplicas == hpa.Spec.MaxReplicas {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) {
 		return nil
 	}
 
@@ -152,6 +152,7 @@ func (c *StackSetController) ReconcileStackService(stack *zv1.Stack, existing *a
 	}
 
 	updated := existing.DeepCopy()
+	syncObjectMeta(updated, service)
 	updated.Spec = service.Spec
 	updated.Spec.ClusterIP = existing.Spec.ClusterIP // ClusterIP is immutable
 

@@ -8,6 +8,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -186,6 +187,123 @@ func TestReconcileStackDeployment(t *testing.T) {
 			require.NoError(t, err)
 
 			updated, err := env.client.AppsV1().Deployments(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, updated)
+		})
+	}
+}
+
+func TestReconcileStackService(t *testing.T) {
+	examplePorts := []v1.ServicePort{
+		{
+			Name:       "foo",
+			Protocol:   v1.ProtocolTCP,
+			Port:       8080,
+			TargetPort: intstr.FromInt(80),
+		},
+	}
+	exampleUpdatedPorts := []v1.ServicePort{
+		{
+			Name:       "bar",
+			Protocol:   v1.ProtocolTCP,
+			Port:       9090,
+			TargetPort: intstr.FromInt(90),
+		},
+	}
+	exampleClusterIP := "10.3.0.1"
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing *v1.Service
+		updated  *v1.Service
+		expected *v1.Service
+	}{
+		{
+			name:  "service is created if it doesn't exist",
+			stack: baseTestStack,
+			updated: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: examplePorts,
+				},
+			},
+			expected: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: examplePorts,
+				},
+			},
+		},
+		{
+			name:  "service is updated if the stack changes, ClusterIP is preserved",
+			stack: updatedTestStack,
+			existing: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     examplePorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+			updated: &v1.Service{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: exampleUpdatedPorts,
+				},
+			},
+			expected: &v1.Service{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     exampleUpdatedPorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+		},
+		{
+			name:  "service is not updated if the stack version remains the same",
+			stack: baseTestStack,
+			existing: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     examplePorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+			updated: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: exampleUpdatedPorts,
+				},
+			},
+			expected: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     examplePorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateServices([]v1.Service{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackService(&tc.stack, tc.existing, func() (*v1.Service, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.CoreV1().Services(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, updated)
 		})
