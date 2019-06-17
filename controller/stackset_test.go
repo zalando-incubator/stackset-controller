@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestGetOwnerUID(t *testing.T) {
@@ -344,4 +345,183 @@ func TestCleanupOldStacks(t *testing.T) {
 	result, err := env.client.ZalandoV1().Stacks(stackset.Namespace).List(metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, []zv1.Stack{testStack3, testStack4}, result.Items)
+}
+
+func TestReconcileStackSetIngress(t *testing.T) {
+	exampleRules := []extensions.IngressRule{
+		{
+			Host: "example.org",
+			IngressRuleValue: extensions.IngressRuleValue{
+				HTTP: &extensions.HTTPIngressRuleValue{
+					Paths: []extensions.HTTPIngressPath{
+						{
+							Path: "/",
+							Backend: extensions.IngressBackend{
+								ServiceName: "foo",
+								ServicePort: intstr.FromInt(80),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	exampleUpdatedRules := []extensions.IngressRule{
+		{
+			Host: "example.com",
+			IngressRuleValue: extensions.IngressRuleValue{
+				HTTP: &extensions.HTTPIngressRuleValue{
+					Paths: []extensions.HTTPIngressPath{
+						{
+							Path: "/",
+							Backend: extensions.IngressBackend{
+								ServiceName: "bar",
+								ServicePort: intstr.FromInt(8181),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	withAnnotations := func(meta metav1.ObjectMeta, annotations map[string]string) metav1.ObjectMeta {
+		updated := meta.DeepCopy()
+		if updated.Annotations == nil {
+			updated.Annotations = map[string]string{}
+		}
+		for k, v := range annotations {
+			updated.Annotations[k] = v
+		}
+		return *updated
+	}
+
+	for _, tc := range []struct {
+		name     string
+		existing *extensions.Ingress
+		updated  *extensions.Ingress
+		expected *extensions.Ingress
+	}{
+		{
+			name: "ingress is created if it doesn't exist",
+			updated: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+		},
+		{
+			name: "ingress is removed if it is no longer needed",
+			existing: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated:  nil,
+			expected: nil,
+		},
+		{
+			name: "ingress is updated if the spec is changed",
+			existing: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleUpdatedRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleUpdatedRules,
+				},
+			},
+		},
+		{
+			name: "ingress is updated if the annotations change",
+			existing: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated: &extensions.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar"}),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar"}),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not rolled back if the server injects some defaults",
+			existing: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "test",
+					},
+					Rules: exampleRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: extensions.IngressSpec{
+					Backend: &extensions.IngressBackend{
+						ServiceName: "test",
+					},
+					Rules: exampleRules,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateIngresses([]extensions.Ingress{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackSetIngress(&testStackSet, tc.existing, func() (*extensions.Ingress, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.ExtensionsV1beta1().Ingresses(testStackSet.Namespace).Get(testStackSet.Name, metav1.GetOptions{})
+			if tc.expected != nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, updated)
+			} else {
+				require.True(t, errors.IsNotFound(err))
+			}
+		})
+	}
+
 }

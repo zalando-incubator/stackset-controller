@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -556,12 +557,11 @@ func (c *StackSetController) CleanupOldStacks(ssc core.StackSetContainer) error 
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSetIngress(ssc core.StackSetContainer) error {
-	ingress, err := ssc.GenerateIngress()
+func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, existing *extensions.Ingress, generateUpdated func() (*extensions.Ingress, error)) error {
+	ingress, err := generateUpdated()
 	if err != nil {
 		return err
 	}
-	existing := ssc.Ingress
 
 	// Ingress removed
 	if ingress == nil {
@@ -571,7 +571,7 @@ func (c *StackSetController) ReconcileStackSetIngress(ssc core.StackSetContainer
 				return err
 			}
 			c.recorder.Eventf(
-				ssc.StackSet,
+				stackset,
 				apiv1.EventTypeNormal,
 				"DeletedIngress",
 				"Deleted Ingress %s",
@@ -587,7 +587,7 @@ func (c *StackSetController) ReconcileStackSetIngress(ssc core.StackSetContainer
 			return err
 		}
 		c.recorder.Eventf(
-			ssc.StackSet,
+			stackset,
 			apiv1.EventTypeNormal,
 			"CreatedIngress",
 			"Created Ingress %s",
@@ -608,7 +608,7 @@ func (c *StackSetController) ReconcileStackSetIngress(ssc core.StackSetContainer
 		return err
 	}
 	c.recorder.Eventf(
-		ssc.StackSet,
+		stackset,
 		apiv1.EventTypeNormal,
 		"UpdatedIngress",
 		"Updated Ingress %s",
@@ -624,7 +624,7 @@ func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) erro
 		}
 	}
 
-	err := c.ReconcileStackSetIngress(ssc)
+	err := c.ReconcileStackSetIngress(ssc.StackSet, ssc.Ingress, ssc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedManageIngress", err)
 	}
