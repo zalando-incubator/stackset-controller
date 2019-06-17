@@ -97,7 +97,7 @@ func (f *testEnvironment) CreateServices(services []v1.Service) error {
 	return nil
 }
 
-func (f *testEnvironment) CreateHpas(hpas []autoscaling.HorizontalPodAutoscaler) error {
+func (f *testEnvironment) CreateHPAs(hpas []autoscaling.HorizontalPodAutoscaler) error {
 	for _, hpa := range hpas {
 		_, err := f.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(&hpa)
 		if err != nil {

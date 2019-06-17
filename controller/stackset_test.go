@@ -230,7 +230,7 @@ func TestCollectResources(t *testing.T) {
 			err = env.CreateServices(tc.services)
 			require.NoError(t, err)
 
-			err = env.CreateHpas(tc.hpas)
+			err = env.CreateHPAs(tc.hpas)
 			require.NoError(t, err)
 
 			resources, err := env.controller.collectResources()

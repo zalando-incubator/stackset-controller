@@ -6,7 +6,10 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
+	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -130,14 +133,14 @@ func TestReconcileStackDeployment(t *testing.T) {
 				ObjectMeta: baseTestStackOwned,
 				Spec: apps.DeploymentSpec{
 					Replicas: &updatedReplicas,
-					Template: updatedPodTemplateSpec,
+					Template: examplePodTemplateSpec,
 				},
 			},
 			expected: &apps.Deployment{
 				ObjectMeta: baseTestStackOwned,
 				Spec: apps.DeploymentSpec{
 					Replicas: &updatedReplicas,
-					Template: updatedPodTemplateSpec,
+					Template: examplePodTemplateSpec,
 				},
 			},
 		},
@@ -306,6 +309,187 @@ func TestReconcileStackService(t *testing.T) {
 			updated, err := env.client.CoreV1().Services(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, updated)
+		})
+	}
+}
+
+func TestReconcileStackHPA(t *testing.T) {
+	exampleResource := resource.MustParse("10m")
+	exampleMetrics := []autoscaling.MetricSpec{
+		{
+			Type: "cpu",
+			Resource: &autoscaling.ResourceMetricSource{
+				Name:               "cpu",
+				TargetAverageValue: &exampleResource,
+			},
+		},
+	}
+	exampleUpdatedResource := resource.MustParse("20m")
+	exampleUpdatedMetrics := []autoscaling.MetricSpec{
+		{
+			Type: "cpu",
+			Resource: &autoscaling.ResourceMetricSource{
+				Name:               "cpu",
+				TargetAverageValue: &exampleUpdatedResource,
+			},
+		},
+	}
+
+	exampleMinReplicas := int32(3)
+	exampleUpdatedMinReplicas := int32(5)
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing *autoscaling.HorizontalPodAutoscaler
+		updated  *autoscaling.HorizontalPodAutoscaler
+		expected *autoscaling.HorizontalPodAutoscaler
+	}{
+		{
+			name:  "HPA is created if it doesn't exist",
+			stack: baseTestStack,
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is removed if it's no longer needed",
+			stack: baseTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated:  nil,
+			expected: nil,
+		},
+		{
+			name:  "HPA is updated if stack version changes",
+			stack: updatedTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 7,
+					Metrics:     exampleUpdatedMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 7,
+					Metrics:     exampleUpdatedMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is updated if min. replicas is changed",
+			stack: updatedTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleUpdatedMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleUpdatedMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is not updated if the stack version remains the same and min. replicas are unchanged",
+			stack: baseTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleUpdatedMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateHPAs([]autoscaling.HorizontalPodAutoscaler{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackHPA(&tc.stack, tc.existing, func() (*autoscaling.HorizontalPodAutoscaler, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.AutoscalingV2beta1().HorizontalPodAutoscalers(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			if tc.expected != nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, updated)
+			} else {
+				require.True(t, errors.IsNotFound(err))
+			}
 		})
 	}
 }

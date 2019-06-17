@@ -110,6 +110,7 @@ func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2bet
 	}
 
 	updated := existing.DeepCopy()
+	syncObjectMeta(updated, hpa)
 	updated.Spec = hpa.Spec
 
 	_, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(updated.Namespace).Update(updated)
