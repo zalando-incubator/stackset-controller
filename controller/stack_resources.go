@@ -1,8 +1,12 @@
 package controller
 
 import (
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
+	apps "k8s.io/api/apps/v1"
+	"k8s.io/api/autoscaling/v2beta1"
 	apiv1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,9 +20,14 @@ func pint32Equal(p1, p2 *int32) bool {
 	return false
 }
 
-func (c *StackSetController) ReconcileStackDeployment(sc *core.StackContainer) error {
-	deployment := sc.GenerateDeployment()
-	existing := sc.Resources.Deployment
+// syncObjectMeta copies metadata elements such as labels or annotations from source to target
+func syncObjectMeta(target, source metav1.Object) {
+	target.SetLabels(source.GetLabels())
+	target.SetAnnotations(source.GetAnnotations())
+}
+
+func (c *StackSetController) ReconcileStackDeployment(stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
+	deployment := generateUpdated()
 
 	// Create new deployment
 	if existing == nil {
@@ -27,7 +36,7 @@ func (c *StackSetController) ReconcileStackDeployment(sc *core.StackContainer) e
 			return err
 		}
 		c.recorder.Eventf(
-			sc.Stack,
+			stack,
 			apiv1.EventTypeNormal,
 			"CreatedDeployment",
 			"Created Deployment %s",
@@ -36,11 +45,12 @@ func (c *StackSetController) ReconcileStackDeployment(sc *core.StackContainer) e
 	}
 
 	// Check if we need to update the deployment
-	if core.IsResourceUpToDate(sc.Stack, existing.ObjectMeta) && deployment.Spec.Replicas == nil {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && deployment.Spec.Replicas == nil {
 		return nil
 	}
 
 	updated := existing.DeepCopy()
+	syncObjectMeta(updated, deployment)
 	updated.Spec = deployment.Spec
 
 	_, err := c.client.AppsV1().Deployments(updated.Namespace).Update(updated)
@@ -48,7 +58,7 @@ func (c *StackSetController) ReconcileStackDeployment(sc *core.StackContainer) e
 		return err
 	}
 	c.recorder.Eventf(
-		sc.Stack,
+		stack,
 		apiv1.EventTypeNormal,
 		"UpdatedDeployment",
 		"Updated Deployment %s",
@@ -56,22 +66,21 @@ func (c *StackSetController) ReconcileStackDeployment(sc *core.StackContainer) e
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackHPA(sc *core.StackContainer) error {
-	hpa, err := sc.GenerateHPA()
+func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2beta1.HorizontalPodAutoscaler, generateUpdated func() (*v2beta1.HorizontalPodAutoscaler, error)) error {
+	hpa, err := generateUpdated()
 	if err != nil {
 		return err
 	}
-	existing := sc.Resources.HPA
 
 	// HPA removed
 	if hpa == nil {
 		if existing != nil {
-			err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(sc.Resources.HPA.Namespace).Delete(sc.Resources.HPA.Name, &metav1.DeleteOptions{})
+			err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
 			c.recorder.Eventf(
-				sc.Stack,
+				stack,
 				apiv1.EventTypeNormal,
 				"DeletedHPA",
 				"Deleted HPA %s",
@@ -87,7 +96,7 @@ func (c *StackSetController) ReconcileStackHPA(sc *core.StackContainer) error {
 			return err
 		}
 		c.recorder.Eventf(
-			sc.Stack,
+			stack,
 			apiv1.EventTypeNormal,
 			"CreatedHPA",
 			"Created HPA %s",
@@ -96,7 +105,7 @@ func (c *StackSetController) ReconcileStackHPA(sc *core.StackContainer) error {
 	}
 
 	// Check if we need to update the HPA
-	if core.IsResourceUpToDate(sc.Stack, existing.ObjectMeta) && pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) && existing.Spec.MaxReplicas == hpa.Spec.MaxReplicas {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) && existing.Spec.MaxReplicas == hpa.Spec.MaxReplicas {
 		return nil
 	}
 
@@ -108,7 +117,7 @@ func (c *StackSetController) ReconcileStackHPA(sc *core.StackContainer) error {
 		return err
 	}
 	c.recorder.Eventf(
-		sc.Stack,
+		stack,
 		apiv1.EventTypeNormal,
 		"UpdatedHPA",
 		"Updated HPA %s",
@@ -116,12 +125,11 @@ func (c *StackSetController) ReconcileStackHPA(sc *core.StackContainer) error {
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackService(sc *core.StackContainer) error {
-	service, err := sc.GenerateService()
+func (c *StackSetController) ReconcileStackService(stack *zv1.Stack, existing *apiv1.Service, generateUpdated func() (*apiv1.Service, error)) error {
+	service, err := generateUpdated()
 	if err != nil {
 		return err
 	}
-	existing := sc.Resources.Service
 
 	// Create new service
 	if existing == nil {
@@ -130,7 +138,7 @@ func (c *StackSetController) ReconcileStackService(sc *core.StackContainer) erro
 			return err
 		}
 		c.recorder.Eventf(
-			sc.Stack,
+			stack,
 			apiv1.EventTypeNormal,
 			"CreatedService",
 			"Created Service %s",
@@ -139,7 +147,7 @@ func (c *StackSetController) ReconcileStackService(sc *core.StackContainer) erro
 	}
 
 	// Check if we need to update the service
-	if core.IsResourceUpToDate(sc.Stack, existing.ObjectMeta) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) {
 		return nil
 	}
 
@@ -152,7 +160,7 @@ func (c *StackSetController) ReconcileStackService(sc *core.StackContainer) erro
 		return err
 	}
 	c.recorder.Eventf(
-		sc.Stack,
+		stack,
 		apiv1.EventTypeNormal,
 		"UpdatedService",
 		"Updated Service %s",
@@ -160,22 +168,21 @@ func (c *StackSetController) ReconcileStackService(sc *core.StackContainer) erro
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackIngress(sc *core.StackContainer) error {
-	ingress, err := sc.GenerateIngress()
+func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *extensions.Ingress, generateUpdated func() (*extensions.Ingress, error)) error {
+	ingress, err := generateUpdated()
 	if err != nil {
 		return err
 	}
-	existing := sc.Resources.Ingress
 
 	// Ingress removed
 	if ingress == nil {
 		if existing != nil {
-			err := c.client.ExtensionsV1beta1().Ingresses(sc.Resources.Ingress.Namespace).Delete(sc.Resources.Ingress.Name, &metav1.DeleteOptions{})
+			err := c.client.ExtensionsV1beta1().Ingresses(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
 			c.recorder.Eventf(
-				sc.Stack,
+				stack,
 				apiv1.EventTypeNormal,
 				"DeletedIngress",
 				"Deleted Ingress %s",
@@ -191,7 +198,7 @@ func (c *StackSetController) ReconcileStackIngress(sc *core.StackContainer) erro
 			return err
 		}
 		c.recorder.Eventf(
-			sc.Stack,
+			stack,
 			apiv1.EventTypeNormal,
 			"CreatedIngress",
 			"Created Ingress %s",
@@ -200,7 +207,7 @@ func (c *StackSetController) ReconcileStackIngress(sc *core.StackContainer) erro
 	}
 
 	// Check if we need to update the Ingress
-	if core.IsResourceUpToDate(sc.Stack, existing.ObjectMeta) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) {
 		return nil
 	}
 
@@ -212,7 +219,7 @@ func (c *StackSetController) ReconcileStackIngress(sc *core.StackContainer) erro
 		return err
 	}
 	c.recorder.Eventf(
-		sc.Stack,
+		stack,
 		apiv1.EventTypeNormal,
 		"UpdatedIngress",
 		"Updated Ingress %s",

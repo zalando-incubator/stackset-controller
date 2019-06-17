@@ -438,7 +438,7 @@ func (c *StackSetController) del(obj interface{}) {
 	}
 }
 
-func doUpdateStatus(updateFn func(retry bool) error) error {
+func retryUpdate(updateFn func(retry bool) error) error {
 	retry := false
 	for {
 		err := updateFn(retry)
@@ -457,7 +457,8 @@ func doUpdateStatus(updateFn func(retry bool) error) error {
 func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		stack := sc.Stack.DeepCopy()
-		err := doUpdateStatus(func(retry bool) error {
+		status := *sc.GenerateStackStatus()
+		err := retryUpdate(func(retry bool) error {
 			if retry {
 				updated, err := c.client.ZalandoV1().Stacks(sc.Namespace()).Get(stack.Name, metav1.GetOptions{})
 				if err != nil {
@@ -465,7 +466,7 @@ func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error
 				}
 				stack = updated
 			}
-			stack.Status = *sc.GenerateStackStatus()
+			stack.Status = status
 			_, err := c.client.ZalandoV1().Stacks(sc.Namespace()).UpdateStatus(stack)
 			return err
 		})
@@ -475,7 +476,8 @@ func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error
 	}
 
 	stackset := ssc.StackSet.DeepCopy()
-	err := doUpdateStatus(func(retry bool) error {
+	status := *ssc.GenerateStackSetStatus()
+	err := retryUpdate(func(retry bool) error {
 		if retry {
 			updated, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).Get(ssc.StackSet.Name, metav1.GetOptions{})
 			if err != nil {
@@ -483,9 +485,8 @@ func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error
 			}
 			stackset = updated
 		}
-		stacksetStatus := ssc.GenerateStackSetStatus()
-		if !equality.Semantic.DeepEqual(*stacksetStatus, stackset.Status) {
-			stackset.Status = *stacksetStatus
+		if !equality.Semantic.DeepEqual(status, stackset.Status) {
+			stackset.Status = status
 			_, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(stackset)
 			return err
 		}
@@ -632,22 +633,22 @@ func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) erro
 }
 
 func (c *StackSetController) ReconcileStackResources(ssc core.StackSetContainer, sc *core.StackContainer) error {
-	err := c.ReconcileStackDeployment(sc)
+	err := c.ReconcileStackDeployment(sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
 
-	err = c.ReconcileStackHPA(sc)
+	err = c.ReconcileStackHPA(sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
 	}
 
-	err = c.ReconcileStackService(sc)
+	err = c.ReconcileStackService(sc.Stack, sc.Resources.Service, sc.GenerateService)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageService", err)
 	}
 
-	err = c.ReconcileStackIngress(sc)
+	err = c.ReconcileStackIngress(sc.Stack, sc.Resources.Ingress, sc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageIngress", err)
 	}
