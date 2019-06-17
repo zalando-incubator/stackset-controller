@@ -214,6 +214,7 @@ func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *e
 	}
 
 	updated := existing.DeepCopy()
+	syncObjectMeta(updated, ingress)
 	updated.Spec = ingress.Spec
 
 	_, err = c.client.ExtensionsV1beta1().Ingresses(updated.Namespace).Update(updated)
