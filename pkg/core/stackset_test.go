@@ -429,14 +429,16 @@ func TestStackUpdateFromResources(t *testing.T) {
 
 	runTest("prescaling information is parsed from the status", func(t *testing.T, container *StackContainer) {
 		container.Stack.Status.Prescaling = zv1.PrescalingStatus{
-			Active:              true,
-			Replicas:            11,
-			LastTrafficIncrease: &metav1.Time{Time: hourAgo},
+			Active:               true,
+			Replicas:             11,
+			DesiredTrafficWeight: 23.5,
+			LastTrafficIncrease:  &metav1.Time{Time: hourAgo},
 		}
 		container.updateFromResources()
 		require.EqualValues(t, 1, container.stackReplicas)
 		require.EqualValues(t, true, container.prescalingActive)
 		require.EqualValues(t, 11, container.prescalingReplicas)
+		require.EqualValues(t, 23.5, container.prescalingDesiredTrafficWeight)
 		require.EqualValues(t, hourAgo, container.prescalingLastTrafficIncrease)
 	})
 }

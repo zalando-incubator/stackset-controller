@@ -290,9 +290,10 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 	prescaling := zv1.PrescalingStatus{}
 	if sc.prescalingActive {
 		prescaling = zv1.PrescalingStatus{
-			Active:              sc.prescalingActive,
-			Replicas:            sc.prescalingReplicas,
-			LastTrafficIncrease: wrapTime(sc.prescalingLastTrafficIncrease),
+			Active:               sc.prescalingActive,
+			Replicas:             sc.prescalingReplicas,
+			DesiredTrafficWeight: sc.prescalingDesiredTrafficWeight,
+			LastTrafficIncrease:  wrapTime(sc.prescalingLastTrafficIncrease),
 		}
 	}
 	return &zv1.StackStatus{

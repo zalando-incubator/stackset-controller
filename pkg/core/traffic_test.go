@@ -27,7 +27,7 @@ func TestTrafficSwitchNoIngress(t *testing.T) {
 					Spec: zv1.StackSetSpec{},
 				},
 				StackContainers: map[types.UID]*StackContainer{
-					"v1": testStack("foo-v1").ready(3).traffic(50, 50).prescaling(3, time.Now()).stack(),
+					"v1": testStack("foo-v1").ready(3).traffic(50, 50).prescaling(3, 10, time.Now()).stack(),
 					"v2": testStack("foo-v2").ready(3).traffic(50, 50).stack(),
 				},
 				TrafficReconciler: reconciler,
@@ -291,8 +291,9 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 	minuteAgo := now.Add(-time.Minute)
 
 	type expectedPrescale struct {
-		replicas            int32
-		lastTrafficIncrease time.Time
+		replicas             int32
+		desiredTrafficWeight float64
+		lastTrafficIncrease  time.Time
 	}
 
 	for _, tc := range []struct {
@@ -311,9 +312,10 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v3": testStack("foo-v3").traffic(40, 10).ready(1).stack(),
 				"foo-v4": testStack("foo-v4").traffic(10, 0).stack(),
 			},
+			// 2+3+1/100 = 0.06 replicas per 1% of traffoc
 			expectedPrescaledStacks: map[string]expectedPrescale{
-				"foo-v3": {6, now},
-				"foo-v4": {6, now},
+				"foo-v3": {3, 40, now}, // 2.4 replicas rounded up
+				"foo-v4": {1, 10, now}, // 0.6 replicas rounded up
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -329,16 +331,17 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 			expectedError: "stacks foo-v3, foo-v4 not ready",
 		},
 		{
-			name: "already prescaled stacks also contribute to the replica count",
+			name: "already prescaled stacks also contribute to the replica count (prescalingReplicas and prescalingDesiredTargetWeight)",
 			stacks: map[types.UID]*StackContainer{
 				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(2).stack(),
 				"foo-v2": testStack("foo-v2").traffic(25, 40).deployment(false, 3, 2, 2).stack(),
 				"foo-v3": testStack("foo-v3").traffic(40, 9).ready(1).stack(),
-				"foo-v4": testStack("foo-v4").traffic(10, 1).deployment(false, 4, 2, 2).prescaling(5, minuteAgo).stack(),
+				"foo-v4": testStack("foo-v4").traffic(10, 1).deployment(false, 3, 2, 2).prescaling(3, 10, minuteAgo).stack(),
 			},
+			// (2+3+1+3)/(50+40+9+10) ≈ 0.083 replicas per 1% of traffic
 			expectedPrescaledStacks: map[string]expectedPrescale{
-				"foo-v3": {10, now},
-				"foo-v4": {5, now},
+				"foo-v3": {4, 40, now}, // 3.3 replicas rounded up
+				"foo-v4": {3, 10, now}, // already prescaled
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -355,14 +358,67 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 			expectedError: "stacks foo-v3, foo-v4 not ready",
 		},
 		{
+			name: "already prescaled stacks also contribute to the replica count (deploymentReplicas and actualTrafficWeight)",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(2).stack(),
+				"foo-v2": testStack("foo-v2").traffic(25, 40).deployment(false, 3, 2, 2).stack(),
+				"foo-v3": testStack("foo-v3").traffic(40, 9).ready(1).stack(),
+				"foo-v4": testStack("foo-v4").traffic(10, 1).deployment(false, 10, 2, 2).prescaling(3, 10, minuteAgo).stack(),
+			},
+			// (2+3+1+10)/(50+40+9+1) = 0.16 replicas per 1% of traffic
+			expectedPrescaledStacks: map[string]expectedPrescale{
+				"foo-v3": {7, 40, now}, // 6.4 replicas rounded up
+				"foo-v4": {3, 10, now}, // already prescaled
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 25,
+				"foo-v2": 25,
+				"foo-v3": 40,
+				"foo-v4": 10,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 50,
+				"foo-v2": 40,
+				"foo-v3": 9,
+				"foo-v4": 1,
+			},
+			expectedError: "stacks foo-v3, foo-v4 not ready",
+		},
+		{
+			name: "already prescaled stacks are rescaled if the desired traffic weight is increased",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(5).stack(),
+				"foo-v2": testStack("foo-v2").traffic(25, 40).deployment(false, 4, 2, 2).stack(),
+				"foo-v3": testStack("foo-v3").traffic(10, 10).ready(2).stack(),
+				"foo-v4": testStack("foo-v4").traffic(40, 0).deployment(false, 1, 2, 2).prescaling(1, 10, minuteAgo).stack(),
+			},
+			// (5+4+2+1)/(50+40+10+10) ≈ 0.11 replicas per 1% of traffic
+			expectedPrescaledStacks: map[string]expectedPrescale{
+				"foo-v4": {5, 40, now}, // 4.3 replicas rounded up
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 25,
+				"foo-v2": 25,
+				"foo-v3": 10,
+				"foo-v4": 40,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 50,
+				"foo-v2": 40,
+				"foo-v3": 10,
+				"foo-v4": 0,
+			},
+			expectedError: "stacks foo-v4 not ready",
+		},
+		{
 			name: "traffic is not switched until stacks reach the desired number of replicas",
 			stacks: map[types.UID]*StackContainer{
 				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(2).stack(),
 				"foo-v2": testStack("foo-v2").traffic(25, 40).ready(4).stack(),
-				"foo-v3": testStack("foo-v3").traffic(50, 10).prescaling(4, minuteAgo).ready(1).stack(),
+				"foo-v3": testStack("foo-v3").traffic(50, 10).prescaling(4, 50, minuteAgo).ready(1).stack(),
 			},
 			expectedPrescaledStacks: map[string]expectedPrescale{
-				"foo-v3": {4, now},
+				"foo-v3": {4, 50, now},
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -379,12 +435,12 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 		{
 			name: "when stacks are prescaled, max. replicas is capped by the HPA",
 			stacks: map[types.UID]*StackContainer{
-				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(2).stack(),
-				"foo-v2": testStack("foo-v2").traffic(25, 40).ready(3).stack(),
+				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(20).stack(),
+				"foo-v2": testStack("foo-v2").traffic(25, 40).ready(30).stack(),
 				"foo-v3": testStack("foo-v3").traffic(50, 10).ready(1).maxReplicas(4).stack(),
 			},
 			expectedPrescaledStacks: map[string]expectedPrescale{
-				"foo-v3": {4, now},
+				"foo-v3": {4, 50, now},
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -403,10 +459,10 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 			stacks: map[types.UID]*StackContainer{
 				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(2).stack(),
 				"foo-v2": testStack("foo-v2").traffic(25, 40).ready(4).stack(),
-				"foo-v3": testStack("foo-v3").traffic(50, 10).prescaling(4, minuteAgo).ready(4).stack(),
+				"foo-v3": testStack("foo-v3").traffic(50, 10).prescaling(4, 50, minuteAgo).ready(4).stack(),
 			},
 			expectedPrescaledStacks: map[string]expectedPrescale{
-				"foo-v3": {4, now},
+				"foo-v3": {4, 50, now},
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -424,10 +480,10 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 			stacks: map[types.UID]*StackContainer{
 				"foo-v1": testStack("foo-v1").traffic(25, 50).ready(2).stack(),
 				"foo-v2": testStack("foo-v2").traffic(25, 40).ready(4).stack(),
-				"foo-v3": testStack("foo-v3").traffic(50, 10).prescaling(4, minuteAgo).ready(4).stack(),
+				"foo-v3": testStack("foo-v3").traffic(50, 10).prescaling(4, 50, minuteAgo).ready(4).stack(),
 			},
 			expectedPrescaledStacks: map[string]expectedPrescale{
-				"foo-v3": {4, now},
+				"foo-v3": {4, 50, now},
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -445,10 +501,10 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 			stacks: map[types.UID]*StackContainer{
 				"foo-v1": testStack("foo-v1").traffic(25, 25).ready(2).stack(),
 				"foo-v2": testStack("foo-v2").traffic(25, 25).ready(4).stack(),
-				"foo-v3": testStack("foo-v3").traffic(50, 50).prescaling(4, minuteAgo).ready(4).stack(),
+				"foo-v3": testStack("foo-v3").traffic(50, 50).prescaling(4, 50, minuteAgo).ready(4).stack(),
 			},
 			expectedPrescaledStacks: map[string]expectedPrescale{
-				"foo-v3": {4, minuteAgo},
+				"foo-v3": {4, 50, minuteAgo},
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -466,7 +522,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 			stacks: map[types.UID]*StackContainer{
 				"foo-v1": testStack("foo-v1").traffic(25, 25).ready(2).stack(),
 				"foo-v2": testStack("foo-v2").traffic(25, 25).ready(4).stack(),
-				"foo-v3": testStack("foo-v3").traffic(50, 50).prescaling(4, now.Add(-5*time.Minute)).ready(4).stack(),
+				"foo-v3": testStack("foo-v3").traffic(50, 50).prescaling(4, 50, now.Add(-5*time.Minute)).ready(4).stack(),
 			},
 			expectedDesiredWeights: map[string]float64{
 				"foo-v1": 25,
@@ -614,16 +670,36 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			for name, expected := range tc.expectedPrescaledStacks {
-				require.True(t, c.StackContainers[types.UID(name)].prescalingActive, "prescaling, stack %s", name)
-				require.EqualValues(t, expected.replicas, c.StackContainers[types.UID(name)].prescalingReplicas, "prescaling replicas, stack %s", name)
-				require.EqualValues(t, expected.lastTrafficIncrease, c.StackContainers[types.UID(name)].prescalingLastTrafficIncrease, "prescaling last traffic increase, stack %s", name)
+			if tc.expectedPrescaledStacks != nil {
+				prescaledStacks := map[string]expectedPrescale{}
+				for name := range tc.expectedPrescaledStacks {
+					stack := c.StackContainers[types.UID(name)]
+					if !stack.prescalingActive {
+						continue
+					}
+					prescaledStacks[name] = expectedPrescale{
+						replicas:             stack.prescalingReplicas,
+						desiredTrafficWeight: stack.prescalingDesiredTrafficWeight,
+						lastTrafficIncrease:  stack.prescalingLastTrafficIncrease,
+					}
+				}
+				require.Equal(t, tc.expectedPrescaledStacks, prescaledStacks)
 			}
-			for name, weight := range tc.expectedDesiredWeights {
-				require.Equal(t, weight, c.StackContainers[types.UID(name)].desiredTrafficWeight, "desired weight, stack %s", name)
+
+			if tc.expectedDesiredWeights != nil {
+				desiredWeights := map[string]float64{}
+				for name := range tc.expectedDesiredWeights {
+					desiredWeights[name] = c.StackContainers[types.UID(name)].desiredTrafficWeight
+				}
+				require.Equal(t, tc.expectedDesiredWeights, desiredWeights)
 			}
-			for name, weight := range tc.expectedActualWeights {
-				require.Equal(t, weight, c.StackContainers[types.UID(name)].actualTrafficWeight, "actual weight, stack %s", name)
+
+			if tc.expectedActualWeights != nil {
+				actualWeights := map[string]float64{}
+				for name := range tc.expectedActualWeights {
+					actualWeights[name] = c.StackContainers[types.UID(name)].actualTrafficWeight
+				}
+				require.Equal(t, tc.expectedActualWeights, actualWeights)
 			}
 		})
 	}
