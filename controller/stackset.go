@@ -240,7 +240,6 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*core.StackSe
 		return fmt.Errorf("failed to list Stacks: %v", err)
 	}
 
-Items:
 	for _, stack := range stacks.Items {
 		if uid, ok := getOwnerUID(stack.ObjectMeta); ok {
 			if s, ok := stacksets[uid]; ok {
@@ -248,7 +247,7 @@ Items:
 				s.StackContainers[stack.UID] = &core.StackContainer{
 					Stack: &stack,
 				}
-				continue Items
+				continue
 			}
 		}
 	}
@@ -261,14 +260,13 @@ func (c *StackSetController) collectDeployments(stacksets map[types.UID]*core.St
 		return fmt.Errorf("failed to list Deployments: %v", err)
 	}
 
-Items:
 	for _, d := range deployments.Items {
 		deployment := d
 		if uid, ok := getOwnerUID(deployment.ObjectMeta); ok {
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					s.Resources.Deployment = &deployment
-					continue Items
+					break
 				}
 			}
 		}
