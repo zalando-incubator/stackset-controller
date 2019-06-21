@@ -506,6 +506,7 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 			for _, sc := range ssc.StackContainers {
 				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
 				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.actualTrafficWeight, "stack %s", sc.Stack.Name)
+				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.currentActualTrafficWeight, "stack %s", sc.Stack.Name)
 			}
 		})
 	}

@@ -47,6 +47,12 @@ func (f *testStackFactory) deployment(updated bool, deploymentReplicas, updatedR
 func (f *testStackFactory) traffic(desiredTrafficWeight, actualTrafficWeight float64) *testStackFactory {
 	f.container.desiredTrafficWeight = desiredTrafficWeight
 	f.container.actualTrafficWeight = actualTrafficWeight
+	f.container.currentActualTrafficWeight = actualTrafficWeight
+	return f
+}
+
+func (f *testStackFactory) currentActualTrafficWeight(weight float64) *testStackFactory {
+	f.container.currentActualTrafficWeight = weight
 	return f
 }
 

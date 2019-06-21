@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -625,6 +626,20 @@ func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) erro
 	err := c.ReconcileStackSetIngress(ssc.StackSet, ssc.Ingress, ssc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedManageIngress", err)
+	}
+
+	trafficChanges := ssc.TrafficChanges()
+	if len(trafficChanges) != 0 {
+		var changeMessages []string
+		for _, change := range trafficChanges {
+			changeMessages = append(changeMessages, change.String())
+		}
+
+		c.recorder.Eventf(
+			ssc.StackSet,
+			apiv1.EventTypeNormal,
+			"TrafficSwitched",
+			"Updated traffic settings: "+strings.Join(changeMessages, ", "))
 	}
 
 	return nil

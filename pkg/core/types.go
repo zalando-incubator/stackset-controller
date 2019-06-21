@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -75,12 +76,24 @@ type StackContainer struct {
 	desiredReplicas    int32
 
 	// Traffic & scaling
+	currentActualTrafficWeight    float64
 	actualTrafficWeight           float64
 	desiredTrafficWeight          float64
 	noTrafficSince                time.Time
 	prescalingActive              bool
 	prescalingReplicas            int32
 	prescalingLastTrafficIncrease time.Time
+}
+
+// TrafficChange contains information about a traffic change event
+type TrafficChange struct {
+	StackName        string
+	OldTrafficWeight float64
+	NewTrafficWeight float64
+}
+
+func (tc TrafficChange) String() string {
+	return fmt.Sprintf("%s: %.1f%% to %.1f%%", tc.StackName, tc.OldTrafficWeight, tc.NewTrafficWeight)
 }
 
 func (sc *StackContainer) HasTraffic() bool {
@@ -184,6 +197,7 @@ func (ssc *StackSetContainer) updateTrafficFromIngress() error {
 	for _, container := range ssc.StackContainers {
 		container.desiredTrafficWeight = desired[container.Name()]
 		container.actualTrafficWeight = actual[container.Name()]
+		container.currentActualTrafficWeight = actual[container.Name()]
 	}
 
 	return nil
@@ -203,6 +217,28 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 	}
 
 	return ssc.updateTrafficFromIngress()
+}
+
+func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
+	var result []TrafficChange
+
+	for _, sc := range ssc.StackContainers {
+		oldWeight := sc.currentActualTrafficWeight
+		newWeight := sc.actualTrafficWeight
+
+		if oldWeight != newWeight {
+			result = append(result, TrafficChange{
+				StackName:        sc.Name(),
+				OldTrafficWeight: oldWeight,
+				NewTrafficWeight: newWeight,
+			})
+		}
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].StackName < result[j].StackName
+	})
+	return result
 }
 
 func (sc *StackContainer) updateFromResources() {

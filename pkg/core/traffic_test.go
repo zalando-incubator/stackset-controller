@@ -665,3 +665,33 @@ func TestTrafficSwitchNoTrafficSince(t *testing.T) {
 		})
 	}
 }
+
+func TestTrafficChanges(t *testing.T) {
+	c := StackSetContainer{
+		StackSet: &zv1.StackSet{
+			Spec: zv1.StackSetSpec{
+				Ingress: &zv1.StackSetIngressSpec{},
+			},
+		},
+		StackContainers: map[types.UID]*StackContainer{
+			"foo-v1": testStack("foo-v1").traffic(100, 50).currentActualTrafficWeight(50).stack(),
+			"foo-v2": testStack("foo-v2").traffic(0, 40).currentActualTrafficWeight(20).stack(),
+			"foo-v3": testStack("foo-v3").traffic(0, 10).currentActualTrafficWeight(30).stack(),
+			"foo-v4": testStack("foo-v4").traffic(0, 0).currentActualTrafficWeight(0).stack(),
+		},
+	}
+
+	expected := []TrafficChange{
+		{
+			StackName:        "foo-v2",
+			OldTrafficWeight: 20,
+			NewTrafficWeight: 40,
+		},
+		{
+			StackName:        "foo-v3",
+			OldTrafficWeight: 30,
+			NewTrafficWeight: 10,
+		},
+	}
+	require.Equal(t, expected, c.TrafficChanges())
+}
