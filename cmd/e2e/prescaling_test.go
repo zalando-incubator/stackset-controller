@@ -53,23 +53,23 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, *deployment.Spec.Replicas)
 
-	// finally switch 1/10 of the traffic to the new stack
+	// switch 50% of the traffic to the new stack
 	desiredTraffic = map[string]float64{
-		fullThirdStack:  10,
-		fullFirstStack:  40,
-		fullSecondStack: 50,
+		fullThirdStack:  50,
+		fullFirstStack:  25,
+		fullSecondStack: 25,
 	}
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
 	require.NoError(t, err)
 	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
-	// recheck the deployment of the last stack and verify that the number of replicas is the sum of the previous stacks
-	// till the end of the prescaling timeout
+	// recheck the deployment of the last stack and verify that the number of replicas is 3 till the end of the
+	// prescaling timeout
 	for i := 1; i <= 6; i++ {
 		deployment, err = waitForDeployment(t, fullThirdStack)
 		require.NoError(t, err)
-		require.EqualValues(t, 6, *(deployment.Spec.Replicas))
+		require.EqualValues(t, 3, *(deployment.Spec.Replicas))
 		time.Sleep(time.Second * 10)
 	}
 	time.Sleep(time.Second * 10)
@@ -124,11 +124,11 @@ func TestPrescalingWithHPA(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, *deployment.Spec.Replicas)
 
-	// switch 1/10 of the traffic to the third stack and wait for the process to be complete
+	// switch 50% of the traffic to the third stack and wait for the process to be complete
 	desiredTraffic = map[string]float64{
-		fullThirdStack:  10,
-		fullFirstStack:  40,
-		fullSecondStack: 50,
+		fullThirdStack:  50,
+		fullFirstStack:  25,
+		fullSecondStack: 25,
 	}
 
 	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
@@ -136,11 +136,11 @@ func TestPrescalingWithHPA(t *testing.T) {
 	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
-	// verify that the third stack now has 6 replicas till the end of the prescaling period
+	// verify that the third stack now has 3 replicas till the end of the prescaling period
 	for i := 1; i <= 6; i++ {
 		hpa, err := waitForHPA(t, fullThirdStack)
 		require.NoError(t, err)
-		require.EqualValues(t, 6, *(hpa.Spec.MinReplicas))
+		require.EqualValues(t, 3, *(hpa.Spec.MinReplicas))
 		time.Sleep(time.Second * 10)
 	}
 	time.Sleep(time.Second * 10)
