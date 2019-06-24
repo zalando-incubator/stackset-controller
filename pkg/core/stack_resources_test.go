@@ -569,13 +569,14 @@ func TestGenerateStackStatus(t *testing.T) {
 	hourAgo := time.Now().Add(-time.Hour)
 
 	for _, tc := range []struct {
-		name                          string
-		actualTrafficWeight           float64
-		desiredTrafficWeight          float64
-		noTrafficSince                time.Time
-		prescalingActive              bool
-		prescalingReplicas            int32
-		prescalingLastTrafficIncrease time.Time
+		name                           string
+		actualTrafficWeight            float64
+		desiredTrafficWeight           float64
+		noTrafficSince                 time.Time
+		prescalingActive               bool
+		prescalingReplicas             int32
+		prescalingDesiredTrafficWeight float64
+		prescalingLastTrafficIncrease  time.Time
 	}{
 		{
 			name:                 "with traffic",
@@ -587,26 +588,28 @@ func TestGenerateStackStatus(t *testing.T) {
 			noTrafficSince: hourAgo,
 		},
 		{
-			name:                          "prescaled",
-			actualTrafficWeight:           0.25,
-			desiredTrafficWeight:          0.25,
-			prescalingActive:              true,
-			prescalingReplicas:            3,
-			prescalingLastTrafficIncrease: hourAgo,
+			name:                           "prescaled",
+			actualTrafficWeight:            0.25,
+			desiredTrafficWeight:           0.25,
+			prescalingActive:               true,
+			prescalingReplicas:             3,
+			prescalingDesiredTrafficWeight: 22.75,
+			prescalingLastTrafficIncrease:  hourAgo,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := &StackContainer{
-				actualTrafficWeight:           tc.actualTrafficWeight,
-				desiredTrafficWeight:          tc.desiredTrafficWeight,
-				createdReplicas:               3,
-				readyReplicas:                 2,
-				updatedReplicas:               1,
-				desiredReplicas:               4,
-				noTrafficSince:                tc.noTrafficSince,
-				prescalingActive:              tc.prescalingActive,
-				prescalingReplicas:            tc.prescalingReplicas,
-				prescalingLastTrafficIncrease: tc.prescalingLastTrafficIncrease,
+				actualTrafficWeight:            tc.actualTrafficWeight,
+				desiredTrafficWeight:           tc.desiredTrafficWeight,
+				createdReplicas:                3,
+				readyReplicas:                  2,
+				updatedReplicas:                1,
+				desiredReplicas:                4,
+				noTrafficSince:                 tc.noTrafficSince,
+				prescalingActive:               tc.prescalingActive,
+				prescalingReplicas:             tc.prescalingReplicas,
+				prescalingDesiredTrafficWeight: tc.prescalingDesiredTrafficWeight,
+				prescalingLastTrafficIncrease:  tc.prescalingLastTrafficIncrease,
 			}
 			status := c.GenerateStackStatus()
 			expected := &zv1.StackStatus{
@@ -618,9 +621,10 @@ func TestGenerateStackStatus(t *testing.T) {
 				DesiredReplicas:      4,
 				NoTrafficSince:       wrapTime(tc.noTrafficSince),
 				Prescaling: zv1.PrescalingStatus{
-					Active:              tc.prescalingActive,
-					Replicas:            tc.prescalingReplicas,
-					LastTrafficIncrease: wrapTime(tc.prescalingLastTrafficIncrease),
+					Active:               tc.prescalingActive,
+					Replicas:             tc.prescalingReplicas,
+					DesiredTrafficWeight: tc.prescalingDesiredTrafficWeight,
+					LastTrafficIncrease:  wrapTime(tc.prescalingLastTrafficIncrease),
 				},
 			}
 			require.Equal(t, expected, status)

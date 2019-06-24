@@ -78,9 +78,10 @@ func (f *testStackFactory) pendingRemoval() *testStackFactory {
 	return f
 }
 
-func (f *testStackFactory) prescaling(replicas int32, lastTrafficIncrease time.Time) *testStackFactory {
+func (f *testStackFactory) prescaling(replicas int32, desiredTrafficWeight float64, lastTrafficIncrease time.Time) *testStackFactory {
 	f.container.prescalingActive = true
 	f.container.prescalingReplicas = replicas
+	f.container.prescalingDesiredTrafficWeight = desiredTrafficWeight
 	f.container.prescalingLastTrafficIncrease = lastTrafficIncrease
 	return f
 }

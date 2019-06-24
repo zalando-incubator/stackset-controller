@@ -253,6 +253,9 @@ type PrescalingStatus struct {
 	// Replicas is the number of replicas required for prescaling
 	// +optional
 	Replicas int32 `json:"replicas,omitempty"`
+	// DesiredTrafficWeight is the desired traffic weight that the stack was prescaled for
+	// +optional
+	DesiredTrafficWeight float64 `json:"desiredTrafficWeight"`
 	// LastTrafficIncrease is the timestamp when the traffic was last increased on the stack
 	// +optional
 	LastTrafficIncrease *metav1.Time `json:"lastTrafficIncrease,omitempty"`

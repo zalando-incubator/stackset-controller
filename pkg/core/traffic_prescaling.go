@@ -1,6 +1,7 @@
 package core
 
 import (
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -13,11 +14,27 @@ type PrescalingTrafficReconciler struct {
 }
 
 func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer, currentTimestamp time.Time) error {
-	// Calculate how many replicas stacks with traffic have at the moment
-	totalReplicas := int32(0)
+	// Calculate how many replicas we need per unit of traffic
+	totalReplicas := 0.0
+	totalTraffic := 0.0
+
 	for _, stack := range stacks {
-		if stack.actualTrafficWeight > 0 {
-			totalReplicas += stack.deploymentReplicas
+		if stack.prescalingActive {
+			// Stack is prescaled, there are several possibilities
+			if stack.deploymentReplicas <= stack.prescalingReplicas && stack.prescalingDesiredTrafficWeight > 0 {
+				// We can't get information out of the HPA, so let's use the information captured previously
+				totalReplicas += float64(stack.prescalingReplicas)
+				totalTraffic += stack.prescalingDesiredTrafficWeight
+			} else if stack.deploymentReplicas > stack.prescalingReplicas && stack.actualTrafficWeight > 0 {
+				// Even though prescaling is active, stack is scaled up to more replicas and it has traffic,
+				// let's assume that we can get more precise replicas/traffic information this way
+				totalReplicas += float64(stack.deploymentReplicas)
+				totalTraffic += stack.actualTrafficWeight
+			}
+		} else if stack.actualTrafficWeight > 0 {
+			// Stack has traffic and is not prescaled
+			totalReplicas += float64(stack.deploymentReplicas)
+			totalTraffic += stack.actualTrafficWeight
 		}
 	}
 
@@ -25,11 +42,16 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 	for _, stack := range stacks {
 		// If traffic needs to be increased
 		if stack.desiredTrafficWeight > stack.actualTrafficWeight {
-			// If prescaling is not active then calculate the replicas required
-			if !stack.prescalingActive {
-				stack.prescalingReplicas = totalReplicas
+			// If prescaling is not active, or desired weight changed since the last prescaling attempt, update
+			// the target replica count
+			if !stack.prescalingActive || stack.prescalingDesiredTrafficWeight < stack.desiredTrafficWeight {
+				stack.prescalingDesiredTrafficWeight = stack.desiredTrafficWeight
 
-				// If no other stacks are currently active
+				if totalTraffic != 0 {
+					stack.prescalingReplicas = int32(math.Ceil(stack.desiredTrafficWeight * totalReplicas / totalTraffic))
+				}
+
+				// Unable to determine target scale, fallback to stack replicas
 				if stack.prescalingReplicas == 0 {
 					stack.prescalingReplicas = effectiveReplicas(stack.Stack.Spec.Replicas)
 				}
@@ -49,6 +71,7 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 		if stack.prescalingActive && !stack.prescalingLastTrafficIncrease.IsZero() && time.Since(stack.prescalingLastTrafficIncrease) > r.ResetHPAMinReplicasTimeout {
 			stack.prescalingActive = false
 			stack.prescalingReplicas = 0
+			stack.prescalingDesiredTrafficWeight = 0
 			stack.prescalingLastTrafficIncrease = time.Time{}
 		}
 	}

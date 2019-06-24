@@ -76,13 +76,14 @@ type StackContainer struct {
 	desiredReplicas    int32
 
 	// Traffic & scaling
-	currentActualTrafficWeight    float64
-	actualTrafficWeight           float64
-	desiredTrafficWeight          float64
-	noTrafficSince                time.Time
-	prescalingActive              bool
-	prescalingReplicas            int32
-	prescalingLastTrafficIncrease time.Time
+	currentActualTrafficWeight     float64
+	actualTrafficWeight            float64
+	desiredTrafficWeight           float64
+	noTrafficSince                 time.Time
+	prescalingActive               bool
+	prescalingReplicas             int32
+	prescalingDesiredTrafficWeight float64
+	prescalingLastTrafficIncrease  time.Time
 }
 
 // TrafficChange contains information about a traffic change event
@@ -264,6 +265,7 @@ func (sc *StackContainer) updateFromResources() {
 	if status.Prescaling.Active {
 		sc.prescalingActive = true
 		sc.prescalingReplicas = status.Prescaling.Replicas
+		sc.prescalingDesiredTrafficWeight = status.Prescaling.DesiredTrafficWeight
 		sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
 	}
 }
