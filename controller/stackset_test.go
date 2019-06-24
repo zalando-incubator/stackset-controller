@@ -282,6 +282,10 @@ func TestCreateCurrentStack(t *testing.T) {
 
 	stack, err := env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v1", metav1.GetOptions{})
 	require.NoError(t, err)
+
+	stack.APIVersion = "zalando.org/v1"
+	stack.Kind = "Stack"
+
 	require.Equal(t, stackset.Spec.StackTemplate.Spec.StackSpec, stack.Spec)
 	require.Equal(t, map[types.UID]*core.StackContainer{
 		stack.UID: {

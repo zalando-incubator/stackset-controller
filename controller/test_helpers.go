@@ -119,6 +119,10 @@ func testStackset(name, namespace string, uid types.UID) zv1.StackSet {
 
 func testStack(name, namespace string, uid types.UID, ownerStack zv1.StackSet) zv1.Stack {
 	return zv1.Stack{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "zalando.org/v1",
+			Kind:       "Stack",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,

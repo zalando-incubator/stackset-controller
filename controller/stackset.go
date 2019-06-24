@@ -124,8 +124,8 @@ func (c *StackSetController) Run(ctx context.Context) {
 			stackset := *e.StackSet
 			// set TypeMeta manually because of this bug:
 			// https://github.com/kubernetes/client-go/issues/308
-			stackset.APIVersion = "zalando.org/v1"
-			stackset.Kind = "StackSet"
+			stackset.APIVersion = core.APIVersion
+			stackset.Kind = core.KindStackSet
 
 			// update/delete existing entry
 			if _, ok := c.stacksetStore[stackset.UID]; ok {
@@ -245,6 +245,12 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*core.StackSe
 		if uid, ok := getOwnerUID(stack.ObjectMeta); ok {
 			if s, ok := stacksets[uid]; ok {
 				stack := stack
+
+				// set TypeMeta manually because of this bug:
+				// https://github.com/kubernetes/client-go/issues/308
+				stack.APIVersion = core.APIVersion
+				stack.Kind = core.KindStack
+
 				s.StackContainers[stack.UID] = &core.StackContainer{
 					Stack: &stack,
 				}
@@ -510,6 +516,12 @@ func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) erro
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedCreateStack", err)
 	}
+
+	// set TypeMeta manually because of this bug:
+	// https://github.com/kubernetes/client-go/issues/308
+	created.APIVersion = core.APIVersion
+	created.Kind = core.KindStack
+
 	c.recorder.Eventf(
 		ssc.StackSet,
 		apiv1.EventTypeNormal,

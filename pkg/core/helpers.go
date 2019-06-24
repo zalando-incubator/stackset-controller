@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	apiVersion   = "zalando.org/v1"
-	stackSetKind = "StackSet"
-	stackKind    = "Stack"
+	APIVersion   = "zalando.org/v1"
+	KindStackSet = "StackSet"
+	KindStack    = "Stack"
 
 	stackGenerationAnnotationKey = "stackset-controller.zalando.org/stack-generation"
 )

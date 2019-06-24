@@ -71,8 +71,8 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 		Labels: resourceLabels,
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: apiVersion,
-				Kind:       stackKind,
+				APIVersion: APIVersion,
+				Kind:       KindStack,
 				Name:       sc.Name(),
 				UID:        sc.Stack.UID,
 			},

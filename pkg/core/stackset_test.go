@@ -186,8 +186,8 @@ func TestStackSetNewStack(t *testing.T) {
 			name: "stack needs to be created",
 			stackset: &zv1.StackSet{
 				TypeMeta: metav1.TypeMeta{
-					APIVersion: apiVersion,
-					Kind:       stackSetKind,
+					APIVersion: APIVersion,
+					Kind:       KindStackSet,
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
@@ -216,8 +216,8 @@ func TestStackSetNewStack(t *testing.T) {
 						},
 						OwnerReferences: []metav1.OwnerReference{
 							{
-								APIVersion: apiVersion,
-								Kind:       stackSetKind,
+								APIVersion: APIVersion,
+								Kind:       KindStackSet,
 								Name:       "foo",
 								UID:        "1234-abc-2134",
 							},
@@ -545,8 +545,8 @@ func TestStackSetGenerateIngress(t *testing.T) {
 	c := &StackSetContainer{
 		StackSet: &zv1.StackSet{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: apiVersion,
-				Kind:       stackSetKind,
+				APIVersion: APIVersion,
+				Kind:       KindStackSet,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "foo",
@@ -592,8 +592,8 @@ func TestStackSetGenerateIngress(t *testing.T) {
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: apiVersion,
-					Kind:       stackSetKind,
+					APIVersion: APIVersion,
+					Kind:       KindStackSet,
 					Name:       "foo",
 					UID:        "abc-123",
 				},
