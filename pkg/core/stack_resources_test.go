@@ -39,8 +39,8 @@ var (
 		},
 		OwnerReferences: []metav1.OwnerReference{
 			{
-				APIVersion: apiVersion,
-				Kind:       stackKind,
+				APIVersion: APIVersion,
+				Kind:       KindStack,
 				Name:       "foo-v1",
 				UID:        "abc-123",
 			},
