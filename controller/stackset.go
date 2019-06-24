@@ -639,7 +639,8 @@ func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) erro
 			ssc.StackSet,
 			apiv1.EventTypeNormal,
 			"TrafficSwitched",
-			"Updated traffic settings: "+strings.Join(changeMessages, ", "))
+			"Switched traffic: %s",
+			strings.Join(changeMessages, ", "))
 	}
 
 	return nil
