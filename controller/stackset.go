@@ -693,7 +693,7 @@ func (c *StackSetController) ReconcileStackSet(container core.StackSetContainer)
 			container.StackSet,
 			v1.EventTypeWarning,
 			"TrafficNotSwitched",
-			err.Error())
+			"Failed to switch traffic: "+err.Error())
 	}
 
 	// Mark stacks that should be removed

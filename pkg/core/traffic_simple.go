@@ -23,7 +23,7 @@ func (SimpleTrafficReconciler) Reconcile(stacks map[string]*StackContainer, curr
 	}
 	if len(nonReadyStacks) > 0 {
 		sort.Strings(nonReadyStacks)
-		return newTrafficSwitchError("stacks %s not ready", strings.Join(nonReadyStacks, ", "))
+		return newTrafficSwitchError("stacks not ready: %s", strings.Join(nonReadyStacks, ", "))
 	}
 
 	// TODO: think of case were all are zero and the service/deployment is deleted.

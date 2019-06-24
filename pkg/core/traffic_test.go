@@ -92,7 +92,7 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 			}
 			err := c.ManageTraffic(time.Now())
 			expected := &trafficSwitchError{
-				reason: "stacks foo-v1 not ready",
+				reason: "stacks not ready: foo-v1",
 			}
 			require.Equal(t, expected, err)
 		})
@@ -178,7 +178,7 @@ func TestTrafficSwitchSimple(t *testing.T) {
 				"foo-v2": 30,
 				"foo-v3": 0,
 			},
-			expectedError: "stacks foo-v2, foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v2, foo-v3",
 		},
 		{
 			name: "if there are no stacks with a desired traffic weight, send traffic to the stack that had it most recently",
@@ -197,7 +197,7 @@ func TestTrafficSwitchSimple(t *testing.T) {
 				"foo-v2": 30,
 				"foo-v3": 60,
 			},
-			expectedError: "stacks foo-v2 not ready",
+			expectedError: "stacks not ready: foo-v2",
 		},
 		{
 			name: "if there are no stacks with a desired traffic weight, and no stacks had traffic recently, send traffic to the earliest created stack",
@@ -216,7 +216,7 @@ func TestTrafficSwitchSimple(t *testing.T) {
 				"foo-v2": 30,
 				"foo-v3": 60,
 			},
-			expectedError: "stacks foo-v2 not ready",
+			expectedError: "stacks not ready: foo-v2",
 		},
 		{
 			name: "if there are no stacks with traffic, send traffic to the stack that had it most recently",
@@ -235,7 +235,7 @@ func TestTrafficSwitchSimple(t *testing.T) {
 				"foo-v2": 100,
 				"foo-v3": 0,
 			},
-			expectedError: "stacks foo-v1, foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v1, foo-v3",
 		},
 		{
 			name: "if there are no stacks with traffic, and no stacks had traffic recently, send traffic to the earliest created stack",
@@ -254,7 +254,7 @@ func TestTrafficSwitchSimple(t *testing.T) {
 				"foo-v2": 100,
 				"foo-v3": 0,
 			},
-			expectedError: "stacks foo-v1, foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v1, foo-v3",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -326,7 +326,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 40,
 				"foo-v3": 10,
 			},
-			expectedError: "stacks foo-v3, foo-v4 not ready",
+			expectedError: "stacks not ready: foo-v3, foo-v4",
 		},
 		{
 			name: "already prescaled stacks also contribute to the replica count",
@@ -352,7 +352,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v3": 9,
 				"foo-v4": 1,
 			},
-			expectedError: "stacks foo-v3, foo-v4 not ready",
+			expectedError: "stacks not ready: foo-v3, foo-v4",
 		},
 		{
 			name: "traffic is not switched until stacks reach the desired number of replicas",
@@ -374,7 +374,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 40,
 				"foo-v3": 10,
 			},
-			expectedError: "stacks foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v3",
 		},
 		{
 			name: "when stacks are prescaled, max. replicas is capped by the HPA",
@@ -396,7 +396,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 40,
 				"foo-v3": 10,
 			},
-			expectedError: "stacks foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v3",
 		},
 		{
 			name: "traffic is switched after prescaling is finished",
@@ -514,7 +514,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 30,
 				"foo-v3": 0,
 			},
-			expectedError: "stacks foo-v2, foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v2, foo-v3",
 		},
 		{
 			name: "if there are no stacks with a desired traffic weight, send traffic to the stack that had it most recently",
@@ -533,7 +533,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 30,
 				"foo-v3": 60,
 			},
-			expectedError: "stacks foo-v2 not ready",
+			expectedError: "stacks not ready: foo-v2",
 		},
 		{
 			name: "if there are no stacks with a desired traffic weight, and no stacks had traffic recently, send traffic to the earliest created stack",
@@ -552,7 +552,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 30,
 				"foo-v3": 60,
 			},
-			expectedError: "stacks foo-v2 not ready",
+			expectedError: "stacks not ready: foo-v2",
 		},
 		{
 			name: "if there are no stacks with traffic, send traffic to the stack that had it most recently",
@@ -571,7 +571,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 100,
 				"foo-v3": 0,
 			},
-			expectedError: "stacks foo-v1, foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v1, foo-v3",
 		},
 		{
 			name: "if there are no stacks with traffic, and no stacks had traffic recently, send traffic to the earliest created stack",
@@ -590,7 +590,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				"foo-v2": 100,
 				"foo-v3": 0,
 			},
-			expectedError: "stacks foo-v1, foo-v3 not ready",
+			expectedError: "stacks not ready: foo-v1, foo-v3",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
