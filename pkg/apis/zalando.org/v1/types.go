@@ -47,7 +47,7 @@ type StackLifecycle struct {
 	// getting traffic.
 	// Defaults to 300 seconds.
 	// +optional
-	ScaledownTTLSeconds *int64 `json:"scaledownTTLSeconds,omitempty" protobuf:"varint,4,opt,name=scaledownTTLSeconds"`
+	ScaledownTTLSeconds *int64 `json:"scaledownTTLSeconds,omitempty"`
 	// Limit defines the maximum number of Stacks to keep around. If the
 	// number of Stacks exceeds the limit then the oldest stacks which are
 	// not getting traffic are deleted.
@@ -95,10 +95,10 @@ type Autoscaler struct {
 	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
 	// It defaults to 1 pod.
 	// +optional
-	MinReplicas *int32 `json:"minReplicas,omitempty" protobuf:"varint,2,opt,name=minReplicas"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
 	// It cannot be less that minReplicas.
-	MaxReplicas int32 `json:"maxReplicas" protobuf:"varint,3,opt,name=maxReplicas"`
+	MaxReplicas int32 `json:"maxReplicas"`
 
 	Metrics []AutoscalerMetrics `json:"metrics"`
 }
@@ -111,10 +111,10 @@ type HorizontalPodAutoscaler struct {
 	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
 	// It defaults to 1 pod.
 	// +optional
-	MinReplicas *int32 `json:"minReplicas,omitempty" protobuf:"varint,2,opt,name=minReplicas"`
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
 	// maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
 	// It cannot be less that minReplicas.
-	MaxReplicas int32 `json:"maxReplicas" protobuf:"varint,3,opt,name=maxReplicas"`
+	MaxReplicas int32 `json:"maxReplicas"`
 	// metrics contains the specifications for which to use to calculate the
 	// desired replica count (the maximum replica count across all metrics will
 	// be used).  The desired replica count is calculated multiplying the
@@ -123,7 +123,7 @@ type HorizontalPodAutoscaler struct {
 	// increased, and vice-versa.  See the individual metric source types for
 	// more information about how each type of metric must respond.
 	// +optional
-	Metrics []autoscaling.MetricSpec `json:"metrics,omitempty" protobuf:"bytes,4,rep,name=metrics"`
+	Metrics []autoscaling.MetricSpec `json:"metrics,omitempty"`
 }
 
 // StackSetStatus is the status section of the StackSet resource.
@@ -131,16 +131,16 @@ type HorizontalPodAutoscaler struct {
 type StackSetStatus struct {
 	// Stacks is the number of stacks managed by the StackSet.
 	// +optional
-	Stacks int32 `json:"stacks,omitempty" protobuf:"varint,2,opt,name=stacks"`
+	Stacks int32 `json:"stacks,omitempty"`
 	// ReadyStacks is the number of stacks managed by the StackSet which
 	// are considered ready. a Stack is considered ready if:
 	// replicas == readyReplicas == updatedReplicas.
 	// +optional
-	ReadyStacks int32 `json:"readyStacks,omitempty" protobuf:"varint,2,opt,name=readyStacks"`
+	ReadyStacks int32 `json:"readyStacks,omitempty"`
 	// StacksWithTraffic is the number of stacks managed by the StackSet
 	// which are getting traffic.
 	// +optional
-	StacksWithTraffic int32 `json:"stacksWithTraffic,omitempty" protobuf:"varint,2,opt,name=stacksWithTraffic"`
+	StacksWithTraffic int32 `json:"stacksWithTraffic,omitempty"`
 	// ObservedStackVersion is the version of Stack generated from the current StackSet definition.
 	// TODO: add a more detailed comment
 	// +optional
@@ -178,12 +178,12 @@ type StackSpec struct {
 	// Number of desired pods. This is a pointer to distinguish between explicit
 	// zero and not specified. Defaults to 1.
 	// +optional
-	Replicas                *int32                   `json:"replicas,omitempty" protobuf:"varint,1,opt,name=replicas"`
+	Replicas                *int32                   `json:"replicas,omitempty"`
 	HorizontalPodAutoscaler *HorizontalPodAutoscaler `json:"horizontalPodAutoscaler,omitempty"`
 	// TODO: Service
 	Service *StackServiceSpec `json:"service,omitempty"`
 	// PodTemplate describes the pods that will be created.
-	PodTemplate v1.PodTemplateSpec `json:"podTemplate" protobuf:"bytes,3,opt,name=template"`
+	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
 }
@@ -198,7 +198,7 @@ type StackServiceSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
 	// +patchMergeKey=port
 	// +patchStrategy=merge
-	Ports []v1.ServicePort `json:"ports,omitempty" patchStrategy:"merge" patchMergeKey:"port" protobuf:"bytes,1,rep,name=ports"`
+	Ports []v1.ServicePort `json:"ports,omitempty" patchStrategy:"merge" patchMergeKey:"port"`
 }
 
 // StackSpecTemplate is the spec part of the Stack.
@@ -215,30 +215,30 @@ type StackStatus struct {
 	// routed to the stack.
 	// TODO: should we be using floats in the API?
 	// +optional
-	ActualTrafficWeight float64 `json:"actualTrafficWeight" protobuf:"varint,2,opt,name=actualTrafficWeight"`
+	ActualTrafficWeight float64 `json:"actualTrafficWeight"`
 	// DesiredTrafficWeight is desired amount of traffic to be routed to
 	// the stack.
 	// +optional
-	DesiredTrafficWeight float64 `json:"desiredTrafficWeight" protobuf:"varint,2,opt,name=desiredTrafficWeight"`
+	DesiredTrafficWeight float64 `json:"desiredTrafficWeight"`
 	// Replicas is the number of replicas in the Deployment managed by the
 	// stack.
 	// +optional
-	Replicas int32 `json:"replicas" protobuf:"varint,2,opt,name=replicas"`
+	Replicas int32 `json:"replicas"`
 	// ReadyReplicas is the number of ready replicas in the Deployment
 	// managed by the stack.
 	// +optional
-	ReadyReplicas int32 `json:"readyReplicas" protobuf:"varint,2,opt,name=readyReplicas"`
+	ReadyReplicas int32 `json:"readyReplicas"`
 	// UpdatedReplicas is the number of updated replicas in the Deployment
 	// managed by the stack.
 	// +optional
-	UpdatedReplicas int32 `json:"updatedReplicas" protobuf:"varint,2,opt,name=updatedReplicas"`
+	UpdatedReplicas int32 `json:"updatedReplicas"`
 	// DesiredReplicas is the number of desired replicas as defined by the
 	// optional HortizontalPodAutoscaler defined for the stack.
 	// +optional
-	DesiredReplicas int32 `json:"desiredReplicas,omitempty" protobuf:"varint,2,opt,name=desiredReplicas"`
+	DesiredReplicas int32 `json:"desiredReplicas,omitempty"`
 	// Prescaling current prescaling information
 	// +optional
-	Prescaling PrescalingStatus `json:"prescalingStatus,omitempty" protobuf:"varint,2,opt,name=prescalingStatus"`
+	Prescaling PrescalingStatus `json:"prescalingStatus,omitempty"`
 	// NoTrafficSince is the timestamp defining the last time the stack was
 	// observed getting traffic.
 	NoTrafficSince *metav1.Time `json:"noTrafficSince,omitempty"`
@@ -249,13 +249,16 @@ type StackStatus struct {
 type PrescalingStatus struct {
 	// Active indicates if prescaling is current active
 	// +optional
-	Active bool `json:"active,omitempty" protobuf:"varint,1,name=active"`
+	Active bool `json:"active,omitempty"`
 	// Replicas is the number of replicas required for prescaling
 	// +optional
-	Replicas int32 `json:"replicas,omitempty" protobuf:"varint,2,opt,name=replicas"`
+	Replicas int32 `json:"replicas,omitempty"`
+	// DesiredTrafficWeight is the desired traffic weight that the stack was prescaled for
+	// +optional
+	DesiredTrafficWeight float64 `json:"desiredTrafficWeight"`
 	// LastTrafficIncrease is the timestamp when the traffic was last increased on the stack
 	// +optional
-	LastTrafficIncrease *metav1.Time `json:"lastTrafficIncrease,omitempty" protobuf:"varint,4,opt,name=lastTrafficIncrease"`
+	LastTrafficIncrease *metav1.Time `json:"lastTrafficIncrease,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

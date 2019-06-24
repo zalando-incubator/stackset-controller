@@ -4,147 +4,675 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zalando-incubator/stackset-controller/controller/entities"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/api/apps/v1beta1"
+	apps "k8s.io/api/apps/v1"
+	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-func TestNewDeploymentFromStack(t *testing.T) {
-	stack := zv1.Stack{
+var (
+	testStackSet = zv1.StackSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"application":                 "all-fun",
-				entities.StackVersionLabelKey: "v2",
-			},
+			Name:      "foo",
+			Namespace: "bar",
+			UID:       "123",
 		},
-		Spec: zv1.StackSpec{
-			Replicas: int32Ptr(7),
-			PodTemplate: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Containers:    nil,
-					RestartPolicy: "hello",
+	}
+	baseTestStack = zv1.Stack{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1",
+			Namespace:       testStackSet.Namespace,
+			UID:             "456",
+			Generation:      1,
+			OwnerReferences: stacksetOwned(testStackSet).OwnerReferences,
+		},
+	}
+	updatedTestStack = *baseTestStack.DeepCopy()
+
+	baseTestStackOwned    = stackOwned(baseTestStack)
+	updatedTestStackOwned = stackOwned(baseTestStack)
+)
+
+func init() {
+	baseTestStackOwned.Annotations = map[string]string{"stackset-controller.zalando.org/stack-generation": "1"}
+
+	updatedTestStack.Generation = 2
+	updatedTestStackOwned.Annotations = map[string]string{"stackset-controller.zalando.org/stack-generation": "2"}
+}
+
+func TestReconcileStackDeployment(t *testing.T) {
+	exampleReplicas := int32(3)
+	updatedReplicas := int32(4)
+
+	examplePodTemplateSpec := v1.PodTemplateSpec{
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:  "foo",
+					Image: "nginx",
 				},
 			},
 		},
 	}
-	deployment := newDeploymentFromStack(stack)
-	require.Equal(t, stack.Name, deployment.Name,
-		"newDeploymentFromStack should copy name")
-	require.Equal(t, stack.Labels, deployment.Labels,
-		"newDeploymentFromStack should copy top-level labels")
-	require.Equal(t, stack.Labels, deployment.Spec.Template.Labels,
-		"newDeploymentFromStack should copy pod template labels")
-	require.Equal(t,
-		map[string]string{entities.StackVersionLabelKey: "v2"}, deployment.Spec.Selector.MatchLabels,
-		"newDeploymentFromStack should copy selector labels in MatchLabels")
-}
-
-func newDummyServiceWithAnnotations(annotations map[string]string) v1.Service {
-	return v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: annotations,
-		},
-	}
-}
-
-func newDummyStackWithGeneration(generation int64) zv1.Stack {
-	return zv1.Stack{
-		ObjectMeta: metav1.ObjectMeta{
-			Generation: generation,
-		},
-	}
-}
-
-func newDummyGenerationAnnotations(generation string) map[string]string {
-	return map[string]string{entities.StackGenerationAnnotationKey: generation}
-}
-
-func TestAssignResourceOwnershipToStack(t *testing.T) {
-	t.Run("add annotation to an object with nil Annotations", func(t *testing.T) {
-		service := newDummyServiceWithAnnotations(nil)
-		setStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
-		require.Equal(t, newDummyGenerationAnnotations("7"), service.Annotations)
-	})
-	t.Run("add annotation to an object with empty Annotations", func(t *testing.T) {
-		service := newDummyServiceWithAnnotations(make(map[string]string))
-		setStackGenerationOnResource(newDummyStackWithGeneration(7), &service)
-		require.Equal(t, newDummyGenerationAnnotations("7"), service.Annotations)
-	})
-	t.Run("overwrite existing stack generation annotation on an object", func(t *testing.T) {
-		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("1"))
-		setStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
-		require.Equal(t, newDummyGenerationAnnotations("2"), service.Annotations)
-	})
-	t.Run("unrelated annotations are not changed", func(t *testing.T) {
-		actualAnnotations := newDummyGenerationAnnotations("1")
-		actualAnnotations["other"] = "unchanged"
-		service := newDummyServiceWithAnnotations(actualAnnotations)
-
-		setStackGenerationOnResource(newDummyStackWithGeneration(2), &service)
-
-		expectedAnnotations := newDummyGenerationAnnotations("2")
-		expectedAnnotations["other"] = "unchanged"
-		require.Equal(t, expectedAnnotations, service.Annotations)
-	})
-	t.Run("works on deployments too", func(t *testing.T) {
-		deployment := v1beta1.Deployment{}
-		setStackGenerationOnResource(newDummyStackWithGeneration(3), &deployment)
-		require.Equal(t, newDummyGenerationAnnotations("3"), deployment.Annotations)
-	})
-}
-
-func TestGetStackGeneration(t *testing.T) {
-	t.Run("returns 0 without generation annotation", func(t *testing.T) {
-		service := newDummyServiceWithAnnotations(nil)
-		require.Equal(t, int64(0), getStackGeneration(service.ObjectMeta))
-	})
-	t.Run("returns 0 with a non-integer generation", func(t *testing.T) {
-		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("hi"))
-		require.Equal(t, int64(0), getStackGeneration(service.ObjectMeta))
-	})
-	t.Run("returns the decoded generation", func(t *testing.T) {
-		service := newDummyServiceWithAnnotations(newDummyGenerationAnnotations("192"))
-		require.Equal(t, int64(192), getStackGeneration(service.ObjectMeta))
-	})
-}
-
-func TestUpdateServiceSpecFromStack(t *testing.T) {
-	t.Run("error when called with a nil service", func(t *testing.T) {
-		require.Error(t, updateServiceSpecFromStack(nil, zv1.Stack{}, nil))
-	})
-	t.Run("error when backend port doesn't match service ports", func(t *testing.T) {
-		service := v1.Service{
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{{Port: 123}},
-			},
-		}
-		backendPort := intstr.FromInt(987)
-		require.Error(t, updateServiceSpecFromStack(
-			&service,
-			newDummyStackWithGeneration(0),
-			&backendPort,
-		))
-	})
-	t.Run("labels and ports are updated", func(t *testing.T) {
-		service := v1.Service{}
-		stack := zv1.Stack{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: map[string]string{"a": "b", "cd": "ef"},
-			},
-			Spec: zv1.StackSpec{
-				Service: &zv1.StackServiceSpec{
-					Ports: []v1.ServicePort{{Port: 123}, {Name: "web"}},
+	updatedPodTemplateSpec := v1.PodTemplateSpec{
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name:  "bar",
+					Image: "nginx",
 				},
 			},
-		}
+		},
+	}
 
-		err := updateServiceSpecFromStack(&service, stack, nil)
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing *apps.Deployment
+		updated  *apps.Deployment
+		expected *apps.Deployment
+	}{
+		{
+			name:  "deployment is created if it doesn't exist",
+			stack: baseTestStack,
+			updated: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+			expected: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+		},
+		{
+			name:  "deployment is updated if the stack version changes",
+			stack: updatedTestStack,
+			existing: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+			updated: &apps.Deployment{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: updatedPodTemplateSpec,
+				},
+			},
+			expected: &apps.Deployment{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: updatedPodTemplateSpec,
+				},
+			},
+		},
+		{
+			name:  "deployment is updated if the replica count is set",
+			stack: baseTestStack,
+			existing: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+			updated: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &updatedReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+			expected: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &updatedReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+		},
+		{
+			name:  "deployment is not updated if the stack version remains the same and replica count is unset",
+			stack: baseTestStack,
+			existing: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+			updated: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: nil,
+					Template: updatedPodTemplateSpec,
+				},
+			},
+			expected: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Template: examplePodTemplateSpec,
+				},
+			},
+		},
+		{
+			name:  "spec.selector is preserved",
+			stack: baseTestStack,
+			existing: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
+					Template: examplePodTemplateSpec,
+				},
+			},
+			updated: &apps.Deployment{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"updated": "selector"},
+					},
+					Template: updatedPodTemplateSpec,
+				},
+			},
+			expected: &apps.Deployment{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
+					Template: updatedPodTemplateSpec,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
 
-		require.Nilf(t, err, "updateServiceSpecFromStack should not return an error")
-		require.Equal(t, map[string]string{"a": "b", "cd": "ef"}, service.Labels)
-		require.Equal(t, []v1.ServicePort{{Port: 123}, {Name: "web"}}, service.Spec.Ports)
-	})
+			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateDeployments([]apps.Deployment{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackDeployment(&tc.stack, tc.existing, func() *apps.Deployment {
+				return tc.updated
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.AppsV1().Deployments(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, updated)
+		})
+	}
+}
+
+func TestReconcileStackService(t *testing.T) {
+	examplePorts := []v1.ServicePort{
+		{
+			Name:       "foo",
+			Protocol:   v1.ProtocolTCP,
+			Port:       8080,
+			TargetPort: intstr.FromInt(80),
+		},
+	}
+	exampleUpdatedPorts := []v1.ServicePort{
+		{
+			Name:       "bar",
+			Protocol:   v1.ProtocolTCP,
+			Port:       9090,
+			TargetPort: intstr.FromInt(90),
+		},
+	}
+	exampleClusterIP := "10.3.0.1"
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing *v1.Service
+		updated  *v1.Service
+		expected *v1.Service
+	}{
+		{
+			name:  "service is created if it doesn't exist",
+			stack: baseTestStack,
+			updated: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: examplePorts,
+				},
+			},
+			expected: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: examplePorts,
+				},
+			},
+		},
+		{
+			name:  "service is updated if the stack changes, ClusterIP is preserved",
+			stack: updatedTestStack,
+			existing: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     examplePorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+			updated: &v1.Service{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: exampleUpdatedPorts,
+				},
+			},
+			expected: &v1.Service{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     exampleUpdatedPorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+		},
+		{
+			name:  "service is not updated if the stack version remains the same",
+			stack: baseTestStack,
+			existing: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     examplePorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+			updated: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports: exampleUpdatedPorts,
+				},
+			},
+			expected: &v1.Service{
+				ObjectMeta: baseTestStackOwned,
+				Spec: v1.ServiceSpec{
+					Ports:     examplePorts,
+					ClusterIP: exampleClusterIP,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateServices([]v1.Service{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackService(&tc.stack, tc.existing, func() (*v1.Service, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.CoreV1().Services(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, updated)
+		})
+	}
+}
+
+func TestReconcileStackHPA(t *testing.T) {
+	exampleResource := resource.MustParse("10m")
+	exampleMetrics := []autoscaling.MetricSpec{
+		{
+			Type: "cpu",
+			Resource: &autoscaling.ResourceMetricSource{
+				Name:               "cpu",
+				TargetAverageValue: &exampleResource,
+			},
+		},
+	}
+	exampleUpdatedResource := resource.MustParse("20m")
+	exampleUpdatedMetrics := []autoscaling.MetricSpec{
+		{
+			Type: "cpu",
+			Resource: &autoscaling.ResourceMetricSource{
+				Name:               "cpu",
+				TargetAverageValue: &exampleUpdatedResource,
+			},
+		},
+	}
+
+	exampleMinReplicas := int32(3)
+	exampleUpdatedMinReplicas := int32(5)
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing *autoscaling.HorizontalPodAutoscaler
+		updated  *autoscaling.HorizontalPodAutoscaler
+		expected *autoscaling.HorizontalPodAutoscaler
+	}{
+		{
+			name:  "HPA is created if it doesn't exist",
+			stack: baseTestStack,
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is removed if it's no longer needed",
+			stack: baseTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated:  nil,
+			expected: nil,
+		},
+		{
+			name:  "HPA is updated if stack version changes",
+			stack: updatedTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 7,
+					Metrics:     exampleUpdatedMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 7,
+					Metrics:     exampleUpdatedMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is updated if min. replicas is changed",
+			stack: updatedTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleUpdatedMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleUpdatedMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is not updated if the stack version remains the same and min. replicas are unchanged",
+			stack: baseTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleUpdatedMetrics,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateHPAs([]autoscaling.HorizontalPodAutoscaler{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackHPA(&tc.stack, tc.existing, func() (*autoscaling.HorizontalPodAutoscaler, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.AutoscalingV2beta1().HorizontalPodAutoscalers(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			if tc.expected != nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, updated)
+			} else {
+				require.True(t, errors.IsNotFound(err))
+			}
+		})
+	}
+}
+
+func TestReconcileStackIngress(t *testing.T) {
+	exampleRules := []extensions.IngressRule{
+		{
+			Host: "example.org",
+			IngressRuleValue: extensions.IngressRuleValue{
+				HTTP: &extensions.HTTPIngressRuleValue{
+					Paths: []extensions.HTTPIngressPath{
+						{
+							Path: "/",
+							Backend: extensions.IngressBackend{
+								ServiceName: "foo",
+								ServicePort: intstr.FromInt(80),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	exampleUpdatedRules := []extensions.IngressRule{
+		{
+			Host: "example.com",
+			IngressRuleValue: extensions.IngressRuleValue{
+				HTTP: &extensions.HTTPIngressRuleValue{
+					Paths: []extensions.HTTPIngressPath{
+						{
+							Path: "/",
+							Backend: extensions.IngressBackend{
+								ServiceName: "bar",
+								ServicePort: intstr.FromInt(8181),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing *extensions.Ingress
+		updated  *extensions.Ingress
+		expected *extensions.Ingress
+	}{
+		{
+			name:  "ingress is created if it doesn't exist",
+			stack: baseTestStack,
+			updated: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+		},
+		{
+			name:  "ingress is removed if it is no longer needed",
+			stack: baseTestStack,
+			existing: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated:  nil,
+			expected: nil,
+		},
+		{
+			name:  "ingress is updated if the stack changes",
+			stack: updatedTestStack,
+			existing: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated: &extensions.Ingress{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleUpdatedRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleUpdatedRules,
+				},
+			},
+		},
+		{
+			name:  "ingress is not updated if the stack version remains the same",
+			stack: baseTestStack,
+			existing: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleUpdatedRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateIngresses([]extensions.Ingress{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackIngress(&tc.stack, tc.existing, func() (*extensions.Ingress, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.ExtensionsV1beta1().Ingresses(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			if tc.expected != nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, updated)
+			} else {
+				require.True(t, errors.IsNotFound(err))
+			}
+		})
+	}
 }
