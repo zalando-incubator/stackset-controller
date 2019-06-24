@@ -52,6 +52,7 @@ func (c *StackSetController) ReconcileStackDeployment(stack *zv1.Stack, existing
 	updated := existing.DeepCopy()
 	syncObjectMeta(updated, deployment)
 	updated.Spec = deployment.Spec
+	updated.Spec.Selector = existing.Spec.Selector
 
 	_, err := c.client.AppsV1().Deployments(updated.Namespace).Update(updated)
 	if err != nil {

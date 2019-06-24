@@ -170,6 +170,40 @@ func TestReconcileStackDeployment(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:  "spec.selector is preserved",
+			stack: baseTestStack,
+			existing: &apps.Deployment{
+				ObjectMeta: baseTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
+					Template: examplePodTemplateSpec,
+				},
+			},
+			updated: &apps.Deployment{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"updated": "selector"},
+					},
+					Template: updatedPodTemplateSpec,
+				},
+			},
+			expected: &apps.Deployment{
+				ObjectMeta: updatedTestStackOwned,
+				Spec: apps.DeploymentSpec{
+					Replicas: &exampleReplicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
+					Template: updatedPodTemplateSpec,
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
