@@ -81,6 +81,7 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 						map[string]string{StacksetHeritageLabelKey: stackset.Name},
 						stackset.Labels,
 						map[string]string{StackVersionLabelKey: stackVersion}),
+					Annotations: stackset.Spec.StackTemplate.Annotations,
 				},
 				Spec: zv1.StackSpec{
 					Replicas:                stackset.Spec.StackTemplate.Spec.Replicas,
