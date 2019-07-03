@@ -78,6 +78,7 @@ spec:
                   properties:
                     version:
                       type: string
+                      pattern: "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
                     replicas:
                       type: integer
                       format: int32
