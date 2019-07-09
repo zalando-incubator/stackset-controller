@@ -78,6 +78,13 @@ func NewStackSetController(client clientset.Interface, controllerID string, inte
 	}
 }
 
+func (c *StackSetController) stacksetLogger(ssc *core.StackSetContainer) *log.Entry {
+	return c.logger.WithFields(map[string]interface{}{
+		"namespace": ssc.StackSet.Namespace,
+		"name":      ssc.StackSet.Name,
+	})
+}
+
 // Run runs the main loop of the StackSetController. Before the loops it
 // sets up a watcher to watch StackSet resources. The watch will send
 // changes over a channel which is polled from the main loop.
@@ -99,16 +106,13 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			var reconcileGroup errgroup.Group
 			for stackset, container := range stackContainers {
-				container := *container
+				container := container
 
 				reconcileGroup.Go(func() error {
 					if _, ok := c.stacksetStore[stackset]; ok {
 						err := c.ReconcileStackSet(container)
 						if err != nil {
-							c.logger.
-								WithField("namespace", container.StackSet.Namespace).
-								WithField("name", container.StackSet.Name).
-								Errorf("unable to reconcile a stackset: %v", err)
+							c.stacksetLogger(container).Errorf("unable to reconcile a stackset: %v", err)
 							return c.errorEventf(container.StackSet, "FailedManageStackSet", err)
 						}
 					}
@@ -460,7 +464,7 @@ func retryUpdate(updateFn func(retry bool) error) error {
 }
 
 // ReconcileStatuses reconciles the statuses of StackSets and Stacks.
-func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error {
+func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		stack := sc.Stack.DeepCopy()
 		status := *sc.GenerateStackStatus()
@@ -506,7 +510,7 @@ func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error
 }
 
 // CreateCurrentStack creates a new Stack object for the current stack, if needed
-func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) error {
+func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) error {
 	newStack, newStackVersion := ssc.NewStack()
 	if newStack == nil {
 		return nil
@@ -546,7 +550,7 @@ func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) erro
 }
 
 // CleanupOldStacks deletes stacks that are no longer needed.
-func (c *StackSetController) CleanupOldStacks(ssc core.StackSetContainer) error {
+func (c *StackSetController) CleanupOldStacks(ssc *core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		if !sc.PendingRemoval {
 			continue
@@ -627,7 +631,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	return nil
 }
 
-func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) error {
+func (c *StackSetController) ReconcileResources(ssc *core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		err := c.ReconcileStackResources(ssc, sc)
 		if err != nil {
@@ -658,7 +662,7 @@ func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) erro
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackResources(ssc core.StackSetContainer, sc *core.StackContainer) error {
+func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer, sc *core.StackContainer) error {
 	err := c.ReconcileStackDeployment(sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
@@ -682,7 +686,7 @@ func (c *StackSetController) ReconcileStackResources(ssc core.StackSetContainer,
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSet(container core.StackSetContainer) error {
+func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer) error {
 	// Create current stack, if needed
 	err := c.CreateCurrentStack(container)
 	if err != nil {
@@ -701,7 +705,7 @@ func (c *StackSetController) ReconcileStackSet(container core.StackSetContainer)
 		if !core.IsTrafficSwitchError(err) {
 			return err
 		}
-		c.logger.Warnf("Traffic reconciliation for %s/%s failed: %v", container.StackSet.Namespace, container.StackSet.Name, err)
+		c.stacksetLogger(container).Warnf("Traffic reconciliation failed: %v", err)
 		c.recorder.Eventf(
 			container.StackSet,
 			v1.EventTypeWarning,
