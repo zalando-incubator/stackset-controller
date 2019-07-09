@@ -292,7 +292,7 @@ func TestCreateCurrentStack(t *testing.T) {
 			Stack: stack,
 		},
 	}, container.StackContainers)
-	require.Equal(t, "v1", stackset.Status.ObservedStackVersion)
+	require.Equal(t, "v1", container.StackSet.Status.ObservedStackVersion)
 
 	// Check that we don't create the stack if not needed
 	stackset.Status.ObservedStackVersion = "v2"

@@ -533,13 +533,14 @@ func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) err
 		"Created stack %s",
 		newStack.Name())
 
-	// Update observedStackVersion
-	ssc.StackSet.Status.ObservedStackVersion = newStackVersion
-	updated, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(ssc.StackSet)
+	// Persist ObservedStackVersion in the status
+	updated := ssc.StackSet.DeepCopy()
+	updated.Status.ObservedStackVersion = newStackVersion
+	result, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(updated)
 	if err != nil {
 		return err
 	}
-	ssc.StackSet = updated
+	ssc.StackSet = result
 
 	ssc.StackContainers[created.UID] = &core.StackContainer{
 		Stack:          created,
@@ -687,13 +688,13 @@ func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer
 }
 
 func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer) error {
-	// Create current stack, if needed
+	// Create current stack, if needed. Errors don't cause reconciliation to fail.
 	err := c.CreateCurrentStack(container)
 	if err != nil {
-		return err
+		c.stacksetLogger(container).Errorf("Unable to create new stack: %v", err)
 	}
 
-	// Update statuses from external resources (ingresses, deployments, etc)
+	// Update statuses from external resources (ingresses, deployments, etc). Errors here shouldn't happen and abort reconciliation.
 	err = container.UpdateFromResources()
 	if err != nil {
 		return err
