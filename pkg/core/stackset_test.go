@@ -114,8 +114,7 @@ func TestExpiredStacks(t *testing.T) {
 				c.StackContainers[types.UID(stack.Name())] = stack
 			}
 
-			err := c.MarkExpiredStacks()
-			require.NoError(t, err)
+			c.MarkExpiredStacks()
 			for _, stack := range tc.stacks {
 				require.Equal(t, tc.expected[stack.Name()], stack.PendingRemoval, "stack %s", stack.Stack.Name)
 			}

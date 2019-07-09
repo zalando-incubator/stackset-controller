@@ -715,10 +715,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	}
 
 	// Mark stacks that should be removed
-	err = container.MarkExpiredStacks()
-	if err != nil {
-		return err
-	}
+	container.MarkExpiredStacks()
 
 	// Create or update resources
 	err = c.ReconcileResources(container)
