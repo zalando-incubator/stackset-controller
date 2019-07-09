@@ -703,10 +703,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	// Update the stacks with the currently selected traffic reconciler
 	err = container.ManageTraffic(time.Now())
 	if err != nil {
-		if !core.IsTrafficSwitchError(err) {
-			return err
-		}
-		c.stacksetLogger(container).Warnf("Traffic reconciliation failed: %v", err)
+		c.stacksetLogger(container).Errorf("Traffic reconciliation failed: %v", err)
 		c.recorder.Eventf(
 			container.StackSet,
 			v1.EventTypeWarning,

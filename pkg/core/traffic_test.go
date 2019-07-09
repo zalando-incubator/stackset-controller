@@ -91,10 +91,8 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 				TrafficReconciler: SimpleTrafficReconciler{},
 			}
 			err := c.ManageTraffic(time.Now())
-			expected := &trafficSwitchError{
-				reason: "stacks not ready: foo-v1",
-			}
-			require.Equal(t, expected, err)
+			require.Error(t, err)
+			require.Equal(t, "stacks not ready: foo-v1", err.Error())
 		})
 	}
 }

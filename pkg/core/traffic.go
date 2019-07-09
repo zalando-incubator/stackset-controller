@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -9,23 +8,6 @@ const (
 	stackTrafficWeightsAnnotationKey = "zalando.org/stack-traffic-weights"
 	backendWeightsAnnotationKey      = "zalando.org/backend-weights"
 )
-
-type trafficSwitchError struct {
-	reason string
-}
-
-func (e *trafficSwitchError) Error() string {
-	return e.reason
-}
-
-func IsTrafficSwitchError(err error) bool {
-	_, ok := err.(*trafficSwitchError)
-	return ok
-}
-
-func newTrafficSwitchError(format string, args ...interface{}) error {
-	return &trafficSwitchError{reason: fmt.Sprintf(format, args...)}
-}
 
 type TrafficReconciler interface {
 	// Handle the traffic switching and/or scaling logic.
