@@ -269,7 +269,7 @@ func (sc *StackContainer) updateFromResources() {
 		sc.desiredReplicas = hpa.Status.DesiredReplicas
 	}
 	if sc.IsAutoscaled() {
-		hpaUpdated = sc.Resources.HPA != nil && IsResourceUpToDate(sc.Stack, sc.Resources.HPA.ObjectMeta) && sc.Resources.HPA.Status.ObservedGeneration != nil && *sc.Resources.HPA.Status.ObservedGeneration == sc.Resources.HPA.Generation
+		hpaUpdated = sc.Resources.HPA != nil && IsResourceUpToDate(sc.Stack, sc.Resources.HPA.ObjectMeta)
 	} else {
 		hpaUpdated = sc.Resources.HPA == nil
 	}

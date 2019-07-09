@@ -339,16 +339,12 @@ func TestStackUpdateFromResources(t *testing.T) {
 			},
 		}
 	}
-	hpa := func(stackGeneration int64, generation int64, observedGeneration int64) *autoscaling.HorizontalPodAutoscaler {
+	hpa := func(stackGeneration int64) *autoscaling.HorizontalPodAutoscaler {
 		return &autoscaling.HorizontalPodAutoscaler{
 			ObjectMeta: metav1.ObjectMeta{
-				Generation: generation,
 				Annotations: map[string]string{
 					stackGenerationAnnotationKey: strconv.FormatInt(stackGeneration, 10),
 				},
-			},
-			Status: autoscaling.HorizontalPodAutoscalerStatus{
-				ObservedGeneration: &observedGeneration,
 			},
 		}
 	}
@@ -469,16 +465,15 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.Stack.Spec.Autoscaler = &zv1.Autoscaler{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
-		container.Resources.HPA = hpa(10, 5, 5)
+		container.Resources.HPA = hpa(10)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})
-	runTest("hpa isn't considered updated if observedGeneration is different", func(t *testing.T, container *StackContainer) {
+	runTest("hpa isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
-		container.Stack.Spec.Autoscaler = &zv1.Autoscaler{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
-		container.Resources.HPA = hpa(11, 5, 4)
+		container.Resources.HPA = hpa(11)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})
@@ -497,7 +492,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.Ingress = ingress(11)
-		container.Resources.HPA = hpa(11, 5, 5)
+		container.Resources.HPA = hpa(11)
 		container.updateFromResources()
 		require.EqualValues(t, true, container.resourcesUpdated)
 	})
