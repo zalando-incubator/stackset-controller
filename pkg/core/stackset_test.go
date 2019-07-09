@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -307,6 +308,51 @@ func TestStackUpdateFromResources(t *testing.T) {
 		})
 	}
 
+	deployment := func(stackGeneration int64, generation int64, observedGeneration int64) *apps.Deployment {
+		return &apps.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: generation,
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: strconv.FormatInt(stackGeneration, 10),
+				},
+			},
+			Status: apps.DeploymentStatus{
+				ObservedGeneration: observedGeneration,
+			},
+		}
+	}
+	service := func(stackGeneration int64) *v1.Service {
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: strconv.FormatInt(stackGeneration, 10),
+				},
+			},
+		}
+	}
+	ingress := func(stackGeneration int64) *extensions.Ingress {
+		return &extensions.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: strconv.FormatInt(stackGeneration, 10),
+				},
+			},
+		}
+	}
+	hpa := func(stackGeneration int64, generation int64, observedGeneration int64) *autoscaling.HorizontalPodAutoscaler {
+		return &autoscaling.HorizontalPodAutoscaler{
+			ObjectMeta: metav1.ObjectMeta{
+				Generation: generation,
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: strconv.FormatInt(stackGeneration, 10),
+				},
+			},
+			Status: autoscaling.HorizontalPodAutoscalerStatus{
+				ObservedGeneration: &observedGeneration,
+			},
+		}
+	}
+
 	hourAgo := time.Now().Add(-time.Hour)
 
 	runTest("stackset replicas default to 1", func(t *testing.T, container *StackContainer) {
@@ -344,9 +390,9 @@ func TestStackUpdateFromResources(t *testing.T) {
 		require.EqualValues(t, hourAgo, container.noTrafficSince)
 	})
 
-	runTest("missing deployment is handled fine", func(t *testing.T, container *StackContainer) {
+	runTest("missing resources are handled fine", func(t *testing.T, container *StackContainer) {
 		container.updateFromResources()
-		require.EqualValues(t, false, container.deploymentUpdated)
+		require.EqualValues(t, false, container.resourcesUpdated)
 		require.EqualValues(t, 0, container.createdReplicas)
 		require.EqualValues(t, 0, container.readyReplicas)
 		require.EqualValues(t, 0, container.updatedReplicas)
@@ -379,51 +425,81 @@ func TestStackUpdateFromResources(t *testing.T) {
 	})
 	runTest("deployment isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
-		container.Resources.Deployment = &apps.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Generation: 5,
-				Annotations: map[string]string{
-					stackGenerationAnnotationKey: "10",
-				},
-			},
-			Status: apps.DeploymentStatus{
-				ObservedGeneration: 5,
-			},
-		}
+		container.Resources.Deployment = deployment(10, 5, 5)
+		container.Resources.Service = service(11)
 		container.updateFromResources()
-		require.EqualValues(t, false, container.deploymentUpdated)
+		require.EqualValues(t, false, container.resourcesUpdated)
 	})
 	runTest("deployment isn't considered updated if observedGeneration is different", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
-		container.Resources.Deployment = &apps.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Generation: 5,
-				Annotations: map[string]string{
-					stackGenerationAnnotationKey: "11",
-				},
-			},
-			Status: apps.DeploymentStatus{
-				ObservedGeneration: 4,
-			},
-		}
+		container.Resources.Deployment = deployment(11, 5, 4)
+		container.Resources.Service = service(11)
 		container.updateFromResources()
-		require.EqualValues(t, false, container.deploymentUpdated)
+		require.EqualValues(t, false, container.resourcesUpdated)
 	})
-	runTest("deployment is considered updated if observedGeneration is the same", func(t *testing.T, container *StackContainer) {
+
+	runTest("service isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
-		container.Resources.Deployment = &apps.Deployment{
-			ObjectMeta: metav1.ObjectMeta{
-				Generation: 5,
-				Annotations: map[string]string{
-					stackGenerationAnnotationKey: "11",
-				},
-			},
-			Status: apps.DeploymentStatus{
-				ObservedGeneration: 5,
-			},
-		}
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.Service = service(10)
 		container.updateFromResources()
-		require.EqualValues(t, true, container.deploymentUpdated)
+		require.EqualValues(t, false, container.resourcesUpdated)
+	})
+
+	runTest("ingress isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.ingressSpec = &zv1.StackSetIngressSpec{}
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.Service = service(11)
+		container.Resources.Ingress = ingress(10)
+		container.updateFromResources()
+		require.EqualValues(t, false, container.resourcesUpdated)
+	})
+	runTest("ingress isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.Service = service(11)
+		container.Resources.Ingress = ingress(11)
+		container.updateFromResources()
+		require.EqualValues(t, false, container.resourcesUpdated)
+	})
+
+	runTest("hpa isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Stack.Spec.Autoscaler = &zv1.Autoscaler{}
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.Service = service(11)
+		container.Resources.HPA = hpa(10, 5, 5)
+		container.updateFromResources()
+		require.EqualValues(t, false, container.resourcesUpdated)
+	})
+	runTest("hpa isn't considered updated if observedGeneration is different", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Stack.Spec.Autoscaler = &zv1.Autoscaler{}
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.Service = service(11)
+		container.Resources.HPA = hpa(11, 5, 4)
+		container.updateFromResources()
+		require.EqualValues(t, false, container.resourcesUpdated)
+	})
+
+	runTest("resources are recognised as updated correctly (deployment and service)", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.Service = service(11)
+		container.updateFromResources()
+		require.EqualValues(t, true, container.resourcesUpdated)
+	})
+	runTest("resources are recognised as updated correctly (all resources)", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.ingressSpec = &zv1.StackSetIngressSpec{}
+		container.Stack.Spec.Autoscaler = &zv1.Autoscaler{}
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.Service = service(11)
+		container.Resources.Ingress = ingress(11)
+		container.Resources.HPA = hpa(11, 5, 5)
+		container.updateFromResources()
+		require.EqualValues(t, true, container.resourcesUpdated)
 	})
 
 	runTest("prescaling information is parsed from the status", func(t *testing.T, container *StackContainer) {

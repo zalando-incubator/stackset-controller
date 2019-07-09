@@ -68,7 +68,7 @@ type StackContainer struct {
 	stackReplicas int32
 
 	// Fields from the stack resources
-	deploymentUpdated  bool
+	resourcesUpdated   bool
 	deploymentReplicas int32
 	createdReplicas    int32
 	readyReplicas      int32
@@ -102,12 +102,8 @@ func (sc *StackContainer) HasTraffic() bool {
 }
 
 func (sc *StackContainer) IsReady() bool {
-	// Haven't updated yet
-	if !sc.deploymentUpdated {
-		return false
-	}
-
-	return sc.deploymentReplicas == sc.updatedReplicas && sc.deploymentReplicas == sc.readyReplicas
+	// Stacks are considered ready when all subresources have been updated, and we have enough replicas
+	return sc.resourcesUpdated && sc.deploymentReplicas == sc.updatedReplicas && sc.deploymentReplicas == sc.readyReplicas
 }
 
 func (sc *StackContainer) MaxReplicas() int32 {
@@ -245,20 +241,41 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 func (sc *StackContainer) updateFromResources() {
 	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.Replicas)
 
+	var deploymentUpdated, serviceUpdated, ingressUpdated, hpaUpdated bool
+
+	// deployment
 	if sc.Resources.Deployment != nil {
 		deployment := sc.Resources.Deployment
 		sc.deploymentReplicas = effectiveReplicas(deployment.Spec.Replicas)
 		sc.createdReplicas = deployment.Status.Replicas
 		sc.readyReplicas = deployment.Status.ReadyReplicas
 		sc.updatedReplicas = deployment.Status.UpdatedReplicas
-		sc.deploymentUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.Deployment.ObjectMeta) && deployment.Status.ObservedGeneration == deployment.Generation
-	} else {
-		sc.deploymentUpdated = false
+		deploymentUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.Deployment.ObjectMeta) && deployment.Status.ObservedGeneration == deployment.Generation
 	}
 
-	if sc.Resources.HPA != nil {
-		sc.desiredReplicas = sc.Resources.HPA.Status.DesiredReplicas
+	// service
+	serviceUpdated = sc.Resources.Service != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Service.ObjectMeta)
+
+	// ingress
+	if sc.ingressSpec != nil {
+		ingressUpdated = sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
+	} else {
+		ingressUpdated = sc.Resources.Ingress == nil
 	}
+
+	// hpa
+	if sc.Resources.HPA != nil {
+		hpa := sc.Resources.HPA
+		sc.desiredReplicas = hpa.Status.DesiredReplicas
+	}
+	if sc.IsAutoscaled() {
+		hpaUpdated = sc.Resources.HPA != nil && IsResourceUpToDate(sc.Stack, sc.Resources.HPA.ObjectMeta) && sc.Resources.HPA.Status.ObservedGeneration != nil && *sc.Resources.HPA.Status.ObservedGeneration == sc.Resources.HPA.Generation
+	} else {
+		hpaUpdated = sc.Resources.HPA == nil
+	}
+
+	// aggregated 'resources updated' for the readiness
+	sc.resourcesUpdated = deploymentUpdated && serviceUpdated && ingressUpdated && hpaUpdated
 
 	status := sc.Stack.Status
 	sc.noTrafficSince = unwrapTime(status.NoTrafficSince)

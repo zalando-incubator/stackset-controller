@@ -34,6 +34,8 @@ const (
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 
+	reasonFailedManageStackSet = "FailedManageStackSet"
+
 	defaultResetMinReplicasDelay = 10 * time.Minute
 )
 
@@ -81,7 +83,15 @@ func NewStackSetController(client clientset.Interface, controllerID string, inte
 func (c *StackSetController) stacksetLogger(ssc *core.StackSetContainer) *log.Entry {
 	return c.logger.WithFields(map[string]interface{}{
 		"namespace": ssc.StackSet.Namespace,
-		"name":      ssc.StackSet.Name,
+		"stackset":  ssc.StackSet.Name,
+	})
+}
+
+func (c *StackSetController) stackLogger(ssc *core.StackSetContainer, sc *core.StackContainer) *log.Entry {
+	return c.logger.WithFields(map[string]interface{}{
+		"namespace": ssc.StackSet.Namespace,
+		"stackset":  ssc.StackSet.Name,
+		"stack":     sc.Name(),
 	})
 }
 
@@ -113,7 +123,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 						err := c.ReconcileStackSet(container)
 						if err != nil {
 							c.stacksetLogger(container).Errorf("unable to reconcile a stackset: %v", err)
-							return c.errorEventf(container.StackSet, "FailedManageStackSet", err)
+							return c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 						}
 					}
 					return nil
@@ -518,7 +528,7 @@ func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) err
 
 	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(newStack.Stack)
 	if err != nil {
-		return c.errorEventf(ssc.StackSet, "FailedCreateStack", err)
+		return err
 	}
 
 	// set TypeMeta manually because of this bug:
@@ -632,14 +642,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	return nil
 }
 
-func (c *StackSetController) ReconcileResources(ssc *core.StackSetContainer) error {
-	for _, sc := range ssc.StackContainers {
-		err := c.ReconcileStackResources(ssc, sc)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageStack", err)
-		}
-	}
-
+func (c *StackSetController) ReconcileStackSetResources(ssc *core.StackSetContainer) error {
 	err := c.ReconcileStackSetIngress(ssc.StackSet, ssc.Ingress, ssc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedManageIngress", err)
@@ -688,19 +691,20 @@ func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer
 }
 
 func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer) error {
-	// Create current stack, if needed. Errors don't cause reconciliation to fail.
+	// Create current stack, if needed. Proceed on errors.
 	err := c.CreateCurrentStack(container)
 	if err != nil {
-		c.stacksetLogger(container).Errorf("Unable to create new stack: %v", err)
+		err = c.errorEventf(container.StackSet, "FailedCreateStack", err)
+		c.stacksetLogger(container).Errorf("Unable to create stack: %v", err)
 	}
 
-	// Update statuses from external resources (ingresses, deployments, etc). Errors here shouldn't happen and abort reconciliation.
+	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
 	err = container.UpdateFromResources()
 	if err != nil {
 		return err
 	}
 
-	// Update the stacks with the currently selected traffic reconciler
+	// Update the stacks with the currently selected traffic reconciler. Proceed on errors.
 	err = container.ManageTraffic(time.Now())
 	if err != nil {
 		c.stacksetLogger(container).Errorf("Traffic reconciliation failed: %v", err)
@@ -714,19 +718,30 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	// Mark stacks that should be removed
 	container.MarkExpiredStacks()
 
-	// Create or update resources
-	err = c.ReconcileResources(container)
-	if err != nil {
-		return err
+	// Reconcile stack resources. Proceed on errors.
+	for _, sc := range container.StackContainers {
+		err := c.ReconcileStackResources(container, sc)
+		if err != nil {
+			err = c.errorEventf(sc.Stack, "FailedManageStack", err)
+			c.stackLogger(container, sc).Errorf("Unable to reconcile stack resources: %v", err)
+		}
 	}
 
-	// Delete old stacks
+	// Reconcile stackset resources. Proceed on errors.
+	err = c.ReconcileStackSetResources(container)
+	if err != nil {
+		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
+		c.stacksetLogger(container).Errorf("Unable to reconcile stackset resources: %v", err)
+	}
+
+	// Delete old stacks. Proceed on errors.
 	err = c.CleanupOldStacks(container)
 	if err != nil {
-		return err
+		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
+		c.stacksetLogger(container).Errorf("Unable to delete old stacks: %v", err)
 	}
 
-	// Update statuses
+	// Update statuses.
 	err = c.ReconcileStatuses(container)
 	if err != nil {
 		return err
