@@ -136,10 +136,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			}
 		case e := <-c.stacksetEvents:
 			stackset := *e.StackSet
-			// set TypeMeta manually because of this bug:
-			// https://github.com/kubernetes/client-go/issues/308
-			stackset.APIVersion = core.APIVersion
-			stackset.Kind = core.KindStackSet
+			fixupStackSetTypeMeta(&stackset)
 
 			// update/delete existing entry
 			if _, ok := c.stacksetStore[stackset.UID]; ok {
@@ -259,11 +256,7 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*core.StackSe
 		if uid, ok := getOwnerUID(stack.ObjectMeta); ok {
 			if s, ok := stacksets[uid]; ok {
 				stack := stack
-
-				// set TypeMeta manually because of this bug:
-				// https://github.com/kubernetes/client-go/issues/308
-				stack.APIVersion = core.APIVersion
-				stack.Kind = core.KindStack
+				fixupStackTypeMeta(&stack)
 
 				s.StackContainers[stack.UID] = &core.StackContainer{
 					Stack: &stack,
@@ -530,11 +523,7 @@ func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) err
 	if err != nil {
 		return err
 	}
-
-	// set TypeMeta manually because of this bug:
-	// https://github.com/kubernetes/client-go/issues/308
-	created.APIVersion = core.APIVersion
-	created.Kind = core.KindStack
+	fixupStackTypeMeta(created)
 
 	c.recorder.Eventf(
 		ssc.StackSet,
@@ -550,6 +539,7 @@ func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) err
 	if err != nil {
 		return err
 	}
+	fixupStackSetTypeMeta(result)
 	ssc.StackSet = result
 
 	ssc.StackContainers[created.UID] = &core.StackContainer{
@@ -762,4 +752,18 @@ func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, boo
 		return 0, false
 	}
 	return resetDelay, true
+}
+
+func fixupStackSetTypeMeta(stackset *zv1.StackSet) {
+	// set TypeMeta manually because of this bug:
+	// https://github.com/kubernetes/client-go/issues/308
+	stackset.APIVersion = core.APIVersion
+	stackset.Kind = core.KindStackSet
+}
+
+func fixupStackTypeMeta(stack *zv1.Stack) {
+	// set TypeMeta manually because of this bug:
+	// https://github.com/kubernetes/client-go/issues/308
+	stack.APIVersion = core.APIVersion
+	stack.Kind = core.KindStack
 }
