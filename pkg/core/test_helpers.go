@@ -29,15 +29,15 @@ func testStack(name string) *testStackFactory {
 }
 
 func (f *testStackFactory) ready(replicas int32) *testStackFactory {
-	f.container.deploymentUpdated = true
+	f.container.resourcesUpdated = true
 	f.container.deploymentReplicas = replicas
 	f.container.updatedReplicas = replicas
 	f.container.readyReplicas = replicas
 	return f
 }
 
-func (f *testStackFactory) deployment(updated bool, deploymentReplicas, updatedReplicas, readyReplicas int32) *testStackFactory {
-	f.container.deploymentUpdated = updated
+func (f *testStackFactory) deployment(resourcesUpdated bool, deploymentReplicas, updatedReplicas, readyReplicas int32) *testStackFactory {
+	f.container.resourcesUpdated = resourcesUpdated
 	f.container.deploymentReplicas = deploymentReplicas
 	f.container.updatedReplicas = updatedReplicas
 	f.container.readyReplicas = readyReplicas

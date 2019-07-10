@@ -98,7 +98,7 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 }
 
 // MarkExpiredStacks marks stacks that should be deleted
-func (ssc *StackSetContainer) MarkExpiredStacks() error {
+func (ssc *StackSetContainer) MarkExpiredStacks() {
 	historyLimit := defaultStackLifecycleLimit
 	if ssc.StackSet.Spec.StackLifecycle.Limit != nil {
 		historyLimit = int(*ssc.StackSet.Spec.StackLifecycle.Limit)
@@ -115,7 +115,7 @@ func (ssc *StackSetContainer) MarkExpiredStacks() error {
 
 	// only garbage collect if history limit is reached
 	if len(gcCandidates) <= historyLimit {
-		return nil
+		return
 	}
 
 	// sort candidates by oldest
@@ -128,8 +128,6 @@ func (ssc *StackSetContainer) MarkExpiredStacks() error {
 	for _, sc := range gcCandidates[:excessStacks] {
 		sc.PendingRemoval = true
 	}
-
-	return nil
 }
 
 func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {

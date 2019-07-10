@@ -50,28 +50,28 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 	for _, tc := range []struct {
 		name               string
 		stack              *StackContainer
-		deploymentUpdated  bool
+		resourcesUpdated   bool
 		deploymentReplicas int32
 		updatedReplicas    int32
 		readyReplicas      int32
 	}{
 		{
 			name:               "deployment not updated yet",
-			deploymentUpdated:  false,
+			resourcesUpdated:   false,
 			deploymentReplicas: 3,
 			updatedReplicas:    3,
 			readyReplicas:      3,
 		},
 		{
 			name:               "not enough updated replicas",
-			deploymentUpdated:  true,
+			resourcesUpdated:   true,
 			deploymentReplicas: 3,
 			updatedReplicas:    2,
 			readyReplicas:      3,
 		},
 		{
 			name:               "not enough ready replicas",
-			deploymentUpdated:  true,
+			resourcesUpdated:   true,
 			deploymentReplicas: 3,
 			updatedReplicas:    3,
 			readyReplicas:      2,
@@ -85,16 +85,14 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 					},
 				},
 				StackContainers: map[types.UID]*StackContainer{
-					"v1": testStack("foo-v1").traffic(70, 30).deployment(tc.deploymentUpdated, tc.deploymentReplicas, tc.updatedReplicas, tc.readyReplicas).stack(),
+					"v1": testStack("foo-v1").traffic(70, 30).deployment(tc.resourcesUpdated, tc.deploymentReplicas, tc.updatedReplicas, tc.readyReplicas).stack(),
 					"v2": testStack("foo-v2").traffic(30, 70).ready(3).stack(),
 				},
 				TrafficReconciler: SimpleTrafficReconciler{},
 			}
 			err := c.ManageTraffic(time.Now())
-			expected := &trafficSwitchError{
-				reason: "stacks not ready: foo-v1",
-			}
-			require.Equal(t, expected, err)
+			require.Error(t, err)
+			require.Equal(t, "stacks not ready: foo-v1", err.Error())
 		})
 	}
 }

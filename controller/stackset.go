@@ -34,6 +34,8 @@ const (
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 
+	reasonFailedManageStackSet = "FailedManageStackSet"
+
 	defaultResetMinReplicasDelay = 10 * time.Minute
 )
 
@@ -78,6 +80,21 @@ func NewStackSetController(client clientset.Interface, controllerID string, inte
 	}
 }
 
+func (c *StackSetController) stacksetLogger(ssc *core.StackSetContainer) *log.Entry {
+	return c.logger.WithFields(map[string]interface{}{
+		"namespace": ssc.StackSet.Namespace,
+		"stackset":  ssc.StackSet.Name,
+	})
+}
+
+func (c *StackSetController) stackLogger(ssc *core.StackSetContainer, sc *core.StackContainer) *log.Entry {
+	return c.logger.WithFields(map[string]interface{}{
+		"namespace": ssc.StackSet.Namespace,
+		"stackset":  ssc.StackSet.Name,
+		"stack":     sc.Name(),
+	})
+}
+
 // Run runs the main loop of the StackSetController. Before the loops it
 // sets up a watcher to watch StackSet resources. The watch will send
 // changes over a channel which is polled from the main loop.
@@ -99,17 +116,14 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			var reconcileGroup errgroup.Group
 			for stackset, container := range stackContainers {
-				container := *container
+				container := container
 
 				reconcileGroup.Go(func() error {
 					if _, ok := c.stacksetStore[stackset]; ok {
 						err := c.ReconcileStackSet(container)
 						if err != nil {
-							c.logger.
-								WithField("namespace", container.StackSet.Namespace).
-								WithField("name", container.StackSet.Name).
-								Errorf("unable to reconcile a stackset: %v", err)
-							return c.errorEventf(container.StackSet, "FailedManageStackSet", err)
+							c.stacksetLogger(container).Errorf("unable to reconcile a stackset: %v", err)
+							return c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 						}
 					}
 					return nil
@@ -122,10 +136,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			}
 		case e := <-c.stacksetEvents:
 			stackset := *e.StackSet
-			// set TypeMeta manually because of this bug:
-			// https://github.com/kubernetes/client-go/issues/308
-			stackset.APIVersion = core.APIVersion
-			stackset.Kind = core.KindStackSet
+			fixupStackSetTypeMeta(&stackset)
 
 			// update/delete existing entry
 			if _, ok := c.stacksetStore[stackset.UID]; ok {
@@ -245,11 +256,7 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*core.StackSe
 		if uid, ok := getOwnerUID(stack.ObjectMeta); ok {
 			if s, ok := stacksets[uid]; ok {
 				stack := stack
-
-				// set TypeMeta manually because of this bug:
-				// https://github.com/kubernetes/client-go/issues/308
-				stack.APIVersion = core.APIVersion
-				stack.Kind = core.KindStack
+				fixupStackTypeMeta(&stack)
 
 				s.StackContainers[stack.UID] = &core.StackContainer{
 					Stack: &stack,
@@ -460,7 +467,7 @@ func retryUpdate(updateFn func(retry bool) error) error {
 }
 
 // ReconcileStatuses reconciles the statuses of StackSets and Stacks.
-func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error {
+func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		stack := sc.Stack.DeepCopy()
 		status := *sc.GenerateStackStatus()
@@ -506,7 +513,7 @@ func (c *StackSetController) ReconcileStatuses(ssc core.StackSetContainer) error
 }
 
 // CreateCurrentStack creates a new Stack object for the current stack, if needed
-func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) error {
+func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) error {
 	newStack, newStackVersion := ssc.NewStack()
 	if newStack == nil {
 		return nil
@@ -514,13 +521,9 @@ func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) erro
 
 	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(newStack.Stack)
 	if err != nil {
-		return c.errorEventf(ssc.StackSet, "FailedCreateStack", err)
+		return err
 	}
-
-	// set TypeMeta manually because of this bug:
-	// https://github.com/kubernetes/client-go/issues/308
-	created.APIVersion = core.APIVersion
-	created.Kind = core.KindStack
+	fixupStackTypeMeta(created)
 
 	c.recorder.Eventf(
 		ssc.StackSet,
@@ -529,13 +532,15 @@ func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) erro
 		"Created stack %s",
 		newStack.Name())
 
-	// Update observedStackVersion
-	ssc.StackSet.Status.ObservedStackVersion = newStackVersion
-	updated, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(ssc.StackSet)
+	// Persist ObservedStackVersion in the status
+	updated := ssc.StackSet.DeepCopy()
+	updated.Status.ObservedStackVersion = newStackVersion
+	result, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(updated)
 	if err != nil {
 		return err
 	}
-	ssc.StackSet = updated
+	fixupStackSetTypeMeta(result)
+	ssc.StackSet = result
 
 	ssc.StackContainers[created.UID] = &core.StackContainer{
 		Stack:          created,
@@ -546,7 +551,7 @@ func (c *StackSetController) CreateCurrentStack(ssc core.StackSetContainer) erro
 }
 
 // CleanupOldStacks deletes stacks that are no longer needed.
-func (c *StackSetController) CleanupOldStacks(ssc core.StackSetContainer) error {
+func (c *StackSetController) CleanupOldStacks(ssc *core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		if !sc.PendingRemoval {
 			continue
@@ -627,14 +632,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	return nil
 }
 
-func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) error {
-	for _, sc := range ssc.StackContainers {
-		err := c.ReconcileStackResources(ssc, sc)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageStack", err)
-		}
-	}
-
+func (c *StackSetController) ReconcileStackSetResources(ssc *core.StackSetContainer) error {
 	err := c.ReconcileStackSetIngress(ssc.StackSet, ssc.Ingress, ssc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedManageIngress", err)
@@ -658,7 +656,7 @@ func (c *StackSetController) ReconcileResources(ssc core.StackSetContainer) erro
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackResources(ssc core.StackSetContainer, sc *core.StackContainer) error {
+func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer, sc *core.StackContainer) error {
 	err := c.ReconcileStackDeployment(sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
@@ -682,26 +680,24 @@ func (c *StackSetController) ReconcileStackResources(ssc core.StackSetContainer,
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSet(container core.StackSetContainer) error {
-	// Create current stack, if needed
+func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer) error {
+	// Create current stack, if needed. Proceed on errors.
 	err := c.CreateCurrentStack(container)
 	if err != nil {
-		return err
+		err = c.errorEventf(container.StackSet, "FailedCreateStack", err)
+		c.stacksetLogger(container).Errorf("Unable to create stack: %v", err)
 	}
 
-	// Update statuses from external resources (ingresses, deployments, etc)
+	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
 	err = container.UpdateFromResources()
 	if err != nil {
 		return err
 	}
 
-	// Update the stacks with the currently selected traffic reconciler
+	// Update the stacks with the currently selected traffic reconciler. Proceed on errors.
 	err = container.ManageTraffic(time.Now())
 	if err != nil {
-		if !core.IsTrafficSwitchError(err) {
-			return err
-		}
-		c.logger.Warnf("Traffic reconciliation for %s/%s failed: %v", container.StackSet.Namespace, container.StackSet.Name, err)
+		c.stacksetLogger(container).Errorf("Traffic reconciliation failed: %v", err)
 		c.recorder.Eventf(
 			container.StackSet,
 			v1.EventTypeWarning,
@@ -710,24 +706,32 @@ func (c *StackSetController) ReconcileStackSet(container core.StackSetContainer)
 	}
 
 	// Mark stacks that should be removed
-	err = container.MarkExpiredStacks()
-	if err != nil {
-		return err
+	container.MarkExpiredStacks()
+
+	// Reconcile stack resources. Proceed on errors.
+	for _, sc := range container.StackContainers {
+		err := c.ReconcileStackResources(container, sc)
+		if err != nil {
+			err = c.errorEventf(sc.Stack, "FailedManageStack", err)
+			c.stackLogger(container, sc).Errorf("Unable to reconcile stack resources: %v", err)
+		}
 	}
 
-	// Create or update resources
-	err = c.ReconcileResources(container)
+	// Reconcile stackset resources. Proceed on errors.
+	err = c.ReconcileStackSetResources(container)
 	if err != nil {
-		return err
+		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
+		c.stacksetLogger(container).Errorf("Unable to reconcile stackset resources: %v", err)
 	}
 
-	// Delete old stacks
+	// Delete old stacks. Proceed on errors.
 	err = c.CleanupOldStacks(container)
 	if err != nil {
-		return err
+		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
+		c.stacksetLogger(container).Errorf("Unable to delete old stacks: %v", err)
 	}
 
-	// Update statuses
+	// Update statuses.
 	err = c.ReconcileStatuses(container)
 	if err != nil {
 		return err
@@ -748,4 +752,18 @@ func getResetMinReplicasDelay(annotations map[string]string) (time.Duration, boo
 		return 0, false
 	}
 	return resetDelay, true
+}
+
+func fixupStackSetTypeMeta(stackset *zv1.StackSet) {
+	// set TypeMeta manually because of this bug:
+	// https://github.com/kubernetes/client-go/issues/308
+	stackset.APIVersion = core.APIVersion
+	stackset.Kind = core.KindStackSet
+}
+
+func fixupStackTypeMeta(stack *zv1.Stack) {
+	// set TypeMeta manually because of this bug:
+	// https://github.com/kubernetes/client-go/issues/308
+	stack.APIVersion = core.APIVersion
+	stack.Kind = core.KindStack
 }

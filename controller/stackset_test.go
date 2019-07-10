@@ -270,7 +270,7 @@ func TestCreateCurrentStack(t *testing.T) {
 	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v1", metav1.GetOptions{})
 	require.True(t, errors.IsNotFound(err))
 
-	container := core.StackSetContainer{
+	container := &core.StackSetContainer{
 		StackSet:          &stackset,
 		StackContainers:   map[types.UID]*core.StackContainer{},
 		TrafficReconciler: &core.SimpleTrafficReconciler{},
@@ -292,7 +292,7 @@ func TestCreateCurrentStack(t *testing.T) {
 			Stack: stack,
 		},
 	}, container.StackContainers)
-	require.Equal(t, "v1", stackset.Status.ObservedStackVersion)
+	require.Equal(t, "v1", container.StackSet.Status.ObservedStackVersion)
 
 	// Check that we don't create the stack if not needed
 	stackset.Status.ObservedStackVersion = "v2"
@@ -320,7 +320,7 @@ func TestCleanupOldStacks(t *testing.T) {
 	err = env.CreateStacks([]zv1.Stack{testStack1, testStack2, testStack3, testStack4})
 	require.NoError(t, err)
 
-	container := core.StackSetContainer{
+	container := &core.StackSetContainer{
 		StackSet: &stackset,
 		StackContainers: map[types.UID]*core.StackContainer{
 			testStack1.UID: {

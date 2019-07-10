@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -101,7 +102,7 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 
 	if len(nonReadyStacks) > 0 {
 		sort.Strings(nonReadyStacks)
-		return newTrafficSwitchError("stacks not ready: %s", strings.Join(nonReadyStacks, ", "))
+		return fmt.Errorf("stacks not ready: %s", strings.Join(nonReadyStacks, ", "))
 	}
 
 	// TODO: think of case were all are zero and the service/deployment is deleted.
