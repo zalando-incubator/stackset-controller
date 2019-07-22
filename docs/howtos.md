@@ -146,8 +146,8 @@ field which is similar in syntax to the original Horizontal Pod Autoscaler. The 
 the `autoscaler` field. This is then resolved by the _stackset-controller_ which generates an HPA
 with an equivalent spec. Currently, the autoscaler can be used to specify scaling based on 4 metrics:
 
-1. `cpu`
-2. `memory`
+1. `CPU`
+2. `Memory`
 3. `AmazonSQS`
 4. `PodJSON`
 5. `Ingress`
@@ -155,8 +155,8 @@ with an equivalent spec. Currently, the autoscaler can be used to specify scalin
 _Note:_ Based on the metrics type specified you may need to also deploy the [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter)
 in your cluster.
 
-Following is an example using the `autoscaler` field to generate an HPA with CPU metrics and external metrics based
-on AmazonSQS queue size.
+Following is an example using the `autoscaler` field to generate an HPA with
+CPU metrics, Memory metrics and external metrics based on AmazonSQS queue size.
 
 ```yaml
 autoscaler:
@@ -170,6 +170,8 @@ autoscaler:
     average: 30
   - type: CPU
     averageUtilization: 80
+  - type: Memory
+    averageUtilization: 80
 ```
 
 Here the stackset would be scaled based on the length of the Amazon SQS Queue size so that there are no more
@@ -181,12 +183,16 @@ JSON metrics exposed by the pods are also supported. Here's an example where the
 JSON format on the `/metrics` endpoint on port 9090. The key for the metrics should be specified as well.
 
 ```yaml
-type: PodJson
-endpoint:
-  port: 9090
-  path: /metrics
-  key: '$.http_server.rps'
-average: 1k
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: PodJson
+    endpoint:
+      port: 9090
+      path: /metrics
+      key: '$.http_server.rps'
+    average: 1k
 ```
 
 If Skipper is used for [ingress](https://opensource.zalando.com/skipper/kubernetes/ingress-usage/) in
@@ -194,10 +200,14 @@ the cluster then scaling can also be done based on the requests received by the 
 metric specifies that the number of requests per pod should not be more 30.
 
 ```yaml
-type: Ingress
-ingress:
-  name: my-app
-average: 30
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: Ingress
+    ingress:
+      name: my-app
+    average: 30
 ```
 
 ## Enable stack prescaling
