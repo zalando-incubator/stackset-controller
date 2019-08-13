@@ -138,22 +138,26 @@ func servicePortsFromContainers(containers []v1.Container) []v1.ServicePort {
 func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	stack := sc.Stack
 
-	desiredReplicas := sc.stackReplicas
-	if sc.prescalingActive {
-		desiredReplicas = sc.prescalingReplicas
-	}
-
 	var updatedReplicas *int32
 
-	if desiredReplicas != 0 && !sc.ScaledDown() {
-		// Stack scaled up, rescale the deployment if it's at 0 replicas, or if HPA is unused and we don't run autoscaling
-		if sc.deploymentReplicas == 0 || (!sc.IsAutoscaled() && desiredReplicas != sc.deploymentReplicas) {
-			updatedReplicas = wrapReplicas(desiredReplicas)
-		}
+	// always set to 0, we don't want to end up with nil resulting in 1 replica
+	if sc.ScaledDown() {
+		updatedReplicas = wrapReplicas(0)
 	} else {
-		// Stack scaled down (manually or because it doesn't receive traffic), check if we need to scale down the deployment
-		if sc.deploymentReplicas != 0 {
-			updatedReplicas = wrapReplicas(0)
+		// are we currently downscaled manually/automatically?
+		if sc.deploymentReplicas == 0 {
+			if sc.prescalingActive {
+				updatedReplicas = wrapReplicas(sc.prescalingReplicas)
+			} else {
+				updatedReplicas = wrapReplicas(sc.stackReplicas)
+			}
+		} else {
+			// do not alter replicas if they are not 0 and we are autoscaled or they do not differ
+			if sc.IsAutoscaled() || (sc.deploymentReplicas == sc.stackReplicas) {
+				updatedReplicas = wrapReplicas(sc.deploymentReplicas)
+			} else {
+				updatedReplicas = wrapReplicas(sc.stackReplicas)
+			}
 		}
 	}
 

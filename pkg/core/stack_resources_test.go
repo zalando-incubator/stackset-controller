@@ -400,7 +400,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			name:               "stack scaled down to zero, deployment already scaled down",
 			stackReplicas:      0,
 			deploymentReplicas: 0,
-			expectedReplicas:   nil,
+			expectedReplicas:   wrapReplicas(0),
 		},
 		{
 			name:               "stack scaled down because it doesn't have traffic, deployment still running",
@@ -414,13 +414,13 @@ func TestStackGenerateDeployment(t *testing.T) {
 			stackReplicas:      3,
 			deploymentReplicas: 0,
 			noTrafficSince:     time.Now().Add(-time.Hour),
-			expectedReplicas:   nil,
+			expectedReplicas:   wrapReplicas(0),
 		},
 		{
 			name:               "stack scaled down to zero, deployment already scaled down",
 			stackReplicas:      0,
 			deploymentReplicas: 0,
-			expectedReplicas:   nil,
+			expectedReplicas:   wrapReplicas(0),
 		},
 		{
 			name:               "stack running, deployment has zero replicas",
@@ -439,7 +439,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			name:               "stack running, deployment has the same amount replicas",
 			stackReplicas:      3,
 			deploymentReplicas: 3,
-			expectedReplicas:   nil,
+			expectedReplicas:   wrapReplicas(3),
 		},
 		{
 			name:               "stack running, deployment has a different amount of replicas",
@@ -452,7 +452,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			hpaEnabled:         true,
 			stackReplicas:      3,
 			deploymentReplicas: 5,
-			expectedReplicas:   nil,
+			expectedReplicas:   wrapReplicas(5),
 		},
 		{
 			name:               "stack running, deployment has zero replicas, prescaling enabled",
@@ -477,7 +477,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingActive:   true,
 			prescalingReplicas: 7,
 			deploymentReplicas: 7,
-			expectedReplicas:   nil,
+			expectedReplicas:   wrapReplicas(3),
 		},
 		{
 			name:               "stack running, deployment has a different amount of replicas, prescaling enabled",
@@ -485,7 +485,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingActive:   true,
 			prescalingReplicas: 7,
 			deploymentReplicas: 5,
-			expectedReplicas:   wrapReplicas(7),
+			expectedReplicas:   wrapReplicas(3),
 		},
 		{
 			name:               "stack running, deployment has a different amount of replicas, hpa enabled, prescaling enabled",
@@ -494,7 +494,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingReplicas: 7,
 			stackReplicas:      3,
 			deploymentReplicas: 5,
-			expectedReplicas:   nil,
+			expectedReplicas:   wrapReplicas(5),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
