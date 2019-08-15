@@ -388,71 +388,71 @@ func TestStackGenerateDeployment(t *testing.T) {
 		prescalingReplicas int32
 		deploymentReplicas int32
 		noTrafficSince     time.Time
-		expectedReplicas   *int32
+		expectedReplicas   int32
 	}{
 		{
 			name:               "stack scaled down to zero, deployment still running",
 			stackReplicas:      0,
 			deploymentReplicas: 3,
-			expectedReplicas:   wrapReplicas(0),
+			expectedReplicas:   0,
 		},
 		{
 			name:               "stack scaled down to zero, deployment already scaled down",
 			stackReplicas:      0,
 			deploymentReplicas: 0,
-			expectedReplicas:   nil,
+			expectedReplicas:   0,
 		},
 		{
 			name:               "stack scaled down because it doesn't have traffic, deployment still running",
 			stackReplicas:      3,
 			deploymentReplicas: 3,
 			noTrafficSince:     time.Now().Add(-time.Hour),
-			expectedReplicas:   wrapReplicas(0),
+			expectedReplicas:   0,
 		},
 		{
 			name:               "stack scaled down because it doesn't have traffic, deployment already scaled down",
 			stackReplicas:      3,
 			deploymentReplicas: 0,
 			noTrafficSince:     time.Now().Add(-time.Hour),
-			expectedReplicas:   nil,
+			expectedReplicas:   0,
 		},
 		{
 			name:               "stack scaled down to zero, deployment already scaled down",
 			stackReplicas:      0,
 			deploymentReplicas: 0,
-			expectedReplicas:   nil,
+			expectedReplicas:   0,
 		},
 		{
 			name:               "stack running, deployment has zero replicas",
 			stackReplicas:      3,
 			deploymentReplicas: 0,
-			expectedReplicas:   wrapReplicas(3),
+			expectedReplicas:   3,
 		},
 		{
 			name:               "stack running, deployment has zero replicas, hpa enabled",
 			hpaEnabled:         true,
 			stackReplicas:      3,
 			deploymentReplicas: 0,
-			expectedReplicas:   wrapReplicas(3),
+			expectedReplicas:   3,
 		},
 		{
 			name:               "stack running, deployment has the same amount replicas",
 			stackReplicas:      3,
 			deploymentReplicas: 3,
-			expectedReplicas:   nil,
+			expectedReplicas:   3,
 		},
 		{
 			name:               "stack running, deployment has a different amount of replicas",
 			stackReplicas:      3,
 			deploymentReplicas: 5,
-			expectedReplicas:   wrapReplicas(3),
+			expectedReplicas:   3,
 		},
 		{
 			name:               "stack running, deployment has a different amount of replicas, hpa enabled",
 			hpaEnabled:         true,
 			stackReplicas:      3,
 			deploymentReplicas: 5,
-			expectedReplicas:   nil,
+			expectedReplicas:   5,
 		},
 		{
 			name:               "stack running, deployment has zero replicas, prescaling enabled",
@@ -460,7 +460,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingActive:   true,
 			prescalingReplicas: 7,
 			deploymentReplicas: 0,
-			expectedReplicas:   wrapReplicas(7),
+			expectedReplicas:   7,
 		},
 		{
 			name:               "stack running, deployment has zero replicas, hpa enabled, prescaling enabled",
@@ -469,7 +469,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingReplicas: 7,
 			stackReplicas:      3,
 			deploymentReplicas: 0,
-			expectedReplicas:   wrapReplicas(7),
+			expectedReplicas:   7,
 		},
 		{
 			name:               "stack running, deployment has the same amount replicas, prescaling enabled",
@@ -477,7 +477,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingActive:   true,
 			prescalingReplicas: 7,
 			deploymentReplicas: 7,
-			expectedReplicas:   nil,
+			expectedReplicas:   7,
 		},
 		{
 			name:               "stack running, deployment has a different amount of replicas, prescaling enabled",
@@ -485,7 +485,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingActive:   true,
 			prescalingReplicas: 7,
 			deploymentReplicas: 5,
-			expectedReplicas:   wrapReplicas(7),
+			expectedReplicas:   7,
 		},
 		{
 			name:               "stack running, deployment has a different amount of replicas, hpa enabled, prescaling enabled",
@@ -494,7 +494,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			prescalingReplicas: 7,
 			stackReplicas:      3,
 			deploymentReplicas: 5,
-			expectedReplicas:   nil,
+			expectedReplicas:   5,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -533,7 +533,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			expected := &apps.Deployment{
 				ObjectMeta: testResourceMeta,
 				Spec: apps.DeploymentSpec{
-					Replicas: tc.expectedReplicas,
+					Replicas: wrapReplicas(tc.expectedReplicas),
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							StacksetHeritageLabelKey: "foo",
