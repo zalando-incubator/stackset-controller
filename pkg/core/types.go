@@ -68,12 +68,24 @@ type StackContainer struct {
 	stackReplicas int32
 
 	// Fields from the stack resources
-	resourcesUpdated   bool
+
+	// Set to true only if all related resources have been updated according to the latest stack version
+	resourcesUpdated bool
+
+	// Current number of replicas that the deployment is expected to have, from Deployment.spec
 	deploymentReplicas int32
-	createdReplicas    int32
-	readyReplicas      int32
-	updatedReplicas    int32
-	desiredReplicas    int32
+
+	// Current number of replicas that the deployment has, from Deployment.status
+	createdReplicas int32
+
+	// Current number of replicas that the deployment has, from Deployment.status
+	readyReplicas int32
+
+	// Current number of up-to-date replicas that the deployment has, from Deployment.status
+	updatedReplicas int32
+
+	// Current number of replicas that the HPA expects deployment to have, from HPA.status
+	desiredReplicas int32
 
 	// Traffic & scaling
 	currentActualTrafficWeight     float64

@@ -45,7 +45,7 @@ func (c *StackSetController) ReconcileStackDeployment(stack *zv1.Stack, existing
 	}
 
 	// Check if we need to update the deployment
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && deployment.Spec.Replicas == nil {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && pint32Equal(existing.Spec.Replicas, deployment.Spec.Replicas) {
 		return nil
 	}
 

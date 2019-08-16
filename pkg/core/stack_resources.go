@@ -157,6 +157,10 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		}
 	}
 
+	if updatedReplicas == nil {
+		updatedReplicas = wrapReplicas(sc.deploymentReplicas)
+	}
+
 	return &appsv1.Deployment{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{

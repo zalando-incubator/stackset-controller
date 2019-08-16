@@ -146,7 +146,7 @@ func TestReconcileStackDeployment(t *testing.T) {
 			},
 		},
 		{
-			name:  "deployment is not updated if the stack version remains the same and replica count is unset",
+			name:  "deployment is not updated if the stack version remains the same and replica count is unchanged",
 			stack: baseTestStack,
 			existing: &apps.Deployment{
 				ObjectMeta: baseTestStackOwned,
@@ -158,7 +158,7 @@ func TestReconcileStackDeployment(t *testing.T) {
 			updated: &apps.Deployment{
 				ObjectMeta: baseTestStackOwned,
 				Spec: apps.DeploymentSpec{
-					Replicas: nil,
+					Replicas: &exampleReplicas,
 					Template: updatedPodTemplateSpec,
 				},
 			},
@@ -186,7 +186,7 @@ func TestReconcileStackDeployment(t *testing.T) {
 			updated: &apps.Deployment{
 				ObjectMeta: updatedTestStackOwned,
 				Spec: apps.DeploymentSpec{
-					Replicas: &exampleReplicas,
+					Replicas: &updatedReplicas,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"updated": "selector"},
 					},
@@ -196,7 +196,7 @@ func TestReconcileStackDeployment(t *testing.T) {
 			expected: &apps.Deployment{
 				ObjectMeta: updatedTestStackOwned,
 				Spec: apps.DeploymentSpec{
-					Replicas: &exampleReplicas,
+					Replicas: &updatedReplicas,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{"foo": "bar"},
 					},
