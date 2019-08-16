@@ -11,7 +11,7 @@ import (
 func TestPrescalingWithoutHPA(t *testing.T) {
 	t.Parallel()
 	stacksetName := "stackset-prescale-no-hpa"
-	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 0).Replicas(3)
+	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 15).Replicas(3)
 
 	// create stack with 3 replicas
 	firstStack := "v1"
@@ -81,7 +81,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 func TestPrescalingWithHPA(t *testing.T) {
 	t.Parallel()
 	stacksetName := "stackset-prescale-hpa"
-	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 0).
+	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 15).
 		HPA(1, 10).Replicas(3)
 
 	// create first stack with 3 replicas
@@ -153,7 +153,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	stackPrescalingTimeout := 5
 	t.Parallel()
 	stacksetName := "stackset-prevent-delete"
-	factory := NewTestStacksetSpecFactory(stacksetName).StackGC(1, 0).Ingress().Replicas(3)
+	factory := NewTestStacksetSpecFactory(stacksetName).StackGC(1, 15).Ingress().Replicas(3)
 
 	// create stackset with first version
 	firstVersion := "v1"
@@ -234,7 +234,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 
 	t.Parallel()
 	stacksetName := "stackset-prescale-backends-wait"
-	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 0).Replicas(3)
+	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 15).Replicas(3)
 
 	// create stack with 3 replicas
 	firstStack := "v1"
