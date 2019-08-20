@@ -38,7 +38,7 @@ var (
 
 func main() {
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&config.Debug)
-	kingpin.Flag("interval", "Interval between syncing ingresses.").
+	kingpin.Flag("interval", "Interval between syncing stacksets.").
 		Default(defaultInterval).DurationVar(&config.Interval)
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
