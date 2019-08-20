@@ -28,7 +28,7 @@ spec:
   - name: Available
     type: integer
     description: Number of available replicas
-    JSONPath: .status.updatedReplicas
+    JSONPath: .status.readyReplicas
   - name: Traffic
     type: number
     format: float
