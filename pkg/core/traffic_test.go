@@ -76,6 +76,13 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 			updatedReplicas:    3,
 			readyReplicas:      2,
 		},
+		{
+			name:               "deployment scaled down",
+			resourcesUpdated:   true,
+			deploymentReplicas: 0,
+			updatedReplicas:    0,
+			readyReplicas:      0,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := StackSetContainer{

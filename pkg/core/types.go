@@ -115,7 +115,7 @@ func (sc *StackContainer) HasTraffic() bool {
 
 func (sc *StackContainer) IsReady() bool {
 	// Stacks are considered ready when all subresources have been updated, and we have enough replicas
-	return sc.resourcesUpdated && sc.deploymentReplicas == sc.updatedReplicas && sc.deploymentReplicas == sc.readyReplicas
+	return sc.resourcesUpdated && sc.deploymentReplicas > 0 && sc.deploymentReplicas == sc.updatedReplicas && sc.deploymentReplicas == sc.readyReplicas
 }
 
 func (sc *StackContainer) MaxReplicas() int32 {
