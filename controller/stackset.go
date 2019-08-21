@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
@@ -43,13 +44,14 @@ const (
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
 type StackSetController struct {
-	logger         *log.Entry
-	client         clientset.Interface
-	controllerID   string
-	interval       time.Duration
-	stacksetEvents chan stacksetEvent
-	stacksetStore  map[types.UID]zv1.StackSet
-	recorder       kube_record.EventRecorder
+	logger          *log.Entry
+	client          clientset.Interface
+	controllerID    string
+	interval        time.Duration
+	stacksetEvents  chan stacksetEvent
+	stacksetStore   map[types.UID]zv1.StackSet
+	recorder        kube_record.EventRecorder
+	metricsReporter *core.MetricsReporter
 	sync.Mutex
 }
 
@@ -68,16 +70,22 @@ func (ee *eventedError) Error() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID string, interval time.Duration) *StackSetController {
-	return &StackSetController{
-		logger:         log.WithFields(log.Fields{"controller": "stackset"}),
-		client:         client,
-		controllerID:   controllerID,
-		stacksetEvents: make(chan stacksetEvent, 1),
-		stacksetStore:  make(map[types.UID]zv1.StackSet),
-		interval:       interval,
-		recorder:       recorder.CreateEventRecorder(client),
+func NewStackSetController(client clientset.Interface, controllerID string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
+	metricsReporter, err := core.NewMetricsReporter(registry)
+	if err != nil {
+		return nil, err
 	}
+
+	return &StackSetController{
+		logger:          log.WithFields(log.Fields{"controller": "stackset"}),
+		client:          client,
+		controllerID:    controllerID,
+		interval:        interval,
+		stacksetEvents:  make(chan stacksetEvent, 1),
+		stacksetStore:   make(map[types.UID]zv1.StackSet),
+		recorder:        recorder.CreateEventRecorder(client),
+		metricsReporter: metricsReporter,
+	}, nil
 }
 
 func (c *StackSetController) stacksetLogger(ssc *core.StackSetContainer) *log.Entry {
@@ -133,6 +141,10 @@ func (c *StackSetController) Run(ctx context.Context) {
 			err = reconcileGroup.Wait()
 			if err != nil {
 				c.logger.Errorf("Failed waiting for reconcilers: %v", err)
+			}
+			err = c.metricsReporter.Report(stackContainers)
+			if err != nil {
+				c.logger.Errorf("Failed reporting metrics: %v", err)
 			}
 		case e := <-c.stacksetEvents:
 			stackset := *e.StackSet

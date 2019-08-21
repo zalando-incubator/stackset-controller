@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller"
@@ -57,14 +58,18 @@ func main() {
 
 	client, err := clientset.NewForConfig(kubeConfig)
 	if err != nil {
-		log.Fatalf("Failed to initialize Kubernetes client: %v.", err)
+		log.Fatalf("Failed to initialize Kubernetes client: %v", err)
 	}
 
-	controller := controller.NewStackSetController(
+	controller, err := controller.NewStackSetController(
 		client,
 		config.ControllerID,
+		prometheus.DefaultRegisterer,
 		config.Interval,
 	)
+	if err != nil {
+		log.Fatalf("Failed to create Stackset controller: %v", err)
+	}
 
 	go handleSigterm(cancel)
 	go serveMetrics(config.MetricsAddress)

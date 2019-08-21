@@ -3,6 +3,7 @@ package controller
 import (
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	ssinterface "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	ssfake "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
@@ -38,9 +39,14 @@ func NewTestEnvironment() *testEnvironment {
 		ssClient:  ssfake.NewSimpleClientset(),
 	}
 
+	controller, err := NewStackSetController(client, "", prometheus.NewPedanticRegistry(), time.Minute)
+	if err != nil {
+		panic(err)
+	}
+
 	return &testEnvironment{
 		client:     client,
-		controller: NewStackSetController(client, "", time.Minute),
+		controller: controller,
 	}
 }
 
