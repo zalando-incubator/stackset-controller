@@ -46,7 +46,7 @@ pipeline:
       metadata:
         name: e2e
       spec:
-        serviceAccountName: operator
+        serviceAccountName: stackset-controller
         restartPolicy: Never
         containers:
           - name: e2e

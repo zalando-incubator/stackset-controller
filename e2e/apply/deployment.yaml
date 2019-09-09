@@ -18,7 +18,7 @@ spec:
         application: "{{{APPLICATION}}}"
         version: "{{{CDP_BUILD_VERSION}}}"
     spec:
-      serviceAccountName: operator
+      serviceAccountName: stackset-controller
       containers:
       - name: "{{{APPLICATION}}}"
         image: "{{{IMAGE}}}"
