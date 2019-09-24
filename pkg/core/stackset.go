@@ -228,10 +228,19 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 		StacksWithTraffic:    0,
 		ObservedStackVersion: ssc.StackSet.Status.ObservedStackVersion,
 	}
+	var traffic []*zv1.ActualTraffic
 
 	for _, sc := range ssc.StackContainers {
 		if sc.PendingRemoval {
 			continue
+		}
+		if sc.backendPort != nil {
+			t := &zv1.ActualTraffic{
+				ServiceName: sc.Name(),
+				ServicePort: *sc.backendPort,
+				Weight:      sc.actualTrafficWeight,
+			}
+			traffic = append(traffic, t)
 		}
 
 		result.Stacks += 1
@@ -242,5 +251,19 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 			result.ReadyStacks += 1
 		}
 	}
+	result.Traffic = traffic
 	return result
 }
+
+// TODO(sszuecs): used in step2 to generate the relevant sackset spec
+// func (ssc *StackSetContainer) GenerateStackSetDesiredTraffic() []*zv1.DesiredTraffic {
+// 	var result []*zv1.DesiredTraffic
+
+// 	for _, sc := range ssc.StackContainers {
+// 		result = append(result, &zv1.DesiredTraffic{
+// 			StackName: sc.Stack.Name,
+// 			Weight:    sc.desiredTrafficWeight,
+// 		})
+// 	}
+// 	return result
+// }

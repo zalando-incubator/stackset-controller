@@ -267,6 +267,7 @@ func TestLimitLabels(t *testing.T) {
 }
 
 func TestStackGenerateIngress(t *testing.T) {
+	backendPort := intstr.FromInt(80)
 	c := &StackContainer{
 		Stack: &zv1.Stack{
 			ObjectMeta: testStackMeta,
@@ -277,10 +278,10 @@ func TestStackGenerateIngress(t *testing.T) {
 				Labels:      map[string]string{"ignored": "label"},
 				Annotations: map[string]string{"ingress": "annotation"},
 			},
-			Hosts:       []string{"example.org", "example.com"},
-			BackendPort: intstr.FromInt(80),
-			Path:        "example",
+			Hosts: []string{"example.org", "example.com"},
+			Path:  "example",
 		},
+		backendPort: &backendPort,
 	}
 	ingress, err := c.GenerateIngress()
 	require.NoError(t, err)
@@ -302,7 +303,7 @@ func TestStackGenerateIngress(t *testing.T) {
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v1",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: backendPort,
 									},
 								},
 							},
@@ -318,7 +319,7 @@ func TestStackGenerateIngress(t *testing.T) {
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v1",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: backendPort,
 									},
 								},
 							},

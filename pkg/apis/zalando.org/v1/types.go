@@ -24,9 +24,24 @@ type StackSet struct {
 // StackSetSpec is the spec part of the StackSet.
 // +k8s:deepcopy-gen=true
 type StackSetSpec struct {
-	Ingress        *StackSetIngressSpec `json:"ingress"`
-	StackLifecycle StackLifecycle       `json:"stackLifecycle"`
-	StackTemplate  StackTemplate        `json:"stackTemplate"`
+	// Ingress is the information we need to create ingress and
+	// service. Ingress is optional, because other controller
+	// might create ingress objects, but stackset owns the traffic
+	// switch. In this case we would only have a Traffic, but no
+	// ingress.
+	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`
+	// ExternalIngress is used to specify the backend port to
+	// generate the services for the stacks.
+	ExternalIngress *StackSetExternalIngressSpec `json:"externalIngress,omitempty"`
+	// StackLifecycle defines the cleanup rules for old stacks.
+	StackLifecycle StackLifecycle `json:"stackLifecycle"`
+	// StackTemplate container for resources to be created that
+	// belong to one stack.
+	StackTemplate StackTemplate `json:"stackTemplate"`
+	// Traffic is the mapping from a stackset to stack with
+	// weights. It defines the desired traffic. Clients that
+	// orchestrate traffic switching should write this part.
+	Traffic []*DesiredTraffic `json:"traffic,omitempty"`
 }
 
 // StackSetIngressSpec is the ingress defintion of an StackSet. This
@@ -37,6 +52,12 @@ type StackSetIngressSpec struct {
 	Hosts             []string           `json:"hosts"`
 	BackendPort       intstr.IntOrString `json:"backendPort"`
 	Path              string             `json:"path"`
+}
+
+// StackSetExternalIngressSpec defines the required service
+// backendport for ingress managed outside of stackset.
+type StackSetExternalIngressSpec struct {
+	BackendPort intstr.IntOrString `json:"backendPort"`
 }
 
 // StackLifecycle defines lifecycle of the Stacks of a StackSet.
@@ -145,6 +166,26 @@ type StackSetStatus struct {
 	// TODO: add a more detailed comment
 	// +optional
 	ObservedStackVersion string `json:"observedStackVersion,omitempty"`
+	// Traffic is the actual traffic setting on services for this stackset
+	// +optional
+	Traffic []*ActualTraffic `json:"traffic,omitempty"`
+}
+
+// Traffic is the actual traffic setting on services for this
+// stackset, controllers interested in current traffic decision should
+// read this.
+type ActualTraffic struct {
+	ServiceName string             `json:"serviceName"`
+	ServicePort intstr.IntOrString `json:"servicePort"`
+	Weight      float64            `json:"weight"`
+}
+
+// DesiredTraffic is the desired traffic setting to direct traffic to
+// a stack. This is meant to use by clients to orchestrate traffic
+// switching.
+type DesiredTraffic struct {
+	StackName string  `json:"stackName"`
+	Weight    float64 `json:"weight"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -180,7 +221,9 @@ type StackSpec struct {
 	// +optional
 	Replicas                *int32                   `json:"replicas,omitempty"`
 	HorizontalPodAutoscaler *HorizontalPodAutoscaler `json:"horizontalPodAutoscaler,omitempty"`
-	// TODO: Service
+	// Service can be used to configure a custom service, if not
+	// set stackset-controller will generate a service based on
+	// container port and ingress backendport.
 	Service *StackServiceSpec `json:"service,omitempty"`
 	// PodTemplate describes the pods that will be created.
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`

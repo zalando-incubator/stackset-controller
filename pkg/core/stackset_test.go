@@ -258,7 +258,40 @@ func dummyStacksetContainer() *StackSetContainer {
 	}
 }
 
-func TestStackSetUpdateFromResources(t *testing.T) {
+func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		ingress         *zv1.StackSetIngressSpec
+		expectedIngress *zv1.StackSetIngressSpec
+	}{
+		{
+			name:            "no ingress",
+			expectedIngress: nil,
+		},
+		{
+			name: "has one ingress",
+			ingress: &zv1.StackSetIngressSpec{
+				Hosts: []string{"foo"},
+			},
+			expectedIngress: &zv1.StackSetIngressSpec{
+				Hosts: []string{"foo"},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := dummyStacksetContainer()
+			c.StackSet.Spec.Ingress = tc.ingress
+			err := c.UpdateFromResources()
+			require.NoError(t, err)
+
+			for _, sc := range c.StackContainers {
+				require.Equal(t, c.StackSet.Name, sc.stacksetName)
+				require.EqualValues(t, c.StackSet.Spec.Ingress, sc.ingressSpec)
+			}
+		})
+	}
+}
+func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 	minute := int64(60)
 
 	for _, tc := range []struct {
@@ -300,6 +333,130 @@ func TestStackSetUpdateFromResources(t *testing.T) {
 		})
 	}
 }
+
+// func TestStackSetUpdateGetDesiredFromStacks(t *testing.T) {
+// 	stacksetName := "mystackset"
+// 	container1 := "container-1"
+// 	container2 := "container-2"
+
+// 	for _, tc := range []struct {
+// 		name                   string
+// 		ssc                    *StackSetContainer
+// 		expectedDesiredTraffic []*zv1.DesiredTraffic
+// 	}{
+// 		{
+// 			name:                   "no containers",
+// 			ssc:                    &StackSetContainer{},
+// 			expectedDesiredTraffic: nil,
+// 		},
+// 		{
+// 			name: "has one stack container and Stack has desiredTraffic",
+// 			ssc: &StackSetContainer{
+// 				StackSet: &zv1.StackSet{
+// 					ObjectMeta: metav1.ObjectMeta{
+// 						Name: container1,
+// 					},
+// 				},
+// 				StackContainers: map[types.UID]*StackContainer{
+// 					types.UID(container1): &StackContainer{
+// 						desiredTrafficWeight: 100.0,
+// 						Stack: &zv1.Stack{
+// 							ObjectMeta: metav1.ObjectMeta{
+// 								Name: container1,
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 			expectedDesiredTraffic: []*zv1.DesiredTraffic{
+// 				&zv1.DesiredTraffic{
+// 					StackName: container1,
+// 					Weight:    100.0,
+// 				},
+// 			},
+// 		},
+// 		{
+// 			name: "has two stacks container and Stack both have desiredTraffic",
+// 			ssc: &StackSetContainer{
+// 				StackSet: &zv1.StackSet{
+// 					ObjectMeta: metav1.ObjectMeta{
+// 						Name: stacksetName,
+// 					},
+// 				},
+// 				StackContainers: map[types.UID]*StackContainer{
+// 					types.UID(container1): &StackContainer{
+// 						desiredTrafficWeight: 40.0,
+// 						Stack: &zv1.Stack{
+// 							ObjectMeta: metav1.ObjectMeta{
+// 								Name: container1,
+// 							},
+// 						},
+// 					},
+// 					types.UID(container2): &StackContainer{
+// 						desiredTrafficWeight: 60.0,
+// 						Stack: &zv1.Stack{
+// 							ObjectMeta: metav1.ObjectMeta{
+// 								Name: container2,
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 			expectedDesiredTraffic: []*zv1.DesiredTraffic{
+// 				&zv1.DesiredTraffic{
+// 					StackName: container1,
+// 					Weight:    40.0,
+// 				},
+// 				&zv1.DesiredTraffic{
+// 					StackName: container2,
+// 					Weight:    60.0,
+// 				},
+// 			},
+// 		},
+// 		{
+// 			name: "has two stacks container and Stack one has desiredTraffic",
+// 			ssc: &StackSetContainer{
+// 				StackSet: &zv1.StackSet{
+// 					ObjectMeta: metav1.ObjectMeta{
+// 						Name: stacksetName,
+// 					},
+// 				},
+// 				StackContainers: map[types.UID]*StackContainer{
+// 					types.UID(container1): &StackContainer{
+// 						desiredTrafficWeight: 0.0,
+// 						Stack: &zv1.Stack{
+// 							ObjectMeta: metav1.ObjectMeta{
+// 								Name: container1,
+// 							},
+// 						},
+// 					},
+// 					types.UID(container2): &StackContainer{
+// 						desiredTrafficWeight: 100.0,
+// 						Stack: &zv1.Stack{
+// 							ObjectMeta: metav1.ObjectMeta{
+// 								Name: container2,
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 			expectedDesiredTraffic: []*zv1.DesiredTraffic{
+// 				&zv1.DesiredTraffic{
+// 					StackName: container1,
+// 					Weight:    0.0,
+// 				},
+// 				&zv1.DesiredTraffic{
+// 					StackName: container2,
+// 					Weight:    100.0,
+// 				},
+// 			},
+// 		},
+// 	} {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			require.Equal(t, tc.expectedDesiredTraffic, tc.ssc.GetDesiredTrafficFromStacks())
+// 		})
+// 	}
+// }
 
 func TestStackUpdateFromResources(t *testing.T) {
 	runTest := func(name string, testFn func(t *testing.T, container *StackContainer)) {
@@ -513,6 +670,137 @@ func TestStackUpdateFromResources(t *testing.T) {
 	})
 }
 
+func TestUpdateTrafficFromStackSet(t *testing.T) {
+	for _, tc := range []struct {
+		name                   string
+		desiredTraffic         []*zv1.DesiredTraffic
+		actualTraffic          []*zv1.ActualTraffic
+		expectedDesiredWeights map[string]float64
+		expectedActualWeights  map[string]float64
+	}{
+		// this case would fallback to ingress
+		// {
+		// 	name:                   "no weights are present",
+		// 	expectedDesiredWeights: map[string]float64{"foo-v1": 100},
+		// 	expectedActualWeights:  map[string]float64{"foo-v1": 100},
+		// },
+		{
+			name: "desired and actual weights are parsed correctly",
+			desiredTraffic: []*zv1.DesiredTraffic{
+				&zv1.DesiredTraffic{
+					StackName: "foo-v1",
+					Weight:    float64(25),
+				},
+				&zv1.DesiredTraffic{
+					StackName: "foo-v2",
+					Weight:    float64(50),
+				},
+				&zv1.DesiredTraffic{
+					StackName: "foo-v3",
+					Weight:    float64(25),
+				},
+			},
+			actualTraffic: []*zv1.ActualTraffic{
+				&zv1.ActualTraffic{
+					ServiceName: "foo-v1",
+					Weight:      float64(62.5),
+				},
+				&zv1.ActualTraffic{
+					ServiceName: "foo-v2",
+					Weight:      float64(12.5),
+				},
+				&zv1.ActualTraffic{
+					ServiceName: "foo-v3",
+					Weight:      float64(25),
+				},
+			},
+			expectedDesiredWeights: map[string]float64{"foo-v1": 25, "foo-v2": 50, "foo-v3": 25},
+			expectedActualWeights:  map[string]float64{"foo-v1": 62.5, "foo-v2": 12.5, "foo-v3": 25},
+		},
+		{
+			name: "unknown stacks are removed, remaining weights are renormalised",
+			desiredTraffic: []*zv1.DesiredTraffic{
+				&zv1.DesiredTraffic{
+					StackName: "foo-v4",
+					Weight:    float64(50),
+				},
+				&zv1.DesiredTraffic{
+					StackName: "foo-v2",
+					Weight:    float64(25),
+				},
+				&zv1.DesiredTraffic{
+					StackName: "foo-v3",
+					Weight:    float64(25),
+				},
+			},
+			actualTraffic: []*zv1.ActualTraffic{
+				&zv1.ActualTraffic{
+					ServiceName: "foo-v4",
+					Weight:      float64(50),
+				},
+				&zv1.ActualTraffic{
+					ServiceName: "foo-v2",
+					Weight:      float64(12.5),
+				},
+				&zv1.ActualTraffic{
+					ServiceName: "foo-v3",
+					Weight:      float64(37.5),
+				},
+			},
+			expectedDesiredWeights: map[string]float64{"foo-v2": 50, "foo-v3": 50},
+			expectedActualWeights:  map[string]float64{"foo-v2": 25, "foo-v3": 75},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			stack1 := testStack("foo-v1").stack()
+			stack2 := testStack("foo-v2").stack()
+			stack3 := testStack("foo-v3").stack()
+			// need a service definition
+			for _, s := range []*StackContainer{stack1, stack2, stack3} {
+				s.Resources.Service = &v1.Service{
+					Spec: v1.ServiceSpec{
+						Ports: []v1.ServicePort{
+							{
+								Port: int32(testPort),
+							},
+						},
+					},
+				}
+			}
+
+			ssc := &StackSetContainer{
+				StackSet: &zv1.StackSet{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo",
+					},
+					Spec: zv1.StackSetSpec{
+						Ingress: &zv1.StackSetIngressSpec{},
+						Traffic: tc.desiredTraffic,
+					},
+					Status: zv1.StackSetStatus{
+						Traffic: tc.actualTraffic,
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					"v1": stack1,
+					"v2": stack2,
+					"v3": stack3,
+				},
+			}
+
+			err := ssc.UpdateFromResources()
+			require.NoError(t, err)
+			require.NotEmpty(t, ssc.StackSet.Status.Traffic, "stackset requires non empty traffic status")
+
+			for _, sc := range ssc.StackContainers {
+				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "desired stack %s", sc.Stack.Name)
+				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.actualTrafficWeight, "actual stack %s", sc.Stack.Name)
+				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.currentActualTrafficWeight, "current stack %s", sc.Stack.Name)
+			}
+		})
+	}
+}
+
 func TestUpdateTrafficFromIngress(t *testing.T) {
 	for _, tc := range []struct {
 		name                   string
@@ -543,6 +831,7 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 			stack1 := testStack("foo-v1").stack()
 			stack2 := testStack("foo-v2").stack()
 			stack3 := testStack("foo-v3").stack()
+			// need a service definition
 
 			ssc := &StackSetContainer{
 				StackSet: &zv1.StackSet{
@@ -550,6 +839,7 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 						Name: "foo",
 					},
 					Spec: zv1.StackSetSpec{
+
 						Ingress: &zv1.StackSetIngressSpec{},
 					},
 				},
@@ -575,6 +865,7 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 
 			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
+
 			for _, sc := range ssc.StackContainers {
 				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
 				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.actualTrafficWeight, "stack %s", sc.Stack.Name)
@@ -607,8 +898,23 @@ func TestGenerateStackSetStatus(t *testing.T) {
 		ReadyStacks:          2,
 		StacksWithTraffic:    1,
 		ObservedStackVersion: "v1",
+		Traffic: []*zv1.ActualTraffic{
+			{
+				ServiceName: "v2",
+				ServicePort: intstr.FromInt(testPort),
+				Weight:      1,
+			}, {
+				ServiceName: "v3",
+				ServicePort: intstr.FromInt(testPort),
+				Weight:      0,
+			}, {
+				ServiceName: "v4",
+				ServicePort: intstr.FromInt(testPort),
+				Weight:      0,
+			},
+		},
 	}
-	require.Equal(t, expected, c.GenerateStackSetStatus())
+	require.EqualValues(t, expected, c.GenerateStackSetStatus())
 }
 
 func TestStackSetGenerateIngress(t *testing.T) {
@@ -633,7 +939,7 @@ func TestStackSetGenerateIngress(t *testing.T) {
 						Annotations: map[string]string{"ingress": "annotation"},
 					},
 					Hosts:       []string{"example.org", "example.com"},
-					BackendPort: intstr.FromInt(80),
+					BackendPort: intstr.FromInt(testPort),
 					Path:        "example",
 				},
 			},
@@ -680,21 +986,21 @@ func TestStackSetGenerateIngress(t *testing.T) {
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v1",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: intstr.FromInt(testPort),
 									},
 								},
 								{
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v2",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: intstr.FromInt(testPort),
 									},
 								},
 								{
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v3",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: intstr.FromInt(testPort),
 									},
 								},
 							},
@@ -710,21 +1016,21 @@ func TestStackSetGenerateIngress(t *testing.T) {
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v1",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: intstr.FromInt(testPort),
 									},
 								},
 								{
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v2",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: intstr.FromInt(testPort),
 									},
 								},
 								{
 									Path: "example",
 									Backend: extensions.IngressBackend{
 										ServiceName: "foo-v3",
-										ServicePort: intstr.FromInt(80),
+										ServicePort: intstr.FromInt(testPort),
 									},
 								},
 							},

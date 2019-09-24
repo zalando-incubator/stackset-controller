@@ -224,9 +224,9 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
-	// Shouldn't happen but technically possible
-	if sc.ingressSpec != nil {
-		backendPort = &sc.ingressSpec.BackendPort
+	// Ingress or external managed Ingress
+	if sc.backendPort != nil {
+		backendPort = sc.backendPort
 	}
 
 	servicePorts, err := getServicePorts(sc.Stack.Spec, backendPort)
@@ -245,7 +245,7 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 }
 
 func (sc *StackContainer) GenerateIngress() (*extensions.Ingress, error) {
-	if sc.ingressSpec == nil {
+	if !sc.HasBackendPort() || sc.ingressSpec == nil {
 		return nil, nil
 	}
 
@@ -271,7 +271,7 @@ func (sc *StackContainer) GenerateIngress() (*extensions.Ingress, error) {
 		Path: sc.ingressSpec.Path,
 		Backend: extensions.IngressBackend{
 			ServiceName: sc.Name(),
-			ServicePort: sc.ingressSpec.BackendPort,
+			ServicePort: *sc.backendPort,
 		},
 	}
 	rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, path)
