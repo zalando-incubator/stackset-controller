@@ -291,6 +291,50 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		})
 	}
 }
+
+func TestStackSetUpdateFromResourcesPopulatesBackendPort(t *testing.T) {
+	beport := intstr.FromInt(8080)
+	for _, tc := range []struct {
+		name     string
+		spec     zv1.StackSetSpec
+		expected *intstr.IntOrString
+	}{
+		{
+			name:     "no backendport",
+			expected: nil,
+		},
+		{
+			name: "has ingress",
+			spec: zv1.StackSetSpec{
+				Ingress: &zv1.StackSetIngressSpec{
+					BackendPort: beport,
+				},
+			},
+			expected: &beport,
+		},
+		{
+			name: "has external ingress",
+			spec: zv1.StackSetSpec{
+				ExternalIngress: &zv1.StackSetExternalIngressSpec{
+					BackendPort: beport,
+				},
+			},
+			expected: &beport,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := dummyStacksetContainer()
+			c.StackSet.Spec = tc.spec
+			err := c.UpdateFromResources()
+			require.NoError(t, err)
+
+			for _, sc := range c.StackContainers {
+				require.EqualValues(t, tc.expected, sc.backendPort)
+			}
+		})
+	}
+}
+
 func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 	minute := int64(60)
 
@@ -298,10 +342,18 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 		name                 string
 		scaledownTTL         *int64
 		ingress              *zv1.StackSetIngressSpec
+		externalIngress      *zv1.StackSetExternalIngressSpec
 		expectedScaledownTTL time.Duration
 	}{
 		{
 			name:                 "no ingress, default scaledown TTL",
+			expectedScaledownTTL: defaultScaledownTTL,
+		},
+		{
+			name: "no ingress, an externalIngress default scaledown TTL",
+			externalIngress: &zv1.StackSetExternalIngressSpec{
+				BackendPort: intstr.FromInt(80),
+			},
 			expectedScaledownTTL: defaultScaledownTTL,
 		},
 		{
@@ -320,6 +372,13 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds = tc.scaledownTTL
+			if tc.externalIngress != nil {
+				c.StackSet.Spec.ExternalIngress = tc.externalIngress
+			}
+			if tc.ingress != nil {
+				c.StackSet.Spec.Ingress = tc.ingress
+			}
+
 			err := c.UpdateFromResources()
 			require.NoError(t, err)
 
@@ -327,7 +386,12 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 				require.Equal(t, c.StackSet.Name, sc.stacksetName)
 
 				require.EqualValues(t, c.StackSet.Spec.Ingress, sc.ingressSpec)
-
+				if tc.externalIngress != nil || tc.ingress != nil {
+					require.NotNil(t, sc.backendPort, "stack container backendport should not be nil")
+				}
+				if tc.externalIngress != nil {
+					require.EqualValues(t, c.StackSet.Spec.ExternalIngress.BackendPort, *sc.backendPort)
+				}
 				require.Equal(t, tc.expectedScaledownTTL, sc.scaledownTTL)
 			}
 		})

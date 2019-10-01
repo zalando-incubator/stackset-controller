@@ -110,7 +110,6 @@ type TrafficChange struct {
 	StackName        string
 	OldTrafficWeight float64
 	NewTrafficWeight float64
-	// TODO(sszuecs): maybe add service links, because needed to populate in stackset status
 }
 
 func (tc TrafficChange) String() string {
@@ -185,7 +184,6 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromIngress() error {
 	}
 
 	for _, container := range ssc.StackContainers {
-		//println("ingress update containers", container.Name(), desired[container.Name()])
 		container.desiredTrafficWeight = desired[container.Name()]
 	}
 
@@ -199,7 +197,6 @@ func (ssc *StackSetContainer) updateActualTrafficFromIngress() error {
 	}
 
 	for _, container := range ssc.StackContainers {
-		//println("ingress update containers", container.Name(), actual[container.Name()])
 		container.actualTrafficWeight = actual[container.Name()]
 		container.currentActualTrafficWeight = actual[container.Name()]
 	}
@@ -288,7 +285,6 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromStackSet() error {
 
 	// save values in stack containers
 	for _, container := range ssc.StackContainers {
-		println("update desired containers", container.Name(), weights[container.Name()])
 		container.desiredTrafficWeight = weights[container.Name()]
 	}
 
@@ -353,7 +349,6 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 	if ssc.hasDesiredTrafficFromStackSet() {
 		err := ssc.updateDesiredTrafficFromStackSet()
 		if err != nil {
-			println("hasDesiredTrafficFromStackSet, but err:", err)
 			return err
 		}
 	} else {

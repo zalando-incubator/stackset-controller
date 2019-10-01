@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -250,4 +251,31 @@ func TestSortingMetrics(t *testing.T) {
 
 func pint32(val int) *int32 {
 	return &[]int32{int32(val)}[0]
+}
+
+func generateHPA(minReplicas, maxReplicas int32) StackContainer {
+	return StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "stackset-v1",
+			},
+			Spec: zv1.StackSpec{
+				HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+					MinReplicas: &minReplicas,
+					MaxReplicas: maxReplicas,
+					Metrics:     []autoscaling.MetricSpec{},
+				},
+			},
+		},
+		stacksetName: "stackset",
+	}
+}
+
+func TestStackSetController_ReconcileHPA(t *testing.T) {
+	ssc := generateHPA(1, 10)
+	hpa, err := ssc.GenerateHPA()
+	require.NoError(t, err, "failed to create an HPA")
+	require.NotNil(t, hpa, "hpa not generated")
+	require.Equal(t, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
+	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
 }
