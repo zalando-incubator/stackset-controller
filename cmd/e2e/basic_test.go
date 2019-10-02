@@ -208,11 +208,9 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	}
 }
 
-func verifyStackSetStatus(t *testing.T, stacksetName, version string) {
+func verifyStackSetStatus(t *testing.T, stacksetName string, expected expectedStackSetStatus) {
 	// Verify that the stack status is updated successfully
-	err := stackSetStatusMatches(t, stacksetName, expectedStackSetStatus{
-		observedStackVersion: version,
-	}).await()
+	err := stackSetStatusMatches(t, stacksetName, expected).await()
 	require.NoError(t, err)
 }
 
@@ -254,9 +252,9 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	}}
 	require.EqualValues(t, globalIngressRules, globalIngress.Spec.Rules)
 
-	err = trafficWeightsUpdated(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, expectedWeights, nil).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, expectedWeights, nil).await()
 	require.NoError(t, err)
 }
 
@@ -286,6 +284,8 @@ func testStacksetCreate(t *testing.T, testName string, hpa bool, ingress bool) {
 func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngress, newIngress bool) {
 	t.Parallel()
 
+	var actualTraffic []*zv1.ActualTraffic
+
 	stacksetName := fmt.Sprintf("stackset-update-%s", testName)
 	initialVersion := "v1"
 	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
@@ -294,6 +294,13 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	}
 	if oldIngress {
 		stacksetSpecFactory.Ingress()
+		actualTraffic = []*zv1.ActualTraffic{
+			{
+				ServiceName: stacksetName + "-" + initialVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      100.0,
+			},
+		}
 	}
 	stacksetSpec := stacksetSpecFactory.Create(initialVersion)
 
@@ -305,7 +312,10 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
 	}
 
-	verifyStackSetStatus(t, stacksetName, initialVersion)
+	verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+		observedStackVersion: initialVersion,
+		actualTraffic:        actualTraffic,
+	})
 
 	stacksetSpecFactory = NewTestStacksetSpecFactory(stacksetName)
 	updatedVersion := "v2"
@@ -314,21 +324,49 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	}
 	if newIngress {
 		stacksetSpecFactory.Ingress()
+		actualTraffic = []*zv1.ActualTraffic{
+			{
+				ServiceName: stacksetName + "-" + initialVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      100.0,
+			},
+			{
+				ServiceName: stacksetName + "-" + updatedVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      0.0,
+			},
+		}
+	} else if oldIngress {
+		actualTraffic = nil
 	}
 	updatedSpec := stacksetSpecFactory.Create(updatedVersion)
 	err = updateStackset(stacksetName, updatedSpec)
 	require.NoError(t, err)
 	verifyStack(t, stacksetName, updatedVersion, updatedSpec)
-	verifyStackSetStatus(t, stacksetName, updatedVersion)
+	verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+		observedStackVersion: updatedVersion,
+		actualTraffic:        actualTraffic,
+	})
 
 	if newIngress {
 		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0})
+		// no traffic switch here
+		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+			observedStackVersion: updatedVersion,
+			actualTraffic:        actualTraffic,
+		})
+
 	} else if oldIngress {
 		err = resourceDeleted(t, "ingress", fmt.Sprintf("%s-%s", stacksetName, initialVersion), ingressInterface()).await()
 		require.NoError(t, err)
 
 		err = resourceDeleted(t, "ingress", stacksetName, ingressInterface()).await()
 		require.NoError(t, err)
+		actualTraffic = nil
+		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+			observedStackVersion: updatedVersion,
+			actualTraffic:        actualTraffic,
+		})
 	}
 }
 

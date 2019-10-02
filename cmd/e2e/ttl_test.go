@@ -68,9 +68,9 @@ func TestStackTTLWithIngress(t *testing.T) {
 
 		// once the stack is created switch full traffic to it
 		newWeight := map[string]float64{fullStackName: 100}
-		err = setDesiredTrafficWeights(stacksetName, newWeight)
+		err = setDesiredTrafficWeightsIngress(stacksetName, newWeight)
 		require.NoError(t, err)
-		err = trafficWeightsUpdated(t, stacksetName, weightKindActual, newWeight, nil).withTimeout(10 * time.Minute).await()
+		err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, newWeight, nil).withTimeout(10 * time.Minute).await()
 		require.NoError(t, err)
 	}
 
@@ -119,10 +119,10 @@ func TestStackTTLForLatestStack(t *testing.T) {
 		if i == 0 {
 			// Explicitly switch traffic to the first stack
 			newWeight := map[string]float64{fullStackName: 100}
-			err = setDesiredTrafficWeights(stacksetName, newWeight)
+			err = setDesiredTrafficWeightsIngress(stacksetName, newWeight)
 			require.NoError(t, err)
 
-			err = trafficWeightsUpdated(t, stacksetName, weightKindActual, newWeight, nil).withTimeout(10 * time.Minute).await()
+			err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, newWeight, nil).withTimeout(10 * time.Minute).await()
 			require.NoError(t, err)
 		}
 	}

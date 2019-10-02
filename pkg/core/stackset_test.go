@@ -978,7 +978,23 @@ func TestGenerateStackSetStatus(t *testing.T) {
 			},
 		},
 	}
-	require.EqualValues(t, expected, c.GenerateStackSetStatus())
+	status := c.GenerateStackSetStatus()
+	require.Equal(t, expected.Stacks, status.Stacks)
+	require.Equal(t, expected.ReadyStacks, status.ReadyStacks)
+	require.Equal(t, expected.StacksWithTraffic, status.StacksWithTraffic)
+	require.Equal(t, expected.ObservedStackVersion, status.ObservedStackVersion)
+
+	h := make(map[string]*zv1.ActualTraffic)
+	for i := range expected.Traffic {
+		t := expected.Traffic[i]
+		h[t.ServiceName] = t
+	}
+	g := make(map[string]*zv1.ActualTraffic)
+	for i := range status.Traffic {
+		t := status.Traffic[i]
+		g[t.ServiceName] = t
+	}
+	require.EqualValues(t, g, h)
 }
 
 func TestStackSetGenerateIngress(t *testing.T) {
