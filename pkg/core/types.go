@@ -359,11 +359,10 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 
 	if ssc.hasActualTrafficFromStackSet() {
 		return ssc.updateActualTrafficFromStackSet()
-	} else {
-
-		// TODO(sszuecs): delete until end of function, if we drop ingress based desired traffic. For step1 we need the fallback but update the stackset status, too
-		return ssc.updateActualTrafficFromIngress()
 	}
+
+	// TODO(sszuecs): delete until end of function, if we drop ingress based desired traffic. For step1 we need the fallback but update the stackset status, too
+	return ssc.updateActualTrafficFromIngress()
 }
 
 func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
