@@ -15,28 +15,30 @@ import (
 )
 
 type TestStacksetSpecFactory struct {
-	stacksetName   string
-	hpa            bool
-	ingress        bool
-	limit          int32
-	scaleDownTTL   int64
-	replicas       int32
-	hpaMaxReplicas int32
-	hpaMinReplicas int32
-	autoscaler     bool
-	metrics        []zv1.AutoscalerMetrics
+	stacksetName    string
+	hpa             bool
+	ingress         bool
+	externalIngress bool
+	limit           int32
+	scaleDownTTL    int64
+	replicas        int32
+	hpaMaxReplicas  int32
+	hpaMinReplicas  int32
+	autoscaler      bool
+	metrics         []zv1.AutoscalerMetrics
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	return &TestStacksetSpecFactory{
-		stacksetName:   stacksetName,
-		hpa:            false,
-		ingress:        false,
-		limit:          4,
-		scaleDownTTL:   10,
-		replicas:       1,
-		hpaMinReplicas: 1,
-		hpaMaxReplicas: 3,
+		stacksetName:    stacksetName,
+		hpa:             false,
+		ingress:         false,
+		externalIngress: false,
+		limit:           4,
+		scaleDownTTL:    10,
+		replicas:        1,
+		hpaMinReplicas:  1,
+		hpaMaxReplicas:  3,
 	}
 }
 
@@ -49,6 +51,11 @@ func (f *TestStacksetSpecFactory) HPA(minReplicas, maxReplicas int32) *TestStack
 
 func (f *TestStacksetSpecFactory) Ingress() *TestStacksetSpecFactory {
 	f.ingress = true
+	return f
+}
+
+func (f *TestStacksetSpecFactory) ExternalIngress() *TestStacksetSpecFactory {
+	f.externalIngress = true
 	return f
 }
 
@@ -117,6 +124,11 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 	if f.ingress {
 		result.Ingress = &zv1.StackSetIngressSpec{
 			Hosts:       []string{hostname(f.stacksetName)},
+			BackendPort: intstr.FromInt(80),
+		}
+	}
+	if f.externalIngress {
+		result.ExternalIngress = &zv1.StackSetExternalIngressSpec{
 			BackendPort: intstr.FromInt(80),
 		}
 	}
@@ -214,6 +226,23 @@ func verifyStackSetStatus(t *testing.T, stacksetName string, expected expectedSt
 	require.NoError(t, err)
 }
 
+func verifyStacksetExternalIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, weights map[string]float64) {
+	require.NotNil(t, stacksetSpec.ExternalIngress)
+	require.NotNil(t, stacksetSpec.ExternalIngress.BackendPort)
+
+	expectedWeights := make(map[string]float64)
+	for stack, weight := range weights {
+		stackName := fmt.Sprintf("%s-%s", stacksetName, stack)
+		expectedWeights[stackName] = weight
+
+		if weight == 0.0 {
+			continue
+		}
+	}
+	err := trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, expectedWeights, nil).await()
+	require.NoError(t, err)
+}
+
 func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64) {
 	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
 
@@ -258,7 +287,7 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	require.NoError(t, err)
 }
 
-func testStacksetCreate(t *testing.T, testName string, hpa bool, ingress bool) {
+func testStacksetCreate(t *testing.T, testName string, hpa, ingress, externalIngress bool) {
 	t.Parallel()
 
 	stacksetName := fmt.Sprintf("stackset-create-%s", testName)
@@ -270,6 +299,9 @@ func testStacksetCreate(t *testing.T, testName string, hpa bool, ingress bool) {
 	if ingress {
 		stacksetSpecFactory.Ingress()
 	}
+	if externalIngress {
+		stacksetSpecFactory.ExternalIngress()
+	}
 	stacksetSpec := stacksetSpecFactory.Create(stackVersion)
 	err := createStackSet(stacksetName, 0, stacksetSpec)
 	require.NoError(t, err)
@@ -279,9 +311,12 @@ func testStacksetCreate(t *testing.T, testName string, hpa bool, ingress bool) {
 	if ingress {
 		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
 	}
+	if externalIngress {
+		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
+	}
 }
 
-func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngress, newIngress bool) {
+func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngress, newIngress, oldExternalIngress, newExternalIngress bool) {
 	t.Parallel()
 
 	var actualTraffic []*zv1.ActualTraffic
@@ -294,6 +329,12 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	}
 	if oldIngress {
 		stacksetSpecFactory.Ingress()
+	}
+	if oldExternalIngress {
+		stacksetSpecFactory.ExternalIngress()
+	}
+
+	if oldIngress || oldExternalIngress {
 		actualTraffic = []*zv1.ActualTraffic{
 			{
 				ServiceName: stacksetName + "-" + initialVersion,
@@ -311,6 +352,9 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	if oldIngress {
 		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
 	}
+	if oldExternalIngress {
+		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
+	}
 
 	verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 		observedStackVersion: initialVersion,
@@ -324,21 +368,12 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	}
 	if newIngress {
 		stacksetSpecFactory.Ingress()
-		actualTraffic = []*zv1.ActualTraffic{
-			{
-				ServiceName: stacksetName + "-" + initialVersion,
-				ServicePort: intstr.FromInt(80),
-				Weight:      100.0,
-			},
-			{
-				ServiceName: stacksetName + "-" + updatedVersion,
-				ServicePort: intstr.FromInt(80),
-				Weight:      0.0,
-			},
-		}
-	} else if oldIngress {
+	} else if newExternalIngress {
+		stacksetSpecFactory.ExternalIngress()
+	} else if oldIngress || oldExternalIngress {
 		actualTraffic = nil
 	}
+
 	updatedSpec := stacksetSpecFactory.Create(updatedVersion)
 	err = updateStackset(stacksetName, updatedSpec)
 	require.NoError(t, err)
@@ -362,42 +397,63 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 
 		err = resourceDeleted(t, "ingress", stacksetName, ingressInterface()).await()
 		require.NoError(t, err)
-		actualTraffic = nil
+		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+			observedStackVersion: updatedVersion,
+			actualTraffic:        nil,
+		})
+	} else if newExternalIngress {
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,
 			actualTraffic:        actualTraffic,
+		})
+	} else if oldExternalIngress {
+		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+			observedStackVersion: updatedVersion,
+			actualTraffic:        nil,
 		})
 	}
 }
 
 func TestStacksetCreateBasic(t *testing.T) {
-	testStacksetCreate(t, "basic", false, false)
+	testStacksetCreate(t, "basic", false, false, false)
 }
 
 func TestStacksetCreateHPA(t *testing.T) {
-	testStacksetCreate(t, "hpa", true, false)
+	testStacksetCreate(t, "hpa", true, false, false)
 }
 
 func TestStacksetCreateIngress(t *testing.T) {
-	testStacksetCreate(t, "ingress", false, true)
+	testStacksetCreate(t, "ingress", false, true, false)
+}
+
+func TestStacksetCreateExternalIngress(t *testing.T) {
+	testStacksetCreate(t, "externalingress", false, false, true)
 }
 
 func TestStacksetUpdateBasic(t *testing.T) {
-	testStacksetUpdate(t, "basic", false, false, false, false)
+	testStacksetUpdate(t, "basic", false, false, false, false, false, false)
 }
 
 func TestStacksetUpdateAddHPA(t *testing.T) {
-	testStacksetUpdate(t, "add-hpa", false, true, false, false)
+	testStacksetUpdate(t, "add-hpa", false, true, false, false, false, false)
 }
 
 func TestStacksetUpdateDeleteHPA(t *testing.T) {
-	testStacksetUpdate(t, "delete-hpa", true, false, false, false)
+	testStacksetUpdate(t, "delete-hpa", true, false, false, false, false, false)
 }
 
 func TestStacksetUpdateAddIngress(t *testing.T) {
-	testStacksetUpdate(t, "add-ingress", false, false, false, true)
+	testStacksetUpdate(t, "add-ingress", false, false, false, true, false, false)
 }
 
 func TestStacksetUpdateDeleteIngress(t *testing.T) {
-	testStacksetUpdate(t, "delete-ingress", false, false, true, false)
+	testStacksetUpdate(t, "delete-ingress", false, false, true, false, false, false)
+}
+
+func TestStacksetUpdateAddExternalIngress(t *testing.T) {
+	testStacksetUpdate(t, "add-externalingress", false, false, false, false, false, true)
+}
+
+func TestStacksetUpdateDeleteExternalIngress(t *testing.T) {
+	testStacksetUpdate(t, "delete-externalingress", false, false, false, false, true, false)
 }

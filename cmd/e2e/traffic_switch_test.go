@@ -10,7 +10,7 @@ import (
 func TestTrafficSwitchIngress(t *testing.T) {
 	t.Parallel()
 
-	stacksetName := "stackset-switch-traffic-ingress"
+	stacksetName := "switch-traffic-ingress"
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	updatedVersion := "v2"
@@ -85,7 +85,7 @@ func TestTrafficSwitchIngress(t *testing.T) {
 func TestTrafficSwitchStackset(t *testing.T) {
 	t.Parallel()
 
-	stacksetName := "stackset-switch-traffic-stackset"
+	stacksetName := "switch-traffic-stackset"
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	updatedVersion := "v2"
@@ -160,7 +160,7 @@ func TestTrafficSwitchStackset(t *testing.T) {
 func TestTrafficSwitchDesiredStacksetActualIngress(t *testing.T) {
 	t.Parallel()
 
-	stacksetName := "stackset-switch-traffic-desired-stackset-actual-ingress"
+	stacksetName := "switch-traffic-desired-stackset-actual-ing"
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	updatedVersion := "v2"
@@ -235,7 +235,7 @@ func TestTrafficSwitchDesiredStacksetActualIngress(t *testing.T) {
 func TestTrafficSwitchDesiredIngressActualStackset(t *testing.T) {
 	t.Parallel()
 
-	stacksetName := "stackset-switch-traffic-desired-ingress-actual-stackset"
+	stacksetName := "switch-traffic-desired-ing-actual-stackset"
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	updatedVersion := "v2"
