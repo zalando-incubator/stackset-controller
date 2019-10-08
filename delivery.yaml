@@ -19,7 +19,7 @@ pipeline:
     cmd: |
       if [[ $CDP_TARGET_BRANCH == master && ! $CDP_PULL_REQUEST_NUMBER ]]; then
         IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
-        VERSION=$(git describe --tags --always --dirty)
+        VERSION=$(git describe --tags --always)
       else
         IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
         VERSION=$CDP_BUILD_VERSION
