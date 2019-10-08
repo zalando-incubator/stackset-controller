@@ -261,3 +261,59 @@ It will still prescale to the sum of stacks getting traffic within each step.
 This means that it might overscale for some minutes before the HPA kicks in and
 scales back down to the needed resources. Reliability is favoured over cost in
 the prescale logic.
+
+## Traffic Switch resources controlled by External Controllers
+
+External controllers could create routes based on multiple Ingress,
+[RouteGroup](https://github.com/zalando/skipper/blob/feature/routegroup-crd/dataclients/kubernetes/crd.md),
+[SMI](https://smi-spec.io/),
+[Istio](https://istio.io/docs/tasks/traffic-management/request-routing/)
+or other CRDs.
+
+Known controllers, that support this:
+- `<add-yours-here>`
+
+### Configure ExternalIngress backendPort
+
+Users need to provide the `backendPort` value under `spec.externalIngress` as shown below:
+
+```yaml
+apiVersion: zalando.org/v1
+kind: StackSet
+metadata:
+  name: my-app
+spec:
+  externalIngress:
+    backendPort: 8080
+```
+
+### Integrating an External Controller
+
+Clients set the traffic switch states in `spec.Traffic`.
+External controllers should read actual traffic switch status from
+`status.Traffic`. The `status.Traffic` has all information to link to
+the right Kubernetes service.
+
+```yaml
+apiVersion: zalando.org/v1
+kind: StackSet
+metadata:
+  name: my-app
+spec:
+  traffic:
+  - stackName: my-app-v1
+    weight: 80
+  - stackName: my-app-v2
+    weight: 20
+status:
+  observedStackVersion: v2
+  stacks: 2
+  stacksWithTraffic: 1
+  traffic:
+  - serviceName: my-app-v1
+    servicePort: 8080
+    weight: 100
+  - serviceName: my-app-v2
+    servicePort: 8080
+    weight: 0
+```

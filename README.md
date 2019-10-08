@@ -36,14 +36,14 @@ The `StackSet` is a declarative way of describing the application stack as a
 whole, and the `Stacks` describe individual versions of the
 application. The `StackSet` also allows defining a "global" load balancer
 spanning all stacks of the stackset which makes it possible to switch
-traffic to different stacks at the load balancer (Ingress) level.
+traffic to different stacks at the load balancer (for example Ingress) level.
 
 
 ```
                                  +-----------------------+
                                  |                       |
                                  |     Load Balancer     |
-                                 |       (Ingress)       |
+                                 |     (p.e. Ingress)    |
                                  |                       |
                                  +--+--------+--------+--+
                                     | 0%     | 20%    | 80%
@@ -70,10 +70,16 @@ spec:
   ingress:
     hosts: [my-app.example.org, alt.name.org]
     backendPort: 80
+  # optional desired traffic weights defined by stack
+  traffic:
+  - stackName: mystack-v1
+    weight: 80
+  - stackName: mystack-v2
+    weight: 20
   stackLifecycle:
     scaledownTTLSeconds: 300
-    limit: 5 # maximum number of scaled down stacks to keep. 
-             # If there are more than `limit` stacks, the oldest stacks which are scaled down 
+    limit: 5 # maximum number of scaled down stacks to keep.
+             # If there are more than `limit` stacks, the oldest stacks which are scaled down
              # will be deleted.
   stackTemplate:
     spec:
@@ -174,9 +180,13 @@ behavior for the `StackSet`:
 
 * Automatically create new Stacks when the `StackSet` is updated with a new
   version in the `stackTemplate`.
-* Do traffic switching between Stacks at the Ingress layer. Ingress
+* Do traffic switching between Stacks at the Ingress layer, if you
+  have the ingress definition in the spec. Ingress
   resources are automatically updated when new stacks are created. (This
-  require that your ingress controller implements the annotation `zalando.org/backend-weights: {"my-app-1": 80, "my-app-2": 20}`, for example use [skipper](https://github.com/zalando/skipper) for Ingress).
+  require that your ingress controller implements the annotation
+  `zalando.org/backend-weights: {"my-app-1": 80, "my-app-2": 20}`, for
+  example use [skipper](https://github.com/zalando/skipper) for
+  Ingress) or read the information from stackset `status.Traffic`.
 * Safely switch traffic to scaled down stacks. If a stack is scaled down, it
   will be scaled up automatically before traffic is directed to it.
 * Dynamically provision Ingresses per stack, with per stack host names. I.e.
@@ -190,6 +200,10 @@ behavior for the `StackSet`:
     `Deployment`, `Ingress` and optionally `HorizontalPodAutoscaler`.
 * Command line utility (`traffic`) for showing and switching traffic between
   stacks.
+* You can opt-out of the global `Ingress` creation with
+  `externalIngress:` spec, such that external controllers can manage
+  the Ingress or CRD creation, that will configure the routing into
+  the cluster.
 
 ## Docs
 
