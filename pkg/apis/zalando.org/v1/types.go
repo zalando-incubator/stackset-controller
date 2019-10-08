@@ -83,10 +83,10 @@ type MetricsQueue struct {
 // +k8s:deepcopy-gen=true
 type AutoscalerMetrics struct {
 	Type               string             `json:"type"`
-	Average            *resource.Quantity `json:"average,omitEmpty"`
-	Endpoint           *MetricsEndpoint   `json:"endpoint,omitEmpty"`
+	Average            *resource.Quantity `json:"average,omitempty"`
+	Endpoint           *MetricsEndpoint   `json:"endpoint,omitempty"`
 	AverageUtilization *int32             `json:"averageUtilization,omitempty"`
-	Queue              *MetricsQueue      `json:"queue,omitEmpty"`
+	Queue              *MetricsQueue      `json:"queue,omitempty"`
 }
 
 // Autoscaler is the autoscaling definition for a stack
