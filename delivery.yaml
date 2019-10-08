@@ -3,8 +3,6 @@ pipeline:
 - id: build
   overlay: ci/golang
   type: script
-  env:
-    GOFLAGS: "-mod=readonly"
   cache:
     paths:
     - /go/pkg/mod       # pkg cache for Go modules
