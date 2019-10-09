@@ -164,7 +164,6 @@ type StackResources struct {
 	HPA        *autoscaling.HorizontalPodAutoscaler
 	Service    *v1.Service
 	Ingress    *extensions.Ingress
-	// TODO(sszuecs): maybe add ExternalIngressBackendPort
 }
 
 func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
@@ -345,7 +344,6 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		sc.updateFromResources()
 	}
 
-	// TODO(sszuecs): step1, if you set desired in spec you get the behavior, but fallback to former behavior
 	if ssc.hasDesiredTrafficFromStackSet() {
 		err := ssc.updateDesiredTrafficFromStackSet()
 		if err != nil {
@@ -386,54 +384,6 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 	})
 	return result
 }
-
-// // GetDesiredTrafficFromStacks is used to get the desired traffic spec.Traffic from stack information
-// func (ssc *StackSetContainer) GetDesiredTrafficFromStacks() []*zv1.DesiredTraffic {
-// 	var result []*zv1.DesiredTraffic
-
-// 	for _, sc := range ssc.StackContainers {
-// 		result = append(result, &zv1.DesiredTraffic{
-// 			StackName: sc.Name(),
-// 			Weight:    sc.desiredTrafficWeight,
-// 		})
-// 	}
-
-// 	sort.Slice(result, func(i, j int) bool {
-// 		return result[i].StackName < result[j].StackName
-// 	})
-// 	return result
-// }
-
-// // GetActualTrafficFromStacks is used to get the actual traffic spec.Traffic from stack information
-// func (ssc *StackSetContainer) GetActualTrafficFromStacks() []*zv1.ActualTraffic {
-// 	var result []*zv1.ActualTraffic
-
-// 	for _, sc := range ssc.StackContainers {
-// 		p := sc.ServicePort()
-// 		if p == 0 {
-// 			log.Errorf("Failed to get a service port for stack: %s/%s", sc.Stack.Namespace, sc.Stack.Name)
-// 			continue
-// 		}
-// 		result = append(result, &zv1.ActualTraffic{
-// 			ServiceName: sc.Name(),
-// 			ServicePort: p,
-// 			Weight:      sc.actualTrafficWeight,
-// 		})
-// 	}
-
-// 	sort.Slice(result, func(i, j int) bool {
-// 		return result[i].ServiceName < result[j].ServiceName
-// 	})
-// 	return result
-// }
-
-// func (sc *StackContainer) ServicePort() int32 {
-// 	svc := sc.Resources.Service
-// 	if svc != nil && len(svc.Spec.Ports) > 0 {
-// 		return svc.Spec.Ports[0].Port
-// 	}
-// 	return int32(0)
-// }
 
 func (sc *StackContainer) updateFromResources() {
 	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.Replicas)

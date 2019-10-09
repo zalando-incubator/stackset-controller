@@ -103,44 +103,6 @@ func (c *StackSetController) stackLogger(ssc *core.StackSetContainer, sc *core.S
 	})
 }
 
-// TODO(sszuecs): maybe good for step2
-// func (c *StackSetController) migrateIngressAnntoationsToStackset() error {
-// 	stacksetContainers, err := c.collectResources()
-// 	if err != nil {
-// 		c.logger.Errorf("Failed to collect resources for migration: %v", err)
-// 		return err
-// 	}
-
-// 	for _, ssc := range stacksetContainers {
-// 		err = c.CreateCurrentStack(ssc)
-// 		if err != nil {
-// 			c.stacksetLogger(ssc).Errorf("Unable to create stack for migration: %v", err)
-// 			continue
-// 		}
-
-// 		// TODO(sszuecs): update stackset spec.Traffic and status.Traffic
-// 		// maybe this should just return the actual/desired weights {"stacksetname": { "stackname": {weights}
-// 		// OR split UpdateTrafficFromIngress into 2 separate function that can be used here
-// 		err = ssc.UpdateTrafficFromIngress()
-// 		if err != nil {
-// 			c.stacksetLogger(ssc).Errorf("Unable to update from ingress for migration: %v", err)
-// 			continue
-// 		}
-
-// 		// create Traffic if it does not exist, migration from ingress to stackset
-// 		if ssc.StackSet.Spec.Traffic == nil {
-// 			ssc.StackSet.Spec.Traffic = ssc.GetDesiredTrafficFromStacks()
-// 		}
-
-// 		if ssc.StackSet.Status.Traffic == nil {
-// 			ssc.StackSet.Status.Traffic = ssc.GetActualTrafficFromStacks()
-// 		}
-
-// 	}
-
-// 	return nil
-// }
-
 // Run runs the main loop of the StackSetController. Before the loops it
 // sets up a watcher to watch StackSet resources. The watch will send
 // changes over a channel which is polled from the main loop.
@@ -148,14 +110,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 	c.startWatch(ctx)
 
 	nextCheck := time.Now().Add(-c.interval)
-
-	// TODO(sszuecs): migration from old stackset to new, naybe good for step2
-	// If no traffic in stackset spec and status:
-	//   get from ingress
-	//   Write to stackset
-	// if err := c.migrateIngressAnntoationsToStackset(); err != nil {
-	// 	log.Fatalf("Failed to migrate ingress annotations to stackset: %v", err)
-	// }
 
 	for {
 		select {
@@ -593,7 +547,7 @@ func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) err
 	// Persist ObservedStackVersion in the status
 	updated := ssc.StackSet.DeepCopy()
 	updated.Status.ObservedStackVersion = newStackVersion
-	// TODO(sszuecs): Do we need to create updated.Status.Traffic ? I guess not
+
 	result, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(updated)
 	if err != nil {
 		return err
@@ -690,17 +644,6 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 		ingress.Name)
 	return nil
 }
-
-// TODO(sszuecs): step 2
-// func (c *StackSetController) ReconcileStackSetDesiredTraffic(stackset *zv1.StackSet, existing []*zv1.DesiredTraffic, generateUpdated func() []*zv1.DesiredTraffic) error {
-
-// 	 if len(existing) == 0 {
-// 	 	dt := generateUpdated()
-// 	 }
-// 	c.ReconcileStackSet(ssc.StackSet, ssc.Ingress, GenerateStackSetDesiredTraffic)
-
-// 	return nil
-// }
 
 func (c *StackSetController) ReconcileStackSetResources(ssc *core.StackSetContainer) error {
 	// opt-out ingress creation in case we have an external entity creating ingress
@@ -802,12 +745,6 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 		c.stacksetLogger(container).Errorf("Unable to delete old stacks: %v", err)
 	}
-
-	// TODO(sszuecs): Update desired spec.Traffic for step2
-	// err = c.ReconcileStackSetDesiredTraffic(container)
-	// if err != nil {
-	// 	return err
-	// }
 
 	// Update statuses.
 	err = c.ReconcileStatuses(container)

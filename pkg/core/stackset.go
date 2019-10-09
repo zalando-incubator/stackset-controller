@@ -254,16 +254,3 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 	result.Traffic = traffic
 	return result
 }
-
-// TODO(sszuecs): used in step2 to generate the relevant sackset spec
-// func (ssc *StackSetContainer) GenerateStackSetDesiredTraffic() []*zv1.DesiredTraffic {
-// 	var result []*zv1.DesiredTraffic
-
-// 	for _, sc := range ssc.StackContainers {
-// 		result = append(result, &zv1.DesiredTraffic{
-// 			StackName: sc.Stack.Name,
-// 			Weight:    sc.desiredTrafficWeight,
-// 		})
-// 	}
-// 	return result
-// }
