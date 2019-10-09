@@ -91,18 +91,20 @@ pipeline:
       IMAGE=$IMAGE VERSION=$VERSION make build.push
       echo "create release page"
       GITMSG=$(git log -1 --pretty=%B | grep -v 'Signed-off-by:' | grep -v -E '^\s*$' | tail -n +2)
-      MSG=$(cat <<EOF
+      MSG=$(cat <<"EOF"
       ### Changes
 
-      $GITMSG
+      GITMSG
 
       ### Docker image
 
       Docker image is available in Zalando's Open Source registry:
 
       ```
-      docker run -it registry.opensource.zalan.do/teapot/stackset-controller:$VERSION --help
+      docker run -it registry.opensource.zalan.do/teapot/stackset-controller:VERSION --help
       ```
       EOF
       )
-      git gh-release -m "$MSG" $VERSION
+      MSG=$(echo $MSG | sed "s/VERSION/$VERSION/")
+      MSG=$(echo $MSG | sed "s/GITMSG/$GITMSG/")
+      git gh-release -m "${MSG}" $VERSION
