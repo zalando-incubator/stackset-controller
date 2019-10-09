@@ -17,13 +17,8 @@ pipeline:
       make build.docker
   - desc: push
     cmd: |
-      VERSION=$(git describe --tags --always)
-      if [[ $CDP_TARGET_BRANCH == master && ! $CDP_PULL_REQUEST_NUMBER ]]; then
-        IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
-      else
-        IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
-      fi
-      IMAGE=$IMAGE VERSION=$VERSION make build.push
+      IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
+      IMAGE=$IMAGE VERSION=$CDP_BUILD_VERSION make build.push
 
 - id: e2e
   type: process
@@ -62,3 +57,23 @@ pipeline:
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.namespace
+
+- id: buildprod
+  when:
+    branch: master
+  overlay: ci/golang
+  type: script
+  env:
+    GOFLAGS: "-mod=readonly"
+  cache:
+    paths:
+    - /go/pkg/mod       # pkg cache for Go modules
+    - ~/.cache/go-build # Go build cache
+  commands:
+  - desc: push
+    cmd: |
+      VERSION=$(git describe --tags --always)
+      IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
+      IMAGE=$IMAGE VERSION=$VERSION make build.docker
+      git diff --stat --exit-code
+      IMAGE=$IMAGE VERSION=$VERSION make build.push
