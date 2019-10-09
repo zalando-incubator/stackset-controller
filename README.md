@@ -377,3 +377,20 @@ To understand how this works see the upstream
 for generating client interface code for CRDs.
 
 [crd]: https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
+
+## Upgrade
+
+### <= v1.0.0 to >= v1.1.0
+
+Clients that write the desired traffic switching value have to move
+from ingress annotation `zalando.org/stack-traffic-weights: '{"mystack-v1":80, "mystack-v2": 20}'`
+to stackset `spec.traffic`:
+
+```yaml
+spec:
+  traffic:
+  - stackName: mystack-v1
+    weight: 80
+  - stackName: mystack-v2
+    weight: 20
+```
