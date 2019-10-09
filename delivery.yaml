@@ -21,7 +21,7 @@ pipeline:
       if [[ $CDP_TARGET_BRANCH == master && ! $CDP_PULL_REQUEST_NUMBER ]]; then
         IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
       else
-        VERSION=CDP_BUILD_VERSION
+        VERSION=$CDP_BUILD_VERSION
         IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
       fi
       IMAGE=$IMAGE VERSION=$VERSION make build.push
