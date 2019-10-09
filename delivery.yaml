@@ -74,7 +74,7 @@ pipeline:
   - desc: create tag and release
     cmd: |
       LATEST_VERSION=$(git describe --tags --always)
-      VERSION_PART=$(echo $LATEST_VERSION | awk -F . '{print $1"."$2"."}')
+      VERSION_PART=$(cat VERSION)
       OLD_PATCH=$(echo $LATEST_VERSION | awk -F . '{print $3}')
       NEW_PATCH=$((OLD_PATCH + 1))
       VERSION=${VERSION_PART}${NEW_PATCH}
