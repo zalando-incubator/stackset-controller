@@ -59,7 +59,6 @@ pipeline:
                 valueFrom:
                   fieldRef:
                     fieldPath: metadata.namespace
-
 - id: buildprod
   when:
     branch: master
@@ -72,10 +71,34 @@ pipeline:
     - /go/pkg/mod       # pkg cache for Go modules
     - ~/.cache/go-build # Go build cache
   commands:
-  - desc: push
+  - desc: create tag and release
     cmd: |
-      VERSION=$(git describe --tags --always)
+      LATEST_VERSION=$(git describe --tags --always)
+      VERSION_PART=$(echo $LATEST_VERSION | awk -F . '{print $1"."$2"."}')
+      OLD_PATCH=$(echo $LATEST_VERSION | awk -F . '{print $3}')
+      NEW_PATCH=$((OLD_PATCH + 1))
+      VERSION=${VERSION_PART}${NEW_PATCH}
+      echo "Creating release for tag: ${VERSION}"
+      git gh-tag $VERSION
+      echo "create and push docker container"
       IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
       IMAGE=$IMAGE VERSION=$VERSION make build.docker
       git diff --stat --exit-code
       IMAGE=$IMAGE VERSION=$VERSION make build.push
+      echo "create release page"
+      GITMSG=$(git log -1 --pretty=%B | grep -v 'Signed-off-by:' | grep -v -E '^\s*$' | tail -n +2)
+      MSG=$(cat <<EOF
+      ### Changes
+
+      $GITMSG
+
+      ### Docker image
+
+      Docker image is available in Zalando's Open Source registry:
+
+      ```
+      docker run -it registry.opensource.zalan.do/teapot/stackset-controller:$VERSION --help
+      ```
+      EOF
+      )
+      git gh-release -m "$MSG" $VERSION
