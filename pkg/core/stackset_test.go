@@ -618,12 +618,6 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 		expectedDesiredWeights map[string]float64
 		expectedActualWeights  map[string]float64
 	}{
-		// this case would fallback to ingress
-		// {
-		// 	name:                   "no weights are present",
-		// 	expectedDesiredWeights: map[string]float64{"foo-v1": 100},
-		// 	expectedActualWeights:  map[string]float64{"foo-v1": 100},
-		// },
 		{
 			name: "desired and actual weights are parsed correctly",
 			desiredTraffic: []*zv1.DesiredTraffic{
