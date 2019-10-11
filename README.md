@@ -43,7 +43,7 @@ traffic to different stacks at the load balancer (for example Ingress) level.
                                  +-----------------------+
                                  |                       |
                                  |     Load Balancer     |
-                                 |     (p.e. Ingress)    |
+                                 | (for example Ingress) |
                                  |                       |
                                  +--+--------+--------+--+
                                     | 0%     | 20%    | 80%
