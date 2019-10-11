@@ -337,6 +337,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	if oldIngress || oldExternalIngress {
 		actualTraffic = []*zv1.ActualTraffic{
 			{
+				StackName:   stacksetName + "-" + initialVersion,
 				ServiceName: stacksetName + "-" + initialVersion,
 				ServicePort: intstr.FromInt(80),
 				Weight:      100.0,

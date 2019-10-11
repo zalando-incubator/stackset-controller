@@ -236,6 +236,7 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 		}
 		if sc.HasBackendPort() {
 			t := &zv1.ActualTraffic{
+				StackName:   sc.Name(),
 				ServiceName: sc.Name(),
 				ServicePort: *sc.backendPort,
 				Weight:      sc.actualTrafficWeight,

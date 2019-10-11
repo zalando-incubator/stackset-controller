@@ -175,6 +175,7 @@ type StackSetStatus struct {
 // stackset, controllers interested in current traffic decision should
 // read this.
 type ActualTraffic struct {
+	StackName   string             `json:"stackName"`
 	ServiceName string             `json:"serviceName"`
 	ServicePort intstr.IntOrString `json:"servicePort"`
 	Weight      float64            `json:"weight"`

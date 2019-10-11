@@ -310,10 +310,12 @@ status:
   stacks: 2
   stacksWithTraffic: 1
   traffic:
-  - serviceName: my-app-v1
+  - stackName: my-app-v1
+    serviceName: my-app-v1
     servicePort: 8080
     weight: 100
-  - serviceName: my-app-v2
+  - stackName: my-app-v2
+    serviceName: my-app-v2
     servicePort: 8080
     weight: 0
 ```

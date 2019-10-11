@@ -838,14 +838,17 @@ func TestGenerateStackSetStatus(t *testing.T) {
 		ObservedStackVersion: "v1",
 		Traffic: []*zv1.ActualTraffic{
 			{
+				StackName:   "v2",
 				ServiceName: "v2",
 				ServicePort: intstr.FromInt(testPort),
 				Weight:      1,
 			}, {
+				StackName:   "v3",
 				ServiceName: "v3",
 				ServicePort: intstr.FromInt(testPort),
 				Weight:      0,
 			}, {
+				StackName:   "v4",
 				ServiceName: "v4",
 				ServicePort: intstr.FromInt(testPort),
 				Weight:      0,
