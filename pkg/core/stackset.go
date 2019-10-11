@@ -234,7 +234,7 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 		if sc.PendingRemoval {
 			continue
 		}
-		if sc.backendPort != nil {
+		if sc.HasBackendPort() {
 			t := &zv1.ActualTraffic{
 				ServiceName: sc.Name(),
 				ServicePort: *sc.backendPort,

@@ -289,9 +289,9 @@ spec:
 
 ### Integrating an External Controller
 
-Clients set the traffic switch states in `spec.Traffic`.
+Clients set the traffic switch states in `spec.traffic`.
 External controllers should read actual traffic switch status from
-`status.Traffic`. The `status.Traffic` has all information to link to
+`status.traffic`. The `status.traffic` has all information to link to
 the right Kubernetes service.
 
 ```yaml

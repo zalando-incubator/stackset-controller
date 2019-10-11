@@ -186,7 +186,7 @@ behavior for the `StackSet`:
   require that your ingress controller implements the annotation
   `zalando.org/backend-weights: {"my-app-1": 80, "my-app-2": 20}`, for
   example use [skipper](https://github.com/zalando/skipper) for
-  Ingress) or read the information from stackset `status.Traffic`.
+  Ingress) or read the information from stackset `status.traffic`.
 * Safely switch traffic to scaled down stacks. If a stack is scaled down, it
   will be scaled up automatically before traffic is directed to it.
 * Dynamically provision Ingresses per stack, with per stack host names. I.e.

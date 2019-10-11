@@ -771,7 +771,6 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 			stack1 := testStack("foo-v1").stack()
 			stack2 := testStack("foo-v2").stack()
 			stack3 := testStack("foo-v3").stack()
-			// need a service definition
 
 			ssc := &StackSetContainer{
 				StackSet: &zv1.StackSet{
@@ -779,7 +778,6 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 						Name: "foo",
 					},
 					Spec: zv1.StackSetSpec{
-
 						Ingress: &zv1.StackSetIngressSpec{},
 					},
 				},

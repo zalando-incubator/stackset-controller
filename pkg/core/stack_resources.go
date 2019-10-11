@@ -225,7 +225,7 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	// get service ports to be used for the service
 	var backendPort *intstr.IntOrString
 	// Ingress or external managed Ingress
-	if sc.backendPort != nil {
+	if sc.HasBackendPort() {
 		backendPort = sc.backendPort
 	}
 
