@@ -266,3 +266,25 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 	result.Traffic = traffic
 	return result
 }
+
+func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
+	if !ssc.stacksetManagesTraffic {
+		return nil
+	}
+
+	if ssc.Ingress == nil && ssc.ExternalIngressBackendPort == nil {
+		return nil
+	}
+
+	var traffic []*zv1.DesiredTraffic
+	for _, sc := range ssc.StackContainers {
+		if sc.HasBackendPort() {
+			t := &zv1.DesiredTraffic{
+				StackName: sc.Name(),
+				Weight:    sc.desiredTrafficWeight,
+			}
+			traffic = append(traffic, t)
+		}
+	}
+	return traffic
+}
