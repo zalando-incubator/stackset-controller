@@ -50,6 +50,9 @@ type StackSetContainer struct {
 	// switching traffic between stacks. E.g. for prescaling stacks before
 	// switching traffic.
 	TrafficReconciler TrafficReconciler
+
+	// Whether the stackset should be authoritative for the traffic, and not the ingress
+	stacksetManagesTraffic bool
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -252,34 +255,30 @@ func (ssc *StackSetContainer) findFallbackStack() *StackContainer {
 // updateDesiredTrafficFromStackSet gets desired from stackset spec
 // and populates it to stack containers
 func (ssc *StackSetContainer) updateDesiredTrafficFromStackSet() error {
-	if !ssc.hasDesiredTrafficFromStackSet() {
-		stack := ssc.findFallbackStack()
-		ssc.StackSet.Spec.Traffic = []*zv1.DesiredTraffic{
-			&zv1.DesiredTraffic{
-				StackName: stack.Name(),
-				Weight:    100.0,
-			},
-		}
-	}
-
 	weights := make(map[string]float64)
-	for _, desiredTraffic := range ssc.StackSet.Spec.Traffic {
-		weights[desiredTraffic.StackName] = float64(desiredTraffic.Weight)
-	}
 
-	// filter stacks and normalize weights
-	stacksetNames := make(map[string]struct{})
-	for _, sc := range ssc.StackContainers {
-		stacksetNames[sc.Name()] = struct{}{}
-	}
-	for name := range weights {
-		if _, ok := stacksetNames[name]; !ok {
-			delete(weights, name)
+	if ssc.hasDesiredTrafficFromStackSet() {
+		for _, desiredTraffic := range ssc.StackSet.Spec.Traffic {
+			weights[desiredTraffic.StackName] = desiredTraffic.Weight
 		}
-	}
 
-	if !allZero(weights) {
-		normalizeWeights(weights)
+		// filter stacks and normalize weights
+		stacksetNames := make(map[string]struct{})
+		for _, sc := range ssc.StackContainers {
+			stacksetNames[sc.Name()] = struct{}{}
+		}
+		for name := range weights {
+			if _, ok := stacksetNames[name]; !ok {
+				delete(weights, name)
+			}
+		}
+
+		if !allZero(weights) {
+			normalizeWeights(weights)
+		}
+	} else {
+		stack := ssc.findFallbackStack()
+		weights[stack.Name()] = 100.0
 	}
 
 	// save values in stack containers
@@ -288,7 +287,6 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromStackSet() error {
 	}
 
 	return nil
-
 }
 
 // updateActualTrafficFromStackSet gets actual from stackset status
@@ -296,7 +294,7 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromStackSet() error {
 func (ssc *StackSetContainer) updateActualTrafficFromStackSet() error {
 	weights := make(map[string]float64)
 	for _, actualTraffic := range ssc.StackSet.Status.Traffic {
-		weights[actualTraffic.ServiceName] = float64(actualTraffic.Weight)
+		weights[actualTraffic.ServiceName] = actualTraffic.Weight
 	}
 
 	// filter stacks and normalize weights
@@ -349,6 +347,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		if err != nil {
 			return err
 		}
+		ssc.stacksetManagesTraffic = true
 	} else {
 		if err := ssc.updateDesiredTrafficFromIngress(); err != nil {
 			return err

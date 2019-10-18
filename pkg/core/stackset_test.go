@@ -621,29 +621,29 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 		{
 			name: "desired and actual weights are parsed correctly",
 			desiredTraffic: []*zv1.DesiredTraffic{
-				&zv1.DesiredTraffic{
+				{
 					StackName: "foo-v1",
 					Weight:    float64(25),
 				},
-				&zv1.DesiredTraffic{
+				{
 					StackName: "foo-v2",
 					Weight:    float64(50),
 				},
-				&zv1.DesiredTraffic{
+				{
 					StackName: "foo-v3",
 					Weight:    float64(25),
 				},
 			},
 			actualTraffic: []*zv1.ActualTraffic{
-				&zv1.ActualTraffic{
+				{
 					ServiceName: "foo-v1",
 					Weight:      float64(62.5),
 				},
-				&zv1.ActualTraffic{
+				{
 					ServiceName: "foo-v2",
 					Weight:      float64(12.5),
 				},
-				&zv1.ActualTraffic{
+				{
 					ServiceName: "foo-v3",
 					Weight:      float64(25),
 				},
@@ -654,29 +654,29 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 		{
 			name: "unknown stacks are removed, remaining weights are renormalised",
 			desiredTraffic: []*zv1.DesiredTraffic{
-				&zv1.DesiredTraffic{
+				{
 					StackName: "foo-v4",
 					Weight:    float64(50),
 				},
-				&zv1.DesiredTraffic{
+				{
 					StackName: "foo-v2",
 					Weight:    float64(25),
 				},
-				&zv1.DesiredTraffic{
+				{
 					StackName: "foo-v3",
 					Weight:    float64(25),
 				},
 			},
 			actualTraffic: []*zv1.ActualTraffic{
-				&zv1.ActualTraffic{
+				{
 					ServiceName: "foo-v4",
 					Weight:      float64(50),
 				},
-				&zv1.ActualTraffic{
+				{
 					ServiceName: "foo-v2",
 					Weight:      float64(12.5),
 				},
-				&zv1.ActualTraffic{
+				{
 					ServiceName: "foo-v3",
 					Weight:      float64(37.5),
 				},
@@ -724,6 +724,7 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 
 			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
+			require.True(t, ssc.stacksetManagesTraffic)
 			require.NotEmpty(t, ssc.StackSet.Status.Traffic, "stackset requires non empty traffic status")
 
 			for _, sc := range ssc.StackContainers {
@@ -797,6 +798,7 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 
 			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
+			require.False(t, ssc.stacksetManagesTraffic)
 
 			for _, sc := range ssc.StackContainers {
 				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
