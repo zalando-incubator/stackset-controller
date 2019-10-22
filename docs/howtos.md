@@ -271,6 +271,7 @@ External controllers could create routes based on multiple Ingress,
 or other CRDs.
 
 Known controllers, that support this:
+- https://github.com/zalando-incubator/fabric-gateway
 - `<add-yours-here>`
 
 ### Configure ExternalIngress backendPort
