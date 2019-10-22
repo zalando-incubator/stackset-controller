@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -191,6 +192,30 @@ func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, kind weightK
 		}
 		return false, nil
 	}).withTimeout(timeout)
+}
+
+func ingressTrafficAuthoritative(t *testing.T, ingressName string, expectedAuthoritative bool) *awaiter {
+	return newAwaiter(t, fmt.Sprintf("update of traffic authoritative annotation in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
+		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		authoritativeStr, ok := ingress.Annotations["zalando.org/traffic-authoritative"]
+		if !ok {
+			return true, fmt.Errorf("missing traffic authoritative annotation in ingress %s", ingressName)
+		}
+		authoritative, err := strconv.ParseBool(authoritativeStr)
+		if !ok {
+			return false, fmt.Errorf("invalid value for authoritative annotation in ingress %s: %v", ingressName, err)
+		}
+
+		if authoritative != expectedAuthoritative {
+			return true, fmt.Errorf("%s: authoritative %v != expected %v", ingressName, authoritative, expectedAuthoritative)
+		}
+
+		return false, nil
+	}).withTimeout(defaultWaitTimeout)
 }
 
 func trafficWeightsUpdatedStackset(t *testing.T, stacksetName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {

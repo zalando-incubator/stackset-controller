@@ -670,6 +670,29 @@ func (c *StackSetController) ReconcileStackSetResources(ssc *core.StackSetContai
 	return nil
 }
 
+func (c *StackSetController) ReconcileStackSetDesiredTraffic(existing *zv1.StackSet, generateUpdated func() []*zv1.DesiredTraffic) error {
+	updatedTraffic := generateUpdated()
+
+	if equality.Semantic.DeepEqual(existing.Spec.Traffic, updatedTraffic) {
+		return nil
+	}
+
+	updated := existing.DeepCopy()
+	updated.Spec.Traffic = updatedTraffic
+
+	_, err := c.client.ZalandoV1().StackSets(updated.Namespace).Update(updated)
+	if err != nil {
+		return err
+	}
+	c.recorder.Eventf(
+		updated,
+		apiv1.EventTypeNormal,
+		"UpdatedStackSet",
+		"Updated StackSet %s",
+		updated.Name)
+	return nil
+}
+
 func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer, sc *core.StackContainer) error {
 	err := c.ReconcileStackDeployment(sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
@@ -737,6 +760,13 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	if err != nil {
 		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 		c.stacksetLogger(container).Errorf("Unable to reconcile stackset resources: %v", err)
+	}
+
+	// Reconcile desired traffic in the stackset. Proceed on errors.
+	err = c.ReconcileStackSetDesiredTraffic(container.StackSet, container.GenerateStackSetTraffic)
+	if err != nil {
+		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
+		c.stacksetLogger(container).Errorf("Unable to reconcile stackset traffic: %v", err)
 	}
 
 	// Delete old stacks. Proceed on errors.

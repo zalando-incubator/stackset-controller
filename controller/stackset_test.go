@@ -351,6 +351,86 @@ func TestCleanupOldStacks(t *testing.T) {
 	require.Equal(t, []zv1.Stack{testStack3, testStack4}, result.Items)
 }
 
+func TestReconcileStackSetDesiredTraffic(t *testing.T) {
+	stackMeta := metav1.ObjectMeta{
+		Name: "foo",
+		UID:  "abc1234",
+	}
+
+	sampleTraffic := []*zv1.DesiredTraffic{
+		{StackName: "foo-1", Weight: 50},
+	}
+	updatedTraffic := []*zv1.DesiredTraffic{
+		{StackName: "foo-1", Weight: 30},
+		{StackName: "foo-2", Weight: 70},
+	}
+
+	for _, tc := range []struct {
+		name     string
+		existing zv1.StackSet
+		updated  []*zv1.DesiredTraffic
+		expected zv1.StackSet
+	}{
+		{
+			name: "stack is populated with traffic weights",
+			existing: zv1.StackSet{
+				ObjectMeta: stackMeta,
+			},
+			updated: updatedTraffic,
+			expected: zv1.StackSet{
+				ObjectMeta: stackMeta,
+				Spec: zv1.StackSetSpec{
+					Traffic: updatedTraffic,
+				},
+			},
+		},
+		{
+			name: "stack is populated with new traffic weights",
+			existing: zv1.StackSet{
+				ObjectMeta: stackMeta,
+				Spec: zv1.StackSetSpec{
+					Traffic: sampleTraffic,
+				},
+			},
+			updated: updatedTraffic,
+			expected: zv1.StackSet{
+				ObjectMeta: stackMeta,
+				Spec: zv1.StackSetSpec{
+					Traffic: updatedTraffic,
+				},
+			},
+		},
+		{
+			name: "traffic weights are removed",
+			existing: zv1.StackSet{
+				ObjectMeta: stackMeta,
+				Spec: zv1.StackSetSpec{
+					Traffic: sampleTraffic,
+				},
+			},
+			updated: nil,
+			expected: zv1.StackSet{
+				ObjectMeta: stackMeta,
+				Spec:       zv1.StackSetSpec{},
+			},
+		},
+	} {
+		env := NewTestEnvironment()
+
+		err := env.CreateStacksets([]zv1.StackSet{tc.existing})
+		require.NoError(t, err)
+
+		err = env.controller.ReconcileStackSetDesiredTraffic(&tc.existing, func() []*zv1.DesiredTraffic {
+			return tc.updated
+		})
+		require.NoError(t, err)
+
+		result, err := env.client.ZalandoV1().StackSets(tc.expected.Namespace).Get(tc.expected.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.EqualValues(t, tc.expected, *result)
+	}
+}
+
 func TestReconcileStackSetIngress(t *testing.T) {
 	exampleRules := []extensions.IngressRule{
 		{
