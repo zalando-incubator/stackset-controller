@@ -342,7 +342,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		sc.updateFromResources()
 	}
 
-	if ssc.hasDesiredTrafficFromStackSet() {
+	if ssc.hasDesiredTrafficFromStackSet() || ssc.StackSet.Spec.ExternalIngress != nil {
 		err := ssc.updateDesiredTrafficFromStackSet()
 		if err != nil {
 			return err
@@ -354,7 +354,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		}
 	}
 
-	if ssc.hasActualTrafficFromStackSet() {
+	if ssc.hasActualTrafficFromStackSet() || ssc.StackSet.Spec.ExternalIngress != nil {
 		return ssc.updateActualTrafficFromStackSet()
 	}
 

@@ -736,6 +736,28 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 	}
 }
 
+func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
+	ssc := &StackSetContainer{
+		StackSet: &zv1.StackSet{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "foo",
+			},
+			Spec: zv1.StackSetSpec{
+				ExternalIngress: &zv1.StackSetExternalIngressSpec{
+					BackendPort: intstr.FromInt(80),
+				},
+			},
+		},
+		StackContainers: map[types.UID]*StackContainer{
+			"v1": testStack("foo-v1").stack(),
+		},
+	}
+
+	err := ssc.UpdateFromResources()
+	require.NoError(t, err)
+	require.True(t, ssc.stacksetManagesTraffic)
+}
+
 func TestUpdateTrafficFromIngress(t *testing.T) {
 	for _, tc := range []struct {
 		name                   string
