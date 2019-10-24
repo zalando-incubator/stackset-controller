@@ -860,16 +860,6 @@ func TestGenerateStackSetStatus(t *testing.T) {
 				ServicePort: intstr.FromInt(testPort),
 				Weight:      90,
 			}, {
-				StackName:   "v3",
-				ServiceName: "v3",
-				ServicePort: intstr.FromInt(testPort),
-				Weight:      0,
-			}, {
-				StackName:   "v4",
-				ServiceName: "v4",
-				ServicePort: intstr.FromInt(testPort),
-				Weight:      0,
-			}, {
 				StackName:   "v5",
 				ServiceName: "v5",
 				ServicePort: intstr.FromInt(testPort),
