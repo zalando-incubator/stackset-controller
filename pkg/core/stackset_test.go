@@ -859,7 +859,8 @@ func TestGenerateStackSetStatus(t *testing.T) {
 				ServiceName: "v2",
 				ServicePort: intstr.FromInt(testPort),
 				Weight:      90,
-			}, {
+			},
+			{
 				StackName:   "v5",
 				ServiceName: "v5",
 				ServicePort: intstr.FromInt(testPort),
@@ -886,18 +887,10 @@ func TestGenerateStackSetTraffic(t *testing.T) {
 			managesTraffic: true,
 			expected: []*zv1.DesiredTraffic{
 				{
-					StackName: "v1",
-					Weight:    0,
-				}, {
 					StackName: "v2",
 					Weight:    80,
-				}, {
-					StackName: "v3",
-					Weight:    0,
-				}, {
-					StackName: "v4",
-					Weight:    0,
-				}, {
+				},
+				{
 					StackName: "v5",
 					Weight:    20,
 				},

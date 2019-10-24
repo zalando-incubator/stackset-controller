@@ -277,7 +277,7 @@ func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
 
 	var traffic []*zv1.DesiredTraffic
 	for _, sc := range ssc.StackContainers {
-		if sc.HasBackendPort() {
+		if sc.HasBackendPort() && sc.desiredTrafficWeight > 0 {
 			t := &zv1.DesiredTraffic{
 				StackName: sc.Name(),
 				Weight:    sc.desiredTrafficWeight,
