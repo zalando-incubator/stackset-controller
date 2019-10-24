@@ -158,6 +158,9 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 	if metrics.Average == nil {
 		return nil, fmt.Errorf("average value not specified for metric")
 	}
+
+	average := metrics.Average.DeepCopy()
+
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ObjectMetricSourceType,
 		Object: &autoscaling.ObjectMetricSource{
@@ -167,7 +170,8 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 				Kind:       "Ingress",
 				Name:       ingressName,
 			},
-			TargetValue: metrics.Average.DeepCopy(),
+			TargetValue:  average, // this has no effect but needs to be set for autoscaling/v2beta1
+			AverageValue: &average,
 		},
 	}
 	return generated, nil
