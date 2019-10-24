@@ -272,7 +272,7 @@ func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
 		return nil
 	}
 
-	if ssc.Ingress == nil && ssc.ExternalIngressBackendPort == nil {
+	if ssc.Ingress == nil && ssc.externalIngressBackendPort == nil {
 		return nil
 	}
 

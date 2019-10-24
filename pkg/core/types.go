@@ -41,15 +41,15 @@ type StackSetContainer struct {
 	// by the user on the StackSet.
 	Ingress *extensions.Ingress
 
-	// ExternalIngressBackendPort defines the backendPort mapping
-	// if an external entity creates ingress objects for us. The
-	// Ingress of stackset should be nil in this case.
-	ExternalIngressBackendPort *intstr.IntOrString
-
 	// TrafficReconciler is the reconciler implementation used for
 	// switching traffic between stacks. E.g. for prescaling stacks before
 	// switching traffic.
 	TrafficReconciler TrafficReconciler
+
+	// ExternalIngressBackendPort defines the backendPort mapping
+	// if an external entity creates ingress objects for us. The
+	// Ingress of stackset should be nil in this case.
+	externalIngressBackendPort *intstr.IntOrString
 
 	// Whether the stackset should be authoritative for the traffic, and not the ingress
 	stacksetManagesTraffic bool
@@ -276,9 +276,6 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromStackSet() error {
 		if !allZero(weights) {
 			normalizeWeights(weights)
 		}
-	} else {
-		stack := ssc.findFallbackStack()
-		weights[stack.Name()] = 100.0
 	}
 
 	// save values in stack containers
@@ -325,24 +322,36 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 	if len(ssc.StackContainers) == 0 {
 		return nil
 	}
+
+	var ingressSpec *zv1.StackSetIngressSpec
+	var externalIngress *zv1.StackSetExternalIngressSpec
+	var backendPort *intstr.IntOrString
+
+	if ssc.StackSet.Spec.Ingress != nil {
+		ingressSpec = ssc.StackSet.Spec.Ingress
+		backendPort = &ingressSpec.BackendPort
+	} else if ssc.StackSet.Spec.ExternalIngress != nil {
+		externalIngress = ssc.StackSet.Spec.ExternalIngress
+		backendPort = &externalIngress.BackendPort
+		ssc.externalIngressBackendPort = backendPort
+	}
+
+	var scaledownTTL time.Duration
+	if ssc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds == nil {
+		scaledownTTL = defaultScaledownTTL
+	} else {
+		scaledownTTL = time.Duration(*ssc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds) * time.Second
+	}
+
 	for _, sc := range ssc.StackContainers {
 		sc.stacksetName = ssc.StackSet.Name
-		sc.ingressSpec = ssc.StackSet.Spec.Ingress
-
-		if ssc.StackSet.Spec.ExternalIngress != nil {
-			sc.backendPort = &ssc.StackSet.Spec.ExternalIngress.BackendPort
-		} else if ssc.StackSet.Spec.Ingress != nil {
-			sc.backendPort = &ssc.StackSet.Spec.Ingress.BackendPort
-		}
-		if ssc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds == nil {
-			sc.scaledownTTL = defaultScaledownTTL
-		} else {
-			sc.scaledownTTL = time.Duration(*ssc.StackSet.Spec.StackLifecycle.ScaledownTTLSeconds) * time.Second
-		}
+		sc.ingressSpec = ingressSpec
+		sc.backendPort = backendPort
+		sc.scaledownTTL = scaledownTTL
 		sc.updateFromResources()
 	}
 
-	if ssc.hasDesiredTrafficFromStackSet() || ssc.StackSet.Spec.ExternalIngress != nil {
+	if ssc.hasDesiredTrafficFromStackSet() || externalIngress != nil {
 		err := ssc.updateDesiredTrafficFromStackSet()
 		if err != nil {
 			return err
@@ -354,7 +363,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		}
 	}
 
-	if ssc.hasActualTrafficFromStackSet() || ssc.StackSet.Spec.ExternalIngress != nil {
+	if ssc.hasActualTrafficFromStackSet() || externalIngress != nil {
 		return ssc.updateActualTrafficFromStackSet()
 	}
 

@@ -737,6 +737,7 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 }
 
 func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
+	backendPort := intstr.FromInt(80)
 	ssc := &StackSetContainer{
 		StackSet: &zv1.StackSet{
 			ObjectMeta: metav1.ObjectMeta{
@@ -744,7 +745,7 @@ func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
 			},
 			Spec: zv1.StackSetSpec{
 				ExternalIngress: &zv1.StackSetExternalIngressSpec{
-					BackendPort: intstr.FromInt(80),
+					BackendPort: backendPort,
 				},
 			},
 		},
@@ -756,6 +757,7 @@ func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
 	err := ssc.UpdateFromResources()
 	require.NoError(t, err)
 	require.True(t, ssc.stacksetManagesTraffic)
+	require.EqualValues(t, &backendPort, ssc.externalIngressBackendPort)
 }
 
 func TestUpdateTrafficFromIngress(t *testing.T) {
