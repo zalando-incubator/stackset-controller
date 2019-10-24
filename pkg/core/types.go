@@ -351,24 +351,29 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		sc.updateFromResources()
 	}
 
-	if ssc.hasDesiredTrafficFromStackSet() || externalIngress != nil {
-		err := ssc.updateDesiredTrafficFromStackSet()
-		if err != nil {
-			return err
+	// only populate traffic if traffic management is enabled
+	if ingressSpec != nil || externalIngress != nil {
+		if ssc.hasDesiredTrafficFromStackSet() || externalIngress != nil {
+			err := ssc.updateDesiredTrafficFromStackSet()
+			if err != nil {
+				return err
+			}
+			ssc.stacksetManagesTraffic = true
+		} else {
+			if err := ssc.updateDesiredTrafficFromIngress(); err != nil {
+				return err
+			}
 		}
-		ssc.stacksetManagesTraffic = true
-	} else {
-		if err := ssc.updateDesiredTrafficFromIngress(); err != nil {
-			return err
+
+		if ssc.hasActualTrafficFromStackSet() || externalIngress != nil {
+			return ssc.updateActualTrafficFromStackSet()
 		}
+
+		// TODO(sszuecs): delete until end of function, if we drop ingress based desired traffic. For step1 we need the fallback but update the stackset status, too
+		return ssc.updateActualTrafficFromIngress()
 	}
 
-	if ssc.hasActualTrafficFromStackSet() || externalIngress != nil {
-		return ssc.updateActualTrafficFromStackSet()
-	}
-
-	// TODO(sszuecs): delete until end of function, if we drop ingress based desired traffic. For step1 we need the fallback but update the stackset status, too
-	return ssc.updateActualTrafficFromIngress()
+	return nil
 }
 
 func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {

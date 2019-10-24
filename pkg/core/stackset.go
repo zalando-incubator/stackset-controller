@@ -263,16 +263,15 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 			result.ReadyStacks += 1
 		}
 	}
+	sort.Slice(traffic, func(i, j int) bool {
+		return traffic[i].StackName < traffic[j].StackName
+	})
 	result.Traffic = traffic
 	return result
 }
 
 func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
 	if !ssc.stacksetManagesTraffic {
-		return nil
-	}
-
-	if ssc.Ingress == nil && ssc.externalIngressBackendPort == nil {
 		return nil
 	}
 
@@ -286,5 +285,8 @@ func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
 			traffic = append(traffic, t)
 		}
 	}
+	sort.Slice(traffic, func(i, j int) bool {
+		return traffic[i].StackName < traffic[j].StackName
+	})
 	return traffic
 }

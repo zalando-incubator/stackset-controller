@@ -725,7 +725,6 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
 			require.True(t, ssc.stacksetManagesTraffic)
-			require.NotEmpty(t, ssc.StackSet.Status.Traffic, "stackset requires non empty traffic status")
 
 			for _, sc := range ssc.StackContainers {
 				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "desired stack %s", sc.Stack.Name)
@@ -837,31 +836,29 @@ func TestGenerateStackSetStatus(t *testing.T) {
 	c := &StackSetContainer{
 		StackSet: &zv1.StackSet{
 			Status: zv1.StackSetStatus{
-				Stacks:               1,
-				ReadyStacks:          2,
-				StacksWithTraffic:    3,
 				ObservedStackVersion: "v1",
 			},
 		},
 		StackContainers: map[types.UID]*StackContainer{
 			"v1": testStack("v1").pendingRemoval().ready(3).stack(),
-			"v2": testStack("v2").ready(3).traffic(1, 1).stack(),
+			"v2": testStack("v2").ready(3).traffic(80, 90).stack(),
 			"v3": testStack("v3").ready(3).stack(),
 			"v4": testStack("v4").stack(),
+			"v5": testStack("v5").ready(3).traffic(20, 10).stack(),
 		},
 	}
 
 	expected := &zv1.StackSetStatus{
-		Stacks:               3,
-		ReadyStacks:          2,
-		StacksWithTraffic:    1,
+		Stacks:               4,
+		ReadyStacks:          3,
+		StacksWithTraffic:    2,
 		ObservedStackVersion: "v1",
 		Traffic: []*zv1.ActualTraffic{
 			{
 				StackName:   "v2",
 				ServiceName: "v2",
 				ServicePort: intstr.FromInt(testPort),
-				Weight:      1,
+				Weight:      90,
 			}, {
 				StackName:   "v3",
 				ServiceName: "v3",
@@ -872,6 +869,11 @@ func TestGenerateStackSetStatus(t *testing.T) {
 				ServiceName: "v4",
 				ServicePort: intstr.FromInt(testPort),
 				Weight:      0,
+			}, {
+				StackName:   "v5",
+				ServiceName: "v5",
+				ServicePort: intstr.FromInt(testPort),
+				Weight:      10,
 			},
 		},
 	}
@@ -880,18 +882,63 @@ func TestGenerateStackSetStatus(t *testing.T) {
 	require.Equal(t, expected.ReadyStacks, status.ReadyStacks)
 	require.Equal(t, expected.StacksWithTraffic, status.StacksWithTraffic)
 	require.Equal(t, expected.ObservedStackVersion, status.ObservedStackVersion)
+	require.Equal(t, expected.Traffic, status.Traffic)
+}
 
-	h := make(map[string]*zv1.ActualTraffic)
-	for i := range expected.Traffic {
-		t := expected.Traffic[i]
-		h[t.ServiceName] = t
+func TestGenerateStackSetTraffic(t *testing.T) {
+	for _, tc := range []struct {
+		name           string
+		managesTraffic bool
+		expected       []*zv1.DesiredTraffic
+	}{
+		{
+			name:           "stackset manages traffic",
+			managesTraffic: true,
+			expected: []*zv1.DesiredTraffic{
+				{
+					StackName: "v1",
+					Weight:    0,
+				}, {
+					StackName: "v2",
+					Weight:    80,
+				}, {
+					StackName: "v3",
+					Weight:    0,
+				}, {
+					StackName: "v4",
+					Weight:    0,
+				}, {
+					StackName: "v5",
+					Weight:    20,
+				},
+			},
+		},
+		{
+			name:           "stackset doesn't manage traffic",
+			managesTraffic: false,
+			expected:       nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := &StackSetContainer{
+				StackSet: &zv1.StackSet{
+					Status: zv1.StackSetStatus{
+						ObservedStackVersion: "v1",
+					},
+				},
+				StackContainers: map[types.UID]*StackContainer{
+					"v1": testStack("v1").pendingRemoval().ready(3).stack(),
+					"v2": testStack("v2").ready(3).traffic(80, 90).stack(),
+					"v3": testStack("v3").ready(3).stack(),
+					"v4": testStack("v4").stack(),
+					"v5": testStack("v5").ready(3).traffic(20, 10).stack(),
+				},
+				stacksetManagesTraffic: tc.managesTraffic,
+			}
+
+			require.Equal(t, tc.expected, c.GenerateStackSetTraffic())
+		})
 	}
-	g := make(map[string]*zv1.ActualTraffic)
-	for i := range status.Traffic {
-		t := status.Traffic[i]
-		g[t.ServiceName] = t
-	}
-	require.EqualValues(t, g, h)
 }
 
 func TestStackSetGenerateIngress(t *testing.T) {
