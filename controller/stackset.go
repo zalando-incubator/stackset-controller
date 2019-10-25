@@ -115,7 +115,7 @@ func (c *StackSetController) Migrate(ctx context.Context) error {
 		return err
 	}
 
-	for stacksetUID, container := range stacksetContainers {
+	for _, container := range stacksetContainers {
 		switch c.migrateTo {
 		case "ingress":
 			err = c.migrateToIngress(ctx, container)
