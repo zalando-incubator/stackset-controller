@@ -75,7 +75,7 @@ func (ee *eventedError) Error() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, migrateTo, controllerID string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, controllerID, migrateTo string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
