@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -35,6 +36,9 @@ const (
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 
+	stackTrafficWeightsAnnotationKey = "zalando.org/stack-traffic-weights"
+	ingressAuthorativeAnnotationKey  = "zalando.org/traffic-authoritative"
+
 	reasonFailedManageStackSet = "FailedManageStackSet"
 
 	defaultResetMinReplicasDelay = 10 * time.Minute
@@ -47,6 +51,7 @@ type StackSetController struct {
 	logger          *log.Entry
 	client          clientset.Interface
 	controllerID    string
+	migrateTo       string
 	interval        time.Duration
 	stacksetEvents  chan stacksetEvent
 	stacksetStore   map[types.UID]zv1.StackSet
@@ -70,7 +75,7 @@ func (ee *eventedError) Error() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, migrateTo, controllerID string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -80,6 +85,7 @@ func NewStackSetController(client clientset.Interface, controllerID string, regi
 		logger:          log.WithFields(log.Fields{"controller": "stackset"}),
 		client:          client,
 		controllerID:    controllerID,
+		migrateTo:       migrateTo,
 		interval:        interval,
 		stacksetEvents:  make(chan stacksetEvent, 1),
 		stacksetStore:   make(map[types.UID]zv1.StackSet),
@@ -103,6 +109,99 @@ func (c *StackSetController) stackLogger(ssc *core.StackSetContainer, sc *core.S
 	})
 }
 
+func (c *StackSetController) Migrate(ctx context.Context) error {
+	stacksetContainers, err := c.collectResources()
+	if err != nil {
+		return err
+	}
+
+	for stacksetUID, container := range stacksetContainers {
+		switch c.migrateTo {
+		case "ingress":
+			err = c.migrateToIngress(ctx, container)
+		case "stackset":
+			err = c.migrateToStackset(ctx, container)
+		}
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.StackSetContainer) error {
+	if v, ok := ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
+		weight := make(map[string]float64)
+		err := json.Unmarshal([]byte(v), &weight)
+		if err != nil {
+			return err
+		}
+		if len(weight) == 0 {
+			return nil
+		}
+
+		// create spec traffic
+		dts := make([]*zv1.DesiredTraffic, 0, len(weight))
+		for k, v := range weight {
+			dt := &zv1.DesiredTraffic{
+				StackName: k,
+				Weight:    v,
+			}
+			dts = append(dts, dt)
+		}
+		ssc.StackSet.Spec.Traffic = dts
+
+		// remove ingress annotation
+		ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey] = ""
+		// set stackset to be authorative
+		ssc.Ingress.Annotations[ingressAuthorativeAnnotationKey] = "false"
+
+		// sync back to Kubernetes
+		ns := ssc.StackSet.Namespace
+		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ssc.StackSet); err != nil {
+			return err
+		}
+		if _, err := c.client.ExtensionsV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *StackSetController) migrateToIngress(ctx context.Context, ssc *core.StackSetContainer) error {
+	if len(ssc.StackSet.Spec.Traffic) > 0 {
+		weight := make(map[string]float64)
+		for _, dt := range ssc.StackSet.Spec.Traffic {
+			weight[dt.StackName] = dt.Weight
+		}
+
+		buf, err := json.Marshal(weight)
+		if err != nil {
+			return err
+		}
+
+		// add ingress annotation
+		ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey] = string(buf)
+		// set ingress to be authorative
+		ssc.Ingress.Annotations[ingressAuthorativeAnnotationKey] = "true"
+		// remove traffic spec
+		ssc.StackSet.Spec.Traffic = nil
+
+		// sync back to Kubernetes
+		ns := ssc.StackSet.Namespace
+		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ssc.StackSet); err != nil {
+			return err
+		}
+		if _, err := c.client.ExtensionsV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Run runs the main loop of the StackSetController. Before the loops it
 // sets up a watcher to watch StackSet resources. The watch will send
 // changes over a channel which is polled from the main loop.
@@ -110,6 +209,12 @@ func (c *StackSetController) Run(ctx context.Context) {
 	c.startWatch(ctx)
 
 	nextCheck := time.Now().Add(-c.interval)
+
+	if c.migrateTo != "" {
+		if err := c.Migrate(ctx); err != nil {
+			log.Fatalf("Failed to migrate: %v", err)
+		}
+	}
 
 	for {
 		select {
