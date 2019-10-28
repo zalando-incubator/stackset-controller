@@ -139,7 +139,7 @@ func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.St
 		if err != nil {
 			return err
 		}
-		c.logger.Infof("Have %d ingress weights for %s/%s to migrate", len(weights), ssc.StackSets.Namespace, ssc.StackSets.Name)
+		c.logger.Infof("Have %d ingress weights for %s/%s to migrate", len(weight), ssc.StackSet.Namespace, ssc.StackSet.Name)
 		if len(weight) == 0 {
 			return nil
 		}
@@ -174,7 +174,7 @@ func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.St
 }
 
 func (c *StackSetController) migrateToIngress(ctx context.Context, ssc *core.StackSetContainer) error {
-	c.logger.Infof("Have %d stackset weights for %s/%s to migrate", len(ssc.StackSet.Spec.Traffic), ssc.StackSets.Namespace, ssc.StackSets.Name)
+	c.logger.Infof("Have %d stackset weights for %s/%s to migrate", len(ssc.StackSet.Spec.Traffic), ssc.StackSet.Namespace, ssc.StackSet.Name)
 	if len(ssc.StackSet.Spec.Traffic) > 0 {
 		weight := make(map[string]float64)
 		for _, dt := range ssc.StackSet.Spec.Traffic {
