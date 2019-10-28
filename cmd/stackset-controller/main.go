@@ -63,10 +63,13 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
+	println("config.MigrateTo raw after parse:", config.MigrateTo)
 	config.MigrateTo = strings.ToLower(strings.TrimSpace(config.MigrateTo))
+	println("config.MigrateTo before validation:", config.MigrateTo)
 	if !validMigrateTo(config.MigrateTo) {
 		config.MigrateTo = ""
 	}
+	println("config.MigrateTo after validation:", config.MigrateTo)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	kubeConfig, err := configureKubeConfig(config.APIServer, defaultClientGOTimeout, ctx.Done())
