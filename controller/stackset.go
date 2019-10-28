@@ -109,14 +109,10 @@ func (c *StackSetController) stackLogger(ssc *core.StackSetContainer, sc *core.S
 	})
 }
 
-func (c *StackSetController) Migrate(ctx context.Context) error {
-	stacksetContainers, err := c.collectResources()
-	if err != nil {
-		return err
-	}
-
+func (c *StackSetController) Migrate(ctx context.Context, stacksetContainers map[types.UID]*core.StackSetContainer) error {
 	c.logger.Infof("Start to migrate %d stacksets to %s", len(stacksetContainers), c.migrateTo)
 	for _, container := range stacksetContainers {
+		var err error
 		switch c.migrateTo {
 		case "ingress":
 			err = c.migrateToIngress(ctx, container)
@@ -212,24 +208,26 @@ func (c *StackSetController) Run(ctx context.Context) {
 	c.startWatch(ctx)
 
 	nextCheck := time.Now().Add(-c.interval)
-
-	println("c.migrateTo", c.migrateTo)
-	if c.migrateTo != "" {
-		c.logger.Infof("Migrate to %s", c.migrateTo)
-		if err := c.Migrate(ctx); err != nil {
-			c.logger.Fatalf("Failed to migrate: %v", err)
-		}
-	}
+	migrate := c.migrateTo != ""
 
 	for {
 		select {
 		case <-time.After(time.Until(nextCheck)):
+
 			nextCheck = time.Now().Add(c.interval)
 
 			stackContainers, err := c.collectResources()
 			if err != nil {
 				c.logger.Errorf("Failed to collect resources: %v", err)
 				continue
+			}
+
+			if migrate {
+				c.logger.Infof("Migrate to %s", c.migrateTo)
+				if err := c.Migrate(ctx, stackContainers); err != nil {
+					c.logger.Fatalf("Failed to migrate: %v", err)
+				}
+				migrate = false
 			}
 
 			var reconcileGroup errgroup.Group
