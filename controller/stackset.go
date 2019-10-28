@@ -115,6 +115,7 @@ func (c *StackSetController) Migrate(ctx context.Context) error {
 		return err
 	}
 
+	c.logger.Infof("Start to migrate %d stacksets to %s", len(stacksetContainers), c.migrateTo)
 	for _, container := range stacksetContainers {
 		switch c.migrateTo {
 		case "ingress":
@@ -138,6 +139,7 @@ func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.St
 		if err != nil {
 			return err
 		}
+		c.logger.Infof("Have %d ingress weights for %s/%s to migrate", len(weights), ssc.StackSets.Namespace, ssc.StackSets.Name)
 		if len(weight) == 0 {
 			return nil
 		}
@@ -172,6 +174,7 @@ func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.St
 }
 
 func (c *StackSetController) migrateToIngress(ctx context.Context, ssc *core.StackSetContainer) error {
+	c.logger.Infof("Have %d stackset weights for %s/%s to migrate", len(ssc.StackSet.Spec.Traffic), ssc.StackSets.Namespace, ssc.StackSets.Name)
 	if len(ssc.StackSet.Spec.Traffic) > 0 {
 		weight := make(map[string]float64)
 		for _, dt := range ssc.StackSet.Spec.Traffic {
@@ -211,8 +214,9 @@ func (c *StackSetController) Run(ctx context.Context) {
 	nextCheck := time.Now().Add(-c.interval)
 
 	if c.migrateTo != "" {
+		c.logger.Infof("Migrate to %s", c.migrateTo)
 		if err := c.Migrate(ctx); err != nil {
-			log.Fatalf("Failed to migrate: %v", err)
+			c.logger.Fatalf("Failed to migrate: %v", err)
 		}
 	}
 
