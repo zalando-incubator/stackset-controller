@@ -213,6 +213,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 	nextCheck := time.Now().Add(-c.interval)
 
+	c.logger.Infof("c.migrateTo=%s", c.migrateTo)
 	if c.migrateTo != "" {
 		c.logger.Infof("Migrate to %s", c.migrateTo)
 		if err := c.Migrate(ctx); err != nil {
