@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -39,16 +38,6 @@ var (
 	}
 )
 
-func validMigrateTo(s string) bool {
-	switch s {
-	case "ingress":
-		fallthrough
-	case "stackset":
-		return true
-	}
-	return false
-}
-
 func main() {
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&config.Debug)
 	kingpin.Flag("interval", "Interval between syncing stacksets.").
@@ -56,16 +45,11 @@ func main() {
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
-	kingpin.Flag("migrate-to", "Migrate desired traffic setting from Ingress to StackSet or from StackSet to Ingress").StringVar(&config.MigrateTo)
+	kingpin.Flag("migrate-to", "Migrate desired traffic setting from Ingress to StackSet or from StackSet to Ingress").EnumVar(&config.MigrateTo, "ingress", "stackset")
 	kingpin.Parse()
 
 	if config.Debug {
 		log.SetLevel(log.DebugLevel)
-	}
-
-	config.MigrateTo = strings.ToLower(strings.TrimSpace(config.MigrateTo))
-	if !validMigrateTo(config.MigrateTo) {
-		config.MigrateTo = ""
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
