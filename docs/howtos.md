@@ -197,7 +197,7 @@ autoscaler:
 
 If Skipper is used for [ingress](https://opensource.zalando.com/skipper/kubernetes/ingress-usage/) in
 the cluster then scaling can also be done based on the requests received by the stack. The following autoscaler
-metric specifies that the number of requests per pod should not be more 30.
+metric specifies that the number of requests per pod should not be more than 30.
 
 ```yaml
 autoscaler:
