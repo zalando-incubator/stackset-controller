@@ -4,11 +4,14 @@ import (
 	"time"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
 	testDefaultCreationTime = time.Now().Add(-time.Hour)
+	testPort                = 8080
 )
 
 type testStackFactory struct {
@@ -16,12 +19,26 @@ type testStackFactory struct {
 }
 
 func testStack(name string) *testStackFactory {
+	backendPort := intstr.FromInt(testPort)
+
 	return &testStackFactory{
 		container: &StackContainer{
+			backendPort: &backendPort,
 			Stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              name,
 					CreationTimestamp: metav1.Time{Time: testDefaultCreationTime},
+				},
+			},
+			Resources: StackResources{
+				Service: &v1.Service{
+					Spec: v1.ServiceSpec{
+						Ports: []v1.ServicePort{
+							v1.ServicePort{
+								Port: int32(testPort),
+							},
+						},
+					},
 				},
 			},
 		},

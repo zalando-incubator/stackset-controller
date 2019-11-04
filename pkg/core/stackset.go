@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -14,6 +15,8 @@ import (
 const (
 	StacksetHeritageLabelKey = "stackset"
 	StackVersionLabelKey     = "stack-version"
+
+	ingressTrafficAuthoritativeAnnotation = "zalando.org/traffic-authoritative"
 )
 
 var (
@@ -141,12 +144,16 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 		stackset.Labels,
 	)
 
+	trafficAuthoritative := map[string]string{
+		ingressTrafficAuthoritativeAnnotation: strconv.FormatBool(!ssc.stacksetManagesTraffic),
+	}
+
 	result := &extensions.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        stackset.Name,
 			Namespace:   stackset.Namespace,
 			Labels:      labels,
-			Annotations: mergeLabels(stackset.Spec.Ingress.Annotations),
+			Annotations: mergeLabels(stackset.Spec.Ingress.Annotations, trafficAuthoritative),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: stackset.APIVersion,
@@ -216,7 +223,11 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 	}
 
 	result.Annotations[backendWeightsAnnotationKey] = string(actualWeightsData)
-	result.Annotations[stackTrafficWeightsAnnotationKey] = string(desiredWeightData)
+	if ssc.stacksetManagesTraffic {
+		delete(result.Annotations, stackTrafficWeightsAnnotationKey)
+	} else {
+		result.Annotations[stackTrafficWeightsAnnotationKey] = string(desiredWeightData)
+	}
 
 	return result, nil
 }
@@ -228,10 +239,20 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 		StacksWithTraffic:    0,
 		ObservedStackVersion: ssc.StackSet.Status.ObservedStackVersion,
 	}
+	var traffic []*zv1.ActualTraffic
 
 	for _, sc := range ssc.StackContainers {
 		if sc.PendingRemoval {
 			continue
+		}
+		if sc.HasBackendPort() {
+			t := &zv1.ActualTraffic{
+				StackName:   sc.Name(),
+				ServiceName: sc.Name(),
+				ServicePort: *sc.backendPort,
+				Weight:      sc.actualTrafficWeight,
+			}
+			traffic = append(traffic, t)
 		}
 
 		result.Stacks += 1
@@ -242,5 +263,33 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 			result.ReadyStacks += 1
 		}
 	}
+	sort.Slice(traffic, func(i, j int) bool {
+		return traffic[i].StackName < traffic[j].StackName
+	})
+	result.Traffic = traffic
 	return result
+}
+
+func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
+	if !ssc.stacksetManagesTraffic {
+		return nil
+	}
+
+	var traffic []*zv1.DesiredTraffic
+	for _, sc := range ssc.StackContainers {
+		if sc.PendingRemoval {
+			continue
+		}
+		if sc.HasBackendPort() && sc.desiredTrafficWeight > 0 {
+			t := &zv1.DesiredTraffic{
+				StackName: sc.Name(),
+				Weight:    sc.desiredTrafficWeight,
+			}
+			traffic = append(traffic, t)
+		}
+	}
+	sort.Slice(traffic, func(i, j int) bool {
+		return traffic[i].StackName < traffic[j].StackName
+	})
+	return traffic
 }

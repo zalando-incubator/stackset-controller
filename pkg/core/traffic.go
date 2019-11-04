@@ -54,7 +54,7 @@ func normalizeWeights(backendWeights map[string]float64) {
 // ManageTraffic handles the traffic reconciler logic
 func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 	// No ingress -> no traffic management required
-	if ssc.StackSet.Spec.Ingress == nil {
+	if ssc.StackSet.Spec.Ingress == nil && ssc.StackSet.Spec.ExternalIngress == nil {
 		for _, sc := range ssc.StackContainers {
 			sc.desiredTrafficWeight = 0
 			sc.actualTrafficWeight = 0
@@ -95,6 +95,7 @@ func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 			normalizeWeights(weights)
 		}
 	}
+
 	for stackName, stack := range stacks {
 		stack.desiredTrafficWeight = desiredWeights[stackName]
 		stack.actualTrafficWeight = actualWeights[stackName]

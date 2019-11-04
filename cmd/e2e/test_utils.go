@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -156,13 +158,13 @@ func removeZeroWeights(weights map[string]float64) {
 	}
 }
 
-// passed to trafficWeightsUpdated as a parameter
+// passed to trafficWeightsUpdatedIngress as a parameter
 // func that takes zero inclusive actual traffic weights as a parameter and
 // returns an error if they don't meet some criteria.
 // will never be retried
 type trafficAsserter func(map[string]float64) error
 
-func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
+func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
 	removeZeroWeights(expectedWeights)
 	timeout := defaultWaitTimeout
 	if kind == weightKindActual {
@@ -174,7 +176,7 @@ func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, ex
 			return false, err
 		}
 
-		actualWeights := ingressTrafficWeights(ingress, kind)
+		actualWeights := getIngressTrafficWeights(ingress, kind)
 
 		if asserter != nil {
 			err = asserter(actualWeights)
@@ -187,6 +189,60 @@ func trafficWeightsUpdated(t *testing.T, ingressName string, kind weightKind, ex
 
 		if !reflect.DeepEqual(actualWeights, expectedWeights) {
 			return true, fmt.Errorf("%s: weights %v != expected %v", ingressName, actualWeights, expectedWeights)
+		}
+		return false, nil
+	}).withTimeout(timeout)
+}
+
+func ingressTrafficAuthoritative(t *testing.T, ingressName string, expectedAuthoritative bool) *awaiter {
+	return newAwaiter(t, fmt.Sprintf("update of traffic authoritative annotation in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
+		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		authoritativeStr, ok := ingress.Annotations["zalando.org/traffic-authoritative"]
+		if !ok {
+			return true, fmt.Errorf("missing traffic authoritative annotation in ingress %s", ingressName)
+		}
+		authoritative, err := strconv.ParseBool(authoritativeStr)
+		if !ok {
+			return false, fmt.Errorf("invalid value for authoritative annotation in ingress %s: %v", ingressName, err)
+		}
+
+		if authoritative != expectedAuthoritative {
+			return true, fmt.Errorf("%s: authoritative %v != expected %v", ingressName, authoritative, expectedAuthoritative)
+		}
+
+		return false, nil
+	}).withTimeout(defaultWaitTimeout)
+}
+
+func trafficWeightsUpdatedStackset(t *testing.T, stacksetName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
+	removeZeroWeights(expectedWeights)
+	timeout := defaultWaitTimeout
+	if kind == weightKindActual {
+		timeout = trafficSwitchWaitTimeout
+	}
+	return newAwaiter(t, fmt.Sprintf("update of traffic weights in stackSet %s", stacksetName)).withPoll(func() (retry bool, err error) {
+		stackset, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+
+		actualWeights := getStacksetTrafficWeights(stackset, kind)
+
+		if asserter != nil {
+			err = asserter(actualWeights)
+			if err != nil {
+				return false, err
+			}
+		}
+
+		removeZeroWeights(actualWeights)
+
+		if !reflect.DeepEqual(actualWeights, expectedWeights) {
+			return true, fmt.Errorf("%s: weights %v != expected %v", stacksetName, actualWeights, expectedWeights)
 		}
 		return false, nil
 	}).withTimeout(timeout)
@@ -232,12 +288,29 @@ func stackStatusMatches(t *testing.T, stackName string, expectedStatus expectedS
 
 type expectedStackSetStatus struct {
 	observedStackVersion string
+	actualTraffic        []*zv1.ActualTraffic
 }
 
 func (expected expectedStackSetStatus) matches(stackSet *zv1.StackSet) error {
 	status := stackSet.Status
 	if expected.observedStackVersion != status.ObservedStackVersion {
 		return fmt.Errorf("%s: observedStackVersion %s != expected %s", stackSet.Name, status.ObservedStackVersion, expected.observedStackVersion)
+	}
+
+	if expected.actualTraffic != nil {
+		h := make(map[string]*zv1.ActualTraffic)
+		for i := range status.Traffic {
+			t := status.Traffic[i]
+			h[t.ServiceName] = t
+		}
+		exp := make(map[string]*zv1.ActualTraffic)
+		for i := range expected.actualTraffic {
+			t := expected.actualTraffic[i]
+			exp[t.ServiceName] = t
+		}
+		if !reflect.DeepEqual(exp, h) {
+			return fmt.Errorf("%s: actual traffic: %+v, expected: %+v, diff:\n%v", stackSet.Name, h, exp, cmp.Diff(h, exp))
+		}
 	}
 	return nil
 }
@@ -350,7 +423,7 @@ func waitForIngress(t *testing.T, name string) (*extensionsv1beta1.Ingress, erro
 	return ingressInterface().Get(name, metav1.GetOptions{})
 }
 
-func ingressTrafficWeights(ingress *extensionsv1beta1.Ingress, kind weightKind) map[string]float64 {
+func getIngressTrafficWeights(ingress *extensionsv1beta1.Ingress, kind weightKind) map[string]float64 {
 	weights := ingress.Annotations[string(kind)]
 	if weights == "" {
 		return nil
@@ -364,7 +437,25 @@ func ingressTrafficWeights(ingress *extensionsv1beta1.Ingress, kind weightKind) 
 	return result
 }
 
-func setDesiredTrafficWeights(ingressName string, weights map[string]float64) error {
+func getStacksetTrafficWeights(stackset *zv1.StackSet, kind weightKind) map[string]float64 {
+	result := make(map[string]float64)
+
+	switch kind {
+	case weightKindActual:
+		t := stackset.Status.Traffic
+		for _, o := range t {
+			result[o.ServiceName] = o.Weight
+		}
+	case weightKindDesired:
+		t := stackset.Spec.Traffic
+		for _, o := range t {
+			result[o.StackName] = o.Weight
+		}
+	}
+	return result
+}
+
+func setDesiredTrafficWeightsIngress(ingressName string, weights map[string]float64) error {
 	for {
 		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
 		if err != nil {
@@ -376,6 +467,29 @@ func setDesiredTrafficWeights(ingressName string, weights map[string]float64) er
 		}
 		ingress.Annotations[string(weightKindDesired)] = string(serializedWeights)
 		_, err = ingressInterface().Update(ingress)
+		if apiErrors.IsConflict(err) {
+			continue
+		}
+		return err
+	}
+}
+
+func setDesiredTrafficWeightsStackset(stacksetName string, weights map[string]float64) error {
+	for {
+
+		stackset, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		trafficSpec := make([]*zv1.DesiredTraffic, 0, len(weights))
+		for k, v := range weights {
+			trafficSpec = append(trafficSpec, &zv1.DesiredTraffic{
+				StackName: k,
+				Weight:    v,
+			})
+		}
+		stackset.Spec.Traffic = trafficSpec
+		_, err = stacksetInterface().Update(stackset)
 		if apiErrors.IsConflict(err) {
 			continue
 		}

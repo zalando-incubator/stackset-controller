@@ -63,6 +63,28 @@ spec:
                   type: string
               required:
               - backendPort
+            externalIngress:
+              properties:
+                backendPort:
+                  oneOf:
+                  - type: string
+                  - type: integer
+              required:
+              - backendPort
+            traffic:
+              type: array
+              items:
+                required:
+                - stackName
+                - weight
+                properties:
+                  stackName:
+                    type: string
+                  weight:
+                    type: number
+                    format: float64
+                    minimum: 0
+                    maximum: 100
             stackLifecycle:
               properties:
                 scaledownTTLSeconds:

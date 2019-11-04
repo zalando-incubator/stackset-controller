@@ -39,7 +39,7 @@ func NewTestEnvironment() *testEnvironment {
 		ssClient:  ssfake.NewSimpleClientset(),
 	}
 
-	controller, err := NewStackSetController(client, "", prometheus.NewPedanticRegistry(), time.Minute)
+	controller, err := NewStackSetController(client, "", "", prometheus.NewPedanticRegistry(), time.Minute)
 	if err != nil {
 		panic(err)
 	}

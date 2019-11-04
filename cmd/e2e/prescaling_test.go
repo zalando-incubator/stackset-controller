@@ -38,9 +38,9 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 		fullFirstStack:  50,
 		fullSecondStack: 50,
 	}
-	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// create third stack with only 1 replica and wait for the deployment to be created
@@ -59,9 +59,9 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 		fullFirstStack:  25,
 		fullSecondStack: 25,
 	}
-	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// recheck the deployment of the last stack and verify that the number of replicas is 3 till the end of the
@@ -109,9 +109,9 @@ func TestPrescalingWithHPA(t *testing.T) {
 		fullFirstStack:  50,
 		fullSecondStack: 50,
 	}
-	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// create a third stack with only one replica and verify the deployment has only one pod
@@ -131,9 +131,9 @@ func TestPrescalingWithHPA(t *testing.T) {
 		fullSecondStack: 25,
 	}
 
-	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// verify that the third stack now has 3 replicas till the end of the prescaling period
@@ -181,9 +181,9 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	desiredTrafficMap := map[string]float64{
 		fullSecondStack: 100,
 	}
-	err = setDesiredTrafficWeights(stacksetName, desiredTrafficMap)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTrafficMap)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
 	require.NoError(t, err)
 
 	// update stackset with third version
@@ -200,9 +200,9 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	desiredTrafficMap = map[string]float64{
 		fullThirdStack: 100,
 	}
-	err = setDesiredTrafficWeights(stacksetName, desiredTrafficMap)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTrafficMap)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTrafficMap, nil).withTimeout(2 * time.Minute).await()
 	require.NoError(t, err)
 
 	// verify that all stack deployments are still present and their prescaling is active
@@ -273,9 +273,9 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 		fullSecondStack: 50,
 		fullThirdStack:  50,
 	}
-	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTraffic)
 	require.NoError(t, err)
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 4).await()
 	require.NoError(t, err)
 
 	// switch traffic so that all three stacks are receiving 0%, 30% & 70% traffic respectively
@@ -284,10 +284,10 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 		fullSecondStack: 30,
 		fullThirdStack:  70,
 	}
-	err = setDesiredTrafficWeights(stacksetName, desiredTraffic)
+	err = setDesiredTrafficWeightsIngress(stacksetName, desiredTraffic)
 	require.NoError(t, err)
 
-	err = trafficWeightsUpdated(t, stacksetName, weightKindActual, desiredTraffic, func(actualTraffic map[string]float64) error {
+	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredTraffic, func(actualTraffic map[string]float64) error {
 		// err out if the traffic for any of the stacks is outside of the expected range
 		if actualTraffic[fullFirstStack] > 0 {
 			return fmt.Errorf("%v traffic not exactly %v", actualTraffic[fullFirstStack], 0)

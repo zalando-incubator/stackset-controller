@@ -4,8 +4,6 @@ go 1.12
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
-	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
@@ -32,5 +30,8 @@ require (
 	k8s.io/api v0.0.0-20181004124137-fd83cbc87e76
 	k8s.io/apimachinery v0.0.0-20180913025736-6dd46049f395
 	k8s.io/client-go v9.0.0+incompatible
+	k8s.io/code-generator v0.0.0-20181128191024-b1289fc74931 // indirect
+	k8s.io/gengo v0.0.0-20190907103519-ebc107f98eab // indirect
+	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30 // indirect
 )
