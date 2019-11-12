@@ -647,9 +647,12 @@ func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) erro
 				}
 				stack = updated
 			}
-			stack.Status = status
-			_, err := c.client.ZalandoV1().Stacks(sc.Namespace()).UpdateStatus(stack)
-			return err
+			if !equality.Semantic.DeepEqual(status, stack.Status) {
+				stack.Status = status
+				_, err := c.client.ZalandoV1().Stacks(sc.Namespace()).UpdateStatus(stack)
+				return err
+			}
+			return nil
 		})
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedUpdateStackStatus", err)
