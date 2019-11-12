@@ -49,6 +49,7 @@ spec:
     scale:
       specReplicasPath: .spec.replicas
       statusReplicasPath: .status.replicas
+      labelSelectorPath: .status.labelSelector
   # validation depends on Kubernetes >= v1.11.0
   validation:
     openAPIV3Schema:

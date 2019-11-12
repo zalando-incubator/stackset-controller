@@ -600,6 +600,11 @@ func TestGenerateStackStatus(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels: map[string]string{},
+					},
+				},
 				actualTrafficWeight:            tc.actualTrafficWeight,
 				desiredTrafficWeight:           tc.desiredTrafficWeight,
 				createdReplicas:                3,
