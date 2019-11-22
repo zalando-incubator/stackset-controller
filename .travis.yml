@@ -6,7 +6,7 @@ go:
   - 1.12.x
 
 env:
-- GO111MODULE=on GOLANGCI_RELEASE="v1.16.0"
+- GO111MODULE=on GOLANGCI_RELEASE="v1.21.0"
 
 before_install:
   - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
