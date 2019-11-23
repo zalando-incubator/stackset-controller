@@ -23,8 +23,9 @@ clean:
 test: $(GENERATED)
 	go test -v $(GOPKGS)
 
-check:
-	golangci-lint run ./...
+check: $(GENERATED)
+	go mod download
+	golangci-lint run --timeout=2m ./...
 
 $(GENERATED):
 	./hack/update-codegen.sh
