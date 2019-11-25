@@ -571,6 +571,8 @@ func TestGenerateStackStatus(t *testing.T) {
 
 	for _, tc := range []struct {
 		name                           string
+		labels                         map[string]string
+		expectedLabelSelector          string
 		actualTrafficWeight            float64
 		desiredTrafficWeight           float64
 		noTrafficSince                 time.Time
@@ -580,16 +582,24 @@ func TestGenerateStackStatus(t *testing.T) {
 		prescalingLastTrafficIncrease  time.Time
 	}{
 		{
-			name:                 "with traffic",
-			actualTrafficWeight:  0.25,
-			desiredTrafficWeight: 0.75,
+			name:                  "with traffic",
+			labels:                map[string]string{},
+			expectedLabelSelector: "",
+			actualTrafficWeight:   0.25,
+			desiredTrafficWeight:  0.75,
 		},
 		{
-			name:           "without traffic",
-			noTrafficSince: hourAgo,
+			name: "without traffic",
+			labels: map[string]string{
+				StacksetHeritageLabelKey: "stackset-x",
+			},
+			expectedLabelSelector: "stackset=stackset-x",
+			noTrafficSince:        hourAgo,
 		},
 		{
 			name:                           "prescaled",
+			labels:                         map[string]string{},
+			expectedLabelSelector:          "",
 			actualTrafficWeight:            0.25,
 			desiredTrafficWeight:           0.25,
 			prescalingActive:               true,
@@ -602,7 +612,7 @@ func TestGenerateStackStatus(t *testing.T) {
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: metav1.ObjectMeta{
-						Labels: map[string]string{},
+						Labels: tc.labels,
 					},
 				},
 				actualTrafficWeight:            tc.actualTrafficWeight,
@@ -626,6 +636,7 @@ func TestGenerateStackStatus(t *testing.T) {
 				UpdatedReplicas:      1,
 				DesiredReplicas:      4,
 				NoTrafficSince:       wrapTime(tc.noTrafficSince),
+				LabelSelector:        tc.expectedLabelSelector,
 				Prescaling: zv1.PrescalingStatus{
 					Active:               tc.prescalingActive,
 					Replicas:             tc.prescalingReplicas,
