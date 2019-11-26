@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -135,6 +136,10 @@ func servicePortsFromContainers(containers []v1.Container) []v1.ServicePort {
 	return ports
 }
 
+func (sc *StackContainer) selector() map[string]string {
+	return limitLabels(sc.Stack.Labels, selectorLabels)
+}
+
 func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	stack := sc.Stack
 
@@ -166,7 +171,7 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		Spec: appsv1.DeploymentSpec{
 			Replicas: updatedReplicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: limitLabels(stack.Labels, selectorLabels),
+				MatchLabels: sc.selector(),
 			},
 			Template: *templateInjectLabels(stack.Spec.PodTemplate.DeepCopy(), stack.Labels),
 		},
@@ -237,7 +242,7 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	return &v1.Service{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: v1.ServiceSpec{
-			Selector: limitLabels(sc.Stack.Labels, selectorLabels),
+			Selector: sc.selector(),
 			Type:     v1.ServiceTypeClusterIP,
 			Ports:    servicePorts,
 		},
@@ -309,5 +314,6 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 		DesiredReplicas:      sc.desiredReplicas,
 		Prescaling:           prescaling,
 		NoTrafficSince:       wrapTime(sc.noTrafficSince),
+		LabelSelector:        labels.Set(sc.selector()).String(),
 	}
 }

@@ -286,6 +286,9 @@ type StackStatus struct {
 	// NoTrafficSince is the timestamp defining the last time the stack was
 	// observed getting traffic.
 	NoTrafficSince *metav1.Time `json:"noTrafficSince,omitempty"`
+	// LabelSelector is the label selector used to find all pods managed by
+	// a stack.
+	LabelSelector string `json:"labelSelector,omitempty"`
 }
 
 // Prescaling hold prescaling information

@@ -45,6 +45,11 @@ spec:
   subresources:
     # status enables the status subresource.
     status: {}
+    # scale enables the scale subresource.
+    scale:
+      specReplicasPath: .spec.replicas
+      statusReplicasPath: .status.replicas
+      labelSelectorPath: .status.labelSelector
   # validation depends on Kubernetes >= v1.11.0
   validation:
     openAPIV3Schema:
