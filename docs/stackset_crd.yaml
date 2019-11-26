@@ -96,6 +96,16 @@ spec:
                   minimum: 1
             stackTemplate:
               properties:
+                metadata:
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    labels:
+                      additionalProperties:
+                        type: string
+                      type: object
                 spec:
                   properties:
                     version:
