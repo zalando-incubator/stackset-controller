@@ -23,38 +23,17 @@ GOPKG="$SRC/zalando-incubator/stackset-controller"
 CUSTOM_RESOURCE_NAME="zalando.org"
 CUSTOM_RESOURCE_VERSION="v1"
 
-SCRIPT_ROOT="$(dirname ${BASH_SOURCE})/.."
+SCRIPT_ROOT="$(dirname ${BASH_SOURCE[0]})/.."
+CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
+OUTPUT_BASE="$(dirname ${BASH_SOURCE})/"
 
-# special setup for go modules
-CODE_GEN_K8S_VERSION="b1289fc74931d4b6b04bd1a259acfc88a2cb0a66" # 1.12.8 (https://github.com/kubernetes/code-generator/releases/tag/kubernetes-1.12.8)
-packages=(
-defaulter-gen
-client-gen
-lister-gen
-informer-gen
-deepcopy-gen
-)
-mkdir -p build
-for pkg in "${packages[@]}"; do
-    go get "k8s.io/code-generator/cmd/${pkg}@${CODE_GEN_K8S_VERSION}"
-done
-# use vendor/ as a temporary stash for code-generator.
-rm -rf "${SCRIPT_ROOT}/vendor/k8s.io/code-generator"
-rm -rf "${SCRIPT_ROOT}/vendor/k8s.io/gengo"
-git clone --branch=release-1.12 https://github.com/kubernetes/code-generator.git "${SCRIPT_ROOT}/vendor/k8s.io/code-generator"
-git clone https://github.com/kubernetes/gengo.git "${SCRIPT_ROOT}/vendor/k8s.io/gengo"
-
-CODEGEN_PKG="${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}"
+go mod vendor
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
-
-OUTPUT_BASE="$(dirname ${BASH_SOURCE})/"
-
-cd "${SCRIPT_ROOT}"
-"${CODEGEN_PKG}/generate-groups.sh" all \
+bash "${CODEGEN_PKG}"/generate-groups.sh all \
   "${GOPKG}/pkg/client" "${GOPKG}/pkg/apis" \
   "${CUSTOM_RESOURCE_NAME}:${CUSTOM_RESOURCE_VERSION}" \
   --go-header-file hack/boilerplate.go.txt \
