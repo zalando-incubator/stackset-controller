@@ -166,7 +166,12 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		updatedReplicas = wrapReplicas(sc.deploymentReplicas)
 	}
 
-	return &appsv1.Deployment{
+	var strategy *appsv1.DeploymentStrategy
+	if stack.Spec.Strategy != nil {
+		strategy = stack.Spec.Strategy.DeepCopy()
+	}
+
+	deployment := &appsv1.Deployment{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
 			Replicas: updatedReplicas,
@@ -176,6 +181,10 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 			Template: *templateInjectLabels(stack.Spec.PodTemplate.DeepCopy(), stack.Labels),
 		},
 	}
+	if strategy != nil {
+		deployment.Spec.Strategy = *strategy
+	}
+	return deployment
 }
 
 func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, error) {

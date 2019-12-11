@@ -390,6 +390,8 @@ func TestStackGenerateDeployment(t *testing.T) {
 		deploymentReplicas int32
 		noTrafficSince     time.Time
 		expectedReplicas   int32
+		maxUnavailable     int
+		maxSurge           int
 	}{
 		{
 			name:               "stack scaled down to zero, deployment still running",
@@ -497,12 +499,50 @@ func TestStackGenerateDeployment(t *testing.T) {
 			deploymentReplicas: 5,
 			expectedReplicas:   5,
 		},
+		{
+			name:               "max surge is specified",
+			stackReplicas:      3,
+			deploymentReplicas: 3,
+			expectedReplicas:   3,
+			maxSurge:           10,
+		},
+		{
+			name:               "max unavailable is specified",
+			stackReplicas:      3,
+			deploymentReplicas: 3,
+			expectedReplicas:   3,
+			maxUnavailable:     10,
+		},
+		{
+			name:               "max surge and max unavailable are specified",
+			stackReplicas:      3,
+			deploymentReplicas: 3,
+			expectedReplicas:   3,
+			maxSurge:           1,
+			maxUnavailable:     10,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			var strategy *apps.DeploymentStrategy
+			if tc.maxUnavailable != 0 || tc.maxSurge != 0 {
+				strategy = &apps.DeploymentStrategy{
+					Type:          apps.RollingUpdateDeploymentStrategyType,
+					RollingUpdate: &apps.RollingUpdateDeployment{},
+				}
+				if tc.maxUnavailable != 0 {
+					value := intstr.FromInt(tc.maxUnavailable)
+					strategy.RollingUpdate.MaxUnavailable = &value
+				}
+				if tc.maxSurge != 0 {
+					value := intstr.FromInt(tc.maxSurge)
+					strategy.RollingUpdate.MaxSurge = &value
+				}
+			}
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
 					Spec: zv1.StackSpec{
+						Strategy: strategy,
 						PodTemplate: v1.PodTemplateSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Labels: map[string]string{
@@ -560,6 +600,9 @@ func TestStackGenerateDeployment(t *testing.T) {
 						},
 					},
 				},
+			}
+			if strategy != nil {
+				expected.Spec.Strategy = *strategy
 			}
 			require.Equal(t, expected, deployment)
 		})

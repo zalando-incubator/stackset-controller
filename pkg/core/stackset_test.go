@@ -227,6 +227,69 @@ func TestStackSetNewStack(t *testing.T) {
 			},
 			expectedStackName: "v1",
 		},
+		{
+			name: "stack needs to have the same update strategy",
+			stackset: &zv1.StackSet{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: APIVersion,
+					Kind:       KindStackSet,
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "bar",
+					UID:       "1234-abc-2134",
+					Labels:    map[string]string{"custom": "label"},
+				},
+				Spec: zv1.StackSetSpec{
+					StackTemplate: zv1.StackTemplate{
+						Spec: zv1.StackSpecTemplate{
+							Version: "v1",
+							StackSpec: zv1.StackSpec{
+								Strategy: &apps.DeploymentStrategy{
+									Type: apps.RollingUpdateDeploymentStrategyType,
+									RollingUpdate: &apps.RollingUpdateDeployment{
+										MaxUnavailable: intstrptr("10%"),
+										MaxSurge:       intstrptr("100%"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			stacks: map[types.UID]*StackContainer{},
+			expectedStack: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1",
+						Namespace: "bar",
+						Labels: map[string]string{
+							StacksetHeritageLabelKey: "foo",
+							"custom":                 "label",
+							StackVersionLabelKey:     "v1",
+						},
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion: APIVersion,
+								Kind:       KindStackSet,
+								Name:       "foo",
+								UID:        "1234-abc-2134",
+							},
+						},
+					},
+					Spec: zv1.StackSpec{
+						Strategy: &apps.DeploymentStrategy{
+							Type: apps.RollingUpdateDeploymentStrategyType,
+							RollingUpdate: &apps.RollingUpdateDeployment{
+								MaxUnavailable: intstrptr("10%"),
+								MaxSurge:       intstrptr("100%"),
+							},
+						},
+					},
+				},
+			},
+			expectedStackName: "v1",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stackset := &StackSetContainer{
@@ -238,6 +301,11 @@ func TestStackSetNewStack(t *testing.T) {
 			require.EqualValues(t, tc.expectedStackName, newStackName)
 		})
 	}
+}
+
+func intstrptr(value string) *intstr.IntOrString {
+	v := intstr.FromString(value)
+	return &v
 }
 
 func dummyStacksetContainer() *StackSetContainer {

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -230,6 +231,9 @@ type StackSpec struct {
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
+
+	// Strategy describe the rollout strategy for the underlying deployment
+	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 }
 
 // StackServiceSpec makes it possible to customize the service generated for

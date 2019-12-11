@@ -21,6 +21,7 @@ limitations under the License.
 package v1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
 	v2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
@@ -452,6 +453,11 @@ func (in *StackSpec) DeepCopyInto(out *StackSpec) {
 	if in.Autoscaler != nil {
 		in, out := &in.Autoscaler, &out.Autoscaler
 		*out = new(Autoscaler)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.Strategy != nil {
+		in, out := &in.Strategy, &out.Strategy
+		*out = new(appsv1.DeploymentStrategy)
 		(*in).DeepCopyInto(*out)
 	}
 	return
