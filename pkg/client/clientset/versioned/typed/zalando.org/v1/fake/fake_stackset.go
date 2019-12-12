@@ -131,7 +131,7 @@ func (c *FakeStackSets) DeleteCollection(options *v1.DeleteOptions, listOptions 
 // Patch applies the patch and returns the patched stackSet.
 func (c *FakeStackSets) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *zalandoorgv1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(stacksetsResource, c.ns, name, data, subresources...), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewPatchSubresourceAction(stacksetsResource, c.ns, name, pt, data, subresources...), &zalandoorgv1.StackSet{})
 
 	if obj == nil {
 		return nil, err

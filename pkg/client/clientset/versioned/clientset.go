@@ -19,6 +19,8 @@ limitations under the License.
 package versioned
 
 import (
+	"fmt"
+
 	zalandov1 "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
@@ -28,8 +30,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	ZalandoV1() zalandov1.ZalandoV1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Zalando() zalandov1.ZalandoV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -44,12 +44,6 @@ func (c *Clientset) ZalandoV1() zalandov1.ZalandoV1Interface {
 	return c.zalandoV1
 }
 
-// Deprecated: Zalando retrieves the default version of ZalandoClient.
-// Please explicitly pick a version.
-func (c *Clientset) Zalando() zalandov1.ZalandoV1Interface {
-	return c.zalandoV1
-}
-
 // Discovery retrieves the DiscoveryClient
 func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 	if c == nil {
@@ -59,9 +53,14 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 }
 
 // NewForConfig creates a new Clientset for the given config.
+// If config's RateLimiter is not set and QPS and Burst are acceptable,
+// NewForConfig will generate a rate-limiter in configShallowCopy.
 func NewForConfig(c *rest.Config) (*Clientset, error) {
 	configShallowCopy := *c
 	if configShallowCopy.RateLimiter == nil && configShallowCopy.QPS > 0 {
+		if configShallowCopy.Burst <= 0 {
+			return nil, fmt.Errorf("Burst is required to be greater than 0 when RateLimiter is not set and QPS is set to greater than 0")
+		}
 		configShallowCopy.RateLimiter = flowcontrol.NewTokenBucketRateLimiter(configShallowCopy.QPS, configShallowCopy.Burst)
 	}
 	var cs Clientset
