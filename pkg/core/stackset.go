@@ -92,6 +92,7 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 					Service:                 service,
 					PodTemplate:             stackset.Spec.StackTemplate.Spec.PodTemplate,
 					Autoscaler:              stackset.Spec.StackTemplate.Spec.Autoscaler,
+					Strategy:                stackset.Spec.StackTemplate.Spec.Strategy,
 				},
 			},
 		}, stackVersion

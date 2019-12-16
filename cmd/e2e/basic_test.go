@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	apps "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -25,6 +26,8 @@ type TestStacksetSpecFactory struct {
 	hpaMaxReplicas  int32
 	hpaMinReplicas  int32
 	autoscaler      bool
+	maxSurge        int
+	maxUnavailable  int
 	metrics         []zv1.AutoscalerMetrics
 }
 
@@ -132,7 +135,34 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			BackendPort: intstr.FromInt(80),
 		}
 	}
+	if f.maxSurge != 0 || f.maxUnavailable != 0 {
+		strategy := &apps.DeploymentStrategy{
+			Type:          apps.RollingUpdateDeploymentStrategyType,
+			RollingUpdate: &apps.RollingUpdateDeployment{},
+		}
+		if f.maxSurge != 0 {
+			strategy.RollingUpdate.MaxSurge = intstrptr(f.maxSurge)
+		}
+		if f.maxUnavailable != 0 {
+			strategy.RollingUpdate.MaxUnavailable = intstrptr(f.maxUnavailable)
+		}
+	}
 	return result
+}
+
+func intstrptr(value int) *intstr.IntOrString {
+	v := intstr.FromInt(value)
+	return &v
+}
+
+func (f *TestStacksetSpecFactory) UpdateMaxSurge(maxSurge int) *TestStacksetSpecFactory {
+	f.maxSurge = maxSurge
+	return f
+}
+
+func (f *TestStacksetSpecFactory) UpdateMaxUnavailable(maxUnavailable int) *TestStacksetSpecFactory {
+	f.maxUnavailable = maxUnavailable
+	return f
 }
 
 func (f *TestStacksetSpecFactory) Autoscaler(minReplicas, maxReplicas int32, metrics []zv1.AutoscalerMetrics) *TestStacksetSpecFactory {
@@ -165,6 +195,9 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	require.EqualValues(t, stackResourceLabels, deployment.Labels)
 	require.EqualValues(t, replicas(deployment.Spec.Replicas), replicas(stack.Spec.Replicas))
 	require.EqualValues(t, stackResourceLabels, deployment.Spec.Template.Labels)
+	if stacksetSpec.StackTemplate.Spec.Strategy != nil {
+		require.EqualValues(t, *stacksetSpec.StackTemplate.Spec.Strategy, deployment.Spec.Strategy)
+	}
 
 	// Verify service
 	service, err := waitForService(t, stack.Name)
@@ -287,7 +320,7 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	require.NoError(t, err)
 }
 
-func testStacksetCreate(t *testing.T, testName string, hpa, ingress, externalIngress bool) {
+func testStacksetCreate(t *testing.T, testName string, hpa, ingress, externalIngress bool, updateStrategy bool) {
 	t.Parallel()
 
 	stacksetName := fmt.Sprintf("stackset-create-%s", testName)
@@ -301,6 +334,9 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, externalIng
 	}
 	if externalIngress {
 		stacksetSpecFactory.ExternalIngress()
+	}
+	if updateStrategy {
+		stacksetSpecFactory.UpdateMaxSurge(10).UpdateMaxUnavailable(100)
 	}
 	stacksetSpec := stacksetSpecFactory.Create(stackVersion)
 	err := createStackSet(stacksetName, 0, stacksetSpec)
@@ -416,19 +452,23 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 }
 
 func TestStacksetCreateBasic(t *testing.T) {
-	testStacksetCreate(t, "basic", false, false, false)
+	testStacksetCreate(t, "basic", false, false, false, false)
 }
 
 func TestStacksetCreateHPA(t *testing.T) {
-	testStacksetCreate(t, "hpa", true, false, false)
+	testStacksetCreate(t, "hpa", true, false, false, false)
 }
 
 func TestStacksetCreateIngress(t *testing.T) {
-	testStacksetCreate(t, "ingress", false, true, false)
+	testStacksetCreate(t, "ingress", false, true, false, false)
 }
 
 func TestStacksetCreateExternalIngress(t *testing.T) {
-	testStacksetCreate(t, "externalingress", false, false, true)
+	testStacksetCreate(t, "externalingress", false, false, true, false)
+}
+
+func TestStacksetCreateUpdateStrategy(t *testing.T) {
+	testStacksetCreate(t, "updatestrategy", false, false, false, true)
 }
 
 func TestStacksetUpdateBasic(t *testing.T) {
