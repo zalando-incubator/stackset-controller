@@ -19,10 +19,11 @@ const (
 
 var (
 	config struct {
-		Stackset  string
-		Stack     string
-		Traffic   float64
-		Namespace string
+		Stackset                    string
+		Stack                       string
+		Traffic                     float64
+		Namespace                   string
+		BackendWeightsAnnotationKey string
 	}
 )
 
@@ -31,6 +32,7 @@ func main() {
 	kingpin.Arg("stack", "help").StringVar(&config.Stack)
 	kingpin.Arg("traffic", "help").Default("-1").Float64Var(&config.Traffic)
 	kingpin.Flag("namespace", "Namespace of the stackset resource.").Default(defaultNamespace).StringVar(&config.Namespace)
+	kingpin.Flag("backend-weights-key", "Backend weights annotation key the controller will use to set current traffic values").Default(traffic.DefaultBackendWeightsAnnotationKey).StringVar(&config.BackendWeightsAnnotationKey)
 	kingpin.Parse()
 
 	kubeconfig, err := newKubeConfig()
@@ -43,7 +45,7 @@ func main() {
 		log.Fatalf("Failed to initialize Kubernetes client: %v.", err)
 	}
 
-	trafficSwitcher := traffic.NewSwitcher(client)
+	trafficSwitcher := traffic.NewSwitcher(client, config.BackendWeightsAnnotationKey)
 
 	if config.Stack != "" && config.Traffic != -1 {
 		weight := config.Traffic

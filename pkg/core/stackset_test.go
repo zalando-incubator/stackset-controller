@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
@@ -349,7 +350,7 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec.Ingress = tc.ingress
-			err := c.UpdateFromResources()
+			err := c.UpdateFromResources(traffic.DefaultBackendWeightsAnnotationKey)
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -393,7 +394,7 @@ func TestStackSetUpdateFromResourcesPopulatesBackendPort(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec = tc.spec
-			err := c.UpdateFromResources()
+			err := c.UpdateFromResources(traffic.DefaultBackendWeightsAnnotationKey)
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -447,7 +448,7 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 				c.StackSet.Spec.Ingress = tc.ingress
 			}
 
-			err := c.UpdateFromResources()
+			err := c.UpdateFromResources(traffic.DefaultBackendWeightsAnnotationKey)
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -790,7 +791,7 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 				},
 			}
 
-			err := ssc.UpdateFromResources()
+			err := ssc.UpdateFromResources(traffic.DefaultBackendWeightsAnnotationKey)
 			require.NoError(t, err)
 			require.True(t, ssc.stacksetManagesTraffic)
 
@@ -821,7 +822,7 @@ func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
 		},
 	}
 
-	err := ssc.UpdateFromResources()
+	err := ssc.UpdateFromResources(traffic.DefaultBackendWeightsAnnotationKey)
 	require.NoError(t, err)
 	require.True(t, ssc.stacksetManagesTraffic)
 	require.EqualValues(t, &backendPort, ssc.externalIngressBackendPort)
@@ -884,10 +885,10 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 				ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey] = tc.desiredWeights
 			}
 			if tc.actualWeights != "" {
-				ssc.Ingress.Annotations[backendWeightsAnnotationKey] = tc.actualWeights
+				ssc.Ingress.Annotations[BackendWeightsAnnotationKey] = tc.actualWeights
 			}
 
-			err := ssc.UpdateFromResources()
+			err := ssc.UpdateFromResources(traffic.DefaultBackendWeightsAnnotationKey)
 			require.NoError(t, err)
 			require.False(t, ssc.stacksetManagesTraffic)
 

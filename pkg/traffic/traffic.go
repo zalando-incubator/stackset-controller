@@ -12,19 +12,23 @@ import (
 )
 
 const (
-	stacksetHeritageLabelKey         = "stackset"
-	stackTrafficWeightsAnnotationKey = "zalando.org/stack-traffic-weights"
-	backendWeightsAnnotationKey      = "zalando.org/backend-weights"
+	stacksetHeritageLabelKey           = "stackset"
+	stackTrafficWeightsAnnotationKey   = "zalando.org/stack-traffic-weights"
+	DefaultBackendWeightsAnnotationKey = "zalando.org/backend-weights"
 )
 
 // Switcher is able to switch traffic between stacks.
 type Switcher struct {
-	client clientset.Interface
+	client                      clientset.Interface
+	backendWeightsAnnotationKey string
 }
 
 // NewSwitcher initializes a new traffic switcher.
-func NewSwitcher(client clientset.Interface) *Switcher {
-	return &Switcher{client: client}
+func NewSwitcher(client clientset.Interface, backendWeightsAnnotationKey string) *Switcher {
+	return &Switcher{
+		client:                      client,
+		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
+	}
 }
 
 // Switch changes traffic weight for a stack.
@@ -143,7 +147,7 @@ func (t *Switcher) getIngressTraffic(name, namespace string, stacks []zv1.Stack)
 	}
 
 	actualTraffic := make(map[string]float64, len(stacks))
-	if weights, ok := ingress.Annotations[backendWeightsAnnotationKey]; ok {
+	if weights, ok := ingress.Annotations[t.backendWeightsAnnotationKey]; ok {
 		err := json.Unmarshal([]byte(weights), &actualTraffic)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)

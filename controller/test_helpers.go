@@ -9,6 +9,7 @@ import (
 	ssfake "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	zi "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
 	ssunified "github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
@@ -39,7 +40,7 @@ func NewTestEnvironment() *testEnvironment {
 		ssClient:  ssfake.NewSimpleClientset(),
 	}
 
-	controller, err := NewStackSetController(client, "", "", prometheus.NewPedanticRegistry(), time.Minute)
+	controller, err := NewStackSetController(client, "", "", traffic.DefaultBackendWeightsAnnotationKey, prometheus.NewPedanticRegistry(), time.Minute)
 	if err != nil {
 		panic(err)
 	}
