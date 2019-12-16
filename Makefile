@@ -2,14 +2,18 @@
 
 BINARY         = stackset-controller
 BINARIES       = $(BINARY) traffic
+CONTROLLER_GEN = ./build/controller-gen
 LOCAL_BINARIES = $(addprefix build/,$(BINARIES))
 LINUX_BINARIES = $(addprefix build/linux/,$(BINARIES))
+GO             ?= go
 VERSION        ?= $(shell git describe --tags --always --dirty)
 IMAGE          ?= registry-write.opensource.zalan.do/teapot/$(BINARY)
 E2E_IMAGE      ?= $(IMAGE)-e2e
 TAG            ?= $(VERSION)
 SOURCES        = $(shell find . -name '*.go')
-GENERATED      = pkg/client pkg/apis/zalando.org/v1/zz_generated.deepcopy.go
+GENERATED_CRDS = ./docs/crds
+CRD_SOURCES    = $(shell find pkg/apis/zalando.org -name '*.go')
+GENERATED      = pkg/apis/zalando.org/v1/zz_generated.deepcopy.go
 GOPKGS         = $(shell go list ./... | grep -v /e2e | grep -v vendor)
 BUILD_FLAGS    ?= -v
 LDFLAGS        ?= -X main.version=$(VERSION) -w -s
@@ -19,6 +23,7 @@ default: build.local
 clean:
 	rm -rf build
 	rm -rf $(GENERATED)
+	rm -rf $(GENERATED_CRDS)
 
 test: $(GENERATED)
 	go test -v $(GOPKGS)
@@ -29,6 +34,14 @@ check: $(GENERATED)
 
 $(GENERATED):
 	./hack/update-codegen.sh
+
+$(CONTROLLER_GEN):
+	mkdir -p build
+	GOBIN=$(shell pwd)/build $(GO) install sigs.k8s.io/controller-tools/cmd/controller-gen
+
+crds: $(CONTROLLER_GEN) $(SOURCES)
+	mkdir -p $@
+	$(CONTROLLER_GEN) crd paths=./pkg/apis/... output:crd:dir=$(GENERATED_CRDS) || /bin/true
 
 build.local: $(LOCAL_BINARIES)
 build.linux: $(LINUX_BINARIES)

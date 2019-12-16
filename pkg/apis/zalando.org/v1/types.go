@@ -11,9 +11,15 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // StackSet describes an application resource.
 // +k8s:deepcopy-gen=true
+// +kubebuilder:printcolumn:name="Desired",type=string,JSONPath=`.status.stacks`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.readyStacks`
+// +kubebuilder:printcolumn:name="Traffic",type=string,JSONPath=`.status.stacksWithTraffic`
+// +kubebuilder:printcolumn:name="Age",type=string,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:subresource:status
 type StackSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -192,6 +198,7 @@ type DesiredTraffic struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// +kubebuilder:object:root=true
 // StackSetList is a list of StackSets.
 // +k8s:deepcopy-gen=true
 type StackSetList struct {
@@ -207,6 +214,15 @@ type StackSetList struct {
 // Stack defines one version of an application. It is possible to
 // switch traffic between multiple versions of an application.
 // +k8s:deepcopy-gen=true
+// +kubebuilder:printcolumn:name="Desired",type=string,JSONPath=`.spec.replicas`
+// +kubebuilder:printcolumn:name="Current",type=string,JSONPath=`.status.replicas`
+// +kubebuilder:printcolumn:name="Up-To-Date",type=string,JSONPath=`.status.updatedReplicas`
+// +kubebuilder:printcolumn:name="Ready Replicas",type=string,JSONPath=`.status.readyReplicas`
+// +kubebuilder:printcolumn:name="Traffic",type=string,JSONPath=`.status.actualTrafficWeight`
+// +kubebuilder:printcolumn:name="No-Traffic-Since",type=string,JSONPath=`.status.noTrafficSince`
+// +kubebuilder:printcolumn:name="Age",type=string,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.replicas,selectorpath=.status.labelSelector
 type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
