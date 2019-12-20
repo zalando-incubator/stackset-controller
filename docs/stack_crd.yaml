@@ -56,8 +56,6 @@ spec:
       properties:
         spec:
           properties:
-            version:
-              type: string
             replicas:
               type: integer
               format: int32
@@ -90,8 +88,6 @@ spec:
                                   properties:
                                     key:
                                       type: string
-                                      x-kubernetes-patch-merge-key: key
-                                      x-kubernetes-patch-strategy: merge
                                     operator:
                                       type: string
                                     values:
@@ -105,12 +101,12 @@ spec:
                                 type: object
                           targetAverageValue:
                             # quantity type is string or int
-                            oneOf:
+                            anyOf:
                             - type: string
                             - type: integer
                           targetValue:
                             # quantity type is string or int
-                            oneOf:
+                            anyOf:
                             - type: string
                             - type: integer
                       object:
@@ -127,7 +123,7 @@ spec:
                                 type: string
                           targetValue:
                             # quantity type is string or int
-                            oneOf:
+                            anyOf:
                             - type: string
                             - type: integer
                       pods:
@@ -136,7 +132,7 @@ spec:
                             type: string
                           targetAverageValue:
                             # quantity type is string or int
-                            oneOf:
+                            anyOf:
                             - type: string
                             - type: integer
                       resource:
@@ -148,7 +144,7 @@ spec:
                             type: integer
                           targetAverageValue:
                             # quantity type is string or int
-                            oneOf:
+                            anyOf:
                             - type: string
                             - type: integer
                       type:
@@ -163,8 +159,10 @@ spec:
               properties:
                 minReplicas:
                   type: integer
+                  format: int32
                 maxReplicas:
                   type: integer
+                  format: int32
                 metrics:
                   type: array
                   items:
@@ -175,18 +173,22 @@ spec:
                         type: string
                       endpoint:
                         properties:
+                          name:
+                            type: string
                           port:
                             type: integer
+                            format: int32
                           path:
                             type: string
                           key:
                             type: string
                         required:
+                        - name
                         - port
                         - path
                         - key
                       average:
-                        oneOf:
+                        anyOf:
                         - type: integer
                         - type: string
                       queue:
@@ -200,23 +202,7 @@ spec:
                         - region
                       averageUtilization:
                         type: integer
-                      check:
-                        properties:
-                          id:
-                            type: integer
-                          key:
-                            type: string
-                          entities:
-                            properties:
-                              application:
-                                type: string
-                              type:
-                                type: string
-                        required:
-                        - id
-                        - key
-                        - entities
-
+                        format: int32
             service:
               properties:
                 metadata:
@@ -245,9 +231,27 @@ spec:
                         type: string
                       targetPort:
                         # TODO: int-or-string
-                        oneOf:
+                        anyOf:
                         - type: string
                         - type: integer
+            strategy:
+              properties:
+                rollingUpdate:
+                  properties:
+                    maxSurge:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      x-kubernetes-int-or-string: true
+                    maxUnavailable:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      x-kubernetes-int-or-string: true
+                  type: object
+                type:
+                  type: string
+              type: object
             podTemplate:
               properties:
                 metadata:
@@ -346,8 +350,6 @@ spec:
                                               properties:
                                                 key:
                                                   type: string
-                                                  x-kubernetes-patch-merge-key: key
-                                                  x-kubernetes-patch-strategy: merge
                                                 operator:
                                                   type: string
                                                 values:
@@ -379,8 +381,6 @@ spec:
                                           properties:
                                             key:
                                               type: string
-                                              x-kubernetes-patch-merge-key: key
-                                              x-kubernetes-patch-strategy: merge
                                             operator:
                                               type: string
                                             values:
@@ -413,8 +413,6 @@ spec:
                                               properties:
                                                 key:
                                                   type: string
-                                                  x-kubernetes-patch-merge-key: key
-                                                  x-kubernetes-patch-strategy: merge
                                                 operator:
                                                   type: string
                                                 values:
@@ -446,8 +444,6 @@ spec:
                                           properties:
                                             key:
                                               type: string
-                                              x-kubernetes-patch-merge-key: key
-                                              x-kubernetes-patch-strategy: merge
                                             operator:
                                               type: string
                                             values:
@@ -567,7 +563,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                                       scheme:
@@ -578,7 +574,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                               preStop:
@@ -605,7 +601,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                                       scheme:
@@ -616,7 +612,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                           livenessProbe:
@@ -646,7 +642,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                                   scheme:
@@ -666,7 +662,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                               timeoutSeconds:
@@ -717,7 +713,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                                   scheme:
@@ -737,7 +733,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                               timeoutSeconds:
@@ -748,14 +744,14 @@ spec:
                               limits:
                                 additionalProperties:
                                   # quantity type is string or int
-                                  oneOf:
+                                  anyOf:
                                   - type: string
                                   - type: integer
                                 type: object
                               requests:
                                 additionalProperties:
                                   # quantity type is string or int
-                                  oneOf:
+                                  anyOf:
                                   - type: string
                                   - type: integer
                                 type: object
@@ -973,7 +969,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                                       scheme:
@@ -984,7 +980,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                               preStop:
@@ -1011,7 +1007,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                                       scheme:
@@ -1022,7 +1018,7 @@ spec:
                                         type: string
                                       port:
                                         # TODO: int-or-string
-                                        oneOf:
+                                        anyOf:
                                         - type: string
                                         - type: integer
                           livenessProbe:
@@ -1052,7 +1048,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                                   scheme:
@@ -1072,7 +1068,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                               timeoutSeconds:
@@ -1123,7 +1119,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                                   scheme:
@@ -1143,7 +1139,7 @@ spec:
                                     type: string
                                   port:
                                     # TODO: int-or-string
-                                    oneOf:
+                                    anyOf:
                                     - type: string
                                     - type: integer
                               timeoutSeconds:
@@ -1154,14 +1150,14 @@ spec:
                               limits:
                                 additionalProperties:
                                   # quantity type is string or int
-                                  oneOf:
+                                  anyOf:
                                   - type: string
                                   - type: integer
                                 type: object
                               requests:
                                 additionalProperties:
                                   # quantity type is string or int
-                                  oneOf:
+                                  anyOf:
                                   - type: string
                                   - type: integer
                                 type: object
