@@ -48,15 +48,16 @@ const (
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
 type StackSetController struct {
-	logger          *log.Entry
-	client          clientset.Interface
-	controllerID    string
-	migrateTo       string
-	interval        time.Duration
-	stacksetEvents  chan stacksetEvent
-	stacksetStore   map[types.UID]zv1.StackSet
-	recorder        kube_record.EventRecorder
-	metricsReporter *core.MetricsReporter
+	logger                      *log.Entry
+	client                      clientset.Interface
+	controllerID                string
+	migrateTo                   string
+	backendWeightsAnnotationKey string
+	interval                    time.Duration
+	stacksetEvents              chan stacksetEvent
+	stacksetStore               map[types.UID]zv1.StackSet
+	recorder                    kube_record.EventRecorder
+	metricsReporter             *core.MetricsReporter
 	sync.Mutex
 }
 
@@ -75,22 +76,23 @@ func (ee *eventedError) Error() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID, migrateTo string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, controllerID, migrateTo, backendWeightsAnnotationKey string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
 	}
 
 	return &StackSetController{
-		logger:          log.WithFields(log.Fields{"controller": "stackset"}),
-		client:          client,
-		controllerID:    controllerID,
-		migrateTo:       migrateTo,
-		interval:        interval,
-		stacksetEvents:  make(chan stacksetEvent, 1),
-		stacksetStore:   make(map[types.UID]zv1.StackSet),
-		recorder:        recorder.CreateEventRecorder(client),
-		metricsReporter: metricsReporter,
+		logger:                      log.WithFields(log.Fields{"controller": "stackset"}),
+		client:                      client,
+		controllerID:                controllerID,
+		migrateTo:                   migrateTo,
+		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
+		interval:                    interval,
+		stacksetEvents:              make(chan stacksetEvent, 1),
+		stacksetStore:               make(map[types.UID]zv1.StackSet),
+		recorder:                    recorder.CreateEventRecorder(client),
+		metricsReporter:             metricsReporter,
 	}, nil
 }
 
@@ -886,7 +888,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	}
 
 	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
-	err = container.UpdateFromResources()
+	err = container.UpdateFromResources(c.backendWeightsAnnotationKey)
 	if err != nil {
 		return err
 	}

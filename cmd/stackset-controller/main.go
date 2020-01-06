@@ -15,6 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
@@ -28,13 +29,14 @@ const (
 
 var (
 	config struct {
-		Debug                 bool
-		Interval              time.Duration
-		APIServer             *url.URL
-		MetricsAddress        string
-		NoTrafficScaledownTTL time.Duration
-		ControllerID          string
-		MigrateTo             string
+		Debug                       bool
+		Interval                    time.Duration
+		APIServer                   *url.URL
+		MetricsAddress              string
+		NoTrafficScaledownTTL       time.Duration
+		ControllerID                string
+		MigrateTo                   string
+		BackendWeightsAnnotationKey string
 	}
 )
 
@@ -45,6 +47,7 @@ func main() {
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
+	kingpin.Flag("backend-weights-key", "Backend weights annotation key the controller will use to set current traffic values").Default(traffic.DefaultBackendWeightsAnnotationKey).StringVar(&config.BackendWeightsAnnotationKey)
 	kingpin.Flag("migrate-to", "Migrate desired traffic setting from Ingress to StackSet or from StackSet to Ingress").EnumVar(&config.MigrateTo, "ingress", "stackset")
 	kingpin.Parse()
 
@@ -67,6 +70,7 @@ func main() {
 		client,
 		config.ControllerID,
 		config.MigrateTo,
+		config.BackendWeightsAnnotationKey,
 		prometheus.DefaultRegisterer,
 		config.Interval,
 	)

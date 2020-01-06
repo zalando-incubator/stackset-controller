@@ -6,7 +6,7 @@ import (
 
 const (
 	stackTrafficWeightsAnnotationKey = "zalando.org/stack-traffic-weights"
-	backendWeightsAnnotationKey      = "zalando.org/backend-weights"
+	BackendWeightsAnnotationKey      = "zalando.org/backend-weights"
 )
 
 type TrafficReconciler interface {

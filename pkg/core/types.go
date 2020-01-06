@@ -192,7 +192,7 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromIngress() error {
 	return nil
 }
 
-func (ssc *StackSetContainer) updateActualTrafficFromIngress() error {
+func (ssc *StackSetContainer) updateActualTrafficFromIngress(backendWeightsAnnotationKey string) error {
 	actual, err := ssc.getNormalizedTrafficFromIngress(backendWeightsAnnotationKey)
 	if err != nil {
 		return fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
@@ -318,7 +318,7 @@ func (ssc *StackSetContainer) updateActualTrafficFromStackSet() error {
 }
 
 // UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
-func (ssc *StackSetContainer) UpdateFromResources() error {
+func (ssc *StackSetContainer) UpdateFromResources(backendWeightsAnnotationKey string) error {
 	if len(ssc.StackContainers) == 0 {
 		return nil
 	}
@@ -370,7 +370,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		}
 
 		// TODO(sszuecs): delete until end of function, if we drop ingress based desired traffic. For step1 we need the fallback but update the stackset status, too
-		return ssc.updateActualTrafficFromIngress()
+		return ssc.updateActualTrafficFromIngress(backendWeightsAnnotationKey)
 	}
 
 	return nil
