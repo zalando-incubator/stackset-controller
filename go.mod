@@ -29,3 +29,5 @@ require (
 	k8s.io/code-generator v0.0.0-20191004115455-8e001e5d1894
 	k8s.io/gengo v0.0.0-20191120174120-e74f70b9b27e // indirect
 )
+
+replace k8s.io/klog => github.com/mikkeloscar/knolog v0.0.0-20190326191552-80742771eb6b
