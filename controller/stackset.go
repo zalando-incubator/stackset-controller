@@ -204,7 +204,7 @@ func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.St
 		ssc.StackSet.Spec.Traffic = dts
 
 		// remove ingress annotation
-		ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey] = ""
+		delete(ssc.Ingress.Annotations, stackTrafficWeightsAnnotationKey)
 		// set stackset to be authorative
 		ssc.Ingress.Annotations[ingressAuthorativeAnnotationKey] = "false"
 
