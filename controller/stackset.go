@@ -181,6 +181,10 @@ func (c *StackSetController) Migrate(ctx context.Context, stacksetContainers map
 }
 
 func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.StackSetContainer) error {
+	if ssc.Ingress == nil {
+		return nil
+	}
+
 	if v, ok := ssc.Ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
 		weight := make(map[string]float64)
 		err := json.Unmarshal([]byte(v), &weight)
