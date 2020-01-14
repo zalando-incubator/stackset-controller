@@ -4,11 +4,6 @@ import (
 	"time"
 )
 
-const (
-	stackTrafficWeightsAnnotationKey = "zalando.org/stack-traffic-weights"
-	BackendWeightsAnnotationKey      = "zalando.org/backend-weights"
-)
-
 type TrafficReconciler interface {
 	// Handle the traffic switching and/or scaling logic.
 	Reconcile(stacks map[string]*StackContainer, currentTimestamp time.Time) error

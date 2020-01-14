@@ -13,7 +13,7 @@ import (
 
 const (
 	stacksetHeritageLabelKey           = "stackset"
-	stackTrafficWeightsAnnotationKey   = "zalando.org/stack-traffic-weights"
+	StackTrafficWeightsAnnotationKey   = "zalando.org/stack-traffic-weights"
 	DefaultBackendWeightsAnnotationKey = "zalando.org/backend-weights"
 )
 
@@ -62,7 +62,7 @@ func (t *Switcher) Switch(stackset, stack, namespace string, weight float64) ([]
 		annotation := map[string]map[string]map[string]string{
 			"metadata": map[string]map[string]string{
 				"annotations": map[string]string{
-					stackTrafficWeightsAnnotationKey: string(stackWeightsData),
+					StackTrafficWeightsAnnotationKey: string(stackWeightsData),
 				},
 			},
 		}
@@ -139,7 +139,7 @@ func (t *Switcher) getIngressTraffic(name, namespace string, stacks []zv1.Stack)
 	}
 
 	desiredTraffic := make(map[string]float64, len(stacks))
-	if weights, ok := ingress.Annotations[stackTrafficWeightsAnnotationKey]; ok {
+	if weights, ok := ingress.Annotations[StackTrafficWeightsAnnotationKey]; ok {
 		err := json.Unmarshal([]byte(weights), &desiredTraffic)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to get current desired Stack traffic weights: %v", err)

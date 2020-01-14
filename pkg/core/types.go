@@ -8,6 +8,7 @@ import (
 	"time"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
@@ -53,6 +54,11 @@ type StackSetContainer struct {
 
 	// Whether the stackset should be authoritative for the traffic, and not the ingress
 	stacksetManagesTraffic bool
+
+	// BackendWeightsAnnotationKey to store the runtime decision
+	// which annotation is used, defaults to
+	// traffic.DefaultBackendWeightsAnnotationKey
+	BackendWeightsAnnotationKey string
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -180,7 +186,7 @@ func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
 
 // updateDesiredTrafficFromIngress updates traffic weights of stack containers from the ingress object
 func (ssc *StackSetContainer) updateDesiredTrafficFromIngress() error {
-	desired, err := ssc.getNormalizedTrafficFromIngress(stackTrafficWeightsAnnotationKey)
+	desired, err := ssc.getNormalizedTrafficFromIngress(traffic.StackTrafficWeightsAnnotationKey)
 	if err != nil {
 		return fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
 	}
@@ -192,8 +198,8 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromIngress() error {
 	return nil
 }
 
-func (ssc *StackSetContainer) updateActualTrafficFromIngress(backendWeightsAnnotationKey string) error {
-	actual, err := ssc.getNormalizedTrafficFromIngress(backendWeightsAnnotationKey)
+func (ssc *StackSetContainer) updateActualTrafficFromIngress() error {
+	actual, err := ssc.getNormalizedTrafficFromIngress(ssc.BackendWeightsAnnotationKey)
 	if err != nil {
 		return fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
 	}
@@ -318,7 +324,7 @@ func (ssc *StackSetContainer) updateActualTrafficFromStackSet() error {
 }
 
 // UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
-func (ssc *StackSetContainer) UpdateFromResources(backendWeightsAnnotationKey string) error {
+func (ssc *StackSetContainer) UpdateFromResources() error {
 	if len(ssc.StackContainers) == 0 {
 		return nil
 	}
@@ -370,7 +376,7 @@ func (ssc *StackSetContainer) UpdateFromResources(backendWeightsAnnotationKey st
 		}
 
 		// TODO(sszuecs): delete until end of function, if we drop ingress based desired traffic. For step1 we need the fallback but update the stackset status, too
-		return ssc.updateActualTrafficFromIngress(backendWeightsAnnotationKey)
+		return ssc.updateActualTrafficFromIngress()
 	}
 
 	return nil

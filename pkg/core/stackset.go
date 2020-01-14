@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	corev1 "k8s.io/api/core/v1"
 	extensions "k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -223,11 +224,11 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 		return nil, err
 	}
 
-	result.Annotations[BackendWeightsAnnotationKey] = string(actualWeightsData)
+	result.Annotations[ssc.BackendWeightsAnnotationKey] = string(actualWeightsData)
 	if ssc.stacksetManagesTraffic {
-		delete(result.Annotations, stackTrafficWeightsAnnotationKey)
+		delete(result.Annotations, traffic.StackTrafficWeightsAnnotationKey)
 	} else {
-		result.Annotations[stackTrafficWeightsAnnotationKey] = string(desiredWeightData)
+		result.Annotations[traffic.StackTrafficWeightsAnnotationKey] = string(desiredWeightData)
 	}
 
 	return result, nil
