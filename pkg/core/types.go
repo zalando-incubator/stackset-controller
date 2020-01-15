@@ -53,7 +53,7 @@ type StackSetContainer struct {
 	externalIngressBackendPort *intstr.IntOrString
 
 	// Whether the stackset should be authoritative for the traffic, and not the ingress
-	stacksetManagesTraffic bool
+	StacksetManagesTraffic bool
 
 	// BackendWeightsAnnotationKey to store the runtime decision
 	// which annotation is used, defaults to
@@ -364,7 +364,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 			if err != nil {
 				return err
 			}
-			ssc.stacksetManagesTraffic = true
+			ssc.StacksetManagesTraffic = true
 		} else {
 			if err := ssc.updateDesiredTrafficFromIngress(); err != nil {
 				return err

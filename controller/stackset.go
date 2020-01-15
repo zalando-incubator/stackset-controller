@@ -893,6 +893,8 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 		c.stacksetLogger(container).Errorf("Unable to create stack: %v", err)
 	}
 
+	container.StacksetManagesTraffic = c.migrateTo == "stackset"
+
 	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
 	err = container.UpdateFromResources()
 	if err != nil {

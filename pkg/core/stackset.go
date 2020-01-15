@@ -57,7 +57,6 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 	observedStackVersion := stackset.Status.ObservedStackVersion
 	stackVersion := currentStackVersion(stackset)
 	stackName := generateStackName(stackset, stackVersion)
-
 	stack := ssc.stackByName(stackName)
 
 	// If the current stack doesn't exist, check that we haven't created it before. We shouldn't recreate
@@ -147,7 +146,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 	)
 
 	trafficAuthoritative := map[string]string{
-		ingressTrafficAuthoritativeAnnotation: strconv.FormatBool(!ssc.stacksetManagesTraffic),
+		ingressTrafficAuthoritativeAnnotation: strconv.FormatBool(!ssc.StacksetManagesTraffic),
 	}
 
 	result := &extensions.Ingress{
@@ -225,7 +224,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 	}
 
 	result.Annotations[ssc.BackendWeightsAnnotationKey] = string(actualWeightsData)
-	if ssc.stacksetManagesTraffic {
+	if ssc.StacksetManagesTraffic {
 		delete(result.Annotations, traffic.StackTrafficWeightsAnnotationKey)
 	} else {
 		result.Annotations[traffic.StackTrafficWeightsAnnotationKey] = string(desiredWeightData)
@@ -273,7 +272,7 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 }
 
 func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
-	if !ssc.stacksetManagesTraffic {
+	if !ssc.StacksetManagesTraffic {
 		return nil
 	}
 
