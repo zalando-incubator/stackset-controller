@@ -884,8 +884,6 @@ func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer
 
 // ReconcileStackSet reconciles all the things from a stackset
 func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer) error {
-	container.BackendWeightsAnnotationKey = c.backendWeightsAnnotationKey
-
 	// Create current stack, if needed. Proceed on errors.
 	err := c.CreateCurrentStack(container)
 	if err != nil {
@@ -894,7 +892,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	}
 
 	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
-	err = container.UpdateFromResources(c.migrateTo == "stackset")
+	err = container.UpdateFromResources(c.migrateTo == "stackset", c.backendWeightsAnnotationKey)
 	if err != nil {
 		return err
 	}

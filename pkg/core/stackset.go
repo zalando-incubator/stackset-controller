@@ -223,7 +223,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 		return nil, err
 	}
 
-	result.Annotations[ssc.BackendWeightsAnnotationKey] = string(actualWeightsData)
+	result.Annotations[ssc.backendWeightsAnnotationKey] = string(actualWeightsData)
 	if ssc.stacksetManagesTraffic {
 		delete(result.Annotations, traffic.StackTrafficWeightsAnnotationKey)
 	} else {

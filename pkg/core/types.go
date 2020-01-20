@@ -55,10 +55,10 @@ type StackSetContainer struct {
 	// Whether the stackset should be authoritative for the traffic, and not the ingress
 	stacksetManagesTraffic bool
 
-	// BackendWeightsAnnotationKey to store the runtime decision
+	// backendWeightsAnnotationKey to store the runtime decision
 	// which annotation is used, defaults to
 	// traffic.DefaultBackendWeightsAnnotationKey
-	BackendWeightsAnnotationKey string
+	backendWeightsAnnotationKey string
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -199,7 +199,7 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromIngress() error {
 }
 
 func (ssc *StackSetContainer) updateActualTrafficFromIngress() error {
-	actual, err := ssc.getNormalizedTrafficFromIngress(ssc.BackendWeightsAnnotationKey)
+	actual, err := ssc.getNormalizedTrafficFromIngress(ssc.backendWeightsAnnotationKey)
 	if err != nil {
 		return fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
 	}
@@ -324,8 +324,10 @@ func (ssc *StackSetContainer) updateActualTrafficFromStackSet() error {
 }
 
 // UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
-func (ssc *StackSetContainer) UpdateFromResources(stacksetManageTraffic bool) error {
+func (ssc *StackSetContainer) UpdateFromResources(stacksetManageTraffic bool, backendWeightsAnnotationKey string) error {
 	ssc.stacksetManagesTraffic = stacksetManageTraffic
+	ssc.backendWeightsAnnotationKey = backendWeightsAnnotationKey
+
 	if len(ssc.StackContainers) == 0 {
 		return nil
 	}
