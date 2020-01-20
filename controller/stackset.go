@@ -892,7 +892,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	}
 
 	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
-	err = container.UpdateFromResources(c.backendWeightsAnnotationKey)
+	err = container.UpdateFromResources(c.migrateTo == "stackset", c.backendWeightsAnnotationKey)
 	if err != nil {
 		return err
 	}
