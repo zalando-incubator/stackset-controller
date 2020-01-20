@@ -146,7 +146,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 	)
 
 	trafficAuthoritative := map[string]string{
-		ingressTrafficAuthoritativeAnnotation: strconv.FormatBool(!ssc.StacksetManagesTraffic),
+		ingressTrafficAuthoritativeAnnotation: strconv.FormatBool(!ssc.stacksetManagesTraffic),
 	}
 
 	result := &extensions.Ingress{
@@ -224,7 +224,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 	}
 
 	result.Annotations[ssc.BackendWeightsAnnotationKey] = string(actualWeightsData)
-	if ssc.StacksetManagesTraffic {
+	if ssc.stacksetManagesTraffic {
 		delete(result.Annotations, traffic.StackTrafficWeightsAnnotationKey)
 	} else {
 		result.Annotations[traffic.StackTrafficWeightsAnnotationKey] = string(desiredWeightData)
@@ -272,7 +272,7 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 }
 
 func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
-	if !ssc.StacksetManagesTraffic {
+	if !ssc.stacksetManagesTraffic {
 		return nil
 	}
 

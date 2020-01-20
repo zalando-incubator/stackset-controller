@@ -353,7 +353,7 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec.Ingress = tc.ingress
-			err := c.UpdateFromResources()
+			err := c.UpdateFromResources(true)
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -397,7 +397,7 @@ func TestStackSetUpdateFromResourcesPopulatesBackendPort(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec = tc.spec
-			err := c.UpdateFromResources()
+			err := c.UpdateFromResources(true)
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -451,7 +451,7 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 				c.StackSet.Spec.Ingress = tc.ingress
 			}
 
-			err := c.UpdateFromResources()
+			err := c.UpdateFromResources(true)
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -795,9 +795,9 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 				BackendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 			}
 
-			err := ssc.UpdateFromResources()
+			err := ssc.UpdateFromResources(true)
 			require.NoError(t, err)
-			require.True(t, ssc.StacksetManagesTraffic)
+			require.True(t, ssc.stacksetManagesTraffic)
 
 			for _, sc := range ssc.StackContainers {
 				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "desired stack %s", sc.Stack.Name)
@@ -827,9 +827,9 @@ func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
 		BackendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 	}
 
-	err := ssc.UpdateFromResources()
+	err := ssc.UpdateFromResources(true)
 	require.NoError(t, err)
-	require.True(t, ssc.StacksetManagesTraffic)
+	require.True(t, ssc.stacksetManagesTraffic)
 	require.EqualValues(t, &backendPort, ssc.externalIngressBackendPort)
 }
 
@@ -894,9 +894,9 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 				ssc.Ingress.Annotations[traffic.DefaultBackendWeightsAnnotationKey] = tc.actualWeights
 			}
 
-			err := ssc.UpdateFromResources()
+			err := ssc.UpdateFromResources(false)
 			require.NoError(t, err)
-			require.False(t, ssc.StacksetManagesTraffic)
+			require.False(t, ssc.stacksetManagesTraffic)
 
 			for _, sc := range ssc.StackContainers {
 				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
@@ -1005,7 +1005,7 @@ func TestGenerateStackSetTraffic(t *testing.T) {
 					"v4": testStack("v4").stack(),
 					"v5": testStack("v5").ready(3).traffic(20, 10).stack(),
 				},
-				StacksetManagesTraffic:      tc.managesTraffic,
+				stacksetManagesTraffic:      tc.managesTraffic,
 				BackendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 			}
 
@@ -1067,7 +1067,7 @@ func TestStackSetGenerateIngress(t *testing.T) {
 					"v3": testStack("foo-v3").traffic(0.625, 0.625).stack(),
 					"v4": testStack("foo-v4").traffic(0, 0).stack(),
 				},
-				StacksetManagesTraffic:      tc.stacksetManagesTraffic,
+				stacksetManagesTraffic:      tc.stacksetManagesTraffic,
 				BackendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 			}
 			ingress, err := c.GenerateIngress()
