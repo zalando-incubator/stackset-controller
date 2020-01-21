@@ -153,16 +153,16 @@ type HorizontalPodAutoscaler struct {
 type StackSetStatus struct {
 	// Stacks is the number of stacks managed by the StackSet.
 	// +optional
-	Stacks int32 `json:"stacks,omitempty"`
+	Stacks int32 `json:"stacks"`
 	// ReadyStacks is the number of stacks managed by the StackSet which
 	// are considered ready. a Stack is considered ready if:
 	// replicas == readyReplicas == updatedReplicas.
 	// +optional
-	ReadyStacks int32 `json:"readyStacks,omitempty"`
+	ReadyStacks int32 `json:"readyStacks"`
 	// StacksWithTraffic is the number of stacks managed by the StackSet
 	// which are getting traffic.
 	// +optional
-	StacksWithTraffic int32 `json:"stacksWithTraffic,omitempty"`
+	StacksWithTraffic int32 `json:"stacksWithTraffic"`
 	// ObservedStackVersion is the version of Stack generated from the current StackSet definition.
 	// TODO: add a more detailed comment
 	// +optional
@@ -283,10 +283,10 @@ type StackStatus struct {
 	// DesiredReplicas is the number of desired replicas as defined by the
 	// optional HortizontalPodAutoscaler defined for the stack.
 	// +optional
-	DesiredReplicas int32 `json:"desiredReplicas,omitempty"`
+	DesiredReplicas int32 `json:"desiredReplicas"`
 	// Prescaling current prescaling information
 	// +optional
-	Prescaling PrescalingStatus `json:"prescalingStatus,omitempty"`
+	Prescaling PrescalingStatus `json:"prescalingStatus"`
 	// NoTrafficSince is the timestamp defining the last time the stack was
 	// observed getting traffic.
 	NoTrafficSince *metav1.Time `json:"noTrafficSince,omitempty"`
@@ -300,7 +300,7 @@ type StackStatus struct {
 type PrescalingStatus struct {
 	// Active indicates if prescaling is current active
 	// +optional
-	Active bool `json:"active,omitempty"`
+	Active bool `json:"active"`
 	// Replicas is the number of replicas required for prescaling
 	// +optional
 	Replicas int32 `json:"replicas,omitempty"`

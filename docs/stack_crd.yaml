@@ -16,7 +16,7 @@ spec:
   - name: Desired
     type: integer
     description: Number of desired replicas
-    JSONPath: .spec.replicas
+    JSONPath: .status.desiredReplicas
   - name: Current
     type: integer
     description: Number of current replicas
