@@ -100,9 +100,6 @@ type StackContainer struct {
 	// Current number of up-to-date replicas that the deployment has, from Deployment.status
 	updatedReplicas int32
 
-	// Current number of replicas that the HPA expects deployment to have, from HPA.status
-	desiredReplicas int32
-
 	// Traffic & scaling
 	currentActualTrafficWeight     float64
 	actualTrafficWeight            float64
@@ -434,10 +431,6 @@ func (sc *StackContainer) updateFromResources() {
 	}
 
 	// hpa
-	if sc.Resources.HPA != nil {
-		hpa := sc.Resources.HPA
-		sc.desiredReplicas = hpa.Status.DesiredReplicas
-	}
 	if sc.IsAutoscaled() {
 		hpaUpdated = sc.Resources.HPA != nil && IsResourceUpToDate(sc.Stack, sc.Resources.HPA.ObjectMeta)
 	} else {
