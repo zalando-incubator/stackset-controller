@@ -320,7 +320,7 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 		Replicas:             sc.createdReplicas,
 		ReadyReplicas:        sc.readyReplicas,
 		UpdatedReplicas:      sc.updatedReplicas,
-		DesiredReplicas:      sc.desiredReplicas,
+		DesiredReplicas:      sc.deploymentReplicas,
 		Prescaling:           prescaling,
 		NoTrafficSince:       wrapTime(sc.noTrafficSince),
 		LabelSelector:        labels.Set(sc.selector()).String(),

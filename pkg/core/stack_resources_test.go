@@ -663,7 +663,7 @@ func TestGenerateStackStatus(t *testing.T) {
 				createdReplicas:                3,
 				readyReplicas:                  2,
 				updatedReplicas:                1,
-				desiredReplicas:                4,
+				deploymentReplicas:             4,
 				noTrafficSince:                 tc.noTrafficSince,
 				prescalingActive:               tc.prescalingActive,
 				prescalingReplicas:             tc.prescalingReplicas,

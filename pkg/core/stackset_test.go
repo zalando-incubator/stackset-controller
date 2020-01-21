@@ -531,20 +531,6 @@ func TestStackUpdateFromResources(t *testing.T) {
 		require.EqualValues(t, 3, container.stackReplicas)
 	})
 
-	runTest("desired replicas are set to 0 if there's no HPA", func(t *testing.T, container *StackContainer) {
-		container.updateFromResources()
-		require.EqualValues(t, 0, container.desiredReplicas)
-	})
-	runTest("desired replicas are parsed from the HPA", func(t *testing.T, container *StackContainer) {
-		container.Resources.HPA = &autoscaling.HorizontalPodAutoscaler{
-			Status: autoscaling.HorizontalPodAutoscalerStatus{
-				DesiredReplicas: 7,
-			},
-		}
-		container.updateFromResources()
-		require.EqualValues(t, 7, container.desiredReplicas)
-	})
-
 	runTest("noTrafficSince can be unset", func(t *testing.T, container *StackContainer) {
 		container.updateFromResources()
 		require.EqualValues(t, time.Time{}, container.noTrafficSince)

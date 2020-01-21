@@ -280,8 +280,7 @@ type StackStatus struct {
 	// managed by the stack.
 	// +optional
 	UpdatedReplicas int32 `json:"updatedReplicas"`
-	// DesiredReplicas is the number of desired replicas as defined by the
-	// optional HortizontalPodAutoscaler defined for the stack.
+	// DesiredReplicas is the number of desired replicas in the Deployment
 	// +optional
 	DesiredReplicas int32 `json:"desiredReplicas"`
 	// Prescaling current prescaling information
