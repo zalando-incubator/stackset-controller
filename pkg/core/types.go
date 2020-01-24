@@ -1,14 +1,12 @@
 package core
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
 	"time"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
@@ -51,9 +49,6 @@ type StackSetContainer struct {
 	// if an external entity creates ingress objects for us. The
 	// Ingress of stackset should be nil in this case.
 	externalIngressBackendPort *intstr.IntOrString
-
-	// Whether the stackset should be authoritative for the traffic, and not the ingress
-	stacksetManagesTraffic bool
 
 	// backendWeightsAnnotationKey to store the runtime decision
 	// which annotation is used, defaults to
@@ -177,12 +172,11 @@ type StackResources struct {
 	Ingress    *networking.Ingress
 }
 
-func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, stacksetManageTraffic bool, backendWeightsAnnotationKey, clusterDomain string) *StackSetContainer {
+func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey, clusterDomain string) *StackSetContainer {
 	return &StackSetContainer{
 		StackSet:                    stackset,
 		StackContainers:             map[types.UID]*StackContainer{},
 		TrafficReconciler:           reconciler,
-		stacksetManagesTraffic:      stacksetManageTraffic,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
 		clusterDomain:               clusterDomain,
 	}
@@ -197,72 +191,6 @@ func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
 	return nil
 }
 
-// updateDesiredTrafficFromIngress updates traffic weights of stack containers from the ingress object
-func (ssc *StackSetContainer) updateDesiredTrafficFromIngress() error {
-	desired, err := ssc.getNormalizedTrafficFromIngress(traffic.StackTrafficWeightsAnnotationKey)
-	if err != nil {
-		return fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
-	}
-
-	for _, container := range ssc.StackContainers {
-		container.desiredTrafficWeight = desired[container.Name()]
-	}
-
-	return nil
-}
-
-func (ssc *StackSetContainer) updateActualTrafficFromIngress() error {
-	actual, err := ssc.getNormalizedTrafficFromIngress(ssc.backendWeightsAnnotationKey)
-	if err != nil {
-		return fmt.Errorf("failed to get current actual Stack traffic weights: %v", err)
-	}
-
-	for _, container := range ssc.StackContainers {
-		container.actualTrafficWeight = actual[container.Name()]
-		container.currentActualTrafficWeight = actual[container.Name()]
-	}
-
-	return nil
-}
-
-func (ssc *StackSetContainer) getNormalizedTrafficFromIngress(annotationKey string) (map[string]float64, error) {
-	weight := make(map[string]float64)
-
-	if ssc.StackSet.Spec.Ingress != nil && ssc.Ingress != nil && len(ssc.StackContainers) > 0 {
-		stacksetNames := make(map[string]struct{})
-		for _, sc := range ssc.StackContainers {
-			stacksetNames[sc.Name()] = struct{}{}
-		}
-
-		if w, ok := ssc.Ingress.Annotations[annotationKey]; ok {
-			err := json.Unmarshal([]byte(w), &weight)
-			if err != nil {
-				return nil, fmt.Errorf("failed to unmarshal json from annotation ingress %s: %v", annotationKey, err)
-			}
-		}
-
-		// Remove weights for stacks that no longer exist, normalize the result
-		for name := range weight {
-			if _, ok := stacksetNames[name]; !ok {
-				delete(weight, name)
-			}
-		}
-
-		if !allZero(weight) {
-			normalizeWeights(weight)
-		}
-	}
-	return weight, nil
-}
-
-func (ssc *StackSetContainer) hasDesiredTrafficFromStackSet() bool {
-	return len(ssc.StackSet.Spec.Traffic) > 0
-}
-
-func (ssc *StackSetContainer) hasActualTrafficFromStackSet() bool {
-	return len(ssc.StackSet.Status.Traffic) > 0
-}
-
 func (ssc *StackSetContainer) findFallbackStack() *StackContainer {
 	stacks := make(map[string]*StackContainer)
 	for _, stack := range ssc.StackContainers {
@@ -271,30 +199,28 @@ func (ssc *StackSetContainer) findFallbackStack() *StackContainer {
 	return findFallbackStack(stacks)
 }
 
-// updateDesiredTrafficFromStackSet gets desired from stackset spec
+// updateDesiredTraffic gets desired from stackset spec
 // and populates it to stack containers
-func (ssc *StackSetContainer) updateDesiredTrafficFromStackSet() error {
+func (ssc *StackSetContainer) updateDesiredTraffic() error {
 	weights := make(map[string]float64)
 
-	if ssc.hasDesiredTrafficFromStackSet() {
-		for _, desiredTraffic := range ssc.StackSet.Spec.Traffic {
-			weights[desiredTraffic.StackName] = desiredTraffic.Weight
-		}
+	for _, desiredTraffic := range ssc.StackSet.Spec.Traffic {
+		weights[desiredTraffic.StackName] = desiredTraffic.Weight
+	}
 
-		// filter stacks and normalize weights
-		stacksetNames := make(map[string]struct{})
-		for _, sc := range ssc.StackContainers {
-			stacksetNames[sc.Name()] = struct{}{}
+	// filter stacks and normalize weights
+	stacksetNames := make(map[string]struct{})
+	for _, sc := range ssc.StackContainers {
+		stacksetNames[sc.Name()] = struct{}{}
+	}
+	for name := range weights {
+		if _, ok := stacksetNames[name]; !ok {
+			delete(weights, name)
 		}
-		for name := range weights {
-			if _, ok := stacksetNames[name]; !ok {
-				delete(weights, name)
-			}
-		}
+	}
 
-		if !allZero(weights) {
-			normalizeWeights(weights)
-		}
+	if !allZero(weights) {
+		normalizeWeights(weights)
 	}
 
 	// save values in stack containers
@@ -305,9 +231,9 @@ func (ssc *StackSetContainer) updateDesiredTrafficFromStackSet() error {
 	return nil
 }
 
-// updateActualTrafficFromStackSet gets actual from stackset status
+// updateActualTraffic gets actual from stackset status
 // and populates it to stack containers
-func (ssc *StackSetContainer) updateActualTrafficFromStackSet() error {
+func (ssc *StackSetContainer) updateActualTraffic() error {
 	weights := make(map[string]float64)
 	for _, actualTraffic := range ssc.StackSet.Status.Traffic {
 		weights[actualTraffic.ServiceName] = actualTraffic.Weight
@@ -373,24 +299,12 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 
 	// only populate traffic if traffic management is enabled
 	if ingressSpec != nil || externalIngress != nil {
-		if ssc.hasDesiredTrafficFromStackSet() || externalIngress != nil {
-			err := ssc.updateDesiredTrafficFromStackSet()
-			if err != nil {
-				return err
-			}
-			ssc.stacksetManagesTraffic = true
-		} else {
-			if err := ssc.updateDesiredTrafficFromIngress(); err != nil {
-				return err
-			}
+		err := ssc.updateDesiredTraffic()
+		if err != nil {
+			return err
 		}
 
-		if ssc.hasActualTrafficFromStackSet() || externalIngress != nil {
-			return ssc.updateActualTrafficFromStackSet()
-		}
-
-		// TODO(sszuecs): delete until end of function, if we drop ingress based desired traffic. For step1 we need the fallback but update the stackset status, too
-		return ssc.updateActualTrafficFromIngress()
+		return ssc.updateActualTraffic()
 	}
 
 	return nil
