@@ -8,7 +8,7 @@ import (
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
@@ -189,14 +189,6 @@ func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
 		}
 	}
 	return nil
-}
-
-func (ssc *StackSetContainer) findFallbackStack() *StackContainer {
-	stacks := make(map[string]*StackContainer)
-	for _, stack := range ssc.StackContainers {
-		stacks[stack.Name()] = stack
-	}
-	return findFallbackStack(stacks)
 }
 
 // updateDesiredTraffic gets desired from stackset spec

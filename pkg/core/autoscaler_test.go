@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/api/autoscaling/v2beta1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -101,9 +101,9 @@ func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
 	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
 	cpuMetric := hpa.Spec.Metrics[0]
-	require.Equal(t, cpuMetric.Type, v2beta1.ResourceMetricSourceType)
+	require.Equal(t, cpuMetric.Type, autoscaling.ResourceMetricSourceType)
 	require.Equal(t, cpuMetric.Resource.Name, corev1.ResourceCPU)
-	require.Equal(t, *cpuMetric.Resource.TargetAverageUtilization, int32(80))
+	require.Equal(t, *cpuMetric.Resource.Target.AverageUtilization, int32(80))
 }
 
 func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
@@ -115,9 +115,9 @@ func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
 	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
 	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
 	memoryMetric := hpa.Spec.Metrics[0]
-	require.Equal(t, memoryMetric.Type, v2beta1.ResourceMetricSourceType)
+	require.Equal(t, memoryMetric.Type, autoscaling.ResourceMetricSourceType)
 	require.Equal(t, memoryMetric.Resource.Name, corev1.ResourceMemory)
-	require.Equal(t, *memoryMetric.Resource.TargetAverageUtilization, int32(80))
+	require.Equal(t, *memoryMetric.Resource.Target.AverageUtilization, int32(80))
 }
 
 func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
@@ -129,11 +129,11 @@ func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {
 	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
 	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
 	externalMetric := hpa.Spec.Metrics[0]
-	require.Equal(t, externalMetric.Type, v2beta1.ExternalMetricSourceType)
-	require.Equal(t, externalMetric.External.MetricName, "sqs-queue-length")
-	require.Equal(t, externalMetric.External.MetricSelector.MatchLabels["queue-name"], "test-queue")
-	require.Equal(t, externalMetric.External.MetricSelector.MatchLabels["queue-name"], "test-queue")
-	require.Equal(t, externalMetric.External.TargetAverageValue.Value(), int64(80))
+	require.Equal(t, externalMetric.Type, autoscaling.ExternalMetricSourceType)
+	require.Equal(t, externalMetric.External.Metric.Name, "sqs-queue-length")
+	require.Equal(t, externalMetric.External.Metric.Selector.MatchLabels["queue-name"], "test-queue")
+	require.Equal(t, externalMetric.External.Metric.Selector.MatchLabels["queue-name"], "test-queue")
+	require.Equal(t, externalMetric.External.Target.AverageValue.Value(), int64(80))
 }
 
 func TestStackSetController_ReconcileAutoscalersPodJson(t *testing.T) {
@@ -145,12 +145,12 @@ func TestStackSetController_ReconcileAutoscalersPodJson(t *testing.T) {
 	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
 	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
 	podMetrics := hpa.Spec.Metrics[0]
-	require.Equal(t, podMetrics.Type, v2beta1.PodsMetricSourceType)
+	require.Equal(t, podMetrics.Type, autoscaling.PodsMetricSourceType)
 	require.Equal(t, hpa.Annotations["metric-config.pods.current-load.json-path/json-key"], "$.current-load.counter")
 	require.Equal(t, hpa.Annotations["metric-config.pods.current-load.json-path/path"], "/metrics")
 	require.Equal(t, hpa.Annotations["metric-config.pods.current-load.json-path/port"], "8080")
-	require.Equal(t, podMetrics.Pods.TargetAverageValue.Value(), int64(80))
-	require.Equal(t, podMetrics.Pods.MetricName, "current-load")
+	require.Equal(t, podMetrics.Pods.Target.AverageValue.Value(), int64(80))
+	require.Equal(t, podMetrics.Pods.Metric.Name, "current-load")
 }
 
 func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
@@ -162,9 +162,9 @@ func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
 	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
 	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
 	ingressMetrics := hpa.Spec.Metrics[0]
-	require.Equal(t, ingressMetrics.Type, v2beta1.ObjectMetricSourceType)
-	require.Equal(t, ingressMetrics.Object.TargetValue.Value(), int64(80))
-	require.Equal(t, ingressMetrics.Object.MetricName, fmt.Sprintf("%s,%s", "requests-per-second", "stackset-v1"))
+	require.Equal(t, autoscaling.ObjectMetricSourceType, ingressMetrics.Type)
+	require.Equal(t, int64(80), ingressMetrics.Object.Target.AverageValue.Value())
+	require.Equal(t, ingressMetrics.Object.Metric.Name, fmt.Sprintf("%s,%s", "requests-per-second", "stackset-v1"))
 }
 
 func TestCPUMetricValid(t *testing.T) {
@@ -243,10 +243,10 @@ func TestSortingMetrics(t *testing.T) {
 	require.NoError(t, err, "failed to create an HPA")
 	require.NotNil(t, hpa, "hpa not generated")
 	require.Len(t, hpa.Spec.Metrics, 4)
-	require.EqualValues(t, v2beta1.ExternalMetricSourceType, hpa.Spec.Metrics[0].Type)
-	require.EqualValues(t, v2beta1.ObjectMetricSourceType, hpa.Spec.Metrics[1].Type)
-	require.EqualValues(t, v2beta1.PodsMetricSourceType, hpa.Spec.Metrics[2].Type)
-	require.EqualValues(t, v2beta1.ResourceMetricSourceType, hpa.Spec.Metrics[3].Type)
+	require.EqualValues(t, autoscaling.ExternalMetricSourceType, hpa.Spec.Metrics[0].Type)
+	require.EqualValues(t, autoscaling.ObjectMetricSourceType, hpa.Spec.Metrics[1].Type)
+	require.EqualValues(t, autoscaling.PodsMetricSourceType, hpa.Spec.Metrics[2].Type)
+	require.EqualValues(t, autoscaling.ResourceMetricSourceType, hpa.Spec.Metrics[3].Type)
 }
 
 func pint32(val int) *int32 {
@@ -263,7 +263,7 @@ func generateHPA(minReplicas, maxReplicas int32) StackContainer {
 				HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
 					MinReplicas: &minReplicas,
 					MaxReplicas: maxReplicas,
-					Metrics:     []autoscaling.MetricSpec{},
+					Metrics:     []autoscalingv2beta1.MetricSpec{},
 				},
 			},
 		},

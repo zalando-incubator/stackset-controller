@@ -1,4 +1,7 @@
 run:
+  skip-files:
+  - 'pkg/core/conversion.go'
+  - 'pkg/core/generated.conversion.go'
 linters-settings:
   golint:
       min-confidence: 0.9

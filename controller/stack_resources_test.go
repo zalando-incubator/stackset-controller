@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -355,8 +355,11 @@ func TestReconcileStackHPA(t *testing.T) {
 		{
 			Type: "cpu",
 			Resource: &autoscaling.ResourceMetricSource{
-				Name:               "cpu",
-				TargetAverageValue: &exampleResource,
+				Name: "cpu",
+				Target: autoscaling.MetricTarget{
+					Type:         autoscaling.AverageValueMetricType,
+					AverageValue: &exampleResource,
+				},
 			},
 		},
 	}
@@ -365,8 +368,11 @@ func TestReconcileStackHPA(t *testing.T) {
 		{
 			Type: "cpu",
 			Resource: &autoscaling.ResourceMetricSource{
-				Name:               "cpu",
-				TargetAverageValue: &exampleUpdatedResource,
+				Name: "cpu",
+				Target: autoscaling.MetricTarget{
+					Type:         autoscaling.AverageValueMetricType,
+					AverageValue: &exampleUpdatedResource,
+				},
 			},
 		},
 	}
@@ -519,7 +525,7 @@ func TestReconcileStackHPA(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.AutoscalingV2beta1().HorizontalPodAutoscalers(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
+			updated, err := env.client.AutoscalingV2beta2().HorizontalPodAutoscalers(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)

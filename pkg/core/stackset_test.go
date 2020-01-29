@@ -9,7 +9,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	apps "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,12 +21,12 @@ func TestExpiredStacks(t *testing.T) {
 	now := time.Now()
 
 	for _, tc := range []struct {
-		name                string
-		limit               int32
-		scaledownTTLSeconds time.Duration
-		ingress             bool
-		stacks              []*StackContainer
-		expected            map[string]bool
+		name         string
+		limit        int32
+		scaledownTTL time.Duration
+		ingress      bool
+		stacks       []*StackContainer
+		expected     map[string]bool
 	}{
 		{
 			name:    "test GC oldest stack",
@@ -80,10 +80,10 @@ func TestExpiredStacks(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:                "not GC'ing a stack with no-traffic-since less than ScaledownTTLSeconds",
-			limit:               1,
-			ingress:             true,
-			scaledownTTLSeconds: 300,
+			name:         "not GC'ing a stack with no-traffic-since less than ScaledownTTLSeconds",
+			limit:        1,
+			ingress:      true,
+			scaledownTTL: 300,
 			stacks: []*StackContainer{
 				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-200 * time.Second)).stack(),
 				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-250 * time.Second)).stack(),
@@ -106,10 +106,10 @@ func TestExpiredStacks(t *testing.T) {
 			}
 			c.StackSet.Spec.StackLifecycle.Limit = &tc.limit
 			for _, stack := range tc.stacks {
-				if tc.scaledownTTLSeconds == 0 {
+				if tc.scaledownTTL == 0 {
 					stack.scaledownTTL = defaultScaledownTTL
 				} else {
-					stack.scaledownTTL = time.Second * tc.scaledownTTLSeconds
+					stack.scaledownTTL = time.Second * tc.scaledownTTL
 				}
 				if tc.ingress {
 					stack.ingressSpec = &zv1.StackSetIngressSpec{}
