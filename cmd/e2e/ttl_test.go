@@ -91,6 +91,51 @@ func TestStackTTLWithIngress(t *testing.T) {
 	}
 }
 
+func TestStackTTLWithExternalIngress(t *testing.T) {
+	t.Parallel()
+	stacksetName := "stackset-ttl-external-ingress"
+	specFactory := NewTestStacksetSpecFactory(stacksetName).StackGC(3, 15).ExternalIngress()
+
+	// Create 6 stacks each with an ingress
+	for i := 0; i < 6; i++ {
+		stackVersion := fmt.Sprintf("v%d", i)
+		var err error
+		spec := specFactory.Create(stackVersion)
+		if !stacksetExists(stacksetName) {
+			err = createStackSet(stacksetName, 1, spec)
+		} else {
+			err = updateStackset(stacksetName, spec)
+		}
+		require.NoError(t, err)
+		_, err = waitForStack(t, stacksetName, stackVersion)
+		require.NoError(t, err)
+		fullStackName := fmt.Sprintf("%s-%s", stacksetName, stackVersion)
+
+		// // once the stack is created switch full traffic to it
+		newWeight := map[string]float64{fullStackName: 100}
+		err = setDesiredTrafficWeightsStackset(stacksetName, newWeight)
+		require.NoError(t, err)
+		err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, newWeight, nil).withTimeout(10 * time.Minute).await()
+		require.NoError(t, err)
+	}
+
+	// verify that only the last 4 created stacks are present
+	for i := 2; i < 6; i++ {
+		deploymentName := fmt.Sprintf("%s-v%d", stacksetName, i)
+		require.True(t, stackExists(stacksetName, fmt.Sprintf("v%d", i)))
+		_, err := waitForDeployment(t, deploymentName)
+		require.NoError(t, err)
+	}
+
+	// verify that the first 2 created stacks have been deleted
+	for i := 0; i < 2; i++ {
+		deploymentName := fmt.Sprintf("%s-v%d", stacksetName, i)
+		err := resourceDeleted(t, "stack", deploymentName, deploymentInterface()).withTimeout(time.Second * 60).await()
+		require.NoError(t, err)
+		require.False(t, stackExists(stacksetName, fmt.Sprintf("v%d", i)))
+	}
+}
+
 // TestStackTTLForLatestStack tests that the latest stack gets scaled down and isn't treated differently
 func TestStackTTLForLatestStack(t *testing.T) {
 	t.Parallel()
