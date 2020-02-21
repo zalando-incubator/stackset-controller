@@ -187,11 +187,13 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
+                                    pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                     x-kubernetes-int-or-string: true
                                   targetValue:
                                     anyOf:
                                     - type: integer
                                     - type: string
+                                    pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                     x-kubernetes-int-or-string: true
                                 type: object
                               object:
@@ -211,6 +213,7 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
+                                    pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                     x-kubernetes-int-or-string: true
                                 type: object
                               pods:
@@ -221,6 +224,7 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
+                                    pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                     x-kubernetes-int-or-string: true
                                 type: object
                               resource:
@@ -234,6 +238,7 @@ spec:
                                     anyOf:
                                     - type: integer
                                     - type: string
+                                    pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                     x-kubernetes-int-or-string: true
                                 type: object
                               type:
@@ -281,6 +286,7 @@ spec:
                                 anyOf:
                                 - type: integer
                                 - type: string
+                                pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                 x-kubernetes-int-or-string: true
                               queue:
                                 properties:
@@ -883,6 +889,7 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
+                                          pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                           x-kubernetes-int-or-string: true
                                         type: object
                                       requests:
@@ -890,6 +897,7 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
+                                          pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                           x-kubernetes-int-or-string: true
                                         type: object
                                     type: object
@@ -1331,6 +1339,7 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
+                                          pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                           x-kubernetes-int-or-string: true
                                         type: object
                                       requests:
@@ -1338,6 +1347,7 @@ spec:
                                           anyOf:
                                           - type: integer
                                           - type: string
+                                          pattern: "^(\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\\+|-)?(([0-9]+(\\.[0-9]*)?)|(\\.[0-9]+))))?$"
                                           x-kubernetes-int-or-string: true
                                         type: object
                                     type: object
