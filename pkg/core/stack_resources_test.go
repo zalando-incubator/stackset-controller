@@ -278,10 +278,11 @@ func TestStackGenerateIngress(t *testing.T) {
 				Labels:      map[string]string{"ignored": "label"},
 				Annotations: map[string]string{"ingress": "annotation"},
 			},
-			Hosts: []string{"example.org", "example.com"},
+			Hosts: []string{"foo.example.org", "foo.example.com"},
 			Path:  "example",
 		},
-		backendPort: &backendPort,
+		backendPort:   &backendPort,
+		clusterDomain: "example.org",
 	}
 	ingress, err := c.GenerateIngress()
 	require.NoError(t, err)
@@ -295,23 +296,7 @@ func TestStackGenerateIngress(t *testing.T) {
 		Spec: extensions.IngressSpec{
 			Rules: []extensions.IngressRule{
 				{
-					Host: "foo-v1.org",
-					IngressRuleValue: extensions.IngressRuleValue{
-						HTTP: &extensions.HTTPIngressRuleValue{
-							Paths: []extensions.HTTPIngressPath{
-								{
-									Path: "example",
-									Backend: extensions.IngressBackend{
-										ServiceName: "foo-v1",
-										ServicePort: backendPort,
-									},
-								},
-							},
-						},
-					},
-				},
-				{
-					Host: "foo-v1.com",
+					Host: "foo-v1.example.org",
 					IngressRuleValue: extensions.IngressRuleValue{
 						HTTP: &extensions.HTTPIngressRuleValue{
 							Paths: []extensions.HTTPIngressPath{

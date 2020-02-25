@@ -1,9 +1,7 @@
 package core
 
 import (
-	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -48,21 +46,6 @@ func getStackGeneration(resource metav1.ObjectMeta) int64 {
 		return 0
 	}
 	return decodedGeneration
-}
-
-// createSubdomain creates a subdomain giving an existing domain by replacing
-// the first section of the domain. E.g. given the domain: my-app.example.org
-// and the subdomain part my-new-app the resulting domain will be
-// my-new-app.example.org.
-func createSubdomain(domain, subdomain string) (string, error) {
-	names := strings.SplitN(domain, ".", 2)
-	if len(names) != 2 {
-		return "", fmt.Errorf("unexpected domain format: %s", domain)
-	}
-
-	names[0] = subdomain
-
-	return strings.Join(names, "."), nil
 }
 
 func wrapTime(time time.Time) *metav1.Time {

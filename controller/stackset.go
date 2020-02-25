@@ -53,6 +53,7 @@ type StackSetController struct {
 	controllerID                string
 	migrateTo                   string
 	backendWeightsAnnotationKey string
+	clusterDomain               string
 	interval                    time.Duration
 	stacksetEvents              chan stacksetEvent
 	stacksetStore               map[types.UID]zv1.StackSet
@@ -76,7 +77,7 @@ func (ee *eventedError) Error() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID, migrateTo, backendWeightsAnnotationKey string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, controllerID, migrateTo, backendWeightsAnnotationKey, clusterDomain string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -88,6 +89,7 @@ func NewStackSetController(client clientset.Interface, controllerID, migrateTo, 
 		controllerID:                controllerID,
 		migrateTo:                   migrateTo,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
+		clusterDomain:               clusterDomain,
 		interval:                    interval,
 		stacksetEvents:              make(chan stacksetEvent, 1),
 		stacksetStore:               make(map[types.UID]zv1.StackSet),
@@ -358,7 +360,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 			}
 		}
 
-		stacksetContainer := core.NewContainer(&stackset, reconciler, c.migrateTo == "stackset", c.backendWeightsAnnotationKey)
+		stacksetContainer := core.NewContainer(&stackset, reconciler, c.migrateTo == "stackset", c.backendWeightsAnnotationKey, c.clusterDomain)
 		stacksets[uid] = stacksetContainer
 	}
 

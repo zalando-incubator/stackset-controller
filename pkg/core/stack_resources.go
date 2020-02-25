@@ -266,41 +266,29 @@ func (sc *StackContainer) GenerateIngress() (*extensions.Ingress, error) {
 	result := &extensions.Ingress{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: extensions.IngressSpec{
-			Rules: make([]extensions.IngressRule, 0),
+			Rules: []extensions.IngressRule{
+				{
+					IngressRuleValue: extensions.IngressRuleValue{
+						HTTP: &extensions.HTTPIngressRuleValue{
+							Paths: []extensions.HTTPIngressPath{
+								{
+									Path: sc.ingressSpec.Path,
+									Backend: extensions.IngressBackend{
+										ServiceName: sc.Name(),
+										ServicePort: *sc.backendPort,
+									},
+								},
+							},
+						},
+					},
+					Host: fmt.Sprintf("%s.%s", sc.Name(), sc.clusterDomain),
+				},
+			},
 		},
 	}
 
 	// insert annotations
 	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.Annotations)
-
-	rule := extensions.IngressRule{
-		IngressRuleValue: extensions.IngressRuleValue{
-			HTTP: &extensions.HTTPIngressRuleValue{
-				Paths: make([]extensions.HTTPIngressPath, 0),
-			},
-		},
-	}
-
-	path := extensions.HTTPIngressPath{
-		Path: sc.ingressSpec.Path,
-		Backend: extensions.IngressBackend{
-			ServiceName: sc.Name(),
-			ServicePort: *sc.backendPort,
-		},
-	}
-	rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, path)
-
-	// create rule per hostname
-	for _, host := range sc.ingressSpec.Hosts {
-		r := rule
-		newHost, err := createSubdomain(host, sc.Name())
-		if err != nil {
-			return nil, err
-		}
-		r.Host = newHost
-		result.Spec.Rules = append(result.Spec.Rules, r)
-	}
-
 	return result, nil
 }
 
