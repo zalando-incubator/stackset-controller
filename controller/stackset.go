@@ -344,11 +344,8 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 	stacksets := make(map[types.UID]*core.StackSetContainer, len(c.stacksetStore))
 	for uid, stackset := range c.stacksetStore {
 		stackset := stackset
-		stacksetContainer := &core.StackSetContainer{
-			StackSet:          &stackset,
-			StackContainers:   map[types.UID]*core.StackContainer{},
-			TrafficReconciler: &core.SimpleTrafficReconciler{},
-		}
+
+		reconciler := core.TrafficReconciler(&core.SimpleTrafficReconciler{})
 
 		// use prescaling logic if enabled with an annotation
 		if _, ok := stackset.Annotations[PrescaleStacksAnnotationKey]; ok {
@@ -356,11 +353,12 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 			if resetDelayValue, ok := getResetMinReplicasDelay(stackset.Annotations); ok {
 				resetDelay = resetDelayValue
 			}
-			stacksetContainer.TrafficReconciler = &core.PrescalingTrafficReconciler{
+			reconciler = &core.PrescalingTrafficReconciler{
 				ResetHPAMinReplicasTimeout: resetDelay,
 			}
 		}
 
+		stacksetContainer := core.NewContainer(&stackset, reconciler, c.migrateTo == "stackset", c.backendWeightsAnnotationKey)
 		stacksets[uid] = stacksetContainer
 	}
 
@@ -892,7 +890,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	}
 
 	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
-	err = container.UpdateFromResources(c.migrateTo == "stackset", c.backendWeightsAnnotationKey)
+	err = container.UpdateFromResources()
 	if err != nil {
 		return err
 	}

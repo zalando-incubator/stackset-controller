@@ -172,6 +172,16 @@ type StackResources struct {
 	Ingress    *extensions.Ingress
 }
 
+func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, stacksetManageTraffic bool, backendWeightsAnnotationKey string) *StackSetContainer {
+	return &StackSetContainer{
+		StackSet:                    stackset,
+		StackContainers:             map[types.UID]*StackContainer{},
+		TrafficReconciler:           reconciler,
+		stacksetManagesTraffic:      stacksetManageTraffic,
+		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
+	}
+}
+
 func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
 	for _, container := range ssc.StackContainers {
 		if container.Name() == name {
@@ -321,10 +331,7 @@ func (ssc *StackSetContainer) updateActualTrafficFromStackSet() error {
 }
 
 // UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
-func (ssc *StackSetContainer) UpdateFromResources(stacksetManageTraffic bool, backendWeightsAnnotationKey string) error {
-	ssc.stacksetManagesTraffic = stacksetManageTraffic
-	ssc.backendWeightsAnnotationKey = backendWeightsAnnotationKey
-
+func (ssc *StackSetContainer) UpdateFromResources() error {
 	if len(ssc.StackContainers) == 0 {
 		return nil
 	}
