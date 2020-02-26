@@ -59,6 +59,10 @@ type StackSetContainer struct {
 	// which annotation is used, defaults to
 	// traffic.DefaultBackendWeightsAnnotationKey
 	backendWeightsAnnotationKey string
+
+	// clusterDomain stores the main domain name of the cluster; per-stack ingress hostnames
+	// are not generated for names outside of it
+	clusterDomain string
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -75,10 +79,11 @@ type StackContainer struct {
 	Resources StackResources
 
 	// Fields from the parent stackset
-	stacksetName string
-	ingressSpec  *zv1.StackSetIngressSpec
-	scaledownTTL time.Duration
-	backendPort  *intstr.IntOrString
+	stacksetName  string
+	ingressSpec   *zv1.StackSetIngressSpec
+	scaledownTTL  time.Duration
+	backendPort   *intstr.IntOrString
+	clusterDomain string
 
 	// Fields from the stack itself, with some defaults applied
 	stackReplicas int32
@@ -170,6 +175,17 @@ type StackResources struct {
 	HPA        *autoscaling.HorizontalPodAutoscaler
 	Service    *v1.Service
 	Ingress    *extensions.Ingress
+}
+
+func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, stacksetManageTraffic bool, backendWeightsAnnotationKey, clusterDomain string) *StackSetContainer {
+	return &StackSetContainer{
+		StackSet:                    stackset,
+		StackContainers:             map[types.UID]*StackContainer{},
+		TrafficReconciler:           reconciler,
+		stacksetManagesTraffic:      stacksetManageTraffic,
+		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
+		clusterDomain:               clusterDomain,
+	}
 }
 
 func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
@@ -321,10 +337,7 @@ func (ssc *StackSetContainer) updateActualTrafficFromStackSet() error {
 }
 
 // UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
-func (ssc *StackSetContainer) UpdateFromResources(stacksetManageTraffic bool, backendWeightsAnnotationKey string) error {
-	ssc.stacksetManagesTraffic = stacksetManageTraffic
-	ssc.backendWeightsAnnotationKey = backendWeightsAnnotationKey
-
+func (ssc *StackSetContainer) UpdateFromResources() error {
 	if len(ssc.StackContainers) == 0 {
 		return nil
 	}
@@ -354,6 +367,7 @@ func (ssc *StackSetContainer) UpdateFromResources(stacksetManageTraffic bool, ba
 		sc.ingressSpec = ingressSpec
 		sc.backendPort = backendPort
 		sc.scaledownTTL = scaledownTTL
+		sc.clusterDomain = ssc.clusterDomain
 		sc.updateFromResources()
 	}
 
