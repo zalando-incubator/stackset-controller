@@ -24,6 +24,7 @@ spec:
         image: "{{{IMAGE}}}"
         args:
           - "--controller-id={{{CONTROLLER_ID}}}"
+          - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
         resources:
           limits:
             cpu: 10m
