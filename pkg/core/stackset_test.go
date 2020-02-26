@@ -471,6 +471,18 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 	}
 }
 
+func TestStackSetUpdateFromResourcesClusterDomain(t *testing.T) {
+	c := dummyStacksetContainer()
+	c.clusterDomain = "foo.example.org"
+
+	err := c.UpdateFromResources()
+	require.NoError(t, err)
+
+	for _, sc := range c.StackContainers {
+		require.Equal(t, c.clusterDomain, sc.clusterDomain)
+	}
+}
+
 func TestStackUpdateFromResources(t *testing.T) {
 	runTest := func(name string, testFn func(t *testing.T, container *StackContainer)) {
 		t.Run(name, func(t *testing.T) {
