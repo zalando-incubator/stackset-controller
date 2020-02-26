@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -282,6 +283,8 @@ func (c *StackSetController) Run(ctx context.Context) {
 	}
 
 	c.startWatch(ctx)
+
+	http.HandleFunc("/healthz", c.HealthReporter.LiveEndpoint)
 
 	nextCheck = time.Now().Add(-c.interval)
 

@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/heptiolabs/healthcheck"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -80,7 +79,7 @@ func main() {
 	}
 
 	go handleSigterm(cancel)
-	go serveMetrics(controller.HealthReporter, config.MetricsAddress)
+	go serveMetrics(config.MetricsAddress)
 	controller.Run(ctx)
 }
 
@@ -158,8 +157,7 @@ func configureKubeConfig(apiServerURL *url.URL, timeout time.Duration, stopCh <-
 }
 
 // gather go metrics
-func serveMetrics(health healthcheck.Handler, address string) {
+func serveMetrics(address string) {
 	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/healthz", health.LiveEndpoint)
 	log.Fatal(http.ListenAndServe(address, nil))
 }
