@@ -50,7 +50,7 @@ func main() {
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
 	kingpin.Flag("backend-weights-key", "Backend weights annotation key the controller will use to set current traffic values").Default(traffic.DefaultBackendWeightsAnnotationKey).StringVar(&config.BackendWeightsAnnotationKey)
 	kingpin.Flag("migrate-to", "Migrate desired traffic setting from Ingress to StackSet or from StackSet to Ingress").EnumVar(&config.MigrateTo, "ingress", "stackset")
-	kingpin.Flag("cluster-domain", "Main domain of the cluster, used for generating Stack Ingress hostnames").Required().StringVar(&config.ClusterDomain)
+	kingpin.Flag("cluster-domain", "Main domain of the cluster, used for generating Stack Ingress hostnames").Envar("CLUSTER_DOMAIN").Required().StringVar(&config.ClusterDomain)
 	kingpin.Parse()
 
 	if config.Debug {
