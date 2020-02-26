@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/heptiolabs/healthcheck"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -58,6 +59,7 @@ type StackSetController struct {
 	stacksetStore               map[types.UID]zv1.StackSet
 	recorder                    kube_record.EventRecorder
 	metricsReporter             *core.MetricsReporter
+	HealthReporter              healthcheck.Handler
 	sync.Mutex
 }
 
@@ -93,6 +95,7 @@ func NewStackSetController(client clientset.Interface, controllerID, migrateTo, 
 		stacksetStore:               make(map[types.UID]zv1.StackSet),
 		recorder:                    recorder.CreateEventRecorder(client),
 		metricsReporter:             metricsReporter,
+		HealthReporter:              healthcheck.NewHandler(),
 	}, nil
 }
 
@@ -261,6 +264,16 @@ func (c *StackSetController) migrateToIngress(ctx context.Context, ssc *core.Sta
 // sets up a watcher to watch StackSet resources. The watch will send
 // changes over a channel which is polled from the main loop.
 func (c *StackSetController) Run(ctx context.Context) {
+	var nextCheck time.Time
+
+	// We're not alive if nextCheck is too far in the past
+	c.HealthReporter.AddLivenessCheck("nextCheck", func() error {
+		if time.Since(nextCheck) > 2*c.interval {
+			return fmt.Errorf("nextCheck too old")
+		}
+		return nil
+	})
+
 	migrate := c.migrateTo != ""
 	if migrate {
 		if err := c.startMigrate(ctx); err != nil {
@@ -270,7 +283,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 	c.startWatch(ctx)
 
-	nextCheck := time.Now().Add(-c.interval)
+	nextCheck = time.Now().Add(-c.interval)
 
 	for {
 		select {
