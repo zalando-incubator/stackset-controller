@@ -55,6 +55,7 @@ type StackSetController struct {
 	controllerID                string
 	migrateTo                   string
 	backendWeightsAnnotationKey string
+	clusterDomain               string
 	interval                    time.Duration
 	stacksetEvents              chan stacksetEvent
 	stacksetStore               map[types.UID]zv1.StackSet
@@ -79,7 +80,7 @@ func (ee *eventedError) Error() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID, migrateTo, backendWeightsAnnotationKey string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, controllerID, migrateTo, backendWeightsAnnotationKey, clusterDomain string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -91,6 +92,7 @@ func NewStackSetController(client clientset.Interface, controllerID, migrateTo, 
 		controllerID:                controllerID,
 		migrateTo:                   migrateTo,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
+		clusterDomain:               clusterDomain,
 		interval:                    interval,
 		stacksetEvents:              make(chan stacksetEvent, 1),
 		stacksetStore:               make(map[types.UID]zv1.StackSet),
@@ -360,11 +362,8 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 	stacksets := make(map[types.UID]*core.StackSetContainer, len(c.stacksetStore))
 	for uid, stackset := range c.stacksetStore {
 		stackset := stackset
-		stacksetContainer := &core.StackSetContainer{
-			StackSet:          &stackset,
-			StackContainers:   map[types.UID]*core.StackContainer{},
-			TrafficReconciler: &core.SimpleTrafficReconciler{},
-		}
+
+		reconciler := core.TrafficReconciler(&core.SimpleTrafficReconciler{})
 
 		// use prescaling logic if enabled with an annotation
 		if _, ok := stackset.Annotations[PrescaleStacksAnnotationKey]; ok {
@@ -372,11 +371,12 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 			if resetDelayValue, ok := getResetMinReplicasDelay(stackset.Annotations); ok {
 				resetDelay = resetDelayValue
 			}
-			stacksetContainer.TrafficReconciler = &core.PrescalingTrafficReconciler{
+			reconciler = &core.PrescalingTrafficReconciler{
 				ResetHPAMinReplicasTimeout: resetDelay,
 			}
 		}
 
+		stacksetContainer := core.NewContainer(&stackset, reconciler, c.migrateTo == "stackset", c.backendWeightsAnnotationKey, c.clusterDomain)
 		stacksets[uid] = stacksetContainer
 	}
 
@@ -908,7 +908,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	}
 
 	// Update statuses from external resources (ingresses, deployments, etc). Abort on errors.
-	err = container.UpdateFromResources(c.migrateTo == "stackset", c.backendWeightsAnnotationKey)
+	err = container.UpdateFromResources()
 	if err != nil {
 		return err
 	}

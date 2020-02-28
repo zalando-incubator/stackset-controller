@@ -326,6 +326,7 @@ func dummyStacksetContainer() *StackSetContainer {
 				Stack: &zv1.Stack{},
 			},
 		},
+		stacksetManagesTraffic:      true,
 		backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 	}
 }
@@ -353,7 +354,7 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec.Ingress = tc.ingress
-			err := c.UpdateFromResources(true, traffic.DefaultBackendWeightsAnnotationKey)
+			err := c.UpdateFromResources()
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -397,7 +398,7 @@ func TestStackSetUpdateFromResourcesPopulatesBackendPort(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec = tc.spec
-			err := c.UpdateFromResources(true, traffic.DefaultBackendWeightsAnnotationKey)
+			err := c.UpdateFromResources()
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -451,7 +452,7 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 				c.StackSet.Spec.Ingress = tc.ingress
 			}
 
-			err := c.UpdateFromResources(true, traffic.DefaultBackendWeightsAnnotationKey)
+			err := c.UpdateFromResources()
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
@@ -467,6 +468,18 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 				require.Equal(t, tc.expectedScaledownTTL, sc.scaledownTTL)
 			}
 		})
+	}
+}
+
+func TestStackSetUpdateFromResourcesClusterDomain(t *testing.T) {
+	c := dummyStacksetContainer()
+	c.clusterDomain = "foo.example.org"
+
+	err := c.UpdateFromResources()
+	require.NoError(t, err)
+
+	for _, sc := range c.StackContainers {
+		require.Equal(t, c.clusterDomain, sc.clusterDomain)
 	}
 }
 
@@ -781,7 +794,7 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 				backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 			}
 
-			err := ssc.UpdateFromResources(true, traffic.DefaultBackendWeightsAnnotationKey)
+			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
 			require.True(t, ssc.stacksetManagesTraffic)
 
@@ -813,7 +826,7 @@ func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
 		backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 	}
 
-	err := ssc.UpdateFromResources(true, traffic.DefaultBackendWeightsAnnotationKey)
+	err := ssc.UpdateFromResources()
 	require.NoError(t, err)
 	require.True(t, ssc.stacksetManagesTraffic)
 	require.EqualValues(t, &backendPort, ssc.externalIngressBackendPort)
@@ -880,7 +893,7 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 				ssc.Ingress.Annotations[traffic.DefaultBackendWeightsAnnotationKey] = tc.actualWeights
 			}
 
-			err := ssc.UpdateFromResources(false, traffic.DefaultBackendWeightsAnnotationKey)
+			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
 			require.False(t, ssc.stacksetManagesTraffic)
 
