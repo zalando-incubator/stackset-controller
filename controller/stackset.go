@@ -271,7 +271,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 	// We're not alive if nextCheck is too far in the past
 	c.HealthReporter.AddLivenessCheck("nextCheck", func() error {
-		if time.Since(nextCheck) > 2*c.interval {
+		if time.Since(nextCheck) > 5*c.interval {
 			return fmt.Errorf("nextCheck too old")
 		}
 		return nil
