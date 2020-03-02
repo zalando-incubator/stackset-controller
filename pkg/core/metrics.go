@@ -4,6 +4,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 const (
@@ -11,6 +12,7 @@ const (
 
 	metricsSubsystemStackset = "stackset"
 	metricsSubsystemStack    = "stack"
+	metricsSubsystemErrors   = "errors"
 )
 
 type MetricsReporter struct {
@@ -24,6 +26,7 @@ type MetricsReporter struct {
 	stackReady                *prometheus.GaugeVec
 	stackPrescalingActive     *prometheus.GaugeVec
 	stackPrescalingReplicas   *prometheus.GaugeVec
+	errorsCount               prometheus.Counter
 }
 
 type resourceKey struct {
@@ -73,7 +76,14 @@ func NewMetricsReporter(registry prometheus.Registerer) (*MetricsReporter, error
 			Subsystem: metricsSubsystemStack,
 			Name:      "prescaling_replicas",
 			Help:      "Amount of replicas needed for prescaling",
-		}, stackLabelNames)}
+		}, stackLabelNames),
+		errorsCount: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystemErrors,
+			Name:      "count",
+			Help:      "Number of errors encountered",
+		}),
+	}
 
 	for _, metric := range []prometheus.Collector{
 		result.stacksetCount,
@@ -82,12 +92,18 @@ func NewMetricsReporter(registry prometheus.Registerer) (*MetricsReporter, error
 		result.stackReady,
 		result.stackPrescalingActive,
 		result.stackPrescalingReplicas,
+		result.errorsCount,
 	} {
 		err := registry.Register(metric)
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	// expose Kubernetes errors as metric
+	utilruntime.ErrorHandlers = append(utilruntime.ErrorHandlers, func(_ error) {
+		result.ReportError()
+	})
 
 	return result, nil
 }
@@ -140,6 +156,10 @@ func (reporter *MetricsReporter) Report(stacksets map[types.UID]*StackSetContain
 		}
 	}
 	return nil
+}
+
+func (reporter *MetricsReporter) ReportError() {
+	reporter.errorsCount.Inc()
 }
 
 func extractLabels(nameKey string, obj metav1.Object) prometheus.Labels {
