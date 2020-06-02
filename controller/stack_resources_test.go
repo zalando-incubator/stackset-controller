@@ -567,6 +567,9 @@ func TestReconcileStackIngress(t *testing.T) {
 		},
 	}
 
+	baseTestStackOwnedUpdatedAnnotations := *baseTestStackOwned.DeepCopy()
+	baseTestStackOwnedUpdatedAnnotations.Annotations["example"] = "updated"
+
 	for _, tc := range []struct {
 		name     string
 		stack    zv1.Stack
@@ -621,6 +624,28 @@ func TestReconcileStackIngress(t *testing.T) {
 				ObjectMeta: updatedTestStackOwned,
 				Spec: extensions.IngressSpec{
 					Rules: exampleUpdatedRules,
+				},
+			},
+		},
+		{
+			name:  "ingress is updated if the expected annotations change",
+			stack: baseTestStack,
+			existing: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwned,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			updated: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwnedUpdatedAnnotations,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			expected: &extensions.Ingress{
+				ObjectMeta: baseTestStackOwnedUpdatedAnnotations,
+				Spec: extensions.IngressSpec{
+					Rules: exampleRules,
 				},
 			},
 		},
