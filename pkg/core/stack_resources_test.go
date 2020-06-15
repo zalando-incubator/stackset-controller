@@ -325,11 +325,17 @@ func TestStackGenerateIngressNone(t *testing.T) {
 }
 
 func TestStackGenerateService(t *testing.T) {
+	svcAnnotations := map[string]string{
+		"zalando.org/api-usage-monitoring-tag": "beta",
+	}
 	c := &StackContainer{
 		Stack: &zv1.Stack{
 			ObjectMeta: testStackMeta,
 			Spec: zv1.StackSpec{
 				Service: &zv1.StackServiceSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: svcAnnotations,
+					},
 					Ports: []v1.ServicePort{
 						{
 							Port:       80,
@@ -347,7 +353,13 @@ func TestStackGenerateService(t *testing.T) {
 	service, err := c.GenerateService()
 	require.NoError(t, err)
 	expected := &v1.Service{
-		ObjectMeta: testResourceMeta,
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            testResourceMeta.Name,
+			Annotations:     mergeLabels(testResourceMeta.Annotations, svcAnnotations),
+			Labels:          testResourceMeta.Labels,
+			OwnerReferences: testResourceMeta.OwnerReferences,
+			Namespace:       testResourceMeta.Namespace,
+		},
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{
 				{
@@ -675,4 +687,35 @@ func TestGenerateStackStatus(t *testing.T) {
 			require.Equal(t, expected, status)
 		})
 	}
+}
+
+func TestGetServiceAnnotations(tt *testing.T) {
+	for _, ti := range []struct {
+		msg            string
+		stackSpec      zv1.StackSpec
+		expAnnotations map[string]string
+	}{
+		{
+			msg: "test using without service definition",
+			stackSpec: zv1.StackSpec{
+				Service: nil,
+			},
+			expAnnotations: make(map[string]string),
+		},
+		{
+			msg: "test using with service definition",
+			stackSpec: zv1.StackSpec{
+				Service: &zv1.StackServiceSpec{
+					ObjectMeta: testResourceMeta,
+				},
+			},
+			expAnnotations: testResourceMeta.Annotations,
+		},
+	} {
+		tt.Run(ti.msg, func(t *testing.T) {
+			annotations := getServiceAnnotations(ti.stackSpec)
+			require.Equal(tt, ti.expAnnotations, annotations)
+		})
+	}
+
 }
