@@ -325,44 +325,158 @@ func TestStackGenerateIngressNone(t *testing.T) {
 }
 
 func TestStackGenerateService(t *testing.T) {
-	c := &StackContainer{
-		Stack: &zv1.Stack{
-			ObjectMeta: testStackMeta,
-			Spec: zv1.StackSpec{
-				Service: &zv1.StackServiceSpec{
+	svcAnnotations := map[string]string{
+		"zalando.org/api-usage-monitoring-tag": "beta",
+	}
+	svcLabels := map[string]string{
+		"svc-label": "test",
+	}
+	backendPort := intstr.FromInt(int(8080))
+	for _, ti := range []struct {
+		msg        string
+		sc         *StackContainer
+		expService *v1.Service
+		err        error
+	}{
+		{
+			msg: "test with annotations and labels on service",
+			sc: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpec{
+						Service: &zv1.StackServiceSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Annotations: svcAnnotations,
+								Labels:      svcLabels,
+							},
+							Ports: []v1.ServicePort{
+								{
+									Port:       80,
+									TargetPort: intstr.FromInt(8080),
+								},
+							},
+						},
+					},
+				},
+				stacksetName: "foo",
+				ingressSpec: &zv1.StackSetIngressSpec{
+					BackendPort: intstr.FromInt(80),
+				},
+			},
+			expService: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            testResourceMeta.Name,
+					Annotations:     mergeLabels(testResourceMeta.Annotations, svcAnnotations),
+					Labels:          mergeLabels(testResourceMeta.Labels, svcLabels),
+					OwnerReferences: testResourceMeta.OwnerReferences,
+					Namespace:       testResourceMeta.Namespace,
+				},
+				Spec: v1.ServiceSpec{
 					Ports: []v1.ServicePort{
 						{
 							Port:       80,
 							TargetPort: intstr.FromInt(8080),
 						},
 					},
+					Selector: map[string]string{
+						StacksetHeritageLabelKey: "foo",
+						StackVersionLabelKey:     "v1",
+					},
+					Type: v1.ServiceTypeClusterIP,
 				},
 			},
 		},
-		stacksetName: "foo",
-		ingressSpec: &zv1.StackSetIngressSpec{
-			BackendPort: intstr.FromInt(80),
-		},
-	}
-	service, err := c.GenerateService()
-	require.NoError(t, err)
-	expected := &v1.Service{
-		ObjectMeta: testResourceMeta,
-		Spec: v1.ServiceSpec{
-			Ports: []v1.ServicePort{
-				{
-					Port:       80,
-					TargetPort: intstr.FromInt(8080),
+		{
+			msg: "test without annotations and labels on service",
+			sc: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpec{
+						Service: &zv1.StackServiceSpec{
+							Ports: []v1.ServicePort{
+								{
+									Port:       80,
+									TargetPort: intstr.FromInt(8080),
+								},
+							},
+						},
+					},
+				},
+				stacksetName: "foo",
+				ingressSpec: &zv1.StackSetIngressSpec{
+					BackendPort: intstr.FromInt(80),
 				},
 			},
-			Selector: map[string]string{
-				StacksetHeritageLabelKey: "foo",
-				StackVersionLabelKey:     "v1",
+			expService: &v1.Service{
+				ObjectMeta: testResourceMeta,
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Port:       80,
+							TargetPort: intstr.FromInt(8080),
+						},
+					},
+					Selector: map[string]string{
+						StacksetHeritageLabelKey: "foo",
+						StackVersionLabelKey:     "v1",
+					},
+					Type: v1.ServiceTypeClusterIP,
+				},
 			},
-			Type: v1.ServiceTypeClusterIP,
 		},
+		{
+			msg: "test with empty/nil service spec",
+			sc: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpec{
+						Service: nil,
+						PodTemplate: v1.PodTemplateSpec{
+							Spec: v1.PodSpec{
+								Containers: []v1.Container{
+									{
+										Ports: []v1.ContainerPort{
+											{
+												ContainerPort: 8080,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				stacksetName: "foo",
+				ingressSpec: &zv1.StackSetIngressSpec{
+					BackendPort: intstr.FromInt(80),
+				},
+			},
+			expService: &v1.Service{
+				ObjectMeta: testResourceMeta,
+				Spec: v1.ServiceSpec{
+					Ports: []v1.ServicePort{
+						{
+							Name:       "port-0-0",
+							Protocol:   v1.ProtocolTCP,
+							Port:       8080,
+							TargetPort: backendPort,
+						},
+					},
+					Selector: map[string]string{
+						StacksetHeritageLabelKey: "foo",
+						StackVersionLabelKey:     "v1",
+					},
+					Type: v1.ServiceTypeClusterIP,
+				},
+			},
+		},
+	} {
+		t.Run(ti.msg, func(t *testing.T) {
+			service, err := ti.sc.GenerateService()
+			require.NoError(t, err)
+			require.Equal(t, ti.expService, service)
+		})
 	}
-	require.Equal(t, expected, service)
 }
 
 func TestStackGenerateDeployment(t *testing.T) {
