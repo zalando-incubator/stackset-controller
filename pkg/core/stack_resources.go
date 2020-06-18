@@ -81,15 +81,6 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 	}
 }
 
-// getServiceAnnotations gets the service annotations to be used for the stack service.
-func getServiceAnnotations(stacksSpec zv1.StackSpec) map[string]string {
-	if stacksSpec.Service == nil {
-		return make(map[string]string)
-	}
-
-	return mapCopy(stacksSpec.Service.Annotations)
-}
-
 // getServicePorts gets the service ports to be used for the stack service.
 func getServicePorts(stackSpec zv1.StackSpec, backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
 	var servicePorts []v1.ServicePort
@@ -256,16 +247,15 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	
 	metaObj := sc.resourceMeta()
-	metaObj.Annotations = mergeLabels(metaObj.Annotations, getServiceAnnotations(sc.Stack.Spec))
+	stackSpec := sc.Stack.Spec
+	if stackSpec.Service != nil {
+		metaObj.Annotations = mergeLabels(metaObj.Annotations, stackSpec.Service.Annotations)
+		metaObj.Labels = mergeLabels(metaObj.Labels, stackSpec.Service.Labels)
+	}
 	return &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            metaObj.Name,
-			Namespace:       metaObj.Namespace,
-			Labels:          metaObj.Labels,
-			Annotations:     mergeLabels(metaObj.Annotations, getServiceAnnotations(sc.Stack.Spec)),
-			OwnerReferences: metaObj.OwnerReferences,
-		},
+		ObjectMeta: metaObj,
 		Spec: v1.ServiceSpec{
 			Selector: sc.selector(),
 			Type:     v1.ServiceTypeClusterIP,
