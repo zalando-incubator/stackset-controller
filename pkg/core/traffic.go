@@ -172,9 +172,16 @@ func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 		stack.minReadyPercent = minReadyPercent
 	}
 
+	// Run the Gradual rollout reconciler
+	// Will modify the desired traffic if rollout is active and progressing
+	err := ssc.GradualRolloutReconciler.Reconcile(stacks, currentTimestamp)
+	if err != nil {
+		return err
+	}
+
 	// Run the traffic reconciler which will update the actual weights according to the desired weights. The resulting
 	// weights **must** be normalised.
-	err := ssc.TrafficReconciler.Reconcile(stacks, currentTimestamp)
+	err = ssc.TrafficReconciler.Reconcile(stacks, currentTimestamp)
 
 	// Update the actual weights from the reconciled ones
 	if err == nil {

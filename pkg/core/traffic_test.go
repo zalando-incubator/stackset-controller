@@ -30,7 +30,8 @@ func TestTrafficSwitchNoIngress(t *testing.T) {
 					"v1": testStack("foo-v1").ready(3).traffic(50, 50).prescaling(3, 10, time.Now()).stack(),
 					"v2": testStack("foo-v2").ready(3).traffic(50, 50).stack(),
 				},
-				TrafficReconciler: reconciler,
+				TrafficReconciler:        reconciler,
+				GradualRolloutReconciler: &GradualRolloutReconciler{},
 			}
 			err := c.ManageTraffic(time.Now())
 			require.NoError(t, err)
@@ -200,7 +201,8 @@ func TestTrafficSwitchSimpleNotReady(t *testing.T) {
 					"v1": testStack("foo-v1").traffic(70, 30).deployment(tc.resourcesUpdated, tc.deploymentReplicas, tc.updatedReplicas, tc.readyReplicas).stack(),
 					"v2": testStack("foo-v2").traffic(30, 70).ready(3).stack(),
 				},
-				TrafficReconciler: SimpleTrafficReconciler{},
+				TrafficReconciler:        SimpleTrafficReconciler{},
+				GradualRolloutReconciler: &GradualRolloutReconciler{},
 			}
 			err := c.ManageTraffic(time.Now())
 			require.Error(t, err)
@@ -481,8 +483,9 @@ func TestTrafficSwitchSimple(t *testing.T) {
 						MinReadyPercent: tc.minReadyPercent,
 					},
 				},
-				StackContainers:   tc.stacks,
-				TrafficReconciler: SimpleTrafficReconciler{},
+				StackContainers:          tc.stacks,
+				TrafficReconciler:        SimpleTrafficReconciler{},
+				GradualRolloutReconciler: &GradualRolloutReconciler{},
 			}
 
 			err := c.ManageTraffic(time.Now())
@@ -877,6 +880,7 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 				TrafficReconciler: PrescalingTrafficReconciler{
 					ResetHPAMinReplicasTimeout: 5 * time.Minute,
 				},
+				GradualRolloutReconciler: &GradualRolloutReconciler{},
 			}
 
 			err := c.ManageTraffic(now)
@@ -943,7 +947,8 @@ func TestTrafficSwitchNoTrafficSince(t *testing.T) {
 					"foo-v4": testStack("foo-v4").traffic(0, 0).stack(),
 					"foo-v5": testStack("foo-v5").traffic(0, 0).noTrafficSince(fiveMinutesAgo).stack(),
 				},
-				TrafficReconciler: reconciler,
+				TrafficReconciler:        reconciler,
+				GradualRolloutReconciler: &GradualRolloutReconciler{},
 			}
 
 			switchTimestamp := time.Now()

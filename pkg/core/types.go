@@ -52,6 +52,9 @@ type StackSetContainer struct {
 	// switching traffic.
 	TrafficReconciler TrafficReconciler
 
+	// TODO: describe + interface
+	GradualRolloutReconciler *GradualRolloutReconciler
+
 	// ExternalIngressBackendPort defines the backendPort mapping
 	// if an external entity creates ingress objects for us. The
 	// Ingress of stackset should be nil in this case.
@@ -121,6 +124,13 @@ type StackContainer struct {
 	prescalingDesiredTrafficWeight float64
 	prescalingLastTrafficIncrease  time.Time
 	minReadyPercent                float64
+	gradualMetric                  GradualMetric
+	gradualActive                  bool
+	gradualDesiredTrafficWeight    int32
+	gradualMetricFailureChecks     int32
+	gradualLastMetricCheck         time.Time
+	gradualLastTrafficIncrease     time.Time
+	gradualRolloutFailed           bool
 }
 
 // TrafficChange contains information about a traffic change event
@@ -194,6 +204,7 @@ func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendW
 		StackSet:                    stackset,
 		StackContainers:             map[types.UID]*StackContainer{},
 		TrafficReconciler:           reconciler,
+		GradualRolloutReconciler:    &GradualRolloutReconciler{},
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
 		clusterDomains:              clusterDomains,
 	}
@@ -212,9 +223,11 @@ func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
 // and populates it to stack containers
 func (ssc *StackSetContainer) updateDesiredTraffic() error {
 	weights := make(map[string]float64)
+	gradualWeights := make(map[string]float64)
 
 	for _, desiredTraffic := range ssc.StackSet.Spec.Traffic {
 		weights[desiredTraffic.StackName] = desiredTraffic.Weight
+		gradualWeights[desiredTraffic.StackName] = float64(desiredTraffic.GradualWeight)
 	}
 
 	// filter stacks and normalize weights
@@ -227,14 +240,25 @@ func (ssc *StackSetContainer) updateDesiredTraffic() error {
 			delete(weights, name)
 		}
 	}
+	for name := range gradualWeights {
+		if _, ok := stacksetNames[name]; !ok {
+			delete(gradualWeights, name)
+		}
+	}
 
 	if !allZero(weights) {
 		normalizeWeights(weights)
 	}
 
+	if !allZero(gradualWeights) {
+		normalizeWeights(gradualWeights)
+		roundWeights(gradualWeights)
+	}
+
 	// save values in stack containers
 	for _, container := range ssc.StackContainers {
 		container.desiredTrafficWeight = weights[container.Name()]
+		container.gradualDesiredTrafficWeight = int32(gradualWeights[container.Name()])
 	}
 
 	return nil
@@ -435,5 +459,19 @@ func (sc *StackContainer) updateFromResources() {
 		sc.prescalingReplicas = status.Prescaling.Replicas
 		sc.prescalingDesiredTrafficWeight = status.Prescaling.DesiredTrafficWeight
 		sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
+	}
+
+	// TODO: parse from stack
+	// TODO: better abstraction
+	sc.gradualMetric = TrueMetric{}
+
+	if sc.gradualMetric != nil {
+		// sc.gradualActive = true
+		// sc.gradualMetric = TrueMetric{}
+		// sc.gradualRolloutFailed = status.GradualRollout.RolloutFailed
+		sc.gradualLastMetricCheck = unwrapTime(status.GradualRollout.LastMetricCheck)
+		sc.gradualLastTrafficIncrease = unwrapTime(status.GradualRollout.LastTrafficIncrease)
+		sc.gradualMetricFailureChecks = status.GradualRollout.MetricFailureChecks
+		// sc.gradualDesiredTrafficWeight = status.GradualRollout.DesiredTrafficWeight
 	}
 }

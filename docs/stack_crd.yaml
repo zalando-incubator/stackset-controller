@@ -7876,6 +7876,25 @@ spec:
                   be routed to the stack.
                 format: float
                 type: number
+              gradualRolloutStatus:
+                description: Current status for gradual rollout.
+                properties:
+                  lastMetricCheck:
+                    description: LastMetricCheck is the timestamp when the metric
+                      was last checked.
+                    format: date-time
+                    type: string
+                  lastTrafficIncrease:
+                    description: LastTrafficIncrease is the timestamp when the traffic
+                      was last increased on the stack
+                    format: date-time
+                    type: string
+                  metricFailureChecks:
+                    description: MetricFailureChecks is the amount of consecutive
+                      failures of the check.
+                    format: int32
+                    type: integer
+                type: object
               labelSelector:
                 description: LabelSelector is the label selector used to find all
                   pods managed by a stack.

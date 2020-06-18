@@ -353,6 +353,10 @@ type DesiredTraffic struct {
 	// +kubebuilder:validation:Type=number
 	// +kubebuilder:validation:Format=float
 	Weight float64 `json:"weight"`
+	// GradualWeight is the temporary desired weight when doing gradual
+	// rollout.
+	// +optional
+	GradualWeight int32 `json:"gradualWeight"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -519,6 +523,10 @@ type StackStatus struct {
 	// LabelSelector is the label selector used to find all pods managed by
 	// a stack.
 	LabelSelector string `json:"labelSelector,omitempty"`
+
+	// Current status for gradual rollout.
+	// +optional
+	GradualRollout GradualRolloutStatus `json:"gradualRolloutStatus"`
 }
 
 // Prescaling hold prescaling information
@@ -538,6 +546,31 @@ type PrescalingStatus struct {
 	// LastTrafficIncrease is the timestamp when the traffic was last increased on the stack
 	// +optional
 	LastTrafficIncrease *metav1.Time `json:"lastTrafficIncrease,omitempty"`
+}
+
+// GradualRolloutStatus hold gradual rollout information
+// +k8s:deepcopy-gen=true
+type GradualRolloutStatus struct {
+	// Active indicates if prescaling is current active
+	// +optional
+	// Active bool `json:"active"`
+	// Replicas is the number of replicas required for prescaling
+	// +optional
+	// Replicas int32 `json:"replicas,omitempty"`
+	// // DesiredTrafficWeight is the desired traffic weight that the stack was prescaled for
+	// // +optional
+	// DesiredTrafficWeight float64 `json:"desiredTrafficWeight,omitempty"`
+
+	// MetricFailureChecks is the amount of consecutive failures of the
+	// check.
+	MetricFailureChecks int32 `json:"metricFailureChecks"`
+	// LastMetricCheck is the timestamp when the metric was last checked.
+	LastMetricCheck *metav1.Time `json:"lastMetricCheck,omitempty"`
+	// LastTrafficIncrease is the timestamp when the traffic was last increased on the stack
+	// +optional
+	LastTrafficIncrease *metav1.Time `json:"lastTrafficIncrease,omitempty"`
+
+	// RolloutFailed bool `json:"rolloutFailed"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

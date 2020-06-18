@@ -440,6 +440,15 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 			LastTrafficIncrease:  wrapTime(sc.prescalingLastTrafficIncrease),
 		}
 	}
+	gradualRollout := zv1.GradualRolloutStatus{}
+	if sc.gradualDesiredTrafficWeight > 0 {
+		gradualRollout = zv1.GradualRolloutStatus{
+			MetricFailureChecks: sc.gradualMetricFailureChecks,
+			LastMetricCheck:     wrapTime(sc.gradualLastMetricCheck),
+			LastTrafficIncrease: wrapTime(sc.gradualLastTrafficIncrease),
+			// RolloutFailed:       sc.gradualRolloutFailed,
+		}
+	}
 	return &zv1.StackStatus{
 		ActualTrafficWeight:  sc.actualTrafficWeight,
 		DesiredTrafficWeight: sc.desiredTrafficWeight,
@@ -450,5 +459,6 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 		Prescaling:           prescaling,
 		NoTrafficSince:       wrapTime(sc.noTrafficSince),
 		LabelSelector:        labels.Set(sc.selector()).String(),
+		GradualRollout:       gradualRollout,
 	}
 }

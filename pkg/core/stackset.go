@@ -367,10 +367,11 @@ func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
 		if sc.PendingRemoval {
 			continue
 		}
-		if sc.HasBackendPort() && sc.desiredTrafficWeight > 0 {
+		if sc.HasBackendPort() && (sc.desiredTrafficWeight > 0 || sc.gradualDesiredTrafficWeight > 0) {
 			t := &zv1.DesiredTraffic{
-				StackName: sc.Name(),
-				Weight:    sc.desiredTrafficWeight,
+				StackName:     sc.Name(),
+				Weight:        sc.desiredTrafficWeight,
+				GradualWeight: sc.gradualDesiredTrafficWeight,
 			}
 			traffic = append(traffic, t)
 		}
