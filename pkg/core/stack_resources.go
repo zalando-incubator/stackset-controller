@@ -252,7 +252,6 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	stackSpec := sc.Stack.Spec
 	if stackSpec.Service != nil {
 		metaObj.Annotations = mergeLabels(metaObj.Annotations, stackSpec.Service.Annotations)
-		metaObj.Labels = mergeLabels(metaObj.Labels, stackSpec.Service.Labels)
 	}
 	return &v1.Service{
 		ObjectMeta: metaObj,

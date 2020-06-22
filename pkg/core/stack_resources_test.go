@@ -328,9 +328,6 @@ func TestStackGenerateService(t *testing.T) {
 	svcAnnotations := map[string]string{
 		"zalando.org/api-usage-monitoring-tag": "beta",
 	}
-	svcLabels := map[string]string{
-		"svc-label": "test",
-	}
 	backendPort := intstr.FromInt(int(8080))
 	for _, ti := range []struct {
 		msg        string
@@ -347,7 +344,6 @@ func TestStackGenerateService(t *testing.T) {
 						Service: &zv1.StackServiceSpec{
 							ObjectMeta: metav1.ObjectMeta{
 								Annotations: svcAnnotations,
-								Labels:      svcLabels,
 							},
 							Ports: []v1.ServicePort{
 								{
@@ -367,7 +363,7 @@ func TestStackGenerateService(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:            testResourceMeta.Name,
 					Annotations:     mergeLabels(testResourceMeta.Annotations, svcAnnotations),
-					Labels:          mergeLabels(testResourceMeta.Labels, svcLabels),
+					Labels:          testResourceMeta.Labels,
 					OwnerReferences: testResourceMeta.OwnerReferences,
 					Namespace:       testResourceMeta.Namespace,
 				},
