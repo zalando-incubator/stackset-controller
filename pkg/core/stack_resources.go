@@ -248,8 +248,13 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 		return nil, err
 	}
 
+	metaObj := sc.resourceMeta()
+	stackSpec := sc.Stack.Spec
+	if stackSpec.Service != nil {
+		metaObj.Annotations = mergeLabels(metaObj.Annotations, stackSpec.Service.Annotations)
+	}
 	return &v1.Service{
-		ObjectMeta: sc.resourceMeta(),
+		ObjectMeta: metaObj,
 		Spec: v1.ServiceSpec{
 			Selector: sc.selector(),
 			Type:     v1.ServiceTypeClusterIP,
