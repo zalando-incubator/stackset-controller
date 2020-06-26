@@ -12,7 +12,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -83,9 +83,9 @@ func (f *testEnvironment) CreateDeployments(deployments []apps.Deployment) error
 	return nil
 }
 
-func (f *testEnvironment) CreateIngresses(ingresses []extensions.Ingress) error {
+func (f *testEnvironment) CreateIngresses(ingresses []networking.Ingress) error {
 	for _, ingresse := range ingresses {
-		_, err := f.client.ExtensionsV1beta1().Ingresses(ingresse.Namespace).Create(&ingresse)
+		_, err := f.client.NetworkingV1beta1().Ingresses(ingresse.Namespace).Create(&ingresse)
 		if err != nil {
 			return err
 		}

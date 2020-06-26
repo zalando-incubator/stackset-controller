@@ -11,7 +11,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -512,8 +512,8 @@ func TestStackUpdateFromResources(t *testing.T) {
 			},
 		}
 	}
-	ingress := func(stackGeneration int64) *extensions.Ingress {
-		return &extensions.Ingress{
+	ingress := func(stackGeneration int64) *networking.Ingress {
+		return &networking.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
 					stackGenerationAnnotationKey: strconv.FormatInt(stackGeneration, 10),
@@ -872,7 +872,7 @@ func TestUpdateTrafficFromIngress(t *testing.T) {
 						Ingress: &zv1.StackSetIngressSpec{},
 					},
 				},
-				Ingress: &extensions.Ingress{
+				Ingress: &networking.Ingress{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "foo",
 						Annotations: map[string]string{},
@@ -1082,7 +1082,7 @@ func TestStackSetGenerateIngress(t *testing.T) {
 				annotations["zalando.org/stack-traffic-weights"] = `{"foo-v1":0.125,"foo-v2":0.5,"foo-v3":0.625}`
 			}
 
-			expected := &extensions.Ingress{
+			expected := &networking.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo",
 					Namespace: "bar",
@@ -1100,30 +1100,30 @@ func TestStackSetGenerateIngress(t *testing.T) {
 						},
 					},
 				},
-				Spec: extensions.IngressSpec{
-					Rules: []extensions.IngressRule{
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{
 						{
 							Host: "example.org",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "example",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "foo-v1",
 												ServicePort: intstr.FromInt(testPort),
 											},
 										},
 										{
 											Path: "example",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "foo-v2",
 												ServicePort: intstr.FromInt(testPort),
 											},
 										},
 										{
 											Path: "example",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "foo-v3",
 												ServicePort: intstr.FromInt(testPort),
 											},
@@ -1134,26 +1134,26 @@ func TestStackSetGenerateIngress(t *testing.T) {
 						},
 						{
 							Host: "example.com",
-							IngressRuleValue: extensions.IngressRuleValue{
-								HTTP: &extensions.HTTPIngressRuleValue{
-									Paths: []extensions.HTTPIngressPath{
+							IngressRuleValue: networking.IngressRuleValue{
+								HTTP: &networking.HTTPIngressRuleValue{
+									Paths: []networking.HTTPIngressPath{
 										{
 											Path: "example",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "foo-v1",
 												ServicePort: intstr.FromInt(testPort),
 											},
 										},
 										{
 											Path: "example",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "foo-v2",
 												ServicePort: intstr.FromInt(testPort),
 											},
 										},
 										{
 											Path: "example",
-											Backend: extensions.IngressBackend{
+											Backend: networking.IngressBackend{
 												ServiceName: "foo-v3",
 												ServicePort: intstr.FromInt(testPort),
 											},

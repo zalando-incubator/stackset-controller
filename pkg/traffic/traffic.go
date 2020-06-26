@@ -72,7 +72,7 @@ func (t *Switcher) Switch(stackset, stack, namespace string, weight float64) ([]
 			return nil, err
 		}
 
-		_, err = t.client.ExtensionsV1beta1().Ingresses(namespace).Patch(stackset, types.StrategicMergePatchType, annotationData)
+		_, err = t.client.NetworkingV1beta1().Ingresses(namespace).Patch(stackset, types.StrategicMergePatchType, annotationData)
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +133,7 @@ func (t *Switcher) getIngressTraffic(name, namespace string, stacks []zv1.Stack)
 		return map[string]float64{}, map[string]float64{}, nil
 	}
 
-	ingress, err := t.client.ExtensionsV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
+	ingress, err := t.client.NetworkingV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}

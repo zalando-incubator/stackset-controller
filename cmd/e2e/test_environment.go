@@ -11,7 +11,7 @@ import (
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	autoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1"
 	corev1typed "k8s.io/client-go/kubernetes/typed/core/v1"
-	extensionsv1beta1 "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
+	networking "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -72,8 +72,8 @@ func hpaInterface() autoscalingv2.HorizontalPodAutoscalerInterface {
 	return kubernetesClient.AutoscalingV2beta1().HorizontalPodAutoscalers(namespace)
 }
 
-func ingressInterface() extensionsv1beta1.IngressInterface {
-	return kubernetesClient.ExtensionsV1beta1().Ingresses(namespace)
+func ingressInterface() networking.IngressInterface {
+	return kubernetesClient.NetworkingV1beta1().Ingresses(namespace)
 }
 
 func requiredEnvar(envar string) string {
