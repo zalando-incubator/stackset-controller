@@ -13,7 +13,7 @@ require (
 	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/mailru/easyjson v0.7.0 // indirect
-	github.com/prometheus/client_golang v1.6.0
+	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.6.0
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553 // indirect
