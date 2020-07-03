@@ -166,7 +166,7 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 		Object: &autoscaling.ObjectMetricSource{
 			MetricName: fmt.Sprintf("%s,%s", requestsPerSecondName, backendName),
 			Target: autoscaling.CrossVersionObjectReference{
-				APIVersion: "extensions/v1beta1",
+				APIVersion: "networking/v1beta1",
 				Kind:       "Ingress",
 				Name:       ingressName,
 			},

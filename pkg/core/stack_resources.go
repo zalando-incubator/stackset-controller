@@ -8,7 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -263,22 +263,22 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	}, nil
 }
 
-func (sc *StackContainer) GenerateIngress() (*extensions.Ingress, error) {
+func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 	if !sc.HasBackendPort() || sc.ingressSpec == nil {
 		return nil, nil
 	}
 
-	result := &extensions.Ingress{
+	result := &networking.Ingress{
 		ObjectMeta: sc.resourceMeta(),
-		Spec: extensions.IngressSpec{
-			Rules: []extensions.IngressRule{
+		Spec: networking.IngressSpec{
+			Rules: []networking.IngressRule{
 				{
-					IngressRuleValue: extensions.IngressRuleValue{
-						HTTP: &extensions.HTTPIngressRuleValue{
-							Paths: []extensions.HTTPIngressPath{
+					IngressRuleValue: networking.IngressRuleValue{
+						HTTP: &networking.HTTPIngressRuleValue{
+							Paths: []networking.HTTPIngressPath{
 								{
 									Path: sc.ingressSpec.Path,
-									Backend: extensions.IngressBackend{
+									Backend: networking.IngressBackend{
 										ServiceName: sc.Name(),
 										ServicePort: *sc.backendPort,
 									},

@@ -8,7 +8,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -530,15 +530,15 @@ func TestReconcileStackHPA(t *testing.T) {
 }
 
 func TestReconcileStackIngress(t *testing.T) {
-	exampleRules := []extensions.IngressRule{
+	exampleRules := []networking.IngressRule{
 		{
 			Host: "example.org",
-			IngressRuleValue: extensions.IngressRuleValue{
-				HTTP: &extensions.HTTPIngressRuleValue{
-					Paths: []extensions.HTTPIngressPath{
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{
 						{
 							Path: "/",
-							Backend: extensions.IngressBackend{
+							Backend: networking.IngressBackend{
 								ServiceName: "foo",
 								ServicePort: intstr.FromInt(80),
 							},
@@ -548,15 +548,15 @@ func TestReconcileStackIngress(t *testing.T) {
 			},
 		},
 	}
-	exampleUpdatedRules := []extensions.IngressRule{
+	exampleUpdatedRules := []networking.IngressRule{
 		{
 			Host: "example.com",
-			IngressRuleValue: extensions.IngressRuleValue{
-				HTTP: &extensions.HTTPIngressRuleValue{
-					Paths: []extensions.HTTPIngressPath{
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{
 						{
 							Path: "/",
-							Backend: extensions.IngressBackend{
+							Backend: networking.IngressBackend{
 								ServiceName: "bar",
 								ServicePort: intstr.FromInt(8181),
 							},
@@ -570,22 +570,22 @@ func TestReconcileStackIngress(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		stack    zv1.Stack
-		existing *extensions.Ingress
-		updated  *extensions.Ingress
-		expected *extensions.Ingress
+		existing *networking.Ingress
+		updated  *networking.Ingress
+		expected *networking.Ingress
 	}{
 		{
 			name:  "ingress is created if it doesn't exist",
 			stack: baseTestStack,
-			updated: &extensions.Ingress{
+			updated: &networking.Ingress{
 				ObjectMeta: baseTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			expected: &extensions.Ingress{
+			expected: &networking.Ingress{
 				ObjectMeta: baseTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
@@ -593,9 +593,9 @@ func TestReconcileStackIngress(t *testing.T) {
 		{
 			name:  "ingress is removed if it is no longer needed",
 			stack: baseTestStack,
-			existing: &extensions.Ingress{
+			existing: &networking.Ingress{
 				ObjectMeta: baseTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
@@ -605,21 +605,21 @@ func TestReconcileStackIngress(t *testing.T) {
 		{
 			name:  "ingress is updated if the stack changes",
 			stack: updatedTestStack,
-			existing: &extensions.Ingress{
+			existing: &networking.Ingress{
 				ObjectMeta: baseTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			updated: &extensions.Ingress{
+			updated: &networking.Ingress{
 				ObjectMeta: updatedTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleUpdatedRules,
 				},
 			},
-			expected: &extensions.Ingress{
+			expected: &networking.Ingress{
 				ObjectMeta: updatedTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleUpdatedRules,
 				},
 			},
@@ -627,21 +627,21 @@ func TestReconcileStackIngress(t *testing.T) {
 		{
 			name:  "ingress is not updated if the stack version remains the same",
 			stack: baseTestStack,
-			existing: &extensions.Ingress{
+			existing: &networking.Ingress{
 				ObjectMeta: baseTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			updated: &extensions.Ingress{
+			updated: &networking.Ingress{
 				ObjectMeta: baseTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleUpdatedRules,
 				},
 			},
-			expected: &extensions.Ingress{
+			expected: &networking.Ingress{
 				ObjectMeta: baseTestStackOwned,
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
@@ -657,16 +657,16 @@ func TestReconcileStackIngress(t *testing.T) {
 			require.NoError(t, err)
 
 			if tc.existing != nil {
-				err = env.CreateIngresses([]extensions.Ingress{*tc.existing})
+				err = env.CreateIngresses([]networking.Ingress{*tc.existing})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackIngress(&tc.stack, tc.existing, func() (*extensions.Ingress, error) {
+			err = env.controller.ReconcileStackIngress(&tc.stack, tc.existing, func() (*networking.Ingress, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.ExtensionsV1beta1().Ingresses(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			updated, err := env.client.NetworkingV1beta1().Ingresses(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)

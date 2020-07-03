@@ -9,7 +9,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -291,18 +291,18 @@ func TestStackGenerateIngress(t *testing.T) {
 	expectedMeta := testResourceMeta.DeepCopy()
 	expectedMeta.Annotations["ingress"] = "annotation"
 
-	expected := &extensions.Ingress{
+	expected := &networking.Ingress{
 		ObjectMeta: *expectedMeta,
-		Spec: extensions.IngressSpec{
-			Rules: []extensions.IngressRule{
+		Spec: networking.IngressSpec{
+			Rules: []networking.IngressRule{
 				{
 					Host: "foo-v1.example.org",
-					IngressRuleValue: extensions.IngressRuleValue{
-						HTTP: &extensions.HTTPIngressRuleValue{
-							Paths: []extensions.HTTPIngressPath{
+					IngressRuleValue: networking.IngressRuleValue{
+						HTTP: &networking.HTTPIngressRuleValue{
+							Paths: []networking.HTTPIngressPath{
 								{
 									Path: "example",
-									Backend: extensions.IngressBackend{
+									Backend: networking.IngressBackend{
 										ServiceName: "foo-v1",
 										ServicePort: backendPort,
 									},

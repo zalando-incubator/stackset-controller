@@ -14,7 +14,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -415,7 +415,7 @@ func waitForHPA(t *testing.T, name string) (*autoscalingv2.HorizontalPodAutoscal
 	return hpaInterface().Get(name, metav1.GetOptions{})
 }
 
-func waitForIngress(t *testing.T, name string) (*extensionsv1beta1.Ingress, error) {
+func waitForIngress(t *testing.T, name string) (*networkingv1beta1.Ingress, error) {
 	err := resourceCreated(t, "ingress", name, ingressInterface()).await()
 	if err != nil {
 		return nil, err
@@ -423,7 +423,7 @@ func waitForIngress(t *testing.T, name string) (*extensionsv1beta1.Ingress, erro
 	return ingressInterface().Get(name, metav1.GetOptions{})
 }
 
-func getIngressTrafficWeights(ingress *extensionsv1beta1.Ingress, kind weightKind) map[string]float64 {
+func getIngressTrafficWeights(ingress *networkingv1beta1.Ingress, kind weightKind) map[string]float64 {
 	weights := ingress.Annotations[string(kind)]
 	if weights == "" {
 		return nil

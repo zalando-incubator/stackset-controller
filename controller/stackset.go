@@ -21,7 +21,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -137,7 +137,7 @@ func (c *StackSetController) startMigrate(ctx context.Context) error {
 		stacksets[stackset.UID] = stacksetContainer
 	}
 
-	ingresses, err := c.client.ExtensionsV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
+	ingresses, err := c.client.NetworkingV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -223,7 +223,7 @@ func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.St
 		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ssc.StackSet); err != nil {
 			return err
 		}
-		if _, err := c.client.ExtensionsV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
+		if _, err := c.client.NetworkingV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
 			return err
 		}
 	}
@@ -256,7 +256,7 @@ func (c *StackSetController) migrateToIngress(ctx context.Context, ssc *core.Sta
 		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ssc.StackSet); err != nil {
 			return err
 		}
-		if _, err := c.client.ExtensionsV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
+		if _, err := c.client.NetworkingV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
 			return err
 		}
 	}
@@ -409,7 +409,7 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 }
 
 func (c *StackSetController) collectIngresses(stacksets map[types.UID]*core.StackSetContainer) error {
-	ingresses, err := c.client.ExtensionsV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
+	ingresses, err := c.client.NetworkingV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Ingresses: %v", err)
 	}
@@ -767,7 +767,7 @@ func (c *StackSetController) CleanupOldStacks(ssc *core.StackSetContainer) error
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, existing *extensions.Ingress, generateUpdated func() (*extensions.Ingress, error)) error {
+func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
 	ingress, err := generateUpdated()
 	if err != nil {
 		return err
@@ -776,7 +776,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	// Ingress removed
 	if ingress == nil {
 		if existing != nil {
-			err := c.client.ExtensionsV1beta1().Ingresses(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
+			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -792,7 +792,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 
 	// Create new Ingress
 	if existing == nil {
-		_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
+		_, err := c.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ingress)
 		if err != nil {
 			return err
 		}
@@ -813,7 +813,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	updated := existing.DeepCopy()
 	updated.Spec = ingress.Spec
 
-	_, err = c.client.ExtensionsV1beta1().Ingresses(updated.Namespace).Update(ingress)
+	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(ingress)
 	if err != nil {
 		return err
 	}

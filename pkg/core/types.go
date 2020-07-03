@@ -12,7 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -40,7 +40,7 @@ type StackSetContainer struct {
 	// StackSet. This is a reference to the actual resource while
 	// `StackSet.Spec.Ingress` defines the ingress configuration specified
 	// by the user on the StackSet.
-	Ingress *extensions.Ingress
+	Ingress *networking.Ingress
 
 	// TrafficReconciler is the reconciler implementation used for
 	// switching traffic between stacks. E.g. for prescaling stacks before
@@ -174,7 +174,7 @@ type StackResources struct {
 	Deployment *appsv1.Deployment
 	HPA        *autoscaling.HorizontalPodAutoscaler
 	Service    *v1.Service
-	Ingress    *extensions.Ingress
+	Ingress    *networking.Ingress
 }
 
 func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, stacksetManageTraffic bool, backendWeightsAnnotationKey, clusterDomain string) *StackSetContainer {

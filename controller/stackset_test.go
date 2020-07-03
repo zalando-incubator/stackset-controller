@@ -11,7 +11,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -60,7 +60,7 @@ func TestCollectResources(t *testing.T) {
 		stacksets   []zv1.StackSet
 		stacks      []zv1.Stack
 		deployments []apps.Deployment
-		ingresses   []extensions.Ingress
+		ingresses   []networking.Ingress
 		services    []v1.Service
 		hpas        []autoscaling.HorizontalPodAutoscaler
 		expected    map[types.UID]*core.StackSetContainer
@@ -131,7 +131,7 @@ func TestCollectResources(t *testing.T) {
 				{ObjectMeta: testOrphanMeta},    // owned by unknown stack
 				{ObjectMeta: testUnownedA1Meta}, // same name, but not owned by a stack
 			},
-			ingresses: []extensions.Ingress{
+			ingresses: []networking.Ingress{
 				{ObjectMeta: stackOwned(testStackA2)},      // stack owned
 				{ObjectMeta: testOrphanMeta},               // owned by unknown stack
 				{ObjectMeta: testUnownedA1Meta},            // same name, but not owned by a stack
@@ -161,11 +161,11 @@ func TestCollectResources(t *testing.T) {
 								Deployment: &apps.Deployment{ObjectMeta: stackOwned(testStackA2)},
 								HPA:        &autoscaling.HorizontalPodAutoscaler{ObjectMeta: stackOwned(testStackA2)},
 								Service:    &v1.Service{ObjectMeta: stackOwned(testStackA2)},
-								Ingress:    &extensions.Ingress{ObjectMeta: stackOwned(testStackA2)},
+								Ingress:    &networking.Ingress{ObjectMeta: stackOwned(testStackA2)},
 							},
 						},
 					},
-					Ingress:           &extensions.Ingress{ObjectMeta: stacksetOwned(testStacksetA)},
+					Ingress:           &networking.Ingress{ObjectMeta: stacksetOwned(testStacksetA)},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},
 				},
 				testStacksetB.UID: {
@@ -186,7 +186,7 @@ func TestCollectResources(t *testing.T) {
 			deployments: []apps.Deployment{
 				testDeploymentA2, // stack owned
 			},
-			ingresses: []extensions.Ingress{
+			ingresses: []networking.Ingress{
 				{ObjectMeta: deploymentOwned(testDeploymentA2)}, // deployment owned, not supported
 			},
 			services: []v1.Service{
@@ -432,15 +432,15 @@ func TestReconcileStackSetDesiredTraffic(t *testing.T) {
 }
 
 func TestReconcileStackSetIngress(t *testing.T) {
-	exampleRules := []extensions.IngressRule{
+	exampleRules := []networking.IngressRule{
 		{
 			Host: "example.org",
-			IngressRuleValue: extensions.IngressRuleValue{
-				HTTP: &extensions.HTTPIngressRuleValue{
-					Paths: []extensions.HTTPIngressPath{
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{
 						{
 							Path: "/",
-							Backend: extensions.IngressBackend{
+							Backend: networking.IngressBackend{
 								ServiceName: "foo",
 								ServicePort: intstr.FromInt(80),
 							},
@@ -450,15 +450,15 @@ func TestReconcileStackSetIngress(t *testing.T) {
 			},
 		},
 	}
-	exampleUpdatedRules := []extensions.IngressRule{
+	exampleUpdatedRules := []networking.IngressRule{
 		{
 			Host: "example.com",
-			IngressRuleValue: extensions.IngressRuleValue{
-				HTTP: &extensions.HTTPIngressRuleValue{
-					Paths: []extensions.HTTPIngressPath{
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{
 						{
 							Path: "/",
-							Backend: extensions.IngressBackend{
+							Backend: networking.IngressBackend{
 								ServiceName: "bar",
 								ServicePort: intstr.FromInt(8181),
 							},
@@ -482,30 +482,30 @@ func TestReconcileStackSetIngress(t *testing.T) {
 
 	for _, tc := range []struct {
 		name     string
-		existing *extensions.Ingress
-		updated  *extensions.Ingress
-		expected *extensions.Ingress
+		existing *networking.Ingress
+		updated  *networking.Ingress
+		expected *networking.Ingress
 	}{
 		{
 			name: "ingress is created if it doesn't exist",
-			updated: &extensions.Ingress{
+			updated: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			expected: &extensions.Ingress{
+			expected: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
 		},
 		{
 			name: "ingress is removed if it is no longer needed",
-			existing: &extensions.Ingress{
+			existing: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
@@ -514,67 +514,67 @@ func TestReconcileStackSetIngress(t *testing.T) {
 		},
 		{
 			name: "ingress is updated if the spec is changed",
-			existing: &extensions.Ingress{
+			existing: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			updated: &extensions.Ingress{
+			updated: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleUpdatedRules,
 				},
 			},
-			expected: &extensions.Ingress{
+			expected: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleUpdatedRules,
 				},
 			},
 		},
 		{
 			name: "ingress is updated if the annotations change",
-			existing: &extensions.Ingress{
+			existing: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			updated: &extensions.Ingress{
+			updated: &networking.Ingress{
 				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar"}),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			expected: &extensions.Ingress{
+			expected: &networking.Ingress{
 				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar"}),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
 		},
 		{
 			name: "ingress is not rolled back if the server injects some defaults",
-			existing: &extensions.Ingress{
+			existing: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
+				Spec: networking.IngressSpec{
 					Rules: exampleRules,
 				},
 			},
-			updated: &extensions.Ingress{
+			updated: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "test",
 					},
 					Rules: exampleRules,
 				},
 			},
-			expected: &extensions.Ingress{
+			expected: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: extensions.IngressSpec{
-					Backend: &extensions.IngressBackend{
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
 						ServiceName: "test",
 					},
 					Rules: exampleRules,
@@ -589,16 +589,16 @@ func TestReconcileStackSetIngress(t *testing.T) {
 			require.NoError(t, err)
 
 			if tc.existing != nil {
-				err = env.CreateIngresses([]extensions.Ingress{*tc.existing})
+				err = env.CreateIngresses([]networking.Ingress{*tc.existing})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackSetIngress(&testStackSet, tc.existing, func() (*extensions.Ingress, error) {
+			err = env.controller.ReconcileStackSetIngress(&testStackSet, tc.existing, func() (*networking.Ingress, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.ExtensionsV1beta1().Ingresses(testStackSet.Namespace).Get(testStackSet.Name, metav1.GetOptions{})
+			updated, err := env.client.NetworkingV1beta1().Ingresses(testStackSet.Namespace).Get(testStackSet.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)

@@ -43,7 +43,7 @@ This will result in an `Ingress` resource where the `servicePort` value is
 `80`:
 
 ```yaml
-apiVersion: extensions/v1beta1
+apiVersion: networking/v1beta1
 kind: Ingress
 metadata:
   name: my-app

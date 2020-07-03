@@ -9,7 +9,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	corev1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -135,7 +135,7 @@ func (ssc *StackSetContainer) MarkExpiredStacks() {
 	}
 }
 
-func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
+func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 	stackset := ssc.StackSet
 	if stackset.Spec.Ingress == nil {
 		return nil, nil
@@ -150,7 +150,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 		ingressTrafficAuthoritativeAnnotation: strconv.FormatBool(!ssc.stacksetManagesTraffic),
 	}
 
-	result := &extensions.Ingress{
+	result := &networking.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        stackset.Name,
 			Namespace:   stackset.Namespace,
@@ -165,15 +165,15 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 				},
 			},
 		},
-		Spec: extensions.IngressSpec{
-			Rules: make([]extensions.IngressRule, 0),
+		Spec: networking.IngressSpec{
+			Rules: make([]networking.IngressRule, 0),
 		},
 	}
 
-	rule := extensions.IngressRule{
-		IngressRuleValue: extensions.IngressRuleValue{
-			HTTP: &extensions.HTTPIngressRuleValue{
-				Paths: make([]extensions.HTTPIngressPath, 0),
+	rule := networking.IngressRule{
+		IngressRuleValue: networking.IngressRuleValue{
+			HTTP: &networking.HTTPIngressRuleValue{
+				Paths: make([]networking.HTTPIngressPath, 0),
 			},
 		},
 	}
@@ -185,9 +185,9 @@ func (ssc *StackSetContainer) GenerateIngress() (*extensions.Ingress, error) {
 		if sc.actualTrafficWeight > 0 {
 			actualWeights[sc.Name()] = sc.actualTrafficWeight
 
-			rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, extensions.HTTPIngressPath{
+			rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, networking.HTTPIngressPath{
 				Path: stackset.Spec.Ingress.Path,
-				Backend: extensions.IngressBackend{
+				Backend: networking.IngressBackend{
 					ServiceName: sc.Name(),
 					ServicePort: stackset.Spec.Ingress.BackendPort,
 				},

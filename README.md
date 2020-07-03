@@ -209,6 +209,10 @@ behavior for the `StackSet`:
 
 * [How To's](/docs/howtos.md)
 
+### Kubernetes Compatibilty
+
+The StackSet controller works with Kubernetes `>=v1.14`.
+
 ## How it works
 
 The controller watches for `StackSet` resources and creates `Stack` resources

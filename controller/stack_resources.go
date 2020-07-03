@@ -6,7 +6,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/autoscaling/v2beta1"
 	apiv1 "k8s.io/api/core/v1"
-	extensions "k8s.io/api/extensions/v1beta1"
+	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -171,7 +171,7 @@ func (c *StackSetController) ReconcileStackService(stack *zv1.Stack, existing *a
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *extensions.Ingress, generateUpdated func() (*extensions.Ingress, error)) error {
+func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
 	ingress, err := generateUpdated()
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *e
 	// Ingress removed
 	if ingress == nil {
 		if existing != nil {
-			err := c.client.ExtensionsV1beta1().Ingresses(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
+			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -196,7 +196,7 @@ func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *e
 
 	// Create new Ingress
 	if existing == nil {
-		_, err := c.client.ExtensionsV1beta1().Ingresses(ingress.Namespace).Create(ingress)
+		_, err := c.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ingress)
 		if err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *e
 	syncObjectMeta(updated, ingress)
 	updated.Spec = ingress.Spec
 
-	_, err = c.client.ExtensionsV1beta1().Ingresses(updated.Namespace).Update(updated)
+	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(updated)
 	if err != nil {
 		return err
 	}
