@@ -23,24 +23,50 @@ GOPKG="$SRC/zalando-incubator/stackset-controller"
 CUSTOM_RESOURCE_NAME="zalando.org"
 CUSTOM_RESOURCE_VERSION="v1"
 
-SCRIPT_ROOT="$(dirname ${BASH_SOURCE[0]})/.."
-CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-generator 2>/dev/null || echo ../code-generator)}
-OUTPUT_BASE="$(dirname ${BASH_SOURCE})/"
-
-go mod vendor
+SCRIPT_ROOT="$(dirname "${BASH_SOURCE[0]}")/.."
+OUTPUT_BASE="$(dirname "${BASH_SOURCE[0]}")/"
 
 # generate the code with:
 # --output-base    because this script should also be able to run inside the vendor dir of
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
-bash "${CODEGEN_PKG}"/generate-groups.sh all \
-  "${GOPKG}/pkg/client" "${GOPKG}/pkg/apis" \
-  "${CUSTOM_RESOURCE_NAME}:${CUSTOM_RESOURCE_VERSION}" \
-  --go-header-file hack/boilerplate.go.txt \
+
+OUTPUT_PKG="${GOPKG}/pkg/client"
+APIS_PKG="${GOPKG}/pkg/apis"
+GROUPS_WITH_VERSIONS="${CUSTOM_RESOURCE_NAME}:${CUSTOM_RESOURCE_VERSION}"
+
+echo "Generating deepcopy funcs"
+go run k8s.io/code-generator/cmd/deepcopy-gen \
+  --input-dirs "${APIS_PKG}/${CUSTOM_RESOURCE_NAME}/${CUSTOM_RESOURCE_VERSION}" \
+  -O zz_generated.deepcopy \
+  --bounding-dirs "${APIS_PKG}" \
+  --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
   --output-base "$OUTPUT_BASE"
 
-# To use your own boilerplate text append:
-#   --go-header-file ${SCRIPT_ROOT}/hack/custom-boilerplate.go.txt
+echo "Generating clientset for ${GROUPS_WITH_VERSIONS} at ${OUTPUT_PKG}/${CLIENTSET_PKG_NAME:-clientset}"
+go run k8s.io/code-generator/cmd/client-gen \
+  --clientset-name versioned \
+  --input-base "" \
+  --input "${APIS_PKG}/${CUSTOM_RESOURCE_NAME}/${CUSTOM_RESOURCE_VERSION}" \
+  --output-package "${OUTPUT_PKG}/clientset" \
+  --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+  --output-base "$OUTPUT_BASE"
+
+echo "Generating listers for ${GROUPS_WITH_VERSIONS} at ${OUTPUT_PKG}/listers"
+go run k8s.io/code-generator/cmd/lister-gen \
+  --input-dirs "${APIS_PKG}/${CUSTOM_RESOURCE_NAME}/${CUSTOM_RESOURCE_VERSION}" \
+  --output-package "${OUTPUT_PKG}/listers" \
+  --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+  --output-base "$OUTPUT_BASE"
+
+echo "Generating informers for ${GROUPS_WITH_VERSIONS} at ${OUTPUT_PKG}/informers"
+go run k8s.io/code-generator/cmd/informer-gen \
+  --input-dirs "${APIS_PKG}/${CUSTOM_RESOURCE_NAME}/${CUSTOM_RESOURCE_VERSION}" \
+  --versioned-clientset-package "${OUTPUT_PKG}/${CLIENTSET_PKG_NAME:-clientset}/${CLIENTSET_NAME_VERSIONED:-versioned}" \
+  --listers-package "${OUTPUT_PKG}/listers" \
+  --output-package "${OUTPUT_PKG}/informers" \
+  --go-header-file "${SCRIPT_ROOT}/hack/boilerplate.go.txt" \
+  --output-base "$OUTPUT_BASE"
 
 # hack to make the generated code work with Go module based projects
 cp -r "$OUTPUT_BASE/$GOPKG/pkg/apis" ./pkg
