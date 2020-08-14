@@ -1,45 +1,59 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.2.7
-  creationTimestamp: null
   name: stacks.zalando.org
 spec:
-  additionalPrinterColumns:
-  - JSONPath: .spec.replicas
-    name: Desired
-    type: string
-  - JSONPath: .status.replicas
-    name: Current
-    type: string
-  - JSONPath: .status.updatedReplicas
-    name: Up-To-Date
-    type: string
-  - JSONPath: .status.readyReplicas
-    name: Ready Replicas
-    type: string
-  - JSONPath: .status.actualTrafficWeight
-    name: Traffic
-    type: string
-  - JSONPath: .status.noTrafficSince
-    name: No-Traffic-Since
-    type: string
-  - JSONPath: .metadata.creationTimestamp
-    name: Age
-    type: string
   group: zalando.org
+  version: v1
+  scope: Namespaced
+  versions:
+  - name: v1
+    served: true
+    storage: true
   names:
     kind: Stack
-    listKind: StackList
     plural: stacks
     singular: stack
-  scope: Namespaced
+    categories:
+    - all
+  preserveUnknownFields: false
+  additionalPrinterColumns:
+  - name: Desired
+    type: integer
+    description: Number of desired replicas
+    JSONPath: .status.desiredReplicas
+  - name: Current
+    type: integer
+    description: Number of current replicas
+    JSONPath: .status.replicas
+  - name: Up-to-date
+    type: integer
+    description: Number of up-to-date replicas
+    JSONPath: .status.updatedReplicas
+  - name: Available
+    type: integer
+    description: Number of available replicas
+    JSONPath: .status.readyReplicas
+  - name: Traffic
+    type: number
+    format: float
+    description: Current traffic weight for the stack
+    JSONPath: .status.actualTrafficWeight
+  - name: No-Traffic-Since
+    type: date
+    description: Time since the stack didn't get any traffic
+    JSONPath: .status.noTrafficSince
+  - name: Age
+    type: date
+    description: Age of the stack
+    JSONPath: .metadata.creationTimestamp
   subresources:
+    # scale enables the scale subresource.
     scale:
       labelSelectorPath: .status.labelSelector
       specReplicasPath: .spec.replicas
       statusReplicasPath: .status.replicas
+    # status enables the status subresource.
     status: {}
   validation:
     openAPIV3Schema:
@@ -1690,10 +1704,10 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            - protocol
-                            x-kubernetes-list-type: map
+                            # x-kubernetes-list-map-keys:
+                            # - containerPort
+                            # - protocol
+                            # x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -4022,10 +4036,10 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            - protocol
-                            x-kubernetes-list-type: map
+                            # x-kubernetes-list-map-keys:
+                            # - containerPort
+                            # - protocol
+                            # x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -4957,10 +4971,10 @@ spec:
                         - whenUnsatisfiable
                         type: object
                       type: array
-                      x-kubernetes-list-map-keys:
-                      - topologyKey
-                      - whenUnsatisfiable
-                      x-kubernetes-list-type: map
+                      # x-kubernetes-list-map-keys:
+                      # - topologyKey
+                      # - whenUnsatisfiable
+                      # x-kubernetes-list-type: map
                     volumes:
                       description: 'List of volumes that can be mounted by containers
                         belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
@@ -6429,14 +6443,3 @@ spec:
       required:
       - spec
       type: object
-  version: v1
-  versions:
-  - name: v1
-    served: true
-    storage: true
-status:
-  acceptedNames:
-    kind: ''
-    plural: ''
-  conditions: []
-  storedVersions: []
