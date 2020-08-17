@@ -43,14 +43,14 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 
 	initialWeights := map[string]float64{firstStack: 100}
-	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, initialWeights, nil).await()
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, initialWeights, nil).await()
 	require.NoError(t, err)
 
 	// Switch traffic to the second stack, this should fail
 	desiredWeights := map[string]float64{unhealthyStack: 100}
-	err = setDesiredTrafficWeightsIngress(stacksetName, desiredWeights)
+	err = setDesiredTrafficWeightsStackset(stacksetName, desiredWeights)
 	require.NoError(t, err)
-	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, desiredWeights, nil).await()
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, desiredWeights, nil).await()
 	require.Error(t, err)
 
 	// Create a healthy stack
@@ -63,9 +63,9 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 
 	healthyWeights := map[string]float64{healthyStack: 100}
-	err = setDesiredTrafficWeightsIngress(stacksetName, healthyWeights)
+	err = setDesiredTrafficWeightsStackset(stacksetName, healthyWeights)
 	require.NoError(t, err)
-	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, healthyWeights, nil).await()
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, healthyWeights, nil).await()
 	require.NoError(t, err)
 
 	// Create another healthy stack so we can test GC
@@ -78,9 +78,9 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 
 	finalWeights := map[string]float64{finalStack: 100}
-	err = setDesiredTrafficWeightsIngress(stacksetName, finalWeights)
+	err = setDesiredTrafficWeightsStackset(stacksetName, finalWeights)
 	require.NoError(t, err)
-	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindActual, finalWeights, nil).await()
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, finalWeights, nil).await()
 	require.NoError(t, err)
 
 	// Check that the unhealthy stack was deleted

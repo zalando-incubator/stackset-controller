@@ -459,25 +459,6 @@ func getStacksetTrafficWeights(stackset *zv1.StackSet, kind weightKind) map[stri
 	return result
 }
 
-func setDesiredTrafficWeightsIngress(ingressName string, weights map[string]float64) error {
-	for {
-		ingress, err := ingressInterface().Get(context.Background(), ingressName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		serializedWeights, err := json.Marshal(weights)
-		if err != nil {
-			return err
-		}
-		ingress.Annotations[string(weightKindDesired)] = string(serializedWeights)
-		_, err = ingressInterface().Update(context.Background(), ingress, metav1.UpdateOptions{})
-		if apiErrors.IsConflict(err) {
-			continue
-		}
-		return err
-	}
-}
-
 func setDesiredTrafficWeightsStackset(stacksetName string, weights map[string]float64) error {
 	for {
 
