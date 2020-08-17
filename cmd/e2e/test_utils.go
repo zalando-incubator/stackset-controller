@@ -331,11 +331,12 @@ func stackSetStatusMatches(t *testing.T, stackSetName string, expectedStatus exp
 
 func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 	meta := metav1.ObjectMeta{
-		Name:      name,
-		Namespace: namespace,
-		Annotations: map[string]string{
-			controller.StacksetControllerControllerAnnotationKey: controllerId,
-		},
+		Name:        name,
+		Namespace:   namespace,
+		Annotations: map[string]string{},
+	}
+	if controllerId != "" {
+		meta.Annotations[controller.StacksetControllerControllerAnnotationKey] = controllerId
 	}
 	if prescalingTimeout > 0 {
 		meta.Annotations[controller.PrescaleStacksAnnotationKey] = "yes"
