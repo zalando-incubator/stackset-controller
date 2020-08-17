@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -122,6 +123,7 @@ func resourceCreated(t *testing.T, kind string, name string, k8sInterface interf
 	get := reflect.ValueOf(k8sInterface).MethodByName("Get")
 	return newAwaiter(t, fmt.Sprintf("creation of %s %s", kind, name)).withPoll(func() (bool, error) {
 		result := get.Call([]reflect.Value{
+			reflect.ValueOf(context.Background()),
 			reflect.ValueOf(name),
 			reflect.ValueOf(metav1.GetOptions{}),
 		})
@@ -137,6 +139,7 @@ func resourceDeleted(t *testing.T, kind string, name string, k8sInterface interf
 	get := reflect.ValueOf(k8sInterface).MethodByName("Get")
 	return newAwaiter(t, fmt.Sprintf("deletion of %s %s", kind, name)).withPoll(func() (bool, error) {
 		result := get.Call([]reflect.Value{
+			reflect.ValueOf(context.Background()),
 			reflect.ValueOf(name),
 			reflect.ValueOf(metav1.GetOptions{}),
 		})
@@ -171,7 +174,7 @@ func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, kind weightK
 		timeout = trafficSwitchWaitTimeout
 	}
 	return newAwaiter(t, fmt.Sprintf("update of traffic weights in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
-		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
+		ingress, err := ingressInterface().Get(context.Background(), ingressName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -196,7 +199,7 @@ func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, kind weightK
 
 func ingressTrafficAuthoritative(t *testing.T, ingressName string, expectedAuthoritative bool) *awaiter {
 	return newAwaiter(t, fmt.Sprintf("update of traffic authoritative annotation in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
-		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
+		ingress, err := ingressInterface().Get(context.Background(), ingressName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -225,7 +228,7 @@ func trafficWeightsUpdatedStackset(t *testing.T, stacksetName string, kind weigh
 		timeout = trafficSwitchWaitTimeout
 	}
 	return newAwaiter(t, fmt.Sprintf("update of traffic weights in stackSet %s", stacksetName)).withPoll(func() (retry bool, err error) {
-		stackset, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+		stackset, err := stacksetInterface().Get(context.Background(), stacksetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -278,7 +281,7 @@ func (expected expectedStackStatus) matches(stack *zv1.Stack) error {
 
 func stackStatusMatches(t *testing.T, stackName string, expectedStatus expectedStackStatus) *awaiter {
 	return newAwaiter(t, fmt.Sprintf("stack %s to reach desired condition", stackName)).withPoll(func() (retry bool, err error) {
-		stack, err := stacksetClient.ZalandoV1().Stacks(namespace).Get(stackName, metav1.GetOptions{})
+		stack, err := stacksetClient.ZalandoV1().Stacks(namespace).Get(context.Background(), stackName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -317,7 +320,7 @@ func (expected expectedStackSetStatus) matches(stackSet *zv1.StackSet) error {
 
 func stackSetStatusMatches(t *testing.T, stackSetName string, expectedStatus expectedStackSetStatus) *awaiter {
 	return newAwaiter(t, fmt.Sprintf("stack %s to reach desired condition", stackSetName)).withPoll(func() (retry bool, err error) {
-		stackSet, err := stacksetClient.ZalandoV1().StackSets(namespace).Get(stackSetName, metav1.GetOptions{})
+		stackSet, err := stacksetClient.ZalandoV1().StackSets(namespace).Get(context.Background(), stackSetName, metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
@@ -346,12 +349,12 @@ func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSe
 		ObjectMeta: stackObjectMeta(stacksetName, prescalingTimeout),
 		Spec:       spec,
 	}
-	_, err := stacksetInterface().Create(stackSet)
+	_, err := stacksetInterface().Create(context.Background(), stackSet, metav1.CreateOptions{})
 	return err
 }
 
 func stacksetExists(stacksetName string) bool {
-	_, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+	_, err := stacksetInterface().Get(context.Background(), stacksetName, metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -360,7 +363,7 @@ func stacksetExists(stacksetName string) bool {
 
 func stackExists(stacksetName, stackVersion string) bool {
 	fullStackName := fmt.Sprintf("%s-%s", stacksetName, stackVersion)
-	_, err := stackInterface().Get(fullStackName, metav1.GetOptions{})
+	_, err := stackInterface().Get(context.Background(), fullStackName, metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -369,12 +372,12 @@ func stackExists(stacksetName, stackVersion string) bool {
 
 func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {
 	for {
-		ss, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+		ss, err := stacksetInterface().Get(context.Background(), stacksetName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
 		ss.Spec = spec
-		_, err = stacksetInterface().Update(ss)
+		_, err = stacksetInterface().Update(context.Background(), ss, metav1.UpdateOptions{})
 		if apiErrors.IsConflict(err) {
 			continue
 		}
@@ -388,7 +391,7 @@ func waitForStack(t *testing.T, stacksetName, stackVersion string) (*zv1.Stack, 
 	if err != nil {
 		return nil, err
 	}
-	return stackInterface().Get(stackName, metav1.GetOptions{})
+	return stackInterface().Get(context.Background(), stackName, metav1.GetOptions{})
 }
 
 func waitForDeployment(t *testing.T, name string) (*appsv1.Deployment, error) {
@@ -396,7 +399,7 @@ func waitForDeployment(t *testing.T, name string) (*appsv1.Deployment, error) {
 	if err != nil {
 		return nil, err
 	}
-	return deploymentInterface().Get(name, metav1.GetOptions{})
+	return deploymentInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func waitForService(t *testing.T, name string) (*corev1.Service, error) {
@@ -404,7 +407,7 @@ func waitForService(t *testing.T, name string) (*corev1.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return serviceInterface().Get(name, metav1.GetOptions{})
+	return serviceInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func waitForHPA(t *testing.T, name string) (*autoscalingv2.HorizontalPodAutoscaler, error) {
@@ -412,7 +415,7 @@ func waitForHPA(t *testing.T, name string) (*autoscalingv2.HorizontalPodAutoscal
 	if err != nil {
 		return nil, err
 	}
-	return hpaInterface().Get(name, metav1.GetOptions{})
+	return hpaInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func waitForIngress(t *testing.T, name string) (*networkingv1beta1.Ingress, error) {
@@ -420,7 +423,7 @@ func waitForIngress(t *testing.T, name string) (*networkingv1beta1.Ingress, erro
 	if err != nil {
 		return nil, err
 	}
-	return ingressInterface().Get(name, metav1.GetOptions{})
+	return ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func getIngressTrafficWeights(ingress *networkingv1beta1.Ingress, kind weightKind) map[string]float64 {
@@ -457,7 +460,7 @@ func getStacksetTrafficWeights(stackset *zv1.StackSet, kind weightKind) map[stri
 
 func setDesiredTrafficWeightsIngress(ingressName string, weights map[string]float64) error {
 	for {
-		ingress, err := ingressInterface().Get(ingressName, metav1.GetOptions{})
+		ingress, err := ingressInterface().Get(context.Background(), ingressName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -466,7 +469,7 @@ func setDesiredTrafficWeightsIngress(ingressName string, weights map[string]floa
 			return err
 		}
 		ingress.Annotations[string(weightKindDesired)] = string(serializedWeights)
-		_, err = ingressInterface().Update(ingress)
+		_, err = ingressInterface().Update(context.Background(), ingress, metav1.UpdateOptions{})
 		if apiErrors.IsConflict(err) {
 			continue
 		}
@@ -477,7 +480,7 @@ func setDesiredTrafficWeightsIngress(ingressName string, weights map[string]floa
 func setDesiredTrafficWeightsStackset(stacksetName string, weights map[string]float64) error {
 	for {
 
-		stackset, err := stacksetInterface().Get(stacksetName, metav1.GetOptions{})
+		stackset, err := stacksetInterface().Get(context.Background(), stacksetName, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -489,7 +492,7 @@ func setDesiredTrafficWeightsStackset(stacksetName string, weights map[string]fl
 			})
 		}
 		stackset.Spec.Traffic = trafficSpec
-		_, err = stacksetInterface().Update(stackset)
+		_, err = stacksetInterface().Update(context.Background(), stackset, metav1.UpdateOptions{})
 		if apiErrors.IsConflict(err) {
 			continue
 		}

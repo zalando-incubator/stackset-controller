@@ -15,6 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+var (
+	pathType = v1beta1.PathTypeImplementationSpecific
+)
+
 type TestStacksetSpecFactory struct {
 	stacksetName    string
 	hpa             bool
@@ -240,6 +244,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: []v1beta1.HTTPIngressPath{
 						{
+							PathType: &pathType,
 							Backend: v1beta1.IngressBackend{
 								ServiceName: service.Name,
 								ServicePort: intstr.FromInt(80),
@@ -291,6 +296,7 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 		}
 
 		expectedPaths = append(expectedPaths, v1beta1.HTTPIngressPath{
+			PathType: &pathType,
 			Backend: v1beta1.IngressBackend{
 				ServiceName: serviceName,
 				ServicePort: intstr.FromInt(80),

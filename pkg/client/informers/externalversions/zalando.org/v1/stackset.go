@@ -19,6 +19,7 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	time "time"
 
 	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -61,13 +62,13 @@ func NewFilteredStackSetInformer(client versioned.Interface, namespace string, r
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().StackSets(namespace).List(options)
+				return client.ZalandoV1().StackSets(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().StackSets(namespace).Watch(options)
+				return client.ZalandoV1().StackSets(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&zalandoorgv1.StackSet{},

@@ -118,7 +118,7 @@ func (c *StackSetController) stackLogger(ssc *core.StackSetContainer, sc *core.S
 }
 
 func (c *StackSetController) startMigrate(ctx context.Context) error {
-	zv1Stacksets, err := c.client.ZalandoV1().StackSets(v1.NamespaceAll).List(metav1.ListOptions{})
+	zv1Stacksets, err := c.client.ZalandoV1().StackSets(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (c *StackSetController) startMigrate(ctx context.Context) error {
 		stacksets[stackset.UID] = stacksetContainer
 	}
 
-	ingresses, err := c.client.NetworkingV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
+	ingresses, err := c.client.NetworkingV1beta1().Ingresses(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -220,10 +220,10 @@ func (c *StackSetController) migrateToStackset(ctx context.Context, ssc *core.St
 
 		// sync back to Kubernetes
 		ns := ssc.StackSet.Namespace
-		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ssc.StackSet); err != nil {
+		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ctx, ssc.StackSet, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
-		if _, err := c.client.NetworkingV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
+		if _, err := c.client.NetworkingV1beta1().Ingresses(ns).Update(ctx, ssc.Ingress, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -253,10 +253,10 @@ func (c *StackSetController) migrateToIngress(ctx context.Context, ssc *core.Sta
 
 		// sync back to Kubernetes
 		ns := ssc.StackSet.Namespace
-		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ssc.StackSet); err != nil {
+		if _, err := c.client.ZalandoV1().StackSets(ns).Update(ctx, ssc.StackSet, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
-		if _, err := c.client.NetworkingV1beta1().Ingresses(ns).Update(ssc.Ingress); err != nil {
+		if _, err := c.client.NetworkingV1beta1().Ingresses(ns).Update(ctx, ssc.Ingress, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
@@ -296,7 +296,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			nextCheck = time.Now().Add(c.interval)
 
-			stackContainers, err := c.collectResources()
+			stackContainers, err := c.collectResources(ctx)
 			if err != nil {
 				c.logger.Errorf("Failed to collect resources: %v", err)
 				continue
@@ -308,7 +308,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 				reconcileGroup.Go(func() error {
 					if _, ok := c.stacksetStore[stackset]; ok {
-						err := c.ReconcileStackSet(container)
+						err := c.ReconcileStackSet(ctx, container)
 						if err != nil {
 							c.stacksetLogger(container).Errorf("unable to reconcile a stackset: %v", err)
 							return c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
@@ -358,7 +358,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 // collectResources collects resources for all stacksets at once and stores them per StackSet/Stack so that we don't
 // overload the API requests with unnecessary requests
-func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetContainer, error) {
+func (c *StackSetController) collectResources(ctx context.Context) (map[types.UID]*core.StackSetContainer, error) {
 	stacksets := make(map[types.UID]*core.StackSetContainer, len(c.stacksetStore))
 	for uid, stackset := range c.stacksetStore {
 		stackset := stackset
@@ -380,27 +380,27 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 		stacksets[uid] = stacksetContainer
 	}
 
-	err := c.collectStacks(stacksets)
+	err := c.collectStacks(ctx, stacksets)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.collectIngresses(stacksets)
+	err = c.collectIngresses(ctx, stacksets)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.collectDeployments(stacksets)
+	err = c.collectDeployments(ctx, stacksets)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.collectServices(stacksets)
+	err = c.collectServices(ctx, stacksets)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.collectHPAs(stacksets)
+	err = c.collectHPAs(ctx, stacksets)
 	if err != nil {
 		return nil, err
 	}
@@ -408,8 +408,8 @@ func (c *StackSetController) collectResources() (map[types.UID]*core.StackSetCon
 	return stacksets, nil
 }
 
-func (c *StackSetController) collectIngresses(stacksets map[types.UID]*core.StackSetContainer) error {
-	ingresses, err := c.client.NetworkingV1beta1().Ingresses(v1.NamespaceAll).List(metav1.ListOptions{})
+func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	ingresses, err := c.client.NetworkingV1beta1().Ingresses(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Ingresses: %v", err)
 	}
@@ -436,8 +436,8 @@ Items:
 	return nil
 }
 
-func (c *StackSetController) collectStacks(stacksets map[types.UID]*core.StackSetContainer) error {
-	stacks, err := c.client.ZalandoV1().Stacks(v1.NamespaceAll).List(metav1.ListOptions{})
+func (c *StackSetController) collectStacks(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	stacks, err := c.client.ZalandoV1().Stacks(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Stacks: %v", err)
 	}
@@ -458,8 +458,8 @@ func (c *StackSetController) collectStacks(stacksets map[types.UID]*core.StackSe
 	return nil
 }
 
-func (c *StackSetController) collectDeployments(stacksets map[types.UID]*core.StackSetContainer) error {
-	deployments, err := c.client.AppsV1().Deployments(v1.NamespaceAll).List(metav1.ListOptions{})
+func (c *StackSetController) collectDeployments(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	deployments, err := c.client.AppsV1().Deployments(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Deployments: %v", err)
 	}
@@ -478,8 +478,8 @@ func (c *StackSetController) collectDeployments(stacksets map[types.UID]*core.St
 	return nil
 }
 
-func (c *StackSetController) collectServices(stacksets map[types.UID]*core.StackSetContainer) error {
-	services, err := c.client.CoreV1().Services(v1.NamespaceAll).List(metav1.ListOptions{})
+func (c *StackSetController) collectServices(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	services, err := c.client.CoreV1().Services(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Services: %v", err)
 	}
@@ -507,8 +507,8 @@ Items:
 	return nil
 }
 
-func (c *StackSetController) collectHPAs(stacksets map[types.UID]*core.StackSetContainer) error {
-	hpas, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(v1.NamespaceAll).List(metav1.ListOptions{})
+func (c *StackSetController) collectHPAs(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	hpas, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list HPAs: %v", err)
 	}
@@ -657,13 +657,13 @@ func retryUpdate(updateFn func(retry bool) error) error {
 }
 
 // ReconcileStatuses reconciles the statuses of StackSets and Stacks.
-func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) error {
+func (c *StackSetController) ReconcileStatuses(ctx context.Context, ssc *core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		stack := sc.Stack.DeepCopy()
 		status := *sc.GenerateStackStatus()
 		err := retryUpdate(func(retry bool) error {
 			if retry {
-				updated, err := c.client.ZalandoV1().Stacks(sc.Namespace()).Get(stack.Name, metav1.GetOptions{})
+				updated, err := c.client.ZalandoV1().Stacks(sc.Namespace()).Get(ctx, stack.Name, metav1.GetOptions{})
 				if err != nil {
 					return err
 				}
@@ -671,7 +671,7 @@ func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) erro
 			}
 			if !equality.Semantic.DeepEqual(status, stack.Status) {
 				stack.Status = status
-				_, err := c.client.ZalandoV1().Stacks(sc.Namespace()).UpdateStatus(stack)
+				_, err := c.client.ZalandoV1().Stacks(sc.Namespace()).UpdateStatus(ctx, stack, metav1.UpdateOptions{})
 				return err
 			}
 			return nil
@@ -685,7 +685,7 @@ func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) erro
 	status := *ssc.GenerateStackSetStatus()
 	err := retryUpdate(func(retry bool) error {
 		if retry {
-			updated, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).Get(ssc.StackSet.Name, metav1.GetOptions{})
+			updated, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).Get(ctx, ssc.StackSet.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -693,7 +693,7 @@ func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) erro
 		}
 		if !equality.Semantic.DeepEqual(status, stackset.Status) {
 			stackset.Status = status
-			_, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(stackset)
+			_, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(ctx, stackset, metav1.UpdateOptions{})
 			return err
 		}
 		return nil
@@ -706,13 +706,13 @@ func (c *StackSetController) ReconcileStatuses(ssc *core.StackSetContainer) erro
 }
 
 // CreateCurrentStack creates a new Stack object for the current stack, if needed
-func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) error {
+func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.StackSetContainer) error {
 	newStack, newStackVersion := ssc.NewStack()
 	if newStack == nil {
 		return nil
 	}
 
-	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(newStack.Stack)
+	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(ctx, newStack.Stack, metav1.CreateOptions{})
 	if err != nil {
 		return err
 	}
@@ -729,7 +729,7 @@ func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) err
 	updated := ssc.StackSet.DeepCopy()
 	updated.Status.ObservedStackVersion = newStackVersion
 
-	result, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(updated)
+	result, err := c.client.ZalandoV1().StackSets(ssc.StackSet.Namespace).UpdateStatus(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -745,14 +745,14 @@ func (c *StackSetController) CreateCurrentStack(ssc *core.StackSetContainer) err
 }
 
 // CleanupOldStacks deletes stacks that are no longer needed.
-func (c *StackSetController) CleanupOldStacks(ssc *core.StackSetContainer) error {
+func (c *StackSetController) CleanupOldStacks(ctx context.Context, ssc *core.StackSetContainer) error {
 	for _, sc := range ssc.StackContainers {
 		if !sc.PendingRemoval {
 			continue
 		}
 
 		stack := sc.Stack
-		err := c.client.ZalandoV1().Stacks(stack.Namespace).Delete(stack.Name, nil)
+		err := c.client.ZalandoV1().Stacks(stack.Namespace).Delete(ctx, stack.Name, metav1.DeleteOptions{})
 		if err != nil {
 			return c.errorEventf(ssc.StackSet, "FailedDeleteStack", err)
 		}
@@ -767,7 +767,7 @@ func (c *StackSetController) CleanupOldStacks(ssc *core.StackSetContainer) error
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
+func (c *StackSetController) ReconcileStackSetIngress(ctx context.Context, stackset *zv1.StackSet, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
 	ingress, err := generateUpdated()
 	if err != nil {
 		return err
@@ -776,7 +776,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	// Ingress removed
 	if ingress == nil {
 		if existing != nil {
-			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
+			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -792,7 +792,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 
 	// Create new Ingress
 	if existing == nil {
-		_, err := c.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ingress)
+		_, err := c.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ctx, ingress, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -813,7 +813,7 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	updated := existing.DeepCopy()
 	updated.Spec = ingress.Spec
 
-	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(ingress)
+	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(ctx, ingress, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -826,9 +826,9 @@ func (c *StackSetController) ReconcileStackSetIngress(stackset *zv1.StackSet, ex
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSetResources(ssc *core.StackSetContainer) error {
+func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
 	// opt-out ingress creation in case we have an external entity creating ingress
-	err := c.ReconcileStackSetIngress(ssc.StackSet, ssc.Ingress, ssc.GenerateIngress)
+	err := c.ReconcileStackSetIngress(ctx, ssc.StackSet, ssc.Ingress, ssc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedManageIngress", err)
 	}
@@ -851,7 +851,7 @@ func (c *StackSetController) ReconcileStackSetResources(ssc *core.StackSetContai
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSetDesiredTraffic(existing *zv1.StackSet, generateUpdated func() []*zv1.DesiredTraffic) error {
+func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context, existing *zv1.StackSet, generateUpdated func() []*zv1.DesiredTraffic) error {
 	updatedTraffic := generateUpdated()
 
 	if equality.Semantic.DeepEqual(existing.Spec.Traffic, updatedTraffic) {
@@ -861,7 +861,7 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(existing *zv1.Stack
 	updated := existing.DeepCopy()
 	updated.Spec.Traffic = updatedTraffic
 
-	_, err := c.client.ZalandoV1().StackSets(updated.Namespace).Update(updated)
+	_, err := c.client.ZalandoV1().StackSets(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -874,23 +874,23 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(existing *zv1.Stack
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer, sc *core.StackContainer) error {
-	err := c.ReconcileStackDeployment(sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
+func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
+	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
 
-	err = c.ReconcileStackHPA(sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
+	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
 	}
 
-	err = c.ReconcileStackService(sc.Stack, sc.Resources.Service, sc.GenerateService)
+	err = c.ReconcileStackService(ctx, sc.Stack, sc.Resources.Service, sc.GenerateService)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageService", err)
 	}
 
-	err = c.ReconcileStackIngress(sc.Stack, sc.Resources.Ingress, sc.GenerateIngress)
+	err = c.ReconcileStackIngress(ctx, sc.Stack, sc.Resources.Ingress, sc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageIngress", err)
 	}
@@ -899,9 +899,9 @@ func (c *StackSetController) ReconcileStackResources(ssc *core.StackSetContainer
 }
 
 // ReconcileStackSet reconciles all the things from a stackset
-func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer) error {
+func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *core.StackSetContainer) error {
 	// Create current stack, if needed. Proceed on errors.
-	err := c.CreateCurrentStack(container)
+	err := c.CreateCurrentStack(ctx, container)
 	if err != nil {
 		err = c.errorEventf(container.StackSet, "FailedCreateStack", err)
 		c.stacksetLogger(container).Errorf("Unable to create stack: %v", err)
@@ -929,7 +929,7 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 
 	// Reconcile stack resources. Proceed on errors.
 	for _, sc := range container.StackContainers {
-		err = c.ReconcileStackResources(container, sc)
+		err = c.ReconcileStackResources(ctx, container, sc)
 		if err != nil {
 			err = c.errorEventf(sc.Stack, "FailedManageStack", err)
 			c.stackLogger(container, sc).Errorf("Unable to reconcile stack resources: %v", err)
@@ -937,28 +937,28 @@ func (c *StackSetController) ReconcileStackSet(container *core.StackSetContainer
 	}
 
 	// Reconcile stackset resources (generates ingress with annotations). Proceed on errors.
-	err = c.ReconcileStackSetResources(container)
+	err = c.ReconcileStackSetResources(ctx, container)
 	if err != nil {
 		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 		c.stacksetLogger(container).Errorf("Unable to reconcile stackset resources: %v", err)
 	}
 
 	// Reconcile desired traffic in the stackset. Proceed on errors.
-	err = c.ReconcileStackSetDesiredTraffic(container.StackSet, container.GenerateStackSetTraffic)
+	err = c.ReconcileStackSetDesiredTraffic(ctx, container.StackSet, container.GenerateStackSetTraffic)
 	if err != nil {
 		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 		c.stacksetLogger(container).Errorf("Unable to reconcile stackset traffic: %v", err)
 	}
 
 	// Delete old stacks. Proceed on errors.
-	err = c.CleanupOldStacks(container)
+	err = c.CleanupOldStacks(ctx, container)
 	if err != nil {
 		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 		c.stacksetLogger(container).Errorf("Unable to delete old stacks: %v", err)
 	}
 
 	// Update statuses.
-	err = c.ReconcileStatuses(container)
+	err = c.ReconcileStatuses(ctx, container)
 	if err != nil {
 		return err
 	}
