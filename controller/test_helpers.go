@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -50,9 +51,9 @@ func NewTestEnvironment() *testEnvironment {
 	}
 }
 
-func (f *testEnvironment) CreateStacksets(stacksets []zv1.StackSet) error {
+func (f *testEnvironment) CreateStacksets(ctx context.Context, stacksets []zv1.StackSet) error {
 	for _, stackset := range stacksets {
-		_, err := f.client.ZalandoV1().StackSets(stackset.Namespace).Create(&stackset)
+		_, err := f.client.ZalandoV1().StackSets(stackset.Namespace).Create(ctx, &stackset, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -63,9 +64,9 @@ func (f *testEnvironment) CreateStacksets(stacksets []zv1.StackSet) error {
 	return nil
 }
 
-func (f *testEnvironment) CreateStacks(stacks []zv1.Stack) error {
+func (f *testEnvironment) CreateStacks(ctx context.Context, stacks []zv1.Stack) error {
 	for _, stack := range stacks {
-		_, err := f.client.ZalandoV1().Stacks(stack.Namespace).Create(&stack)
+		_, err := f.client.ZalandoV1().Stacks(stack.Namespace).Create(ctx, &stack, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -73,9 +74,9 @@ func (f *testEnvironment) CreateStacks(stacks []zv1.Stack) error {
 	return nil
 }
 
-func (f *testEnvironment) CreateDeployments(deployments []apps.Deployment) error {
+func (f *testEnvironment) CreateDeployments(ctx context.Context, deployments []apps.Deployment) error {
 	for _, deployment := range deployments {
-		_, err := f.client.AppsV1().Deployments(deployment.Namespace).Create(&deployment)
+		_, err := f.client.AppsV1().Deployments(deployment.Namespace).Create(ctx, &deployment, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -83,9 +84,9 @@ func (f *testEnvironment) CreateDeployments(deployments []apps.Deployment) error
 	return nil
 }
 
-func (f *testEnvironment) CreateIngresses(ingresses []networking.Ingress) error {
-	for _, ingresse := range ingresses {
-		_, err := f.client.NetworkingV1beta1().Ingresses(ingresse.Namespace).Create(&ingresse)
+func (f *testEnvironment) CreateIngresses(ctx context.Context, ingresses []networking.Ingress) error {
+	for _, ingress := range ingresses {
+		_, err := f.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ctx, &ingress, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -93,9 +94,9 @@ func (f *testEnvironment) CreateIngresses(ingresses []networking.Ingress) error 
 	return nil
 }
 
-func (f *testEnvironment) CreateServices(services []v1.Service) error {
+func (f *testEnvironment) CreateServices(ctx context.Context, services []v1.Service) error {
 	for _, service := range services {
-		_, err := f.client.CoreV1().Services(service.Namespace).Create(&service)
+		_, err := f.client.CoreV1().Services(service.Namespace).Create(ctx, &service, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -103,9 +104,9 @@ func (f *testEnvironment) CreateServices(services []v1.Service) error {
 	return nil
 }
 
-func (f *testEnvironment) CreateHPAs(hpas []autoscaling.HorizontalPodAutoscaler) error {
+func (f *testEnvironment) CreateHPAs(ctx context.Context, hpas []autoscaling.HorizontalPodAutoscaler) error {
 	for _, hpa := range hpas {
-		_, err := f.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(&hpa)
+		_, err := f.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(ctx, &hpa, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -216,25 +217,25 @@ func TestCollectResources(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
-			err := env.CreateStacksets(tc.stacksets)
+			err := env.CreateStacksets(context.Background(), tc.stacksets)
 			require.NoError(t, err)
 
-			err = env.CreateStacks(tc.stacks)
+			err = env.CreateStacks(context.Background(), tc.stacks)
 			require.NoError(t, err)
 
-			err = env.CreateDeployments(tc.deployments)
+			err = env.CreateDeployments(context.Background(), tc.deployments)
 			require.NoError(t, err)
 
-			err = env.CreateIngresses(tc.ingresses)
+			err = env.CreateIngresses(context.Background(), tc.ingresses)
 			require.NoError(t, err)
 
-			err = env.CreateServices(tc.services)
+			err = env.CreateServices(context.Background(), tc.services)
 			require.NoError(t, err)
 
-			err = env.CreateHPAs(tc.hpas)
+			err = env.CreateHPAs(context.Background(), tc.hpas)
 			require.NoError(t, err)
 
-			resources, err := env.controller.collectResources()
+			resources, err := env.controller.collectResources(context.Background())
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, resources)
 		})
@@ -264,10 +265,10 @@ func TestCreateCurrentStack(t *testing.T) {
 		},
 	}
 
-	err := env.CreateStacksets([]zv1.StackSet{stackset})
+	err := env.CreateStacksets(context.Background(), []zv1.StackSet{stackset})
 	require.NoError(t, err)
 
-	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v1", metav1.GetOptions{})
+	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get(context.Background(), "foo-v1", metav1.GetOptions{})
 	require.True(t, errors.IsNotFound(err))
 
 	container := &core.StackSetContainer{
@@ -277,10 +278,10 @@ func TestCreateCurrentStack(t *testing.T) {
 	}
 
 	// Check that the stack is created and the container is updated afterwards
-	err = env.controller.CreateCurrentStack(container)
+	err = env.controller.CreateCurrentStack(context.Background(), container)
 	require.NoError(t, err)
 
-	stack, err := env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v1", metav1.GetOptions{})
+	stack, err := env.client.ZalandoV1().Stacks(stackset.Namespace).Get(context.Background(), "foo-v1", metav1.GetOptions{})
 	require.NoError(t, err)
 
 	stack.APIVersion = "zalando.org/v1"
@@ -298,10 +299,10 @@ func TestCreateCurrentStack(t *testing.T) {
 	stackset.Status.ObservedStackVersion = "v2"
 	stackset.Spec.StackTemplate.Spec.Version = "v2"
 
-	err = env.controller.CreateCurrentStack(container)
+	err = env.controller.CreateCurrentStack(context.Background(), container)
 	require.NoError(t, err)
 
-	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get("foo-v2", metav1.GetOptions{})
+	_, err = env.client.ZalandoV1().Stacks(stackset.Namespace).Get(context.Background(), "foo-v2", metav1.GetOptions{})
 	require.True(t, errors.IsNotFound(err))
 }
 
@@ -314,10 +315,10 @@ func TestCleanupOldStacks(t *testing.T) {
 	testStack3 := testStack("foo-v3", stackset.Namespace, "abc3", stackset)
 	testStack4 := testStack("foo-v4", stackset.Namespace, "abc4", stackset)
 
-	err := env.CreateStacksets([]zv1.StackSet{stackset})
+	err := env.CreateStacksets(context.Background(), []zv1.StackSet{stackset})
 	require.NoError(t, err)
 
-	err = env.CreateStacks([]zv1.Stack{testStack1, testStack2, testStack3, testStack4})
+	err = env.CreateStacks(context.Background(), []zv1.Stack{testStack1, testStack2, testStack3, testStack4})
 	require.NoError(t, err)
 
 	container := &core.StackSetContainer{
@@ -343,10 +344,10 @@ func TestCleanupOldStacks(t *testing.T) {
 		TrafficReconciler: &core.SimpleTrafficReconciler{},
 	}
 
-	err = env.controller.CleanupOldStacks(container)
+	err = env.controller.CleanupOldStacks(context.Background(), container)
 	require.NoError(t, err)
 
-	result, err := env.client.ZalandoV1().Stacks(stackset.Namespace).List(metav1.ListOptions{})
+	result, err := env.client.ZalandoV1().Stacks(stackset.Namespace).List(context.Background(), metav1.ListOptions{})
 	require.NoError(t, err)
 	require.Equal(t, []zv1.Stack{testStack3, testStack4}, result.Items)
 }
@@ -417,15 +418,15 @@ func TestReconcileStackSetDesiredTraffic(t *testing.T) {
 	} {
 		env := NewTestEnvironment()
 
-		err := env.CreateStacksets([]zv1.StackSet{tc.existing})
+		err := env.CreateStacksets(context.Background(), []zv1.StackSet{tc.existing})
 		require.NoError(t, err)
 
-		err = env.controller.ReconcileStackSetDesiredTraffic(&tc.existing, func() []*zv1.DesiredTraffic {
+		err = env.controller.ReconcileStackSetDesiredTraffic(context.Background(), &tc.existing, func() []*zv1.DesiredTraffic {
 			return tc.updated
 		})
 		require.NoError(t, err)
 
-		result, err := env.client.ZalandoV1().StackSets(tc.expected.Namespace).Get(tc.expected.Name, metav1.GetOptions{})
+		result, err := env.client.ZalandoV1().StackSets(tc.expected.Namespace).Get(context.Background(), tc.expected.Name, metav1.GetOptions{})
 		require.NoError(t, err)
 		require.EqualValues(t, tc.expected, *result)
 	}
@@ -585,20 +586,20 @@ func TestReconcileStackSetIngress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
-			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
 			require.NoError(t, err)
 
 			if tc.existing != nil {
-				err = env.CreateIngresses([]networking.Ingress{*tc.existing})
+				err = env.CreateIngresses(context.Background(), []networking.Ingress{*tc.existing})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackSetIngress(&testStackSet, tc.existing, func() (*networking.Ingress, error) {
+			err = env.controller.ReconcileStackSetIngress(context.Background(), &testStackSet, tc.existing, func() (*networking.Ingress, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.NetworkingV1beta1().Ingresses(testStackSet.Namespace).Get(testStackSet.Name, metav1.GetOptions{})
+			updated, err := env.client.NetworkingV1beta1().Ingresses(testStackSet.Namespace).Get(context.Background(), testStackSet.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -47,13 +48,15 @@ func main() {
 
 	trafficSwitcher := traffic.NewSwitcher(client, config.BackendWeightsAnnotationKey)
 
+	ctx := context.Background()
+
 	if config.Stack != "" && config.Traffic != -1 {
 		weight := config.Traffic
 		if weight < 0 || weight > 100 {
 			log.Fatalf("Traffic weight must be between 0 and 100.")
 		}
 
-		stacks, err := trafficSwitcher.Switch(config.Stackset, config.Stack, config.Namespace, weight)
+		stacks, err := trafficSwitcher.Switch(ctx, config.Stackset, config.Stack, config.Namespace, weight)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -61,7 +64,7 @@ func main() {
 		return
 	}
 
-	stacks, err := trafficSwitcher.TrafficWeights(config.Stackset, config.Namespace)
+	stacks, err := trafficSwitcher.TrafficWeights(ctx, config.Stackset, config.Namespace)
 	if err != nil {
 		log.Fatal(err)
 	}

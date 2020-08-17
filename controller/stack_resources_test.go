@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -208,23 +209,23 @@ func TestReconcileStackDeployment(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
-			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
 			require.NoError(t, err)
 
-			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
 			if tc.existing != nil {
-				err = env.CreateDeployments([]apps.Deployment{*tc.existing})
+				err = env.CreateDeployments(context.Background(), []apps.Deployment{*tc.existing})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackDeployment(&tc.stack, tc.existing, func() *apps.Deployment {
+			err = env.controller.ReconcileStackDeployment(context.Background(), &tc.stack, tc.existing, func() *apps.Deployment {
 				return tc.updated
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.AppsV1().Deployments(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			updated, err := env.client.AppsV1().Deployments(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, updated)
 		})
@@ -325,23 +326,23 @@ func TestReconcileStackService(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
-			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
 			require.NoError(t, err)
 
-			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
 			if tc.existing != nil {
-				err = env.CreateServices([]v1.Service{*tc.existing})
+				err = env.CreateServices(context.Background(), []v1.Service{*tc.existing})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackService(&tc.stack, tc.existing, func() (*v1.Service, error) {
+			err = env.controller.ReconcileStackService(context.Background(), &tc.stack, tc.existing, func() (*v1.Service, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.CoreV1().Services(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			updated, err := env.client.CoreV1().Services(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
 			require.NoError(t, err)
 			require.Equal(t, tc.expected, updated)
 		})
@@ -502,23 +503,23 @@ func TestReconcileStackHPA(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
-			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
 			require.NoError(t, err)
 
-			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
 			if tc.existing != nil {
-				err = env.CreateHPAs([]autoscaling.HorizontalPodAutoscaler{*tc.existing})
+				err = env.CreateHPAs(context.Background(), []autoscaling.HorizontalPodAutoscaler{*tc.existing})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackHPA(&tc.stack, tc.existing, func() (*autoscaling.HorizontalPodAutoscaler, error) {
+			err = env.controller.ReconcileStackHPA(context.Background(), &tc.stack, tc.existing, func() (*autoscaling.HorizontalPodAutoscaler, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.AutoscalingV2beta1().HorizontalPodAutoscalers(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			updated, err := env.client.AutoscalingV2beta1().HorizontalPodAutoscalers(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)
@@ -650,23 +651,23 @@ func TestReconcileStackIngress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
-			err := env.CreateStacksets([]zv1.StackSet{testStackSet})
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
 			require.NoError(t, err)
 
-			err = env.CreateStacks([]zv1.Stack{tc.stack})
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
 			if tc.existing != nil {
-				err = env.CreateIngresses([]networking.Ingress{*tc.existing})
+				err = env.CreateIngresses(context.Background(), []networking.Ingress{*tc.existing})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackIngress(&tc.stack, tc.existing, func() (*networking.Ingress, error) {
+			err = env.controller.ReconcileStackIngress(context.Background(), &tc.stack, tc.existing, func() (*networking.Ingress, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.NetworkingV1beta1().Ingresses(tc.stack.Namespace).Get(tc.stack.Name, metav1.GetOptions{})
+			updated, err := env.client.NetworkingV1beta1().Ingresses(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)

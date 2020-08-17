@@ -1,6 +1,7 @@
 package traffic
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -32,8 +33,8 @@ func NewSwitcher(client clientset.Interface, backendWeightsAnnotationKey string)
 }
 
 // Switch changes traffic weight for a stack.
-func (t *Switcher) Switch(stackset, stack, namespace string, weight float64) ([]StackTrafficWeight, error) {
-	stacks, err := t.getStacks(stackset, namespace)
+func (t *Switcher) Switch(ctx context.Context, stackset, stack, namespace string, weight float64) ([]StackTrafficWeight, error) {
+	stacks, err := t.getStacks(ctx, stackset, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +73,7 @@ func (t *Switcher) Switch(stackset, stack, namespace string, weight float64) ([]
 			return nil, err
 		}
 
-		_, err = t.client.NetworkingV1beta1().Ingresses(namespace).Patch(stackset, types.StrategicMergePatchType, annotationData)
+		_, err = t.client.NetworkingV1beta1().Ingresses(namespace).Patch(ctx, stackset, types.StrategicMergePatchType, annotationData, metav1.PatchOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -88,8 +89,8 @@ type StackTrafficWeight struct {
 }
 
 // TrafficWeights returns a list of stacks with their current traffic weight.
-func (t *Switcher) TrafficWeights(stackset, namespace string) ([]StackTrafficWeight, error) {
-	stacks, err := t.getStacks(stackset, namespace)
+func (t *Switcher) TrafficWeights(ctx context.Context, stackset, namespace string) ([]StackTrafficWeight, error) {
+	stacks, err := t.getStacks(ctx, stackset, namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (t *Switcher) TrafficWeights(stackset, namespace string) ([]StackTrafficWei
 }
 
 // getStacks returns the stacks of the stackset.
-func (t *Switcher) getStacks(stackset, namespace string) ([]StackTrafficWeight, error) {
+func (t *Switcher) getStacks(ctx context.Context, stackset, namespace string) ([]StackTrafficWeight, error) {
 	heritageLabels := map[string]string{
 		stacksetHeritageLabelKey: stackset,
 	}
@@ -105,12 +106,12 @@ func (t *Switcher) getStacks(stackset, namespace string) ([]StackTrafficWeight, 
 		LabelSelector: labels.Set(heritageLabels).String(),
 	}
 
-	stacks, err := t.client.ZalandoV1().Stacks(namespace).List(opts)
+	stacks, err := t.client.ZalandoV1().Stacks(namespace).List(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list stacks of stackset %s/%s: %v", namespace, stackset, err)
 	}
 
-	desired, actual, err := t.getIngressTraffic(stackset, namespace, stacks.Items)
+	desired, actual, err := t.getIngressTraffic(ctx, stackset, namespace, stacks.Items)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Ingress traffic for StackSet %s/%s: %v", namespace, stackset, err)
 	}
@@ -128,12 +129,12 @@ func (t *Switcher) getStacks(stackset, namespace string) ([]StackTrafficWeight, 
 	return stackWeights, nil
 }
 
-func (t *Switcher) getIngressTraffic(name, namespace string, stacks []zv1.Stack) (map[string]float64, map[string]float64, error) {
+func (t *Switcher) getIngressTraffic(ctx context.Context, name, namespace string, stacks []zv1.Stack) (map[string]float64, map[string]float64, error) {
 	if len(stacks) == 0 {
 		return map[string]float64{}, map[string]float64{}, nil
 	}
 
-	ingress, err := t.client.NetworkingV1beta1().Ingresses(namespace).Get(name, metav1.GetOptions{})
+	ingress, err := t.client.NetworkingV1beta1().Ingresses(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return nil, nil, err
 	}

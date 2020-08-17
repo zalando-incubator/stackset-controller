@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"context"
+
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
@@ -26,12 +28,12 @@ func syncObjectMeta(target, source metav1.Object) {
 	target.SetAnnotations(source.GetAnnotations())
 }
 
-func (c *StackSetController) ReconcileStackDeployment(stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
+func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
 	deployment := generateUpdated()
 
 	// Create new deployment
 	if existing == nil {
-		_, err := c.client.AppsV1().Deployments(deployment.Namespace).Create(deployment)
+		_, err := c.client.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -54,7 +56,7 @@ func (c *StackSetController) ReconcileStackDeployment(stack *zv1.Stack, existing
 	updated.Spec = deployment.Spec
 	updated.Spec.Selector = existing.Spec.Selector
 
-	_, err := c.client.AppsV1().Deployments(updated.Namespace).Update(updated)
+	_, err := c.client.AppsV1().Deployments(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -67,7 +69,7 @@ func (c *StackSetController) ReconcileStackDeployment(stack *zv1.Stack, existing
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2beta1.HorizontalPodAutoscaler, generateUpdated func() (*v2beta1.HorizontalPodAutoscaler, error)) error {
+func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.Stack, existing *v2beta1.HorizontalPodAutoscaler, generateUpdated func() (*v2beta1.HorizontalPodAutoscaler, error)) error {
 	hpa, err := generateUpdated()
 	if err != nil {
 		return err
@@ -76,7 +78,7 @@ func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2bet
 	// HPA removed
 	if hpa == nil {
 		if existing != nil {
-			err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
+			err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -92,7 +94,7 @@ func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2bet
 
 	// Create new HPA
 	if existing == nil {
-		_, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(hpa)
+		_, err := c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(hpa.Namespace).Create(ctx, hpa, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -114,7 +116,7 @@ func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2bet
 	syncObjectMeta(updated, hpa)
 	updated.Spec = hpa.Spec
 
-	_, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(updated.Namespace).Update(updated)
+	_, err = c.client.AutoscalingV2beta1().HorizontalPodAutoscalers(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -127,7 +129,7 @@ func (c *StackSetController) ReconcileStackHPA(stack *zv1.Stack, existing *v2bet
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackService(stack *zv1.Stack, existing *apiv1.Service, generateUpdated func() (*apiv1.Service, error)) error {
+func (c *StackSetController) ReconcileStackService(ctx context.Context, stack *zv1.Stack, existing *apiv1.Service, generateUpdated func() (*apiv1.Service, error)) error {
 	service, err := generateUpdated()
 	if err != nil {
 		return err
@@ -135,7 +137,7 @@ func (c *StackSetController) ReconcileStackService(stack *zv1.Stack, existing *a
 
 	// Create new service
 	if existing == nil {
-		_, err := c.client.CoreV1().Services(service.Namespace).Create(service)
+		_, err := c.client.CoreV1().Services(service.Namespace).Create(ctx, service, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -158,7 +160,7 @@ func (c *StackSetController) ReconcileStackService(stack *zv1.Stack, existing *a
 	updated.Spec = service.Spec
 	updated.Spec.ClusterIP = existing.Spec.ClusterIP // ClusterIP is immutable
 
-	_, err = c.client.CoreV1().Services(updated.Namespace).Update(updated)
+	_, err = c.client.CoreV1().Services(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -171,7 +173,7 @@ func (c *StackSetController) ReconcileStackService(stack *zv1.Stack, existing *a
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
+func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *zv1.Stack, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
 	ingress, err := generateUpdated()
 	if err != nil {
 		return err
@@ -180,7 +182,7 @@ func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *n
 	// Ingress removed
 	if ingress == nil {
 		if existing != nil {
-			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(existing.Name, &metav1.DeleteOptions{})
+			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -196,7 +198,7 @@ func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *n
 
 	// Create new Ingress
 	if existing == nil {
-		_, err := c.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ingress)
+		_, err := c.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ctx, ingress, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -218,7 +220,7 @@ func (c *StackSetController) ReconcileStackIngress(stack *zv1.Stack, existing *n
 	syncObjectMeta(updated, ingress)
 	updated.Spec = ingress.Spec
 
-	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(updated)
+	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
