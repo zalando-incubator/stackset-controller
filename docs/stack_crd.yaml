@@ -1,39 +1,49 @@
+
+---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.2.7
+    controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
   name: stacks.zalando.org
 spec:
   additionalPrinterColumns:
   - JSONPath: .spec.replicas
+    description: Number of desired replicas
     name: Desired
-    type: string
+    type: integer
   - JSONPath: .status.replicas
+    description: Number of current replicas
     name: Current
-    type: string
+    type: integer
   - JSONPath: .status.updatedReplicas
+    description: Number of up-to-date replicas
     name: Up-To-Date
-    type: string
+    type: integer
   - JSONPath: .status.readyReplicas
-    name: Ready Replicas
-    type: string
+    description: Number of ready replicas
+    name: Ready
+    type: integer
   - JSONPath: .status.actualTrafficWeight
+    description: Current traffic weight for the stack
     name: Traffic
-    type: string
+    type: number
   - JSONPath: .status.noTrafficSince
+    description: Time since the stack didn't get any traffic
     name: No-Traffic-Since
-    type: string
+    type: date
   - JSONPath: .metadata.creationTimestamp
+    description: Age of the stack
     name: Age
-    type: string
+    type: date
   group: zalando.org
   names:
     kind: Stack
     listKind: StackList
     plural: stacks
     singular: stack
+  preserveUnknownFields: false
   scope: Namespaced
   subresources:
     scale:
@@ -139,15 +149,6 @@ spec:
                   format: int32
                   type: integer
                 metadata:
-                  properties:
-                    annotations:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    labels:
-                      additionalProperties:
-                        type: string
-                      type: object
                   type: object
                 metrics:
                   description: metrics contains the specifications for which to use
@@ -459,15 +460,6 @@ spec:
               properties:
                 metadata:
                   description: 'Standard object''s metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata'
-                  properties:
-                    annotations:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    labels:
-                      additionalProperties:
-                        type: string
-                      type: object
                   type: object
                 spec:
                   description: 'Specification of the desired behavior of the pod.
@@ -1690,10 +1682,6 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            - protocol
-                            x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -1954,15 +1942,10 @@ spec:
                                       admission webhook (https://github.com/kubernetes-sigs/windows-gmsa)
                                       inlines the contents of the GMSA credential
                                       spec named by the GMSACredentialSpecName field.
-                                      This field is alpha-level and is only honored
-                                      by servers that enable the WindowsGMSA feature
-                                      flag.
                                     type: string
                                   gmsaCredentialSpecName:
                                     description: GMSACredentialSpecName is the name
-                                      of the GMSA credential spec to use. This field
-                                      is alpha-level and is only honored by servers
-                                      that enable the WindowsGMSA feature flag.
+                                      of the GMSA credential spec to use.
                                     type: string
                                   runAsUserName:
                                     description: The UserName in Windows to run the
@@ -1971,9 +1954,7 @@ spec:
                                       May also be set in PodSecurityContext. If set
                                       in both SecurityContext and PodSecurityContext,
                                       the value specified in SecurityContext takes
-                                      precedence. This field is beta-level and may
-                                      be disabled with the WindowsRunAsUserName feature
-                                      flag.
+                                      precedence.
                                     type: string
                                 type: object
                             type: object
@@ -1986,8 +1967,8 @@ spec:
                               probe parameters at the beginning of a Pod''s lifecycle,
                               when it might take a long time to load data or warm
                               a cache, than during steady-state operation. This cannot
-                              be updated. This is an alpha feature enabled by the
-                              StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                              be updated. This is a beta feature enabled by the StartupProbe
+                              feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             properties:
                               exec:
                                 description: One and only one of the following should
@@ -2149,7 +2130,7 @@ spec:
                             type: boolean
                           volumeDevices:
                             description: volumeDevices is the list of block devices
-                              to be used by the container. This is a beta feature.
+                              to be used by the container.
                             items:
                               description: volumeDevice describes a mapping of a raw
                                 block device within a container.
@@ -3112,15 +3093,10 @@ spec:
                                       admission webhook (https://github.com/kubernetes-sigs/windows-gmsa)
                                       inlines the contents of the GMSA credential
                                       spec named by the GMSACredentialSpecName field.
-                                      This field is alpha-level and is only honored
-                                      by servers that enable the WindowsGMSA feature
-                                      flag.
                                     type: string
                                   gmsaCredentialSpecName:
                                     description: GMSACredentialSpecName is the name
-                                      of the GMSA credential spec to use. This field
-                                      is alpha-level and is only honored by servers
-                                      that enable the WindowsGMSA feature flag.
+                                      of the GMSA credential spec to use.
                                     type: string
                                   runAsUserName:
                                     description: The UserName in Windows to run the
@@ -3129,9 +3105,7 @@ spec:
                                       May also be set in PodSecurityContext. If set
                                       in both SecurityContext and PodSecurityContext,
                                       the value specified in SecurityContext takes
-                                      precedence. This field is beta-level and may
-                                      be disabled with the WindowsRunAsUserName feature
-                                      flag.
+                                      precedence.
                                     type: string
                                 type: object
                             type: object
@@ -3306,7 +3280,7 @@ spec:
                             type: boolean
                           volumeDevices:
                             description: volumeDevices is the list of block devices
-                              to be used by the container. This is a beta feature.
+                              to be used by the container.
                             items:
                               description: volumeDevice describes a mapping of a raw
                                 block device within a container.
@@ -4022,10 +3996,6 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            - protocol
-                            x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -4286,15 +4256,10 @@ spec:
                                       admission webhook (https://github.com/kubernetes-sigs/windows-gmsa)
                                       inlines the contents of the GMSA credential
                                       spec named by the GMSACredentialSpecName field.
-                                      This field is alpha-level and is only honored
-                                      by servers that enable the WindowsGMSA feature
-                                      flag.
                                     type: string
                                   gmsaCredentialSpecName:
                                     description: GMSACredentialSpecName is the name
-                                      of the GMSA credential spec to use. This field
-                                      is alpha-level and is only honored by servers
-                                      that enable the WindowsGMSA feature flag.
+                                      of the GMSA credential spec to use.
                                     type: string
                                   runAsUserName:
                                     description: The UserName in Windows to run the
@@ -4303,9 +4268,7 @@ spec:
                                       May also be set in PodSecurityContext. If set
                                       in both SecurityContext and PodSecurityContext,
                                       the value specified in SecurityContext takes
-                                      precedence. This field is beta-level and may
-                                      be disabled with the WindowsRunAsUserName feature
-                                      flag.
+                                      precedence.
                                     type: string
                                 type: object
                             type: object
@@ -4318,8 +4281,8 @@ spec:
                               probe parameters at the beginning of a Pod''s lifecycle,
                               when it might take a long time to load data or warm
                               a cache, than during steady-state operation. This cannot
-                              be updated. This is an alpha feature enabled by the
-                              StartupProbe feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
+                              be updated. This is a beta feature enabled by the StartupProbe
+                              feature flag. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes'
                             properties:
                               exec:
                                 description: One and only one of the following should
@@ -4481,7 +4444,7 @@ spec:
                             type: boolean
                           volumeDevices:
                             description: volumeDevices is the list of block devices
-                              to be used by the container. This is a beta feature.
+                              to be used by the container.
                             items:
                               description: volumeDevice describes a mapping of a raw
                                 block device within a container.
@@ -4653,17 +4616,26 @@ spec:
                         type description for default values of each field.'
                       properties:
                         fsGroup:
-                          description: "A special supplemental group that applies\
-                            \ to all containers in a pod. Some volume types allow\
-                            \ the Kubelet to change the ownership of that volume to\
-                            \ be owned by the pod: \n 1. The owning GID will be the\
-                            \ FSGroup 2. The setgid bit is set (new files created\
-                            \ in the volume will be owned by FSGroup) 3. The permission\
-                            \ bits are OR'd with rw-rw---- \n If unset, the Kubelet\
-                            \ will not modify the ownership and permissions of any\
-                            \ volume."
+                          description: "A special supplemental group that applies
+                            to all containers in a pod. Some volume types allow the
+                            Kubelet to change the ownership of that volume to be owned
+                            by the pod: \n 1. The owning GID will be the FSGroup 2.
+                            The setgid bit is set (new files created in the volume
+                            will be owned by FSGroup) 3. The permission bits are OR'd
+                            with rw-rw---- \n If unset, the Kubelet will not modify
+                            the ownership and permissions of any volume."
                           format: int64
                           type: integer
+                        fsGroupChangePolicy:
+                          description: 'fsGroupChangePolicy defines behavior of changing
+                            ownership and permission of the volume before being exposed
+                            inside Pod. This field will only apply to volume types
+                            which support fsGroup based ownership(and permissions).
+                            It will have no effect on ephemeral volume types such
+                            as: secret, configmaps and emptydir. Valid values are
+                            "OnRootMismatch" and "Always". If not specified defaults
+                            to "Always".'
+                          type: string
                         runAsGroup:
                           description: The GID to run the entrypoint of the container
                             process. Uses runtime default if unset. May also be set
@@ -4754,15 +4726,11 @@ spec:
                               description: GMSACredentialSpec is where the GMSA admission
                                 webhook (https://github.com/kubernetes-sigs/windows-gmsa)
                                 inlines the contents of the GMSA credential spec named
-                                by the GMSACredentialSpecName field. This field is
-                                alpha-level and is only honored by servers that enable
-                                the WindowsGMSA feature flag.
+                                by the GMSACredentialSpecName field.
                               type: string
                             gmsaCredentialSpecName:
                               description: GMSACredentialSpecName is the name of the
-                                GMSA credential spec to use. This field is alpha-level
-                                and is only honored by servers that enable the WindowsGMSA
-                                feature flag.
+                                GMSA credential spec to use.
                               type: string
                             runAsUserName:
                               description: The UserName in Windows to run the entrypoint
@@ -4770,9 +4738,7 @@ spec:
                                 in image metadata if unspecified. May also be set
                                 in PodSecurityContext. If set in both SecurityContext
                                 and PodSecurityContext, the value specified in SecurityContext
-                                takes precedence. This field is beta-level and may
-                                be disabled with the WindowsRunAsUserName feature
-                                flag.
+                                takes precedence.
                               type: string
                           type: object
                       type: object
@@ -4857,9 +4823,8 @@ spec:
                       description: TopologySpreadConstraints describes how a group
                         of pods ought to spread across topology domains. Scheduler
                         will schedule pods in a way which abides by the constraints.
-                        This field is alpha-level and is only honored by clusters
-                        that enables the EvenPodsSpread feature. All topologySpreadConstraints
-                        are ANDed.
+                        This field is only honored by clusters that enable the EvenPodsSpread
+                        feature. All topologySpreadConstraints are ANDed.
                       items:
                         description: TopologySpreadConstraint specifies how to spread
                           matching pods among the given topology.
@@ -4957,10 +4922,6 @@ spec:
                         - whenUnsatisfiable
                         type: object
                       type: array
-                      x-kubernetes-list-map-keys:
-                      - topologyKey
-                      - whenUnsatisfiable
-                      x-kubernetes-list-type: map
                     volumes:
                       description: 'List of volumes that can be mounted by containers
                         belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
@@ -6252,15 +6213,6 @@ spec:
                 port and ingress backendport.
               properties:
                 metadata:
-                  properties:
-                    annotations:
-                      additionalProperties:
-                        type: string
-                      type: object
-                    labels:
-                      additionalProperties:
-                        type: string
-                      type: object
                   type: object
                 ports:
                   description: 'The list of ports that are exposed by this service.
@@ -6268,6 +6220,15 @@ spec:
                   items:
                     description: ServicePort contains information on service's port.
                     properties:
+                      appProtocol:
+                        description: The application protocol for this port. This
+                          field follows standard Kubernetes label syntax. Un-prefixed
+                          names are reserved for IANA standard service names (as per
+                          RFC-6335 and http://www.iana.org/assignments/service-names).
+                          Non-standard protocols should use prefixed names such as
+                          mycompany.com/my-custom-protocol. Field can be enabled with
+                          ServiceAppProtocol feature gate.
+                        type: string
                       name:
                         description: The name of this port within the service. This
                           must be a DNS_LABEL. All ports within a ServiceSpec must
@@ -6368,7 +6329,7 @@ spec:
             actualTrafficWeight:
               description: 'ActualTrafficWeight is the actual amount of traffic currently
                 routed to the stack. TODO: should we be using floats in the API?'
-              format: float64
+              format: float
               type: number
             desiredReplicas:
               description: DesiredReplicas is the number of desired replicas in the
@@ -6378,7 +6339,7 @@ spec:
             desiredTrafficWeight:
               description: DesiredTrafficWeight is desired amount of traffic to be
                 routed to the stack.
-              format: float64
+              format: float
               type: number
             labelSelector:
               description: LabelSelector is the label selector used to find all pods
@@ -6398,7 +6359,7 @@ spec:
                 desiredTrafficWeight:
                   description: DesiredTrafficWeight is the desired traffic weight
                     that the stack was prescaled for
-                  format: float64
+                  format: float
                   type: number
                 lastTrafficIncrease:
                   description: LastTrafficIncrease is the timestamp when the traffic
@@ -6428,6 +6389,7 @@ spec:
           type: object
       required:
       - spec
+      - status
       type: object
   version: v1
   versions:
@@ -6436,7 +6398,7 @@ spec:
     storage: true
 status:
   acceptedNames:
-    kind: ''
-    plural: ''
+    kind: ""
+    plural: ""
   conditions: []
   storedVersions: []
