@@ -326,7 +326,6 @@ func dummyStacksetContainer() *StackSetContainer {
 				Stack: &zv1.Stack{},
 			},
 		},
-		stacksetManagesTraffic:      true,
 		backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 	}
 }
@@ -796,111 +795,11 @@ func TestUpdateTrafficFromStackSet(t *testing.T) {
 
 			err := ssc.UpdateFromResources()
 			require.NoError(t, err)
-			require.True(t, ssc.stacksetManagesTraffic)
 
 			for _, sc := range ssc.StackContainers {
 				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "desired stack %s", sc.Stack.Name)
 				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.actualTrafficWeight, "actual stack %s", sc.Stack.Name)
 				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.currentActualTrafficWeight, "current stack %s", sc.Stack.Name)
-			}
-		})
-	}
-}
-
-func TestStackSetExternalIngressForcesTrafficManagement(t *testing.T) {
-	backendPort := intstr.FromInt(80)
-	ssc := &StackSetContainer{
-		StackSet: &zv1.StackSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "foo",
-			},
-			Spec: zv1.StackSetSpec{
-				ExternalIngress: &zv1.StackSetExternalIngressSpec{
-					BackendPort: backendPort,
-				},
-			},
-		},
-		StackContainers: map[types.UID]*StackContainer{
-			"v1": testStack("foo-v1").stack(),
-		},
-		backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
-	}
-
-	err := ssc.UpdateFromResources()
-	require.NoError(t, err)
-	require.True(t, ssc.stacksetManagesTraffic)
-	require.EqualValues(t, &backendPort, ssc.externalIngressBackendPort)
-}
-
-func TestUpdateTrafficFromIngress(t *testing.T) {
-	for _, tc := range []struct {
-		name                   string
-		desiredWeights         string
-		actualWeights          string
-		expectedDesiredWeights map[string]float64
-		expectedActualWeights  map[string]float64
-	}{
-		{
-			name: "no weights are present",
-		},
-		{
-			name:                   "desired and actual weights are parsed correctly",
-			desiredWeights:         `{"foo-v1": 25, "foo-v2": 50, "foo-v3": 25}`,
-			actualWeights:          `{"foo-v1": 62.5, "foo-v2": 12.5, "foo-v3": 25}`,
-			expectedDesiredWeights: map[string]float64{"foo-v1": 25, "foo-v2": 50, "foo-v3": 25},
-			expectedActualWeights:  map[string]float64{"foo-v1": 62.5, "foo-v2": 12.5, "foo-v3": 25},
-		},
-		{
-			name:                   "unknown stacks are removed, remaining weights are renormalised",
-			desiredWeights:         `{"foo-v4": 50, "foo-v2": 25, "foo-v3": 25}`,
-			actualWeights:          `{"foo-v4": 50, "foo-v2": 12.5, "foo-v3": 37.5}`,
-			expectedDesiredWeights: map[string]float64{"foo-v2": 50, "foo-v3": 50},
-			expectedActualWeights:  map[string]float64{"foo-v2": 25, "foo-v3": 75},
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			stack1 := testStack("foo-v1").stack()
-			stack2 := testStack("foo-v2").stack()
-			stack3 := testStack("foo-v3").stack()
-
-			ssc := &StackSetContainer{
-				StackSet: &zv1.StackSet{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo",
-					},
-					Spec: zv1.StackSetSpec{
-						Ingress: &zv1.StackSetIngressSpec{},
-					},
-				},
-				Ingress: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:        "foo",
-						Annotations: map[string]string{},
-					},
-				},
-				StackContainers: map[types.UID]*StackContainer{
-					"v1": stack1,
-					"v2": stack2,
-					"v3": stack3,
-				},
-				backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
-			}
-
-			if tc.desiredWeights != "" {
-				ssc.Ingress.Annotations[traffic.StackTrafficWeightsAnnotationKey] = tc.desiredWeights
-			}
-			if tc.actualWeights != "" {
-				ssc.Ingress.Annotations[traffic.DefaultBackendWeightsAnnotationKey] = tc.actualWeights
-			}
-
-			err := ssc.UpdateFromResources()
-			require.NoError(t, err)
-			require.False(t, ssc.stacksetManagesTraffic)
-
-			for _, sc := range ssc.StackContainers {
-				require.Equal(t, tc.expectedDesiredWeights[sc.Name()], sc.desiredTrafficWeight, "stack %s", sc.Stack.Name)
-				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.actualTrafficWeight, "stack %s", sc.Stack.Name)
-				require.Equal(t, tc.expectedActualWeights[sc.Name()], sc.currentActualTrafficWeight, "stack %s", sc.Stack.Name)
 			}
 		})
 	}
@@ -965,209 +864,163 @@ func TestGenerateStackSetStatus(t *testing.T) {
 }
 
 func TestGenerateStackSetTraffic(t *testing.T) {
-	for _, tc := range []struct {
-		name           string
-		managesTraffic bool
-		expected       []*zv1.DesiredTraffic
-	}{
-		{
-			name:           "stackset manages traffic",
-			managesTraffic: true,
-			expected: []*zv1.DesiredTraffic{
-				{
-					StackName: "v2",
-					Weight:    80,
-				},
-				{
-					StackName: "v5",
-					Weight:    20,
-				},
+	c := &StackSetContainer{
+		StackSet: &zv1.StackSet{
+			Status: zv1.StackSetStatus{
+				ObservedStackVersion: "v1",
 			},
 		},
-		{
-			name:           "stackset doesn't manage traffic",
-			managesTraffic: false,
-			expected:       nil,
+		StackContainers: map[types.UID]*StackContainer{
+			"v1": testStack("v1").pendingRemoval().ready(3).stack(),
+			"v2": testStack("v2").ready(3).traffic(80, 90).stack(),
+			"v3": testStack("v3").ready(3).stack(),
+			"v4": testStack("v4").stack(),
+			"v5": testStack("v5").ready(3).traffic(20, 10).stack(),
 		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			c := &StackSetContainer{
-				StackSet: &zv1.StackSet{
-					Status: zv1.StackSetStatus{
-						ObservedStackVersion: "v1",
-					},
-				},
-				StackContainers: map[types.UID]*StackContainer{
-					"v1": testStack("v1").pendingRemoval().ready(3).stack(),
-					"v2": testStack("v2").ready(3).traffic(80, 90).stack(),
-					"v3": testStack("v3").ready(3).stack(),
-					"v4": testStack("v4").stack(),
-					"v5": testStack("v5").ready(3).traffic(20, 10).stack(),
-				},
-				stacksetManagesTraffic:      tc.managesTraffic,
-				backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
-			}
-
-			require.Equal(t, tc.expected, c.GenerateStackSetTraffic())
-		})
+		backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 	}
+
+	expected := []*zv1.DesiredTraffic{
+		{
+			StackName: "v2",
+			Weight:    80,
+		},
+		{
+			StackName: "v5",
+			Weight:    20,
+		},
+	}
+	require.Equal(t, expected, c.GenerateStackSetTraffic())
 }
 
 func TestStackSetGenerateIngress(t *testing.T) {
-	for _, tc := range []struct {
-		name                        string
-		stacksetManagesTraffic      bool
-		expectedAuthoritative       string
-		expectedStackTrafficWeights bool
-	}{
-		{
-			name:                        "traffic managed by ingress",
-			stacksetManagesTraffic:      false,
-			expectedAuthoritative:       "true",
-			expectedStackTrafficWeights: true,
-		},
-		{
-			name:                        "traffic managed by stackset",
-			stacksetManagesTraffic:      true,
-			expectedAuthoritative:       "false",
-			expectedStackTrafficWeights: false,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			c := &StackSetContainer{
-				StackSet: &zv1.StackSet{
-					TypeMeta: metav1.TypeMeta{
-						APIVersion: APIVersion,
-						Kind:       KindStackSet,
-					},
+	c := &StackSetContainer{
+		StackSet: &zv1.StackSet{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: APIVersion,
+				Kind:       KindStackSet,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"stackset-label": "foobar",
+				},
+				UID: "abc-123",
+			},
+			Spec: zv1.StackSetSpec{
+				Ingress: &zv1.StackSetIngressSpec{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo",
-						Namespace: "bar",
-						Labels: map[string]string{
-							"stackset-label": "foobar",
-						},
-						UID: "abc-123",
+						Labels:      map[string]string{"ignored": "label"},
+						Annotations: map[string]string{"ingress": "annotation"},
 					},
-					Spec: zv1.StackSetSpec{
-						Ingress: &zv1.StackSetIngressSpec{
-							ObjectMeta: metav1.ObjectMeta{
-								Labels:      map[string]string{"ignored": "label"},
-								Annotations: map[string]string{"ingress": "annotation"},
-							},
-							Hosts:       []string{"example.org", "example.com"},
-							BackendPort: intstr.FromInt(testPort),
-							Path:        "example",
-						},
-					},
+					Hosts:       []string{"example.org", "example.com"},
+					BackendPort: intstr.FromInt(testPort),
+					Path:        "example",
 				},
-				StackContainers: map[types.UID]*StackContainer{
-					"v1": testStack("foo-v1").traffic(0.125, 0.25).stack(),
-					"v2": testStack("foo-v2").traffic(0.5, 0.125).stack(),
-					"v3": testStack("foo-v3").traffic(0.625, 0.625).stack(),
-					"v4": testStack("foo-v4").traffic(0, 0).stack(),
-				},
-				stacksetManagesTraffic:      tc.stacksetManagesTraffic,
-				backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
-			}
-			ingress, err := c.GenerateIngress()
-			require.NoError(t, err)
-
-			annotations := map[string]string{
-				"ingress":                           "annotation",
-				"zalando.org/backend-weights":       `{"foo-v1":0.25,"foo-v2":0.125,"foo-v3":0.625}`,
-				"zalando.org/traffic-authoritative": tc.expectedAuthoritative,
-			}
-
-			if tc.expectedStackTrafficWeights {
-				annotations["zalando.org/stack-traffic-weights"] = `{"foo-v1":0.125,"foo-v2":0.5,"foo-v3":0.625}`
-			}
-
-			expected := &networking.Ingress{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo",
-					Namespace: "bar",
-					Labels: map[string]string{
-						"stackset":       "foo",
-						"stackset-label": "foobar",
-					},
-					Annotations: annotations,
-					OwnerReferences: []metav1.OwnerReference{
-						{
-							APIVersion: APIVersion,
-							Kind:       KindStackSet,
-							Name:       "foo",
-							UID:        "abc-123",
-						},
-					},
-				},
-				Spec: networking.IngressSpec{
-					Rules: []networking.IngressRule{
-						{
-							Host: "example.org",
-							IngressRuleValue: networking.IngressRuleValue{
-								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: []networking.HTTPIngressPath{
-										{
-											Path: "example",
-											Backend: networking.IngressBackend{
-												ServiceName: "foo-v1",
-												ServicePort: intstr.FromInt(testPort),
-											},
-										},
-										{
-											Path: "example",
-											Backend: networking.IngressBackend{
-												ServiceName: "foo-v2",
-												ServicePort: intstr.FromInt(testPort),
-											},
-										},
-										{
-											Path: "example",
-											Backend: networking.IngressBackend{
-												ServiceName: "foo-v3",
-												ServicePort: intstr.FromInt(testPort),
-											},
-										},
-									},
-								},
-							},
-						},
-						{
-							Host: "example.com",
-							IngressRuleValue: networking.IngressRuleValue{
-								HTTP: &networking.HTTPIngressRuleValue{
-									Paths: []networking.HTTPIngressPath{
-										{
-											Path: "example",
-											Backend: networking.IngressBackend{
-												ServiceName: "foo-v1",
-												ServicePort: intstr.FromInt(testPort),
-											},
-										},
-										{
-											Path: "example",
-											Backend: networking.IngressBackend{
-												ServiceName: "foo-v2",
-												ServicePort: intstr.FromInt(testPort),
-											},
-										},
-										{
-											Path: "example",
-											Backend: networking.IngressBackend{
-												ServiceName: "foo-v3",
-												ServicePort: intstr.FromInt(testPort),
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			}
-			require.Equal(t, expected, ingress)
-		})
+			},
+		},
+		StackContainers: map[types.UID]*StackContainer{
+			"v1": testStack("foo-v1").traffic(0.125, 0.25).stack(),
+			"v2": testStack("foo-v2").traffic(0.5, 0.125).stack(),
+			"v3": testStack("foo-v3").traffic(0.625, 0.625).stack(),
+			"v4": testStack("foo-v4").traffic(0, 0).stack(),
+		},
+		backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 	}
+	ingress, err := c.GenerateIngress()
+	require.NoError(t, err)
+
+	annotations := map[string]string{
+		"ingress":                           "annotation",
+		"zalando.org/backend-weights":       `{"foo-v1":0.25,"foo-v2":0.125,"foo-v3":0.625}`,
+		"zalando.org/traffic-authoritative": "false",
+	}
+
+	expected := &networking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"stackset":       "foo",
+				"stackset-label": "foobar",
+			},
+			Annotations: annotations,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: APIVersion,
+					Kind:       KindStackSet,
+					Name:       "foo",
+					UID:        "abc-123",
+				},
+			},
+		},
+		Spec: networking.IngressSpec{
+			Rules: []networking.IngressRule{
+				{
+					Host: "example.org",
+					IngressRuleValue: networking.IngressRuleValue{
+						HTTP: &networking.HTTPIngressRuleValue{
+							Paths: []networking.HTTPIngressPath{
+								{
+									Path: "example",
+									Backend: networking.IngressBackend{
+										ServiceName: "foo-v1",
+										ServicePort: intstr.FromInt(testPort),
+									},
+								},
+								{
+									Path: "example",
+									Backend: networking.IngressBackend{
+										ServiceName: "foo-v2",
+										ServicePort: intstr.FromInt(testPort),
+									},
+								},
+								{
+									Path: "example",
+									Backend: networking.IngressBackend{
+										ServiceName: "foo-v3",
+										ServicePort: intstr.FromInt(testPort),
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "example.com",
+					IngressRuleValue: networking.IngressRuleValue{
+						HTTP: &networking.HTTPIngressRuleValue{
+							Paths: []networking.HTTPIngressPath{
+								{
+									Path: "example",
+									Backend: networking.IngressBackend{
+										ServiceName: "foo-v1",
+										ServicePort: intstr.FromInt(testPort),
+									},
+								},
+								{
+									Path: "example",
+									Backend: networking.IngressBackend{
+										ServiceName: "foo-v2",
+										ServicePort: intstr.FromInt(testPort),
+									},
+								},
+								{
+									Path: "example",
+									Backend: networking.IngressBackend{
+										ServiceName: "foo-v3",
+										ServicePort: intstr.FromInt(testPort),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	require.Equal(t, expected, ingress)
 }
 
 func TestStackSetGenerateIngressNone(t *testing.T) {

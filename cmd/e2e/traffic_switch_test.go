@@ -25,127 +25,6 @@ func expectStackTrafficWeights(t *testing.T, stackName string, actualTrafficWeig
 	require.NoError(t, err)
 }
 
-func TestTrafficSwitchIngress(t *testing.T) {
-	t.Parallel()
-
-	stacksetName := "switch-traffic-ingress"
-	firstVersion := "v1"
-	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
-	updatedVersion := "v2"
-	updatedStack := fmt.Sprintf("%s-%s", stacksetName, updatedVersion)
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress()
-	spec := factory.Create(firstVersion)
-	err := createStackSet(stacksetName, 0, spec)
-	require.NoError(t, err)
-	_, err = waitForStack(t, stacksetName, firstVersion)
-	require.NoError(t, err)
-	spec = factory.Create(updatedVersion)
-	err = updateStackset(stacksetName, spec)
-	require.NoError(t, err)
-	_, err = waitForStack(t, stacksetName, updatedVersion)
-	require.NoError(t, err)
-
-	_, err = waitForIngress(t, stacksetName)
-	require.NoError(t, err)
-
-	initialWeights := map[string]float64{firstStack: 100}
-	expectActualTrafficWeights(t, stacksetName, initialWeights)
-	err = ingressTrafficAuthoritative(t, stacksetName, true).await()
-	require.NoError(t, err)
-
-	expectStackTrafficWeights(t, firstStack, 100, 100)
-	expectStackTrafficWeights(t, updatedStack, 0, 0)
-
-	// Switch traffic 50/50
-	desiredWeights := map[string]float64{firstStack: 50, updatedStack: 50}
-	err = setDesiredTrafficWeightsIngress(stacksetName, desiredWeights)
-	require.NoError(t, err)
-	expectActualTrafficWeights(t, stacksetName, desiredWeights)
-	err = ingressTrafficAuthoritative(t, stacksetName, true).await()
-	require.NoError(t, err)
-
-	expectStackTrafficWeights(t, firstStack, 50, 50)
-	expectStackTrafficWeights(t, updatedStack, 50, 50)
-
-	// Switch traffic 0/100
-	newDesiredWeights := map[string]float64{updatedStack: 100}
-	err = setDesiredTrafficWeightsIngress(stacksetName, newDesiredWeights)
-	require.NoError(t, err)
-	expectActualTrafficWeights(t, stacksetName, desiredWeights)
-	err = ingressTrafficAuthoritative(t, stacksetName, true).await()
-	require.NoError(t, err)
-
-	expectStackTrafficWeights(t, firstStack, 0, 0)
-	expectStackTrafficWeights(t, updatedStack, 100, 100)
-}
-
-func TestTrafficSwitchIngressThenStackset(t *testing.T) {
-	t.Parallel()
-
-	stacksetName := "switch-traffic-stackset-to-ingress"
-	firstVersion := "v1"
-	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
-	updatedVersion := "v2"
-	updatedStack := fmt.Sprintf("%s-%s", stacksetName, updatedVersion)
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress()
-	spec := factory.Create(firstVersion)
-	err := createStackSet(stacksetName, 0, spec)
-	require.NoError(t, err)
-	_, err = waitForStack(t, stacksetName, firstVersion)
-	require.NoError(t, err)
-	spec = factory.Create(updatedVersion)
-	err = updateStackset(stacksetName, spec)
-	require.NoError(t, err)
-	_, err = waitForStack(t, stacksetName, updatedVersion)
-	require.NoError(t, err)
-
-	_, err = waitForIngress(t, stacksetName)
-	require.NoError(t, err)
-
-	initialWeights := map[string]float64{firstStack: 100}
-	expectActualTrafficWeights(t, stacksetName, initialWeights)
-	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindDesired, initialWeights, nil).await()
-	require.NoError(t, err)
-	err = ingressTrafficAuthoritative(t, stacksetName, true).await()
-	require.NoError(t, err)
-
-	expectStackTrafficWeights(t, firstStack, 100, 100)
-	expectStackTrafficWeights(t, updatedStack, 0, 0)
-
-	// Switch traffic 50/50 via ingress
-	desiredWeights := map[string]float64{firstStack: 50, updatedStack: 50}
-	err = setDesiredTrafficWeightsIngress(stacksetName, desiredWeights)
-	require.NoError(t, err)
-	expectActualTrafficWeights(t, stacksetName, desiredWeights)
-	err = ingressTrafficAuthoritative(t, stacksetName, true).await()
-	require.NoError(t, err)
-
-	expectStackTrafficWeights(t, firstStack, 50, 50)
-	expectStackTrafficWeights(t, updatedStack, 50, 50)
-
-	// Switch traffic 75/25 via stackset
-	newDesiredWeights := map[string]float64{firstStack: 75, updatedStack: 25}
-	err = setDesiredTrafficWeightsStackset(stacksetName, newDesiredWeights)
-	require.NoError(t, err)
-	expectActualTrafficWeights(t, stacksetName, newDesiredWeights)
-	err = ingressTrafficAuthoritative(t, stacksetName, false).await()
-	require.NoError(t, err)
-
-	expectStackTrafficWeights(t, firstStack, 75, 75)
-	expectStackTrafficWeights(t, updatedStack, 25, 25)
-
-	// Switch traffic 0/100
-	finalDesiredWeights := map[string]float64{updatedStack: 100}
-	err = setDesiredTrafficWeightsStackset(stacksetName, finalDesiredWeights)
-	require.NoError(t, err)
-	expectActualTrafficWeights(t, stacksetName, finalDesiredWeights)
-	err = ingressTrafficAuthoritative(t, stacksetName, false).await()
-	require.NoError(t, err)
-
-	expectStackTrafficWeights(t, firstStack, 0, 0)
-	expectStackTrafficWeights(t, updatedStack, 100, 100)
-}
-
 func TestTrafficSwitchStackset(t *testing.T) {
 	t.Parallel()
 
@@ -171,9 +50,9 @@ func TestTrafficSwitchStackset(t *testing.T) {
 
 	initialWeights := map[string]float64{firstStack: 100}
 	expectActualTrafficWeights(t, stacksetName, initialWeights)
-	err = trafficWeightsUpdatedIngress(t, stacksetName, weightKindDesired, initialWeights, nil).await()
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindDesired, initialWeights, nil).await()
 	require.NoError(t, err)
-	err = ingressTrafficAuthoritative(t, stacksetName, true).await()
+	err = ingressTrafficAuthoritative(t, stacksetName, false).await()
 	require.NoError(t, err)
 
 	expectStackTrafficWeights(t, firstStack, 100, 100)

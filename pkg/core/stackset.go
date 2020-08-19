@@ -4,10 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
-	"strconv"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -147,7 +145,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 	)
 
 	trafficAuthoritative := map[string]string{
-		ingressTrafficAuthoritativeAnnotation: strconv.FormatBool(!ssc.stacksetManagesTraffic),
+		ingressTrafficAuthoritativeAnnotation: "false",
 	}
 
 	result := &networking.Ingress{
@@ -219,18 +217,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 		return nil, err
 	}
 
-	desiredWeightData, err := json.Marshal(&desiredWeights)
-	if err != nil {
-		return nil, err
-	}
-
 	result.Annotations[ssc.backendWeightsAnnotationKey] = string(actualWeightsData)
-	if ssc.stacksetManagesTraffic {
-		delete(result.Annotations, traffic.StackTrafficWeightsAnnotationKey)
-	} else {
-		result.Annotations[traffic.StackTrafficWeightsAnnotationKey] = string(desiredWeightData)
-	}
-
 	return result, nil
 }
 
@@ -273,10 +260,6 @@ func (ssc *StackSetContainer) GenerateStackSetStatus() *zv1.StackSetStatus {
 }
 
 func (ssc *StackSetContainer) GenerateStackSetTraffic() []*zv1.DesiredTraffic {
-	if !ssc.stacksetManagesTraffic {
-		return nil
-	}
-
 	var traffic []*zv1.DesiredTraffic
 	for _, sc := range ssc.StackContainers {
 		if sc.PendingRemoval {
