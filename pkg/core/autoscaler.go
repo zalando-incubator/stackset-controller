@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -90,8 +90,11 @@ func memoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ResourceMetricSourceType,
 		Resource: &autoscaling.ResourceMetricSource{
-			Name:                     v1.ResourceMemory,
-			TargetAverageUtilization: metrics.AverageUtilization,
+			Name: v1.ResourceMemory,
+			Target: autoscaling.MetricTarget{
+				Type:               autoscaling.UtilizationMetricType,
+				AverageUtilization: metrics.AverageUtilization,
+			},
 		},
 	}
 	return generated, nil
@@ -104,8 +107,11 @@ func cpuMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ResourceMetricSourceType,
 		Resource: &autoscaling.ResourceMetricSource{
-			Name:                     v1.ResourceCPU,
-			TargetAverageUtilization: metrics.AverageUtilization,
+			Name: v1.ResourceCPU,
+			Target: autoscaling.MetricTarget{
+				Type:               autoscaling.UtilizationMetricType,
+				AverageUtilization: metrics.AverageUtilization,
+			},
 		},
 	}
 	return generated, nil
@@ -122,11 +128,16 @@ func sqsMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
-			MetricName: sqsQueueLengthTag,
-			MetricSelector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{sqsQueueNameTag: metrics.Queue.Name, sqsQueueRegionTag: metrics.Queue.Region},
+			Metric: autoscaling.MetricIdentifier{
+				Name: sqsQueueLengthTag,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{sqsQueueNameTag: metrics.Queue.Name, sqsQueueRegionTag: metrics.Queue.Region},
+				},
 			},
-			TargetAverageValue: &average,
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
 		},
 	}
 	return generated, nil
@@ -136,11 +147,17 @@ func podJsonMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[
 	if metrics.Average == nil {
 		return nil, nil, fmt.Errorf("average is not specified for metric")
 	}
+	average := metrics.Average.DeepCopy()
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.PodsMetricSourceType,
 		Pods: &autoscaling.PodsMetricSource{
-			MetricName:         metrics.Endpoint.Name,
-			TargetAverageValue: metrics.Average.DeepCopy(),
+			Metric: autoscaling.MetricIdentifier{
+				Name: metrics.Endpoint.Name,
+			},
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
 		},
 	}
 	if metrics.Endpoint == nil || metrics.Endpoint.Port == 0 || metrics.Endpoint.Path == "" || metrics.Endpoint.Key == "" || metrics.Endpoint.Name == "" {
@@ -164,14 +181,19 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ObjectMetricSourceType,
 		Object: &autoscaling.ObjectMetricSource{
-			MetricName: fmt.Sprintf("%s,%s", requestsPerSecondName, backendName),
-			Target: autoscaling.CrossVersionObjectReference{
+			Metric: autoscaling.MetricIdentifier{
+				Name: fmt.Sprintf("%s,%s", requestsPerSecondName, backendName),
+				// TODO: Selector
+			},
+			DescribedObject: autoscaling.CrossVersionObjectReference{
 				APIVersion: "networking.k8s.io/v1beta1",
 				Kind:       "Ingress",
 				Name:       ingressName,
 			},
-			TargetValue:  average, // this has no effect but needs to be set for autoscaling/v2beta1
-			AverageValue: &average,
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
 		},
 	}
 	return generated, nil

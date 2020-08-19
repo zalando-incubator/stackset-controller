@@ -6,7 +6,7 @@ import (
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -199,7 +199,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		ObjectMeta: sc.resourceMeta(),
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HorizontalPodAutoscaler",
-			APIVersion: "autoscaling/v2beta1",
+			APIVersion: "autoscaling/v2beta2",
 		},
 		Spec: autoscaling.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscaling.CrossVersionObjectReference{
@@ -223,7 +223,17 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 	} else {
 		result.Spec.MinReplicas = hpaSpec.MinReplicas
 		result.Spec.MaxReplicas = hpaSpec.MaxReplicas
-		result.Spec.Metrics = hpaSpec.Metrics
+		metrics := make([]autoscaling.MetricSpec, 0, len(hpaSpec.Metrics))
+		for _, m := range hpaSpec.Metrics {
+			m := m
+			metric := autoscaling.MetricSpec{}
+			err := Convert_v2beta1_MetricSpec_To_autoscaling_MetricSpec(&m, &metric, nil)
+			if err != nil {
+				return nil, err
+			}
+			metrics = append(metrics, metric)
+		}
+		result.Spec.Metrics = metrics
 	}
 
 	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
