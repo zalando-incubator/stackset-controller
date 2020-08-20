@@ -6389,7 +6389,6 @@ spec:
           type: object
       required:
       - spec
-      - status
       type: object
   version: v1
   versions:

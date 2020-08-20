@@ -24,7 +24,8 @@ type StackSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   StackSetSpec   `json:"spec"`
+	Spec StackSetSpec `json:"spec"`
+	// +optional
 	Status StackSetStatus `json:"status"`
 }
 
@@ -234,7 +235,8 @@ type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   StackSpec   `json:"spec"`
+	Spec StackSpec `json:"spec"`
+	// +optional
 	Status StackStatus `json:"status"`
 }
 
