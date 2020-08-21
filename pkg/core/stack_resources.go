@@ -220,6 +220,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		}
 		result.Spec.Metrics = metrics
 		result.Annotations = mergeLabels(result.Annotations, annotations)
+		result.Spec.Behavior = autoscalerSpec.Behavior
 	} else {
 		result.Spec.MinReplicas = hpaSpec.MinReplicas
 		result.Spec.MaxReplicas = hpaSpec.MaxReplicas
@@ -234,6 +235,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 			metrics = append(metrics, metric)
 		}
 		result.Spec.Metrics = metrics
+		result.Spec.Behavior = hpaSpec.Behavior
 	}
 
 	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods

@@ -3,6 +3,7 @@ package v1
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
+	autoscalingvbeta2 "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -132,6 +133,12 @@ type Autoscaler struct {
 	MaxReplicas int32 `json:"maxReplicas"`
 
 	Metrics []AutoscalerMetrics `json:"metrics"`
+
+	// behavior configures the scaling behavior of the target
+	// in both Up and Down directions (scaleUp and scaleDown fields respectively).
+	// If not set, the default HPAScalingRules for scale up and scale down are used.
+	// +optional
+	Behavior *autoscalingvbeta2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty" protobuf:"bytes,5,opt,name=behavior"`
 }
 
 // HorizontalPodAutoscaler is the Autoscaling configuration of a Stack. If
@@ -155,6 +162,12 @@ type HorizontalPodAutoscaler struct {
 	// more information about how each type of metric must respond.
 	// +optional
 	Metrics []autoscaling.MetricSpec `json:"metrics,omitempty"`
+
+	// behavior configures the scaling behavior of the target
+	// in both Up and Down directions (scaleUp and scaleDown fields respectively).
+	// If not set, the default HPAScalingRules for scale up and scale down are used.
+	// +optional
+	Behavior *autoscalingvbeta2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty" protobuf:"bytes,5,opt,name=behavior"`
 }
 
 // StackSetStatus is the status section of the StackSet resource.
