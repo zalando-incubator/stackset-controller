@@ -380,6 +380,18 @@ func TestReconcileStackHPA(t *testing.T) {
 	exampleMinReplicas := int32(3)
 	exampleUpdatedMinReplicas := int32(5)
 
+	exampleBehavior := autoscaling.HorizontalPodAutoscalerBehavior{
+		ScaleUp: &autoscaling.HPAScalingRules{
+			Policies: []autoscaling.HPAScalingPolicy{
+				{
+					Type:          "Percent",
+					Value:         10,
+					PeriodSeconds: 60,
+				},
+			},
+		},
+	}
+
 	for _, tc := range []struct {
 		name     string
 		stack    zv1.Stack
@@ -474,6 +486,36 @@ func TestReconcileStackHPA(t *testing.T) {
 					MinReplicas: &exampleUpdatedMinReplicas,
 					MaxReplicas: 5,
 					Metrics:     exampleMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is updated if behavior is changed",
+			stack: updatedTestStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+					Behavior:    &exampleBehavior,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: baseTestStackOwned,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleMetrics,
+					Behavior:    &exampleBehavior,
 				},
 			},
 		},
