@@ -274,8 +274,7 @@ func TestStackGenerateIngress(t *testing.T) {
 		},
 		stacksetName: "foo",
 		ingressSpec: &zv1.StackSetIngressSpec{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      map[string]string{"ignored": "label"},
+			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 				Annotations: map[string]string{"ingress": "annotation"},
 			},
 			Hosts: []string{"foo.example.org", "foo.example.com"},
@@ -342,7 +341,7 @@ func TestStackGenerateService(t *testing.T) {
 					ObjectMeta: testStackMeta,
 					Spec: zv1.StackSpec{
 						Service: &zv1.StackServiceSpec{
-							ObjectMeta: metav1.ObjectMeta{
+							EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 								Annotations: svcAnnotations,
 							},
 							Ports: []v1.ServicePort{

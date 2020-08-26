@@ -910,8 +910,7 @@ func TestStackSetGenerateIngress(t *testing.T) {
 			},
 			Spec: zv1.StackSetSpec{
 				Ingress: &zv1.StackSetIngressSpec{
-					ObjectMeta: metav1.ObjectMeta{
-						Labels:      map[string]string{"ignored": "label"},
+					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 						Annotations: map[string]string{"ingress": "annotation"},
 					},
 					Hosts:       []string{"example.org", "example.com"},
