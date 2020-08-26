@@ -381,10 +381,10 @@ func TestReconcileStackHPA(t *testing.T) {
 	exampleUpdatedMinReplicas := int32(5)
 
 	exampleBehavior := autoscaling.HorizontalPodAutoscalerBehavior{
-		ScaleUp: &autoscaling.HPAScalingRules{
+		ScaleDown: &autoscaling.HPAScalingRules{
 			Policies: []autoscaling.HPAScalingPolicy{
 				{
-					Type:          "Percent",
+					Type:          autoscaling.PercentScalingPolicy,
 					Value:         10,
 					PeriodSeconds: 60,
 				},

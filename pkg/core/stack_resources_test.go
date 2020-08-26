@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
+	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -700,6 +702,141 @@ func TestStackGenerateDeployment(t *testing.T) {
 				expected.Spec.Strategy = *strategy
 			}
 			require.Equal(t, expected, deployment)
+		})
+	}
+}
+
+func TestGenerateHPA(t *testing.T) {
+	min := int32(1)
+	max := int32(2)
+	utilization := int32(50)
+	stabilizationWindowSeconds := int32(300)
+
+	exampleBehavior := &autoscaling.HorizontalPodAutoscalerBehavior{
+		ScaleDown: &autoscaling.HPAScalingRules{
+			Policies: []autoscaling.HPAScalingPolicy{
+				{
+					Type:          autoscaling.PercentScalingPolicy,
+					Value:         10,
+					PeriodSeconds: 60,
+				},
+			},
+		},
+	}
+	for _, tc := range []struct {
+		name                string
+		autoscaler          *zv1.Autoscaler
+		hpa                 *zv1.HorizontalPodAutoscaler
+		expectedMinReplicas *int32
+		expectedMaxReplicas int32
+		expectedMetrics     []autoscaling.MetricSpec
+		expectedBehavior    *autoscaling.HorizontalPodAutoscalerBehavior
+	}{
+		{
+			name: "HPA with behavior and default stabilizationWindowSeconds",
+			autoscaler: &zv1.Autoscaler{
+				MinReplicas: &min,
+				MaxReplicas: max,
+
+				Metrics: []zv1.AutoscalerMetrics{
+					{
+						Type:               zv1.CPUAutoscalerMetric,
+						AverageUtilization: &utilization,
+					},
+				},
+				Behavior: exampleBehavior,
+			},
+			hpa: &zv1.HorizontalPodAutoscaler{
+				MinReplicas: &min,
+				MaxReplicas: max,
+				Metrics: []autoscalingv2beta1.MetricSpec{
+					{
+						Type: autoscalingv2beta1.ResourceMetricSourceType,
+						Resource: &autoscalingv2beta1.ResourceMetricSource{
+							Name:                     v1.ResourceCPU,
+							TargetAverageUtilization: &utilization,
+						},
+					},
+				},
+				Behavior: exampleBehavior,
+			},
+			expectedMinReplicas: &min,
+			expectedMaxReplicas: max,
+			expectedMetrics: []autoscaling.MetricSpec{
+				{
+					Type: autoscaling.ResourceMetricSourceType,
+					Resource: &autoscaling.ResourceMetricSource{
+						Name: v1.ResourceCPU,
+						Target: autoscaling.MetricTarget{
+							Type:               autoscaling.UtilizationMetricType,
+							AverageUtilization: &utilization,
+						},
+					},
+				},
+			},
+			expectedBehavior: &autoscaling.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &autoscaling.HPAScalingRules{
+					Policies: []autoscaling.HPAScalingPolicy{
+						{
+							Type:          autoscaling.PercentScalingPolicy,
+							Value:         10,
+							PeriodSeconds: 60,
+						},
+					},
+					StabilizationWindowSeconds: &stabilizationWindowSeconds,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			podTemplate := v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"pod-label": "pod-foo",
+					},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Name:  "foo",
+							Image: "nginx",
+						},
+					},
+				},
+			}
+			autoscalerContainer := &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpec{
+						PodTemplate: podTemplate,
+						Autoscaler:  tc.autoscaler,
+					},
+				},
+			}
+
+			hpa, err := autoscalerContainer.GenerateHPA()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
+			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
+			require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
+			require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
+
+			hpaContainer := &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpec{
+						PodTemplate:             podTemplate,
+						HorizontalPodAutoscaler: tc.hpa,
+					},
+				},
+			}
+
+			hpa, err = hpaContainer.GenerateHPA()
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
+			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
+			require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
+			require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
 		})
 	}
 }

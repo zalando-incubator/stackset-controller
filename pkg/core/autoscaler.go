@@ -12,12 +12,6 @@ import (
 )
 
 const (
-	amazonSQSMetricName   = "AmazonSQS"
-	podJSONMetricName     = "PodJSON"
-	ingressMetricName     = "Ingress"
-	cpuMetricName         = "CPU"
-	memoryMetricName      = "Memory"
-	zmonMetricName        = "ZMON"
 	requestsPerSecondName = "requests-per-second"
 	metricConfigJSONPath  = "metric-config.pods.%s.json-path/path"
 	metricConfigJSONKey   = "metric-config.pods.%s.json-path/json-key"
@@ -54,17 +48,17 @@ func convertCustomMetrics(stacksetName, stackName string, metrics []zv1.Autoscal
 			err         error
 		)
 		switch m.Type {
-		case amazonSQSMetricName:
+		case zv1.AmazonSQSAutoscalerMetric:
 			generated, err = sqsMetric(m)
-		case podJSONMetricName:
+		case zv1.PodJSONAutoscalerMetric:
 			generated, annotations, err = podJsonMetric(m)
-		case ingressMetricName:
+		case zv1.IngressAutoscalerMetric:
 			generated, err = ingressMetric(m, stacksetName, stackName)
-		case zmonMetricName:
-			err = fmt.Errorf("not implemented metric type: %s", zmonMetricName)
-		case cpuMetricName:
+		case zv1.ZMONAutoscalerMetric:
+			err = fmt.Errorf("not implemented metric type: %s", zv1.ZMONAutoscalerMetric)
+		case zv1.CPUAutoscalerMetric:
 			generated, err = cpuMetric(m)
-		case memoryMetricName:
+		case zv1.MemoryAutoscalerMetric:
 			generated, err = memoryMetric(m)
 		default:
 			err = fmt.Errorf("metric type %s not supported", m.Type)

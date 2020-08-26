@@ -35,7 +35,7 @@ func generateAutoscalerCPU(minReplicas, maxReplicas, utilization int32) StackCon
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
-			Type:               cpuMetricName,
+			Type:               zv1.CPUAutoscalerMetric,
 			AverageUtilization: &utilization,
 		})
 	return container
@@ -45,7 +45,7 @@ func generateAutoscalerMemory(minReplicas, maxReplicas, utilization int32) Stack
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
-			Type:               memoryMetricName,
+			Type:               zv1.MemoryAutoscalerMetric,
 			AverageUtilization: &utilization,
 		})
 	return container
@@ -54,7 +54,7 @@ func generateAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueNam
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
-			Type: amazonSQSMetricName,
+			Type: zv1.AmazonSQSAutoscalerMetric,
 			Queue: &zv1.MetricsQueue{
 				Name:   queueName,
 				Region: queueRegion,
@@ -69,7 +69,7 @@ func generateAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int32
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
-			Type: podJSONMetricName,
+			Type: zv1.PodJSONAutoscalerMetric,
 			Endpoint: &zv1.MetricsEndpoint{
 				Path: path,
 				Name: name,
@@ -85,7 +85,7 @@ func generateAutoscalerIngress(minReplicas, maxReplicas, utilization int32) Stac
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
-			Type:    ingressMetricName,
+			Type:    zv1.IngressAutoscalerMetric,
 			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
 	)
@@ -218,14 +218,14 @@ func TestPodJsonMetricInvalid(t *testing.T) {
 		},
 	}
 	for _, e := range endpoints {
-		metrics := zv1.AutoscalerMetrics{Type: podJSONMetricName, Endpoint: &e}
+		metrics := zv1.AutoscalerMetrics{Type: zv1.PodJSONAutoscalerMetric, Endpoint: &e}
 		_, _, err := podJsonMetric(metrics)
 		require.Error(t, err, "created metric with invalid configuration")
 	}
 }
 
 func TestIngressMetricInvalid(t *testing.T) {
-	metrics := zv1.AutoscalerMetrics{Type: ingressMetricName, Average: nil}
+	metrics := zv1.AutoscalerMetrics{Type: zv1.IngressAutoscalerMetric, Average: nil}
 	_, err := ingressMetric(metrics, "stack-name", "test-stack")
 	require.Errorf(t, err, "created metric with invalid configuration")
 }
@@ -233,10 +233,10 @@ func TestIngressMetricInvalid(t *testing.T) {
 func TestSortingMetrics(t *testing.T) {
 	container := generateAutoscalerStub(1, 10)
 	metrics := []zv1.AutoscalerMetrics{
-		{Type: cpuMetricName, AverageUtilization: pint32(50)},
-		{Type: ingressMetricName, Average: resource.NewQuantity(10, resource.DecimalSI)},
-		{Type: podJSONMetricName, Average: resource.NewQuantity(10, resource.DecimalSI), Endpoint: &zv1.MetricsEndpoint{Name: "abc", Path: "/metrics", Port: 1222, Key: "test.abc"}},
-		{Type: amazonSQSMetricName, Average: resource.NewQuantity(10, resource.DecimalSI), Queue: &zv1.MetricsQueue{Name: "test", Region: "region"}},
+		{Type: zv1.CPUAutoscalerMetric, AverageUtilization: pint32(50)},
+		{Type: zv1.IngressAutoscalerMetric, Average: resource.NewQuantity(10, resource.DecimalSI)},
+		{Type: zv1.PodJSONAutoscalerMetric, Average: resource.NewQuantity(10, resource.DecimalSI), Endpoint: &zv1.MetricsEndpoint{Name: "abc", Path: "/metrics", Port: 1222, Key: "test.abc"}},
+		{Type: zv1.AmazonSQSAutoscalerMetric, Average: resource.NewQuantity(10, resource.DecimalSI), Queue: &zv1.MetricsQueue{Name: "test", Region: "region"}},
 	}
 	container.Stack.Spec.Autoscaler.Metrics = metrics
 	hpa, err := container.GenerateHPA()
