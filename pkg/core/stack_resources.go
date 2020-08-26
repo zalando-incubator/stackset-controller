@@ -17,16 +17,6 @@ import (
 const (
 	apiVersionAppsV1 = "apps/v1"
 	kindDeployment   = "Deployment"
-	// defaults for scaleUp and scaleDown StabilizationWindowSeconds
-	// ScaleUp:
-	// https://github.com/kubernetes/kubernetes/blob/9f2892aab98fe339f3bd70e3c470144299398ace/pkg/apis/autoscaling/v2beta2/defaults.go#L31
-	// ScaleDown:
-	// https://github.com/kubernetes/kubernetes/blob/9f2892aab98fe339f3bd70e3c470144299398ace/pkg/apis/autoscaling/v2beta2/defaults.go#L50-L52
-	// Not a fixed value because it can be set via a flag on the
-	// controller-manager. We use the default flag value:
-	// https://github.com/kubernetes/kubernetes/blob/9f2892aab98fe339f3bd70e3c470144299398ace/pkg/controller/podautoscaler/config/v1alpha1/defaults.go#L48
-	defaultScaleUpStabilizationSeconds   = 0
-	defaultScaleDownStabilizationSeconds = 300
 )
 
 var (
@@ -247,7 +237,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		}
 		result.Spec.Metrics = metrics
 		result.Annotations = mergeLabels(result.Annotations, annotations)
-		result.Spec.Behavior = defaultAutoscaleBehavior(autoscalerSpec.Behavior)
+		result.Spec.Behavior = autoscalerSpec.Behavior
 	} else {
 		result.Spec.MinReplicas = hpaSpec.MinReplicas
 		result.Spec.MaxReplicas = hpaSpec.MaxReplicas
@@ -262,7 +252,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 			metrics = append(metrics, metric)
 		}
 		result.Spec.Metrics = metrics
-		result.Spec.Behavior = defaultAutoscaleBehavior(hpaSpec.Behavior)
+		result.Spec.Behavior = hpaSpec.Behavior
 	}
 
 	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
@@ -272,24 +262,6 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 	}
 
 	return result, nil
-}
-
-// defaultAutoscaleBehavior sets the defaults of the autoscale behavior if no
-// value is specified.
-// This is required for scalDown and scaleUp stabilizationWindowSeconds because
-// an int32 is expected instead of `null`.
-func defaultAutoscaleBehavior(behavior *autoscaling.HorizontalPodAutoscalerBehavior) *autoscaling.HorizontalPodAutoscalerBehavior {
-	if behavior != nil && behavior.ScaleDown != nil && behavior.ScaleDown.StabilizationWindowSeconds == nil {
-		stabilizationWindowSeconds := (int32)(defaultScaleDownStabilizationSeconds)
-		behavior.ScaleDown.StabilizationWindowSeconds = &stabilizationWindowSeconds
-	}
-
-	if behavior != nil && behavior.ScaleUp != nil && behavior.ScaleUp.StabilizationWindowSeconds == nil {
-		stabilizationWindowSeconds := (int32)(defaultScaleUpStabilizationSeconds)
-		behavior.ScaleUp.StabilizationWindowSeconds = &stabilizationWindowSeconds
-	}
-
-	return behavior
 }
 
 func (sc *StackContainer) GenerateService() (*v1.Service, error) {

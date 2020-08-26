@@ -706,7 +706,6 @@ func TestGenerateHPA(t *testing.T) {
 	min := int32(1)
 	max := int32(2)
 	utilization := int32(50)
-	stabilizationWindowSeconds := int32(300)
 
 	exampleBehavior := &autoscaling.HorizontalPodAutoscalerBehavior{
 		ScaleDown: &autoscaling.HPAScalingRules{
@@ -770,18 +769,7 @@ func TestGenerateHPA(t *testing.T) {
 					},
 				},
 			},
-			expectedBehavior: &autoscaling.HorizontalPodAutoscalerBehavior{
-				ScaleDown: &autoscaling.HPAScalingRules{
-					Policies: []autoscaling.HPAScalingPolicy{
-						{
-							Type:          autoscaling.PercentScalingPolicy,
-							Value:         10,
-							PeriodSeconds: 60,
-						},
-					},
-					StabilizationWindowSeconds: &stabilizationWindowSeconds,
-				},
-			},
+			expectedBehavior: exampleBehavior,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
