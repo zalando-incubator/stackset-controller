@@ -42,7 +42,7 @@ func TestGenerateAutoscaler(t *testing.T) {
 	}
 	require.Len(t, metrics, 3)
 
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().Autoscaler(1, 10, metrics)
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress(nil).Autoscaler(1, 10, metrics)
 	firstVersion := "v1"
 	spec := factory.Create(firstVersion)
 	err := createStackSet(stacksetName, 0, spec)

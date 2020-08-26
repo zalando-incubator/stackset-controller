@@ -15,24 +15,29 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const (
+	userTestAnnotation = "user-test-annotation"
+)
+
 var (
 	pathType = v1beta1.PathTypeImplementationSpecific
 )
 
 type TestStacksetSpecFactory struct {
-	stacksetName    string
-	hpa             bool
-	ingress         bool
-	externalIngress bool
-	limit           int32
-	scaleDownTTL    int64
-	replicas        int32
-	hpaMaxReplicas  int32
-	hpaMinReplicas  int32
-	autoscaler      bool
-	maxSurge        int
-	maxUnavailable  int
-	metrics         []zv1.AutoscalerMetrics
+	stacksetName       string
+	hpa                bool
+	ingress            bool
+	ingressAnnotations map[string]string
+	externalIngress    bool
+	limit              int32
+	scaleDownTTL       int64
+	replicas           int32
+	hpaMaxReplicas     int32
+	hpaMinReplicas     int32
+	autoscaler         bool
+	maxSurge           int
+	maxUnavailable     int
+	metrics            []zv1.AutoscalerMetrics
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
@@ -56,8 +61,9 @@ func (f *TestStacksetSpecFactory) HPA(minReplicas, maxReplicas int32) *TestStack
 	return f
 }
 
-func (f *TestStacksetSpecFactory) Ingress() *TestStacksetSpecFactory {
+func (f *TestStacksetSpecFactory) Ingress(annotations map[string]string) *TestStacksetSpecFactory {
 	f.ingress = true
+	f.ingressAnnotations = annotations
 	return f
 }
 
@@ -91,6 +97,11 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 						Spec: nginxPod,
 					},
 					Service: &zv1.StackServiceSpec{
+						EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+							Annotations: map[string]string{
+								userTestAnnotation: "test",
+							},
+						},
 						Ports: []corev1.ServicePort{
 							{
 								Port:       80,
@@ -130,6 +141,11 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 
 	if f.ingress {
 		result.Ingress = &zv1.StackSetIngressSpec{
+			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+				Annotations: map[string]string{
+					userTestAnnotation: "test",
+				},
+			},
 			Hosts:       []string{hostname(f.stacksetName)},
 			BackendPort: intstr.FromInt(80),
 		}
@@ -206,6 +222,8 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	// Verify service
 	service, err := waitForService(t, stack.Name)
 	require.NoError(t, err)
+	require.Contains(t, service.Annotations, userTestAnnotation)
+	require.Equal(t, "test", service.Annotations[userTestAnnotation])
 	require.EqualValues(t, stackResourceLabels, service.Labels)
 	require.EqualValues(t, stackResourceLabels, service.Spec.Selector)
 
@@ -281,7 +299,7 @@ func verifyStacksetExternalIngress(t *testing.T, stacksetName string, stacksetSp
 	require.NoError(t, err)
 }
 
-func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64) {
+func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
 	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
 
 	expectedWeights := make(map[string]float64)
@@ -310,6 +328,8 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	globalIngress, err := waitForIngress(t, stacksetName)
 	require.NoError(t, err)
 	require.EqualValues(t, stacksetResourceLabels, globalIngress.Labels)
+	require.Contains(t, globalIngress.Annotations, userTestAnnotation)
+	require.Equal(t, "test", globalIngress.Annotations[userTestAnnotation])
 	globalIngressRules := []v1beta1.IngressRule{{
 		Host: stacksetSpec.Ingress.Hosts[0],
 		IngressRuleValue: v1beta1.IngressRuleValue{
@@ -335,8 +355,9 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, externalIng
 	if hpa {
 		stacksetSpecFactory.HPA(1, 3)
 	}
+	ingressAnnotations := map[string]string{userTestAnnotation: "test"}
 	if ingress {
-		stacksetSpecFactory.Ingress()
+		stacksetSpecFactory.Ingress(ingressAnnotations)
 	}
 	if externalIngress {
 		stacksetSpecFactory.ExternalIngress()
@@ -351,7 +372,7 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, externalIng
 	verifyStack(t, stacksetName, stackVersion, stacksetSpec)
 
 	if ingress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
+		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, ingressAnnotations)
 	}
 	if externalIngress {
 		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
@@ -370,7 +391,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 		stacksetSpecFactory.HPA(1, 3)
 	}
 	if oldIngress {
-		stacksetSpecFactory.Ingress()
+		stacksetSpecFactory.Ingress(nil)
 	}
 	if oldExternalIngress {
 		stacksetSpecFactory.ExternalIngress()
@@ -393,7 +414,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	verifyStack(t, stacksetName, initialVersion, stacksetSpec)
 
 	if oldIngress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
+		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, nil)
 	}
 	if oldExternalIngress {
 		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
@@ -409,12 +430,30 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	if newHpa {
 		stacksetSpecFactory.HPA(1, 3)
 	}
+	ingressAnnotations := map[string]string{userTestAnnotation: "test"}
 	if newIngress {
-		stacksetSpecFactory.Ingress()
+		stacksetSpecFactory.Ingress(ingressAnnotations)
 	} else if newExternalIngress {
 		stacksetSpecFactory.ExternalIngress()
 	} else if oldIngress || oldExternalIngress {
 		actualTraffic = nil
+	}
+
+	if newIngress || newExternalIngress {
+		actualTraffic = []*zv1.ActualTraffic{
+			{
+				StackName:   stacksetName + "-" + initialVersion,
+				ServiceName: stacksetName + "-" + initialVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      100.0,
+			},
+			{
+				StackName:   stacksetName + "-" + updatedVersion,
+				ServiceName: stacksetName + "-" + updatedVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      0.0,
+			},
+		}
 	}
 
 	updatedSpec := stacksetSpecFactory.Create(updatedVersion)
@@ -427,13 +466,12 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	})
 
 	if newIngress {
-		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0})
+		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, ingressAnnotations)
 		// no traffic switch here
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,
 			actualTraffic:        actualTraffic,
 		})
-
 	} else if oldIngress {
 		err = resourceDeleted(t, "ingress", fmt.Sprintf("%s-%s", stacksetName, initialVersion), ingressInterface()).await()
 		require.NoError(t, err)
@@ -487,6 +525,10 @@ func TestStacksetUpdateAddHPA(t *testing.T) {
 
 func TestStacksetUpdateDeleteHPA(t *testing.T) {
 	testStacksetUpdate(t, "delete-hpa", true, false, false, false, false, false)
+}
+
+func TestStacksetUpdateIngress(t *testing.T) {
+	testStacksetUpdate(t, "update-ingress", false, false, true, true, false, false)
 }
 
 func TestStacksetUpdateAddIngress(t *testing.T) {
