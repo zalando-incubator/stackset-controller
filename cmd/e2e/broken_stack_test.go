@@ -15,7 +15,7 @@ func TestBrokenStacks(t *testing.T) {
 	t.Parallel()
 
 	stacksetName := "stackset-broken-stacks"
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(1, 30)
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress(nil).StackGC(1, 30)
 
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
