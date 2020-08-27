@@ -7,10 +7,11 @@ import (
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 
 	"github.com/stretchr/testify/require"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 )
 
-// TestConfigureNewHPA tests Behavior is reflected when stackset is created
-func TestConfigureNewHPA(t *testing.T) {
+// TestConfigureHPA tests Behavior is reflected when stackset is created
+func TestConfigureHPA(t *testing.T) {
 	t.Parallel()
 	stacksetName := "configured-hpa"
 	var stabilizationWindow int32 = 300
@@ -64,8 +65,29 @@ func TestBehaviorDefaults(t *testing.T) {
 	require.EqualValues(t, 300, *hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds)
 }
 
-// Test Behavior is reflected when Stack is updated
-// if the user updates the config *and* stack version, hpa is updated
-// if the user updates the config but *not* the stack version, hpa is not updated
+// TestConfigureHPA tests Behavior is reflected when stackset is created
+func TestConfigureAutoscaling(t *testing.T) {
+	t.Parallel()
+	stacksetName := "configured-autoscaler"
+	var stabilizationWindow int32 = 60
+	metrics := []zv1.AutoscalerMetrics{
+		makeCPUAutoscalerMetrics(50),
+		makeExternalAutoscalerMetrics("test", "eu-central-1", 10),
+		makeObjectAutoscalerMetrics(20),
+	}
+	require.Len(t, metrics, 3)
 
-// Test both HPA and autoscaling fields
+	factory := NewTestStacksetSpecFactory(stacksetName).
+		Ingress().
+		Autoscaler(1, 10, metrics).
+		Behavior(stabilizationWindow)
+	firstVersion := "v1"
+	spec := factory.Create(firstVersion)
+	err := createStackSet(stacksetName, 0, spec)
+	require.NoError(t, err)
+
+	fullFirstName := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
+	hpa, err := waitForHPA(t, fullFirstName)
+	require.NoError(t, err)
+	require.EqualValues(t, stabilizationWindow, *hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds)
+}
