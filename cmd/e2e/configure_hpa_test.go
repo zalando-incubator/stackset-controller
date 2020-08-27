@@ -126,6 +126,6 @@ func TestAutoscalingDefaults(t *testing.T) {
 	hpa, err := waitForHPA(t, fullFirstName)
 	require.NoError(t, err)
 
-	require.NotNil(t, hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds, "Autoscaler StabilizationWindowSeconds is nil")
+	require.NotNil(t, hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds, "HPA StabilizationWindowSeconds is nil")
 	require.EqualValues(t, 300, *hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds)
 }
