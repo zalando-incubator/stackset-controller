@@ -148,6 +148,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		if f.hpaBehavior {
 			result.StackTemplate.Spec.Autoscaler.Behavior =
 				&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
+
 					ScaleDown: &autoscalingv2beta2.HPAScalingRules{
 						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
 					},

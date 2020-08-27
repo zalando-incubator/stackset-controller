@@ -14,7 +14,7 @@ import (
 func TestConfigureHPA(t *testing.T) {
 	t.Parallel()
 	stacksetName := "configured-hpa"
-	var stabilizationWindow int32 = 300
+	var stabilizationWindow int32 = 60
 	factory := NewTestStacksetSpecFactory(stacksetName).
 		Ingress().
 		HPA(1, 3).
