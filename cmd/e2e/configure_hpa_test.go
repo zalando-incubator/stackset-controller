@@ -57,11 +57,8 @@ func TestHPABehaviorDefaults(t *testing.T) {
 	require.NoError(t, err, "failed to create stack without stabilization")
 	require.Nil(t, stack)
 
-	_, err = waitForHPA(t, fullFirstName)
-	require.NoError(t, err, "failed to create HPA")
-
 	hpa, err := waitForHPA(t, fullFirstName)
-	require.NoError(t, err)
+	require.NoError(t, err, "failed to create HPA")
 	require.EqualValues(t, 300, *hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds)
 }
 
