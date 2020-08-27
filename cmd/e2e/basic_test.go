@@ -87,7 +87,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			Spec: zv1.StackSpecTemplate{
 				StackSpec: zv1.StackSpec{
 					Replicas: pint32(f.replicas),
-					PodTemplate: corev1.PodTemplateSpec{
+					PodTemplate: zv1.PodTemplateSpec{
 						Spec: nginxPod,
 					},
 					Service: &zv1.StackServiceSpec{

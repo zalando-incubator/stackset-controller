@@ -64,7 +64,7 @@ func TestGetServicePorts(tt *testing.T) {
 			msg: "test using ports from pod spec",
 			stackSpec: zv1.StackSpec{
 				Service: nil,
-				PodTemplate: v1.PodTemplateSpec{
+				PodTemplate: zv1.PodTemplateSpec{
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
@@ -105,7 +105,7 @@ func TestGetServicePorts(tt *testing.T) {
 			msg: "test using ports from pod spec with ingress",
 			stackSpec: zv1.StackSpec{
 				Service: nil,
-				PodTemplate: v1.PodTemplateSpec{
+				PodTemplate: zv1.PodTemplateSpec{
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
@@ -133,7 +133,7 @@ func TestGetServicePorts(tt *testing.T) {
 			msg: "test using ports from pod spec with named ingress port",
 			stackSpec: zv1.StackSpec{
 				Service: nil,
-				PodTemplate: v1.PodTemplateSpec{
+				PodTemplate: zv1.PodTemplateSpec{
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
@@ -162,7 +162,7 @@ func TestGetServicePorts(tt *testing.T) {
 			msg: "test using ports from pod spec with invalid named ingress port",
 			stackSpec: zv1.StackSpec{
 				Service: nil,
-				PodTemplate: v1.PodTemplateSpec{
+				PodTemplate: zv1.PodTemplateSpec{
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
@@ -201,7 +201,7 @@ func TestGetServicePorts(tt *testing.T) {
 						},
 					},
 				},
-				PodTemplate: v1.PodTemplateSpec{
+				PodTemplate: zv1.PodTemplateSpec{
 					Spec: v1.PodSpec{
 						Containers: []v1.Container{
 							{
@@ -239,18 +239,15 @@ func TestGetServicePorts(tt *testing.T) {
 	}
 }
 
-func TestTemplateInjectLabels(t *testing.T) {
-	template := v1.PodTemplateSpec{}
+func TestObjectMetaInjectLabels(t *testing.T) {
 	labels := map[string]string{"foo": "bar"}
 
-	expectedTemplate := &v1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: labels,
-		},
+	expectedObjectMeta := metav1.ObjectMeta{
+		Labels: labels,
 	}
 
-	newTemplate := templateInjectLabels(&template, labels)
-	require.Equal(t, expectedTemplate, newTemplate)
+	newObjectMeta := objectMetaInjectLabels(metav1.ObjectMeta{}, labels)
+	require.Equal(t, expectedObjectMeta, newObjectMeta)
 }
 
 func TestLimitLabels(t *testing.T) {
@@ -426,7 +423,7 @@ func TestStackGenerateService(t *testing.T) {
 					ObjectMeta: testStackMeta,
 					Spec: zv1.StackSpec{
 						Service: nil,
-						PodTemplate: v1.PodTemplateSpec{
+						PodTemplate: zv1.PodTemplateSpec{
 							Spec: v1.PodSpec{
 								Containers: []v1.Container{
 									{
@@ -637,8 +634,8 @@ func TestStackGenerateDeployment(t *testing.T) {
 					ObjectMeta: testStackMeta,
 					Spec: zv1.StackSpec{
 						Strategy: strategy,
-						PodTemplate: v1.PodTemplateSpec{
-							ObjectMeta: metav1.ObjectMeta{
+						PodTemplate: zv1.PodTemplateSpec{
+							EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
 								Labels: map[string]string{
 									"pod-label": "pod-foo",
 								},

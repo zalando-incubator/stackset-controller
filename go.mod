@@ -24,7 +24,3 @@ require (
 	k8s.io/code-generator v0.18.8
 	sigs.k8s.io/controller-tools v0.4.0
 )
-
-// This PR: https://github.com/kubernetes-sigs/controller-tools/pull/395
-// rebased on v0.4.0
-replace sigs.k8s.io/controller-tools => github.com/mikkeloscar/controller-tools v0.4.1-0.20200826152554-54e4525f9990
