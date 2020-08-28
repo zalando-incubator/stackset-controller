@@ -55,10 +55,11 @@ func TestHPABehaviorDefaults(t *testing.T) {
 	fullFirstName := fmt.Sprintf("%s-%s", stacksetName, stackVersion)
 	stack, err := waitForStack(t, stacksetName, stackVersion)
 	require.NoError(t, err, "failed to create stack without stabilization")
-	require.Nil(t, stack)
+	require.NotNil(t, stack)
 
 	hpa, err := waitForHPA(t, fullFirstName)
 	require.NoError(t, err, "failed to create HPA")
+	require.NotNil(t, hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds, "HPA StabilizationWindowSeconds is nil")
 	require.EqualValues(t, 300, *hpa.Spec.Behavior.ScaleDown.StabilizationWindowSeconds)
 }
 
