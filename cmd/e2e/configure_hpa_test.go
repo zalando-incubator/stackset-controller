@@ -94,7 +94,7 @@ func TestConfigureAutoscaling(t *testing.T) {
 // TestAutoscalingDefaults tests defaults are applied to Autoscaling Behavior
 func TestAutoscalingDefaults(t *testing.T) {
 	t.Parallel()
-	stacksetName := "configured-autoscaler"
+	stacksetName := "autoscaler-behavior"
 	metrics := []zv1.AutoscalerMetrics{
 		makeCPUAutoscalerMetrics(50),
 		makeExternalAutoscalerMetrics("test", "eu-central-1", 10),
