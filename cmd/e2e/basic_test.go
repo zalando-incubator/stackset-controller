@@ -10,6 +10,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
+	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -24,20 +25,22 @@ var (
 )
 
 type TestStacksetSpecFactory struct {
-	stacksetName       string
-	hpa                bool
-	ingress            bool
-	ingressAnnotations map[string]string
-	externalIngress    bool
-	limit              int32
-	scaleDownTTL       int64
-	replicas           int32
-	hpaMaxReplicas     int32
-	hpaMinReplicas     int32
-	autoscaler         bool
-	maxSurge           int
-	maxUnavailable     int
-	metrics            []zv1.AutoscalerMetrics
+	stacksetName                  string
+	hpa                           bool
+	hpaBehavior                   bool
+	ingress                       bool
+	ingressAnnotations            map[string]string
+	externalIngress               bool
+	limit                         int32
+	scaleDownTTL                  int64
+	replicas                      int32
+	hpaMaxReplicas                int32
+	hpaMinReplicas                int32
+	hpaStabilizationWindowSeconds int32
+	autoscaler                    bool
+	maxSurge                      int
+	maxUnavailable                int
+	metrics                       []zv1.AutoscalerMetrics
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
@@ -58,6 +61,12 @@ func (f *TestStacksetSpecFactory) HPA(minReplicas, maxReplicas int32) *TestStack
 	f.hpa = true
 	f.hpaMinReplicas = minReplicas
 	f.hpaMaxReplicas = maxReplicas
+	return f
+}
+
+func (f *TestStacksetSpecFactory) Behavior(stabilizationWindowSeconds int32) *TestStacksetSpecFactory {
+	f.hpaBehavior = true
+	f.hpaStabilizationWindowSeconds = stabilizationWindowSeconds
 	return f
 }
 
@@ -129,6 +138,15 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 				},
 			},
 		}
+
+		if f.hpaBehavior {
+			result.StackTemplate.Spec.HorizontalPodAutoscaler.Behavior =
+				&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
+					ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
+					},
+				}
+		}
 	}
 
 	if f.autoscaler {
@@ -136,6 +154,16 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			MaxReplicas: f.hpaMaxReplicas,
 			MinReplicas: pint32(f.hpaMinReplicas),
 			Metrics:     f.metrics,
+		}
+
+		if f.hpaBehavior {
+			result.StackTemplate.Spec.Autoscaler.Behavior =
+				&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
+
+					ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
+					},
+				}
 		}
 	}
 
