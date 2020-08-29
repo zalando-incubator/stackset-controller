@@ -1,0 +1,63 @@
+name: ci
+on: [push, pull_request]
+env:
+  GO111MODULE: on
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-go@v2
+      with:
+        go-version: '^1.15'
+    # - run: echo "::add-path::$(go env GOPATH)/bin"
+    - name: Install Deps
+      run: |
+        GO111MODULE=off go get github.com/mattn/goveralls
+        GO111MODULE=off go get github.com/lawrencewoodman/roveralls
+        curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(go env GOPATH)/bin ${GOLANGCI_RELEASE}
+      env:
+        GOLANGCI_RELEASE: v1.30.0
+    - name: Build
+      run: |
+        make check
+        make test
+        make
+        make build/linux/e2e
+        IMAGE=stackset-controller VERSION=local make build.docker
+    - run: GOPATH=$(go env GOPATH) roveralls -ignore cmd/e2e
+    - run: goveralls -v -coverprofile=roveralls.coverprofile -service=github
+      env:
+        COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # run e2e
+    # https://github.com/engineerd/setup-kind
+    - uses: engineerd/setup-kind@v0.4.0
+      with:
+        version: "v0.8.1"
+        skipClusterCreation: "true"
+    - name: E2E Tests
+      run: |
+        ./.github/workflows/kind-with-registry.sh
+        docker tag stackset-controller:local localhost:5000/stackset-controller:local
+        docker push localhost:5000/stackset-controller:local
+
+        # setup and run e2e
+        kubectl create ns stackset-e2e
+        # Deploy stackset controller + crds
+        kubectl apply -f docs/stack_crd.yaml -f docs/stackset_crd.yaml
+        # add RBAC role
+        sed 's#{{{NAMESPACE}}}#default#' e2e/apply/rbac.yaml | kubectl --namespace default apply -f -
+        # add stackset-controller deployment
+        sed 's#{{{APPLICATION}}}#stackset-controller#' e2e/apply/deployment.yaml \
+        | sed 's#{{{CONTROLLER_ID}}}#stackset-e2e#'\
+        | sed 's#{{{CLUSTER_DOMAIN}}}#example.org#' \
+        | sed "s#{{{IMAGE}}}#localhost:5000/stackset-controller:local#" | kubectl --namespace default apply -f -
+        # wait for stackset-controller Pod to be ready
+        while [ "$(kubectl get pod -l application=stackset-controller -o jsonpath='{.items[0].status.conditions[?(@.type=="Ready")].status}')" != "True" ]; do echo "Waiting for ready pod"; sleep 5; done
+        # run e2e
+        CLUSTER_DOMAIN=example.org \
+        CLUSTER_NAME=test \
+        E2E_NAMESPACE=stackset-e2e \
+        CONTROLLER_ID=stackset-e2e \
+        KUBECONFIG="${HOME}/.kube/config" ./build/linux/e2e
+        # KUBECONFIG="${HOME}/.kube/config" ./build/linux/e2e -test.parallel 64
