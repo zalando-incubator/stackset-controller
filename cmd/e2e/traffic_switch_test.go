@@ -33,7 +33,7 @@ func TestTrafficSwitchStackset(t *testing.T) {
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	updatedVersion := "v2"
 	updatedStack := fmt.Sprintf("%s-%s", stacksetName, updatedVersion)
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress()
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress(nil)
 	spec := factory.Create(firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)

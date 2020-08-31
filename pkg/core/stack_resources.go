@@ -46,18 +46,25 @@ func limitLabels(labels map[string]string, validKeys map[string]struct{}) map[st
 	return newLabels
 }
 
-// templateInjectLabels injects labels into a pod template spec.
-func templateInjectLabels(template *v1.PodTemplateSpec, labels map[string]string) *v1.PodTemplateSpec {
-	if template.ObjectMeta.Labels == nil {
-		template.ObjectMeta.Labels = map[string]string{}
+// templateObjectMetaInjectLabels injects labels into a pod template spec.
+func objectMetaInjectLabels(objectMeta metav1.ObjectMeta, labels map[string]string) metav1.ObjectMeta {
+	if objectMeta.Labels == nil {
+		objectMeta.Labels = map[string]string{}
 	}
-
 	for key, value := range labels {
-		if _, ok := template.ObjectMeta.Labels[key]; !ok {
-			template.ObjectMeta.Labels[key] = value
+		if _, ok := objectMeta.Labels[key]; !ok {
+			objectMeta.Labels[key] = value
 		}
 	}
-	return template
+	return objectMeta
+}
+
+func embeddedToObjectMeta(embedded zv1.EmbeddedObjectMeta) metav1.ObjectMeta {
+	c := embedded.DeepCopy()
+	return metav1.ObjectMeta{
+		Annotations: c.Annotations,
+		Labels:      c.Labels,
+	}
 }
 
 func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
@@ -171,6 +178,13 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		strategy = stack.Spec.Strategy.DeepCopy()
 	}
 
+	embeddedCopy := stack.Spec.PodTemplate.EmbeddedObjectMeta.DeepCopy()
+
+	templateObjectMeta := metav1.ObjectMeta{
+		Annotations: embeddedCopy.Annotations,
+		Labels:      embeddedCopy.Labels,
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
@@ -178,7 +192,10 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 			Selector: &metav1.LabelSelector{
 				MatchLabels: sc.selector(),
 			},
-			Template: *templateInjectLabels(stack.Spec.PodTemplate.DeepCopy(), stack.Labels),
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: objectMetaInjectLabels(templateObjectMeta, stack.Labels),
+				Spec:       *stack.Spec.PodTemplate.Spec.DeepCopy(),
+			},
 		},
 	}
 	if strategy != nil {

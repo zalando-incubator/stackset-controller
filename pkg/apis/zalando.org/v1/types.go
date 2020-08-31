@@ -53,13 +53,46 @@ type StackSetSpec struct {
 	Traffic []*DesiredTraffic `json:"traffic,omitempty"`
 }
 
+// EmbeddedObjectMetaWithAnnotations defines the metadata which can be attached
+// to a resource. It's a slimmed down version of metav1.ObjectMeta only
+// containing annotations.
+// +k8s:deepcopy-gen=true
+type EmbeddedObjectMetaWithAnnotations struct {
+	// Annotations is an unstructured key value map stored with a resource that may be
+	// set by external tools to store and retrieve arbitrary metadata. They are not
+	// queryable and should be preserved when modifying objects.
+	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
+}
+
+// EmbeddedObject defines the metadata which can be attached
+// to a resource. It's a slimmed down version of metav1.ObjectMeta only
+// containing labels and annotations.
+// +k8s:deepcopy-gen=true
+type EmbeddedObjectMeta struct {
+	// Map of string keys and values that can be used to organize and categorize
+	// (scope and select) objects. May match selectors of replication controllers
+	// and services.
+	// More info: http://kubernetes.io/docs/user-guide/labels
+	// +optional
+	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,11,rep,name=labels"`
+
+	// Annotations is an unstructured key value map stored with a resource that may be
+	// set by external tools to store and retrieve arbitrary metadata. They are not
+	// queryable and should be preserved when modifying objects.
+	// More info: http://kubernetes.io/docs/user-guide/annotations
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
+}
+
 // StackSetIngressSpec is the ingress defintion of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
 type StackSetIngressSpec struct {
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Hosts             []string           `json:"hosts"`
-	BackendPort       intstr.IntOrString `json:"backendPort"`
+	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
+	Hosts                             []string           `json:"hosts"`
+	BackendPort                       intstr.IntOrString `json:"backendPort"`
 	// +optional
 	Path string `json:"path"`
 }
@@ -90,8 +123,8 @@ type StackLifecycle struct {
 // StackSet definition.
 // +k8s:deepcopy-gen=true
 type StackTemplate struct {
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              StackSpecTemplate `json:"spec"`
+	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
+	Spec                              StackSpecTemplate `json:"spec"`
 }
 
 // MetricsEndpoint specified the endpoint where the custom endpoint where the metrics
@@ -145,7 +178,6 @@ type Autoscaler struct {
 // defined an HPA will be created for the Stack.
 // +k8s:deepcopy-gen=true
 type HorizontalPodAutoscaler struct {
-	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
 	// It defaults to 1 pod.
 	// +optional
@@ -253,6 +285,19 @@ type Stack struct {
 	Status StackStatus `json:"status"`
 }
 
+// PodTemplateSpec describes the data a pod should have when created from a template
+// +k8s:deepcopy-gen=true
+type PodTemplateSpec struct {
+	// Object's metadata.
+	// +optional
+	EmbeddedObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Specification of the desired behavior of the pod.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec v1.PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+}
+
 // StackSpec is the spec part of the Stack.
 // +k8s:deepcopy-gen=true
 type StackSpec struct {
@@ -266,7 +311,7 @@ type StackSpec struct {
 	// container port and ingress backendport.
 	Service *StackServiceSpec `json:"service,omitempty"`
 	// PodTemplate describes the pods that will be created.
-	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
+	PodTemplate PodTemplateSpec `json:"podTemplate"`
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
 
@@ -278,7 +323,7 @@ type StackSpec struct {
 // a stack.
 // +k8s:deepcopy-gen=true
 type StackServiceSpec struct {
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 
 	// The list of ports that are exposed by this service.
 	// More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
