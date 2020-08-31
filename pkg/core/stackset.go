@@ -6,7 +6,6 @@ import (
 	"sort"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,17 +16,6 @@ const (
 	StackVersionLabelKey     = "stack-version"
 
 	ingressTrafficAuthoritativeAnnotation = "zalando.org/traffic-authoritative"
-
-	// defaults for scaleUp and scaleDown StabilizationWindowSeconds
-	// ScaleUp:
-	// https://github.com/kubernetes/kubernetes/blob/9f2892aab98fe339f3bd70e3c470144299398ace/pkg/apis/autoscaling/v2beta2/defaults.go#L31
-	// ScaleDown:
-	// https://github.com/kubernetes/kubernetes/blob/9f2892aab98fe339f3bd70e3c470144299398ace/pkg/apis/autoscaling/v2beta2/defaults.go#L50-L52
-	// Not a fixed value because it can be set via a flag on the
-	// controller-manager. We use the default flag value:
-	// https://github.com/kubernetes/kubernetes/blob/9f2892aab98fe339f3bd70e3c470144299398ace/pkg/controller/podautoscaler/config/v1alpha1/defaults.go#L48
-	defaultScaleUpStabilizationSeconds   = 0
-	defaultScaleDownStabilizationSeconds = 300
 )
 
 var (
@@ -77,15 +65,6 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 			service = sanitizeServicePorts(stackset.Spec.StackTemplate.Spec.Service)
 		}
 
-		horizontalPodAutoscaler := stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy()
-		if horizontalPodAutoscaler != nil {
-			horizontalPodAutoscaler.Behavior = defaultAutoscaleBehavior(horizontalPodAutoscaler.Behavior)
-		}
-		autoscaler := stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy()
-		if autoscaler != nil {
-			autoscaler.Behavior = defaultAutoscaleBehavior(autoscaler.Behavior)
-		}
-
 		return &StackContainer{
 			Stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
@@ -107,10 +86,10 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 				},
 				Spec: zv1.StackSpec{
 					Replicas:                stackset.Spec.StackTemplate.Spec.Replicas,
-					HorizontalPodAutoscaler: horizontalPodAutoscaler,
+					HorizontalPodAutoscaler: stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy(),
 					Service:                 service,
 					PodTemplate:             stackset.Spec.StackTemplate.Spec.PodTemplate,
-					Autoscaler:              autoscaler,
+					Autoscaler:              stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy(),
 					Strategy:                stackset.Spec.StackTemplate.Spec.Strategy,
 				},
 			},
@@ -118,24 +97,6 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 	}
 
 	return nil, ""
-}
-
-// defaultAutoscaleBehavior sets the defaults of the autoscale behavior if no
-// value is specified.
-// This is required for scalDown and scaleUp stabilizationWindowSeconds because
-// an int32 is expected instead of `null`.
-func defaultAutoscaleBehavior(behavior *autoscaling.HorizontalPodAutoscalerBehavior) *autoscaling.HorizontalPodAutoscalerBehavior {
-	if behavior != nil && behavior.ScaleDown != nil && behavior.ScaleDown.StabilizationWindowSeconds == nil {
-		stabilizationWindowSeconds := (int32)(defaultScaleDownStabilizationSeconds)
-		behavior.ScaleDown.StabilizationWindowSeconds = &stabilizationWindowSeconds
-	}
-
-	if behavior != nil && behavior.ScaleUp != nil && behavior.ScaleUp.StabilizationWindowSeconds == nil {
-		stabilizationWindowSeconds := (int32)(defaultScaleUpStabilizationSeconds)
-		behavior.ScaleUp.StabilizationWindowSeconds = &stabilizationWindowSeconds
-	}
-
-	return behavior
 }
 
 // MarkExpiredStacks marks stacks that should be deleted

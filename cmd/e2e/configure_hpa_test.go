@@ -43,8 +43,8 @@ func TestHPABehaviorDefaults(t *testing.T) {
 	spec := factory.Create(stackVersion)
 	scalePolicy := autoscalingv2beta2.MaxPolicySelect
 	spec.StackTemplate.Spec.HorizontalPodAutoscaler.Behavior =
-		&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
-			ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+		&zv1.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &zv1.HPAScalingRules{
 				SelectPolicy: &scalePolicy,
 			},
 		}
@@ -111,8 +111,8 @@ func TestAutoscalingDefaults(t *testing.T) {
 	spec := factory.Create(firstVersion)
 	scalePolicy := autoscalingv2beta2.MaxPolicySelect
 	spec.StackTemplate.Spec.Autoscaler.Behavior =
-		&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
-			ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+		&zv1.HorizontalPodAutoscalerBehavior{
+			ScaleDown: &zv1.HPAScalingRules{
 				SelectPolicy: &scalePolicy,
 			},
 		}
