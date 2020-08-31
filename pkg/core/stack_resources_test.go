@@ -773,8 +773,8 @@ func TestGenerateHPA(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			podTemplate := v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
+			podTemplate := zv1.PodTemplateSpec{
+				EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
 					Labels: map[string]string{
 						"pod-label": "pod-foo",
 					},
