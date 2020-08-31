@@ -275,7 +275,7 @@ spec:
                         metrics:
                           items:
                             description: AutoscalerMetrics is the type of metric to
-                              be be used for autoscaling
+                              be be used for autoscaling.
                             properties:
                               average:
                                 anyOf:
@@ -308,7 +308,7 @@ spec:
                                 type: object
                               queue:
                                 description: MetricsQueue specifies the SQS queue
-                                  whose length should be used for scaling
+                                  whose length should be used for scaling.
                                 properties:
                                   name:
                                     type: string
@@ -319,6 +319,8 @@ spec:
                                 - region
                                 type: object
                               type:
+                                description: AutoscalerMetricType is the type of the
+                                  metric used for scaling.
                                 type: string
                             required:
                             - type

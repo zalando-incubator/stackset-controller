@@ -86,10 +86,10 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 				},
 				Spec: zv1.StackSpec{
 					Replicas:                stackset.Spec.StackTemplate.Spec.Replicas,
-					HorizontalPodAutoscaler: stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler,
+					HorizontalPodAutoscaler: stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy(),
 					Service:                 service,
 					PodTemplate:             stackset.Spec.StackTemplate.Spec.PodTemplate,
-					Autoscaler:              stackset.Spec.StackTemplate.Spec.Autoscaler,
+					Autoscaler:              stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy(),
 					Strategy:                stackset.Spec.StackTemplate.Spec.Strategy,
 				},
 			},
