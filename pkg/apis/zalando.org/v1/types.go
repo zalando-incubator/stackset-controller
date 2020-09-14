@@ -145,6 +145,7 @@ type MetricsQueue struct {
 }
 
 // AutoscalerMetricType is the type of the metric used for scaling.
+// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;ZMON
 type AutoscalerMetricType string
 
 const (
