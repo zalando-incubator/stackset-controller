@@ -776,3 +776,63 @@ func TestTrafficChanges(t *testing.T) {
 	}
 	require.Equal(t, expected, c.TrafficChanges())
 }
+
+func TestRoundWeights(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		weights  map[string]float64
+		expected map[string]float64
+	}{
+		{
+			name: "no decimal, no change",
+			weights: map[string]float64{
+				"v1": 50.0,
+				"v2": 50.0,
+			},
+			expected: map[string]float64{
+				"v1": 50.0,
+				"v2": 50.0,
+			},
+		},
+		{
+			name: "biggest weight should get most of the remaining weight after rounding down",
+			weights: map[string]float64{
+				"v1": 49.5,
+				"v2": 50.5,
+			},
+			expected: map[string]float64{
+				"v1": 49.0,
+				"v2": 51.0,
+			},
+		},
+		{
+			name: "biggest fraction should get most of the remaining weight after rounding down",
+			weights: map[string]float64{
+				"v1": 72.3,
+				"v2": 27.7,
+			},
+			expected: map[string]float64{
+				"v1": 72.0,
+				"v2": 28.0,
+			},
+		},
+		{
+			name: "first sorted name (lexicographical) should get most of the remaining weight when weights are equal after rounding down",
+			weights: map[string]float64{
+				"v1": 100.0 / 3,
+				"v2": 100.0 / 3,
+				"v3": 100.0 / 3,
+			},
+			expected: map[string]float64{
+				"v1": 34.0,
+				"v2": 33.0,
+				"v3": 33.0,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			roundWeights(tc.weights)
+			require.Equal(t, tc.expected, tc.weights)
+		})
+	}
+}

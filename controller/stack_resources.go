@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
@@ -230,5 +231,65 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 		"UpdatedIngress",
 		"Updated Ingress %s",
 		ingress.Name)
+	return nil
+}
+
+func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack *zv1.Stack, existing *rgv1.RouteGroup, generateUpdated func() (*rgv1.RouteGroup, error)) error {
+	routegroup, err := generateUpdated()
+	if err != nil {
+		return err
+	}
+
+	// RouteGroup removed
+	if routegroup == nil {
+		if existing != nil {
+			err := c.client.RouteGroupV1().RouteGroups(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+			c.recorder.Eventf(
+				stack,
+				apiv1.EventTypeNormal,
+				"DeletedRouteGroup",
+				"Deleted RouteGroup %s",
+				existing.Namespace)
+		}
+		return nil
+	}
+
+	// Create new RouteGroup
+	if existing == nil {
+		_, err := c.client.RouteGroupV1().RouteGroups(routegroup.Namespace).Create(ctx, routegroup, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"CreatedRouteGroup",
+			"Created RouteGroup %s",
+			routegroup.Name)
+		return nil
+	}
+
+	// Check if we need to update the RouteGroup
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) {
+		return nil
+	}
+
+	updated := existing.DeepCopy()
+	syncObjectMeta(updated, routegroup)
+	updated.Spec = routegroup.Spec
+
+	_, err = c.client.RouteGroupV1().RouteGroups(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	c.recorder.Eventf(
+		stack,
+		apiv1.EventTypeNormal,
+		"UpdatedRouteGroup",
+		"Updated RouteGroup %s",
+		routegroup.Name)
 	return nil
 }

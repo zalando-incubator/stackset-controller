@@ -13,6 +13,7 @@ import (
 	"github.com/heptiolabs/healthcheck"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
@@ -60,6 +61,8 @@ type StackSetController struct {
 	recorder                    kube_record.EventRecorder
 	metricsReporter             *core.MetricsReporter
 	HealthReporter              healthcheck.Handler
+	routeGroupSupportEnabled    bool
+	ingressSourceSwitchTTL      time.Duration
 	sync.Mutex
 }
 
@@ -78,7 +81,7 @@ func (ee *eventedError) Error() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID, backendWeightsAnnotationKey, clusterDomain string, registry prometheus.Registerer, interval time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, controllerID, backendWeightsAnnotationKey, clusterDomain string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -96,6 +99,8 @@ func NewStackSetController(client clientset.Interface, controllerID, backendWeig
 		recorder:                    recorder.CreateEventRecorder(client),
 		metricsReporter:             metricsReporter,
 		HealthReporter:              healthcheck.NewHandler(),
+		routeGroupSupportEnabled:    routeGroupSupportEnabled,
+		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 	}, nil
 }
 
@@ -234,6 +239,13 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		return nil, err
 	}
 
+	if c.routeGroupSupportEnabled {
+		err = c.collectRouteGroups(ctx, stacksets)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	err = c.collectDeployments(ctx, stacksets)
 	if err != nil {
 		return nil, err
@@ -265,13 +277,41 @@ Items:
 			// stackset ingress
 			if s, ok := stacksets[uid]; ok {
 				s.Ingress = &ingress
-				continue Items
+				continue
 			}
 
 			// stack ingress
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					s.Resources.Ingress = &ingress
+					continue Items
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	routegroups, err := c.client.RouteGroupV1().RouteGroups(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list RouteGroups: %v", err)
+	}
+
+Items:
+	for _, rg := range routegroups.Items {
+		routegroup := rg
+		if uid, ok := getOwnerUID(routegroup.ObjectMeta); ok {
+			// stackset routegroups
+			if s, ok := stacksets[uid]; ok {
+				s.RouteGroup = &routegroup
+				continue
+			}
+
+			// stack routegroups
+			for _, stackset := range stacksets {
+				if s, ok := stackset.StackContainers[uid]; ok {
+					s.Resources.RouteGroup = &routegroup
 					continue Items
 				}
 			}
@@ -611,7 +651,7 @@ func (c *StackSetController) CleanupOldStacks(ctx context.Context, ssc *core.Sta
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSetIngress(ctx context.Context, stackset *zv1.StackSet, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
+func (c *StackSetController) ReconcileStackSetIngress(ctx context.Context, stackset *zv1.StackSet, existing *networking.Ingress, routegroup *rgv1.RouteGroup, generateUpdated func() (*networking.Ingress, error)) error {
 	ingress, err := generateUpdated()
 	if err != nil {
 		return err
@@ -620,6 +660,17 @@ func (c *StackSetController) ReconcileStackSetIngress(ctx context.Context, stack
 	// Ingress removed
 	if ingress == nil {
 		if existing != nil {
+			// Check if a routegroup exists and if so only delete if it has existed for more than ingressSourceWithTTL time.
+			if stackset.Spec.RouteGroup != nil {
+				if routegroup == nil {
+					c.logger.Infof("Not deleting Ingress %s yet, RouteGroup missing", existing.Name)
+					return nil
+				} else if !routegroup.CreationTimestamp.Time.IsZero() && time.Since(routegroup.CreationTimestamp.Time) < c.ingressSourceSwitchTTL {
+					c.logger.Infof("Not deleting Ingress %s yet, RouteGroup %s created less than %s ago (%s)", existing.Name, routegroup.Name, c.ingressSourceSwitchTTL, time.Since(routegroup.CreationTimestamp.Time))
+					return nil
+				}
+			}
+
 			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err
@@ -656,8 +707,9 @@ func (c *StackSetController) ReconcileStackSetIngress(ctx context.Context, stack
 
 	updated := existing.DeepCopy()
 	updated.Spec = ingress.Spec
+	updated.Annotations = ingress.Annotations
 
-	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(ctx, ingress, metav1.UpdateOptions{})
+	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
@@ -670,11 +722,88 @@ func (c *StackSetController) ReconcileStackSetIngress(ctx context.Context, stack
 	return nil
 }
 
+func (c *StackSetController) ReconcileStackSetRouteGroup(ctx context.Context, stackset *zv1.StackSet, existing *rgv1.RouteGroup, ingress *networking.Ingress, generateUpdated func() (*rgv1.RouteGroup, error)) error {
+	rg, err := generateUpdated()
+	if err != nil {
+		return err
+	}
+
+	// RouteGroup removed
+	if rg == nil {
+		if existing != nil {
+			// Check if an ingress exists and if so only delete if it has existed for more than ingressSourceWithTTL time.
+			if stackset.Spec.Ingress != nil {
+				if ingress == nil {
+					c.logger.Infof("Not deleting RouteGroup %s yet, Ingress missing", existing.Name)
+					return nil
+				} else if !ingress.CreationTimestamp.Time.IsZero() && time.Since(ingress.CreationTimestamp.Time) < c.ingressSourceSwitchTTL {
+					c.logger.Infof("Not deleting RouteGroup %s yet, Ingress %s created less than %s ago (%s)", existing.Name, ingress.Name, c.ingressSourceSwitchTTL, time.Since(ingress.CreationTimestamp.Time))
+					return nil
+				}
+			}
+
+			err := c.client.RouteGroupV1().RouteGroups(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+			c.recorder.Eventf(
+				stackset,
+				apiv1.EventTypeNormal,
+				"DeletedRouteGroup",
+				"Deleted RouteGroup %s",
+				existing.Namespace)
+		}
+		return nil
+	}
+
+	// Create new RouteGroup
+	if existing == nil {
+		_, err := c.client.RouteGroupV1().RouteGroups(rg.Namespace).Create(ctx, rg, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(
+			stackset,
+			apiv1.EventTypeNormal,
+			"CreatedRouteGroup",
+			"Created RouteGroup %s",
+			rg.Name)
+		return nil
+	}
+
+	// Check if we need to update the RouteGroup
+	if equality.Semantic.DeepDerivative(rg.Spec, existing.Spec) {
+		return nil
+	}
+
+	updated := existing.DeepCopy()
+	updated.Spec = rg.Spec
+
+	_, err = c.client.RouteGroupV1().RouteGroups(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	c.recorder.Eventf(
+		stackset,
+		apiv1.EventTypeNormal,
+		"UpdatedRouteGroup",
+		"Updated RouteGroup %s",
+		rg.Name)
+	return nil
+}
+
 func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
 	// opt-out ingress creation in case we have an external entity creating ingress
-	err := c.ReconcileStackSetIngress(ctx, ssc.StackSet, ssc.Ingress, ssc.GenerateIngress)
+	err := c.ReconcileStackSetIngress(ctx, ssc.StackSet, ssc.Ingress, ssc.RouteGroup, ssc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedManageIngress", err)
+	}
+
+	if c.routeGroupSupportEnabled {
+		err = c.ReconcileStackSetRouteGroup(ctx, ssc.StackSet, ssc.RouteGroup, ssc.Ingress, ssc.GenerateRouteGroup)
+		if err != nil {
+			return c.errorEventf(ssc.StackSet, "FailedManageRouteGroup", err)
+		}
 	}
 
 	trafficChanges := ssc.TrafficChanges()
@@ -737,6 +866,13 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	err = c.ReconcileStackIngress(ctx, sc.Stack, sc.Resources.Ingress, sc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageIngress", err)
+	}
+
+	if c.routeGroupSupportEnabled {
+		err = c.ReconcileStackRouteGroup(ctx, sc.Stack, sc.Resources.RouteGroup, sc.GenerateRouteGroup)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
+		}
 	}
 
 	return nil

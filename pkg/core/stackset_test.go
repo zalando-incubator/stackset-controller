@@ -1,11 +1,13 @@
 package core
 
 import (
+	"sort"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	apps "k8s.io/api/apps/v1"
@@ -1030,4 +1032,144 @@ func TestStackSetGenerateIngressNone(t *testing.T) {
 	ingress, err := c.GenerateIngress()
 	require.NoError(t, err)
 	require.Nil(t, ingress)
+}
+
+func TestStackSetGenerateRouteGroup(t *testing.T) {
+	c := &StackSetContainer{
+		StackSet: &zv1.StackSet{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: APIVersion,
+				Kind:       KindStackSet,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"stackset-label": "foobar",
+				},
+				UID: "abc-123",
+			},
+			Spec: zv1.StackSetSpec{
+				RouteGroup: &zv1.RouteGroupSpec{
+					Hosts: []string{"example.org", "example.com"},
+					AdditionalBackends: []rgv1.RouteGroupBackend{
+						{
+							Name: "shunt",
+							Type: rgv1.ShuntRouteGroupBackend,
+						},
+					},
+					Routes: []rgv1.RouteGroupRouteSpec{
+						{
+							PathSubtree: "/example",
+						},
+						{
+							Path: "/ok",
+							Backends: []rgv1.RouteGroupBackendReference{
+								{
+									BackendName: "shunt",
+								},
+							},
+						},
+					},
+					BackendPort: testPort,
+				},
+			},
+		},
+		StackContainers: map[types.UID]*StackContainer{
+			"v1": testStack("foo-v1").traffic(12.5, 25).stack(),
+			"v2": testStack("foo-v2").traffic(50, 13).stack(),
+			"v3": testStack("foo-v3").traffic(62.5, 62).stack(),
+			"v4": testStack("foo-v4").traffic(0, 0).stack(),
+		},
+	}
+	routegroup, err := c.GenerateRouteGroup()
+	require.NoError(t, err)
+
+	// sort for stable comparison
+	sort.Slice(routegroup.Spec.Backends, func(i, j int) bool {
+		return routegroup.Spec.Backends[i].Name < routegroup.Spec.Backends[j].Name
+	})
+	sort.Slice(routegroup.Spec.DefaultBackends, func(i, j int) bool {
+		return routegroup.Spec.DefaultBackends[i].BackendName < routegroup.Spec.DefaultBackends[j].BackendName
+	})
+
+	expected := &rgv1.RouteGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"stackset":       "foo",
+				"stackset-label": "foobar",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: APIVersion,
+					Kind:       KindStackSet,
+					Name:       "foo",
+					UID:        "abc-123",
+				},
+			},
+		},
+		Spec: rgv1.RouteGroupSpec{
+			Hosts: []string{"example.org", "example.com"},
+			Backends: []rgv1.RouteGroupBackend{
+				{
+					Name:        "foo-v1",
+					Type:        rgv1.ServiceRouteGroupBackend,
+					ServiceName: "foo-v1",
+					ServicePort: testPort,
+				},
+				{
+					Name:        "foo-v2",
+					Type:        rgv1.ServiceRouteGroupBackend,
+					ServiceName: "foo-v2",
+					ServicePort: testPort,
+				},
+				{
+					Name:        "foo-v3",
+					Type:        rgv1.ServiceRouteGroupBackend,
+					ServiceName: "foo-v3",
+					ServicePort: testPort,
+				},
+				{
+					Name:        "foo-v4",
+					Type:        rgv1.ServiceRouteGroupBackend,
+					ServiceName: "foo-v4",
+					ServicePort: testPort,
+				},
+				{
+					Name: "shunt",
+					Type: rgv1.ShuntRouteGroupBackend,
+				},
+			},
+			DefaultBackends: []rgv1.RouteGroupBackendReference{
+				{
+					BackendName: "foo-v1",
+					Weight:      25,
+				},
+				{
+					BackendName: "foo-v2",
+					Weight:      13,
+				},
+				{
+					BackendName: "foo-v3",
+					Weight:      62,
+				},
+			},
+			Routes: []rgv1.RouteGroupRouteSpec{
+				{
+					PathSubtree: "/example",
+				},
+				{
+					Path: "/ok",
+					Backends: []rgv1.RouteGroupBackendReference{
+						{
+							BackendName: "shunt",
+						},
+					},
+				},
+			},
+		},
+	}
+	require.Equal(t, expected, routegroup)
 }

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
@@ -716,6 +717,159 @@ func TestReconcileStackIngress(t *testing.T) {
 			require.NoError(t, err)
 
 			updated, err := env.client.NetworkingV1beta1().Ingresses(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
+			if tc.expected != nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, updated)
+			} else {
+				require.True(t, errors.IsNotFound(err))
+			}
+		})
+	}
+}
+
+func TestReconcileStackRouteGroup(t *testing.T) {
+	exampleSpec := rgv1.RouteGroupSpec{
+		Hosts: []string{"example.org"},
+		Backends: []rgv1.RouteGroupBackend{
+			{
+				Name:        "foo",
+				Type:        rgv1.ServiceRouteGroupBackend,
+				ServiceName: "foo",
+				ServicePort: 80,
+			},
+		},
+		DefaultBackends: []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: "foo",
+				Weight:      100,
+			},
+		},
+		Routes: []rgv1.RouteGroupRouteSpec{
+			{
+				PathSubtree: "/",
+			},
+		},
+	}
+
+	exampleUpdatedSpec := rgv1.RouteGroupSpec{
+		Hosts: []string{"example.org"},
+		Backends: []rgv1.RouteGroupBackend{
+			{
+				Name:        "foo",
+				Type:        rgv1.ServiceRouteGroupBackend,
+				ServiceName: "foo",
+				ServicePort: 80,
+			},
+			{
+				Name:    "remote",
+				Type:    rgv1.NetworkRouteGroupBackend,
+				Address: "https://zalando.de",
+			},
+		},
+		DefaultBackends: []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: "foo",
+				Weight:      100,
+			},
+		},
+		Routes: []rgv1.RouteGroupRouteSpec{
+			{
+				PathSubtree: "/",
+			},
+			{
+				PathSubtree: "/redirect",
+				Backends: []rgv1.RouteGroupBackendReference{
+					{
+						BackendName: "remote",
+						Weight:      100,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing *rgv1.RouteGroup
+		updated  *rgv1.RouteGroup
+		expected *rgv1.RouteGroup
+	}{
+		{
+			name:  "routegroup is created if it doesn't exist",
+			stack: baseTestStack,
+			updated: &rgv1.RouteGroup{
+				ObjectMeta: baseTestStackOwned,
+				Spec:       exampleSpec,
+			},
+			expected: &rgv1.RouteGroup{
+				ObjectMeta: baseTestStackOwned,
+				Spec:       exampleSpec,
+			},
+		},
+		{
+			name:  "routegroup is removed if it is no longer needed",
+			stack: baseTestStack,
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: baseTestStackOwned,
+				Spec:       exampleSpec,
+			},
+			updated:  nil,
+			expected: nil,
+		},
+		{
+			name:  "routegroup is updated if the stack changes",
+			stack: updatedTestStack,
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: baseTestStackOwned,
+				Spec:       exampleSpec,
+			},
+			updated: &rgv1.RouteGroup{
+				ObjectMeta: updatedTestStackOwned,
+				Spec:       exampleUpdatedSpec,
+			},
+			expected: &rgv1.RouteGroup{
+				ObjectMeta: updatedTestStackOwned,
+				Spec:       exampleUpdatedSpec,
+			},
+		},
+		{
+			name:  "routegroup is not updated if the stack version remains the same",
+			stack: baseTestStack,
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: baseTestStackOwned,
+				Spec:       exampleSpec,
+			},
+			updated: &rgv1.RouteGroup{
+				ObjectMeta: baseTestStackOwned,
+				Spec:       exampleSpec,
+			},
+			expected: &rgv1.RouteGroup{
+				ObjectMeta: baseTestStackOwned,
+				Spec:       exampleSpec,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateRouteGroups(context.Background(), []rgv1.RouteGroup{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackRouteGroup(context.Background(), &tc.stack, tc.existing, func() (*rgv1.RouteGroup, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.RouteGroupV1().RouteGroups(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)
