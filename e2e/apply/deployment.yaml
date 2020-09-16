@@ -6,7 +6,6 @@ metadata:
     downscaler/exclude: "true"
   labels:
     application: "{{{APPLICATION}}}"
-    version: "{{{CDP_BUILD_VERSION}}}"
 spec:
   replicas: 1
   selector:
@@ -16,7 +15,6 @@ spec:
     metadata:
       labels:
         application: "{{{APPLICATION}}}"
-        version: "{{{CDP_BUILD_VERSION}}}"
     spec:
       serviceAccountName: stackset-controller
       containers:
@@ -25,6 +23,7 @@ spec:
         args:
           - "--controller-id={{{CONTROLLER_ID}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
+          - "--interval=2s"
         resources:
           limits:
             cpu: 10m
