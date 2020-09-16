@@ -8,7 +8,6 @@ require (
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-openapi/spec v0.19.4 // indirect
 	github.com/google/go-cmp v0.5.1
-	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
@@ -21,6 +20,6 @@ require (
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.18.8
 	k8s.io/client-go v0.18.8
-	k8s.io/code-generator v0.18.8
+	k8s.io/code-generator v0.19.1
 	sigs.k8s.io/controller-tools v0.4.1-0.20200911221209-6c9ddb17dfd0
 )
