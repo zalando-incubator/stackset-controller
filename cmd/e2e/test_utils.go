@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	networkingv1beta1 "k8s.io/api/networking/v1beta1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -44,6 +45,7 @@ var (
 				Ports: []corev1.ContainerPort{
 					{
 						ContainerPort: 80,
+						Protocol:      v1.ProtocolTCP,
 					},
 				},
 				Resources: corev1.ResourceRequirements{
