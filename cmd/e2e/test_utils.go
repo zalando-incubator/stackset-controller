@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -427,6 +428,14 @@ func waitForIngress(t *testing.T, name string) (*networkingv1beta1.Ingress, erro
 		return nil, err
 	}
 	return ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
+}
+
+func waitForRouteGroup(t *testing.T, name string) (*rgv1.RouteGroup, error) {
+	err := resourceCreated(t, "routegroup", name, routegroupInterface()).await()
+	if err != nil {
+		return nil, err
+	}
+	return routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
 func getIngressTrafficWeights(ingress *networkingv1beta1.Ingress, kind weightKind) map[string]float64 {

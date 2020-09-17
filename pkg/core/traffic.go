@@ -1,6 +1,8 @@
 package core
 
 import (
+	"math"
+	"sort"
 	"time"
 )
 
@@ -46,10 +48,71 @@ func normalizeWeights(backendWeights map[string]float64) {
 	}
 }
 
+// roundWeights rounds all the weights to whole numbers while ensuring they
+// still add up to 100.
+//
+// Example:
+//
+// The weights:
+//
+//   [33.33, 33.33, 33.33]
+//
+// will be rounded to:
+//
+//   [34, 33, 33]
+//
+// The function assumes that the weights are already normalized to a sum of
+// 100.
+// It's using the "Largets Remainder Method" for rounding:
+// https://en.wikipedia.org/wiki/Largest_remainder_method
+func roundWeights(weights map[string]float64) {
+	type backendWeight struct {
+		Backend string
+		Weight  float64
+	}
+
+	var weightList []backendWeight
+	sum := 0
+	// floor all weights of the map
+	// sum the rounded weights
+	// copy weights map to a slice to sort it later
+	for backend, weight := range weights {
+		roundedWeight := math.Floor(weight)
+		weights[backend] = roundedWeight
+		sum += int(roundedWeight)
+		weightList = append(weightList, backendWeight{
+			Backend: backend,
+			Weight:  weight,
+		})
+	}
+	// sort weights by:
+	// 1. biggest fraction
+	// 2. biggest integer
+	// 3. backend name - lexicographical
+	sort.Slice(weightList, func(i, j int) bool {
+		ii, fi := math.Modf(weightList[i].Weight)
+		ij, fj := math.Modf(weightList[j].Weight)
+		if fi > fj {
+			return true
+		}
+
+		if fi == fj && ii > ij {
+			return true
+		}
+
+		return fi == fj && ii == ij && weightList[i].Backend < weightList[j].Backend
+	})
+	// check the remaining weight and distribute
+	diff := 100 - sum
+	for _, backend := range weightList[:diff] {
+		weights[backend.Backend]++
+	}
+}
+
 // ManageTraffic handles the traffic reconciler logic
 func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 	// No ingress -> no traffic management required
-	if ssc.StackSet.Spec.Ingress == nil && ssc.StackSet.Spec.ExternalIngress == nil {
+	if ssc.StackSet.Spec.Ingress == nil && ssc.StackSet.Spec.RouteGroup == nil && ssc.StackSet.Spec.ExternalIngress == nil {
 		for _, sc := range ssc.StackContainers {
 			sc.desiredTrafficWeight = 0
 			sc.actualTrafficWeight = 0
@@ -88,6 +151,7 @@ func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 			weights[fallbackStack.Name()] = 100
 		} else {
 			normalizeWeights(weights)
+			roundWeights(weights)
 		}
 	}
 

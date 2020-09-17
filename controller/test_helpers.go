@@ -5,6 +5,10 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
+	rginterface "github.com/szuecs/routegroup-client/client/clientset/versioned"
+	rgfake "github.com/szuecs/routegroup-client/client/clientset/versioned/fake"
+	rgi "github.com/szuecs/routegroup-client/client/clientset/versioned/typed/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	ssinterface "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	ssfake "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
@@ -23,10 +27,15 @@ import (
 type testClient struct {
 	kubernetes.Interface
 	ssClient ssinterface.Interface
+	rgClient rginterface.Interface
 }
 
 func (c *testClient) ZalandoV1() zi.ZalandoV1Interface {
 	return c.ssClient.ZalandoV1()
+}
+
+func (c *testClient) RouteGroupV1() rgi.ZalandoV1Interface {
+	return c.rgClient.ZalandoV1()
 }
 
 type testEnvironment struct {
@@ -38,9 +47,10 @@ func NewTestEnvironment() *testEnvironment {
 	client := &testClient{
 		Interface: fake.NewSimpleClientset(),
 		ssClient:  ssfake.NewSimpleClientset(),
+		rgClient:  rgfake.NewSimpleClientset(),
 	}
 
-	controller, err := NewStackSetController(client, "", "", "", prometheus.NewPedanticRegistry(), time.Minute)
+	controller, err := NewStackSetController(client, "", "", "", prometheus.NewPedanticRegistry(), time.Minute, true, time.Minute)
 	if err != nil {
 		panic(err)
 	}
@@ -87,6 +97,16 @@ func (f *testEnvironment) CreateDeployments(ctx context.Context, deployments []a
 func (f *testEnvironment) CreateIngresses(ctx context.Context, ingresses []networking.Ingress) error {
 	for _, ingress := range ingresses {
 		_, err := f.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ctx, &ingress, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *testEnvironment) CreateRouteGroups(ctx context.Context, routegroups []rgv1.RouteGroup) error {
+	for _, routegroup := range routegroups {
+		_, err := f.client.RouteGroupV1().RouteGroups(routegroup.Namespace).Create(ctx, &routegroup, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
@@ -62,6 +63,7 @@ func TestCollectResources(t *testing.T) {
 		stacks      []zv1.Stack
 		deployments []apps.Deployment
 		ingresses   []networking.Ingress
+		routegroups []rgv1.RouteGroup
 		services    []v1.Service
 		hpas        []autoscaling.HorizontalPodAutoscaler
 		expected    map[types.UID]*core.StackSetContainer
@@ -139,6 +141,13 @@ func TestCollectResources(t *testing.T) {
 				{ObjectMeta: stacksetOwned(testStacksetA)}, // owned by stackset
 				{ObjectMeta: testUnownedBMeta},             // same name, but not owned by a stackset
 			},
+			routegroups: []rgv1.RouteGroup{
+				{ObjectMeta: stackOwned(testStackA2)},      // stack owned
+				{ObjectMeta: testOrphanMeta},               // owned by unknown stack
+				{ObjectMeta: testUnownedA1Meta},            // same name, but not owned by a stack
+				{ObjectMeta: stacksetOwned(testStacksetA)}, // owned by stackset
+				{ObjectMeta: testUnownedBMeta},             // same name, but not owned by a stackset
+			},
 			services: []v1.Service{
 				{ObjectMeta: stackOwned(testStackA2)}, // stack owned
 				{ObjectMeta: testOrphanMeta},          // owned by unknown stack
@@ -163,10 +172,12 @@ func TestCollectResources(t *testing.T) {
 								HPA:        &autoscaling.HorizontalPodAutoscaler{ObjectMeta: stackOwned(testStackA2)},
 								Service:    &v1.Service{ObjectMeta: stackOwned(testStackA2)},
 								Ingress:    &networking.Ingress{ObjectMeta: stackOwned(testStackA2)},
+								RouteGroup: &rgv1.RouteGroup{ObjectMeta: stackOwned(testStackA2)},
 							},
 						},
 					},
 					Ingress:           &networking.Ingress{ObjectMeta: stacksetOwned(testStacksetA)},
+					RouteGroup:        &rgv1.RouteGroup{ObjectMeta: stacksetOwned(testStacksetA)},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},
 				},
 				testStacksetB.UID: {
@@ -188,6 +199,9 @@ func TestCollectResources(t *testing.T) {
 				testDeploymentA2, // stack owned
 			},
 			ingresses: []networking.Ingress{
+				{ObjectMeta: deploymentOwned(testDeploymentA2)}, // deployment owned, not supported
+			},
+			routegroups: []rgv1.RouteGroup{
 				{ObjectMeta: deploymentOwned(testDeploymentA2)}, // deployment owned, not supported
 			},
 			services: []v1.Service{
@@ -227,6 +241,9 @@ func TestCollectResources(t *testing.T) {
 			require.NoError(t, err)
 
 			err = env.CreateIngresses(context.Background(), tc.ingresses)
+			require.NoError(t, err)
+
+			err = env.CreateRouteGroups(context.Background(), tc.routegroups)
 			require.NoError(t, err)
 
 			err = env.CreateServices(context.Background(), tc.services)
@@ -482,10 +499,12 @@ func TestReconcileStackSetIngress(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name     string
-		existing *networking.Ingress
-		updated  *networking.Ingress
-		expected *networking.Ingress
+		name           string
+		existing       *networking.Ingress
+		routegroupSpec *zv1.RouteGroupSpec
+		routegroup     *rgv1.RouteGroup
+		updated        *networking.Ingress
+		expected       *networking.Ingress
 	}{
 		{
 			name: "ingress is created if it doesn't exist",
@@ -582,11 +601,80 @@ func TestReconcileStackSetIngress(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "ingress is not removed if RouteGroup is too young",
+			existing: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			routegroupSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			routegroup: &rgv1.RouteGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              testStackSet.Name,
+					CreationTimestamp: metav1.NewTime(time.Now().UTC()),
+				},
+			},
+			updated: nil,
+			expected: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not removed if RouteGroup is not yet created",
+			existing: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			routegroupSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			updated: nil,
+			expected: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+		},
+		{
+			name: "ingress is removed if RouteGroup is old enough",
+			existing: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleRules,
+				},
+			},
+			routegroupSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			routegroup: &rgv1.RouteGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              testStackSet.Name,
+					CreationTimestamp: metav1.NewTime(time.Now().UTC().Add(-2 * time.Minute)),
+				},
+			},
+			updated:  nil,
+			expected: nil,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
-			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
+			stackset := testStackSet
+			if tc.routegroupSpec != nil {
+				stackset.Spec.RouteGroup = tc.routegroupSpec
+			}
+
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{stackset})
 			require.NoError(t, err)
 
 			if tc.existing != nil {
@@ -594,12 +682,12 @@ func TestReconcileStackSetIngress(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackSetIngress(context.Background(), &testStackSet, tc.existing, func() (*networking.Ingress, error) {
+			err = env.controller.ReconcileStackSetIngress(context.Background(), &stackset, tc.existing, tc.routegroup, func() (*networking.Ingress, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.NetworkingV1beta1().Ingresses(testStackSet.Namespace).Get(context.Background(), testStackSet.Name, metav1.GetOptions{})
+			updated, err := env.client.NetworkingV1beta1().Ingresses(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)
@@ -608,5 +696,195 @@ func TestReconcileStackSetIngress(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestReconcileStackSetRouteGroup(t *testing.T) {
+	exampleSpec := rgv1.RouteGroupSpec{
+		Hosts: []string{"example.org"},
+		Backends: []rgv1.RouteGroupBackend{
+			{
+				Name:        "foo",
+				Type:        rgv1.ServiceRouteGroupBackend,
+				ServiceName: "foo",
+				ServicePort: 80,
+			},
+		},
+		DefaultBackends: []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: "foo",
+				Weight:      100,
+			},
+		},
+		Routes: []rgv1.RouteGroupRouteSpec{
+			{
+				PathSubtree: "/",
+			},
+		},
+	}
+
+	exampleUpdatedSpec := rgv1.RouteGroupSpec{
+		Hosts: []string{"example.org"},
+		Backends: []rgv1.RouteGroupBackend{
+			{
+				Name:        "foo",
+				Type:        rgv1.ServiceRouteGroupBackend,
+				ServiceName: "foo",
+				ServicePort: 80,
+			},
+			{
+				Name:    "remote",
+				Type:    rgv1.NetworkRouteGroupBackend,
+				Address: "https://zalando.de",
+			},
+		},
+		DefaultBackends: []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: "foo",
+				Weight:      100,
+			},
+		},
+		Routes: []rgv1.RouteGroupRouteSpec{
+			{
+				PathSubtree: "/",
+			},
+			{
+				PathSubtree: "/redirect",
+				Backends: []rgv1.RouteGroupBackendReference{
+					{
+						BackendName: "remote",
+						Weight:      100,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range []struct {
+		name        string
+		existing    *rgv1.RouteGroup
+		ingress     *networking.Ingress
+		ingressSpec *zv1.StackSetIngressSpec
+		updated     *rgv1.RouteGroup
+		expected    *rgv1.RouteGroup
+	}{
+		{
+			name: "routegroup is created if it doesn't exist",
+			updated: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+			expected: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+		},
+		{
+			name: "routegroup is removed if it is no longer needed",
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+			updated:  nil,
+			expected: nil,
+		},
+		{
+			name: "routegroup is updated if the spec is changed",
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+			updated: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleUpdatedSpec,
+			},
+			expected: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleUpdatedSpec,
+			},
+		},
+		{
+			name: "routegroup is not removed if Ingress is too young",
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+			ingressSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			ingress: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              testStackSet.Name,
+					CreationTimestamp: metav1.NewTime(time.Now().UTC()),
+				},
+			},
+			updated: nil,
+			expected: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+		},
+		{
+			name: "routegroup is not removed if Ingress is not yet created",
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+			ingressSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			updated: nil,
+			expected: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+		},
+		{
+			name: "routegroup is removed if Ingress is old enough",
+			existing: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleSpec,
+			},
+			ingressSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			ingress: &networking.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              testStackSet.Name,
+					CreationTimestamp: metav1.NewTime(time.Now().UTC().Add(-2 * time.Minute)),
+				},
+			},
+			updated:  nil,
+			expected: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			stackset := testStackSet
+			if tc.ingressSpec != nil {
+				stackset.Spec.Ingress = tc.ingressSpec
+			}
+
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{stackset})
+			require.NoError(t, err)
+
+			if tc.existing != nil {
+				err = env.CreateRouteGroups(context.Background(), []rgv1.RouteGroup{*tc.existing})
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackSetRouteGroup(context.Background(), &stackset, tc.existing, tc.ingress, func() (*rgv1.RouteGroup, error) {
+				return tc.updated, nil
+			})
+			require.NoError(t, err)
+
+			updated, err := env.client.RouteGroupV1().RouteGroups(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
+			if tc.expected != nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, updated)
+			} else {
+				require.True(t, errors.IsNotFound(err))
+			}
+		})
+	}
 }

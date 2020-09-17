@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	corev1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1beta1"
@@ -19,8 +20,9 @@ const (
 )
 
 var (
-	errNoPaths  = errors.New("invalid ingress, no paths defined")
-	errNoStacks = errors.New("no stacks to assign traffic to")
+	errNoPaths             = errors.New("invalid ingress, no paths defined")
+	errNoStacks            = errors.New("no stacks to assign traffic to")
+	errStackServiceBackend = errors.New("additionalBackends must not reference a Stack Service")
 )
 
 func currentStackVersion(stackset *zv1.StackSet) string {
@@ -133,6 +135,71 @@ func (ssc *StackSetContainer) MarkExpiredStacks() {
 	}
 }
 
+func (ssc *StackSetContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
+	stackset := ssc.StackSet
+	if stackset.Spec.RouteGroup == nil {
+		return nil, nil
+	}
+
+	labels := mergeLabels(
+		map[string]string{StacksetHeritageLabelKey: stackset.Name},
+		stackset.Labels,
+	)
+
+	result := &rgv1.RouteGroup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      stackset.Name,
+			Namespace: stackset.Namespace,
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: stackset.APIVersion,
+					Kind:       stackset.Kind,
+					Name:       stackset.Name,
+					UID:        stackset.UID,
+				},
+			},
+		},
+		Spec: rgv1.RouteGroupSpec{
+			Hosts:    stackset.Spec.RouteGroup.Hosts,
+			Backends: make([]rgv1.RouteGroupBackend, 0, len(ssc.StackContainers)),
+			Routes:   stackset.Spec.RouteGroup.Routes,
+		},
+	}
+
+	// Generate backends
+	stacks := make(map[string]struct{}, len(ssc.StackContainers))
+	for _, sc := range ssc.StackContainers {
+		stacks[sc.Name()] = struct{}{}
+		result.Spec.Backends = append(result.Spec.Backends, rgv1.RouteGroupBackend{
+			Name:        sc.Name(),
+			Type:        rgv1.ServiceRouteGroupBackend,
+			ServiceName: sc.Name(),
+			ServicePort: stackset.Spec.RouteGroup.BackendPort,
+		})
+		if sc.actualTrafficWeight > 0 {
+			result.Spec.DefaultBackends = append(result.Spec.DefaultBackends, rgv1.RouteGroupBackendReference{
+				BackendName: sc.Name(),
+				Weight:      int(sc.actualTrafficWeight),
+			})
+		}
+	}
+
+	// validate that additional backends don't overlap with the generated
+	// backends.
+	for _, additionalBackend := range stackset.Spec.RouteGroup.AdditionalBackends {
+		if _, ok := stacks[additionalBackend.Name]; ok {
+			return nil, errStackServiceBackend
+		}
+		if _, ok := stacks[additionalBackend.ServiceName]; ok {
+			return nil, errStackServiceBackend
+		}
+		result.Spec.Backends = append(result.Spec.Backends, additionalBackend)
+	}
+
+	return result, nil
+}
+
 func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 	stackset := ssc.StackSet
 	if stackset.Spec.Ingress == nil {
@@ -177,7 +244,6 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 	}
 
 	actualWeights := make(map[string]float64)
-	desiredWeights := make(map[string]float64)
 
 	for _, sc := range ssc.StackContainers {
 		if sc.actualTrafficWeight > 0 {
@@ -190,9 +256,6 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 					ServicePort: stackset.Spec.Ingress.BackendPort,
 				},
 			})
-		}
-		if sc.desiredTrafficWeight > 0 {
-			desiredWeights[sc.Name()] = sc.desiredTrafficWeight
 		}
 	}
 

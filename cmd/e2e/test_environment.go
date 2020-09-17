@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
+	rg "github.com/szuecs/routegroup-client/client/clientset/versioned"
+	rgv1client "github.com/szuecs/routegroup-client/client/clientset/versioned/typed/zalando.org/v1"
 	zv1client "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"k8s.io/client-go/kubernetes"
@@ -17,17 +19,17 @@ import (
 )
 
 var (
-	kubernetesClient, stacksetClient = createClients()
-	namespace                        = requiredEnvar("E2E_NAMESPACE")
-	clusterDomain                    = requiredEnvar("CLUSTER_DOMAIN")
-	controllerId                     = os.Getenv("CONTROLLER_ID")
+	kubernetesClient, stacksetClient, routegroupClient = createClients()
+	namespace                                          = requiredEnvar("E2E_NAMESPACE")
+	clusterDomain                                      = requiredEnvar("CLUSTER_DOMAIN")
+	controllerId                                       = os.Getenv("CONTROLLER_ID")
 )
 
 func init() {
 	logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
 }
 
-func createClients() (kubernetes.Interface, clientset.Interface) {
+func createClients() (kubernetes.Interface, clientset.Interface, rg.Interface) {
 	kubeconfig := os.Getenv("KUBECONFIG")
 
 	var cfg *rest.Config
@@ -49,7 +51,11 @@ func createClients() (kubernetes.Interface, clientset.Interface) {
 	if err != nil {
 		panic(err)
 	}
-	return kubeClient, stacksetClient
+	routegroupClient, err := rg.NewForConfig(cfg)
+	if err != nil {
+		panic(err)
+	}
+	return kubeClient, stacksetClient, routegroupClient
 }
 
 func stacksetInterface() zv1client.StackSetInterface {
@@ -74,6 +80,10 @@ func hpaInterface() autoscalingv2.HorizontalPodAutoscalerInterface {
 
 func ingressInterface() networking.IngressInterface {
 	return kubernetesClient.NetworkingV1beta1().Ingresses(namespace)
+}
+
+func routegroupInterface() rgv1client.RouteGroupInterface {
+	return routegroupClient.ZalandoV1().RouteGroups(namespace)
 }
 
 func requiredEnvar(envar string) string {

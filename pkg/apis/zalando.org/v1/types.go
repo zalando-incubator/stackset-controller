@@ -1,6 +1,7 @@
 package v1
 
 import (
+	rg "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
@@ -37,10 +38,18 @@ type StackSetSpec struct {
 	// might create ingress objects, but stackset owns the traffic
 	// switch. In this case we would only have a Traffic, but no
 	// ingress.
+	// +optional
 	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`
 	// ExternalIngress is used to specify the backend port to
 	// generate the services for the stacks.
+	// +optional
 	ExternalIngress *StackSetExternalIngressSpec `json:"externalIngress,omitempty"`
+	// RouteGroup is an alternative to ingress allowing more advanced
+	// routing configuration while still maintaining the ability to switch
+	// traffic to stacks. Use this if you need skipper filters or
+	// predicates.
+	// +optional
+	RouteGroup *RouteGroupSpec `json:"routegroup,omitempty"`
 	// StackLifecycle defines the cleanup rules for old stacks.
 	StackLifecycle StackLifecycle `json:"stackLifecycle"`
 	// StackTemplate container for resources to be created that
@@ -100,6 +109,22 @@ type StackSetIngressSpec struct {
 // backendport for ingress managed outside of stackset.
 type StackSetExternalIngressSpec struct {
 	BackendPort intstr.IntOrString `json:"backendPort"`
+}
+
+// RouteGroupSpec defines the specification for defining a RouteGroup attached
+// to a StackSet.
+// +k8s:deepcopy-gen=true
+type RouteGroupSpec struct {
+	// Hosts is the list of hostnames to add to the routegroup.
+	Hosts []string `json:"hosts,omitempty"`
+	// AdditionalBackends is the list of additional backends to use for
+	// routing.
+	// +optional
+	AdditionalBackends []rg.RouteGroupBackend `json:"additionalBackends,omitempty"`
+	// Routes is the list of routes to be applied to the routegroup.
+	// +kubebuilder:validation:MinItems=1
+	Routes      []rg.RouteGroupRouteSpec `json:"routes,omitempty"`
+	BackendPort int                      `json:"backendPort"`
 }
 
 // StackLifecycle defines lifecycle of the Stacks of a StackSet.

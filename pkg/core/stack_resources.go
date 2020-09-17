@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
@@ -348,6 +349,47 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 
 	// insert annotations
 	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.Annotations)
+	return result, nil
+}
+
+func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
+	if !sc.HasBackendPort() || sc.routeGroupSpec == nil {
+		return nil, nil
+	}
+
+	result := &rgv1.RouteGroup{
+		ObjectMeta: sc.resourceMeta(),
+		Spec: rgv1.RouteGroupSpec{
+			Hosts: []string{fmt.Sprintf("%s.%s", sc.Name(), sc.clusterDomain)},
+			Backends: []rgv1.RouteGroupBackend{
+				{
+					Name:        sc.Name(),
+					Type:        rgv1.ServiceRouteGroupBackend,
+					ServiceName: sc.Name(),
+					ServicePort: sc.backendPort.IntValue(),
+				},
+			},
+			DefaultBackends: []rgv1.RouteGroupBackendReference{
+				{
+					BackendName: sc.Name(),
+					Weight:      100,
+				},
+			},
+			Routes: sc.routeGroupSpec.Routes,
+		},
+	}
+
+	// validate not overlapping with main backend
+	for _, backend := range sc.routeGroupSpec.AdditionalBackends {
+		if backend.Name == sc.Name() {
+			return nil, fmt.Errorf("invalid additionalBackend '%s', overlaps with Stack name", backend.Name)
+		}
+		if backend.ServiceName == sc.Name() {
+			return nil, fmt.Errorf("invalid additionalBackend '%s', serviceName '%s' overlaps with Stack name", backend.Name, backend.ServiceName)
+		}
+		result.Spec.Backends = append(result.Spec.Backends, backend)
+	}
+
 	return result, nil
 }
 

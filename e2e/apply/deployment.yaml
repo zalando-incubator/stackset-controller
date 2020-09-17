@@ -25,6 +25,7 @@ spec:
         args:
           - "--controller-id={{{CONTROLLER_ID}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
+          - "--enable-routegroup-support"
         resources:
           limits:
             cpu: 10m
