@@ -122,7 +122,7 @@ type RouteGroupSpec struct {
 	// +optional
 	AdditionalBackends []rg.RouteGroupBackend `json:"additionalBackends,omitempty"`
 	// Routes is the list of routes to be applied to the routegroup.
-	// +optional
+	// +kubebuilder:validation:MinItems=1
 	Routes      []rg.RouteGroupRouteSpec `json:"routes,omitempty"`
 	BackendPort int                      `json:"backendPort"`
 }

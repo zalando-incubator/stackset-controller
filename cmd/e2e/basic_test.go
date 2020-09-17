@@ -187,7 +187,6 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		result.RouteGroup = &zv1.RouteGroupSpec{
 			Hosts:       []string{hostname(f.stacksetName)},
 			BackendPort: 80,
-			// TODO(mlarsen): default?
 			Routes: []rgv1.RouteGroupRouteSpec{
 				{
 					PathSubtree: "/",
