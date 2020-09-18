@@ -197,6 +197,14 @@ func (ssc *StackSetContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 		result.Spec.Backends = append(result.Spec.Backends, additionalBackend)
 	}
 
+	// sort backends/defaultBackends to ensure have a consistent generated RoutGroup resource
+	sort.Slice(result.Spec.Backends, func(i, j int) bool {
+		return result.Spec.Backends[i].Name < result.Spec.Backends[j].Name
+	})
+	sort.Slice(result.Spec.DefaultBackends, func(i, j int) bool {
+		return result.Spec.DefaultBackends[i].BackendName < result.Spec.DefaultBackends[j].BackendName
+	})
+
 	return result, nil
 }
 

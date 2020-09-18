@@ -1,7 +1,6 @@
 package core
 
 import (
-	"sort"
 	"strconv"
 	"testing"
 	"time"
@@ -1084,14 +1083,6 @@ func TestStackSetGenerateRouteGroup(t *testing.T) {
 	}
 	routegroup, err := c.GenerateRouteGroup()
 	require.NoError(t, err)
-
-	// sort for stable comparison
-	sort.Slice(routegroup.Spec.Backends, func(i, j int) bool {
-		return routegroup.Spec.Backends[i].Name < routegroup.Spec.Backends[j].Name
-	})
-	sort.Slice(routegroup.Spec.DefaultBackends, func(i, j int) bool {
-		return routegroup.Spec.DefaultBackends[i].BackendName < routegroup.Spec.DefaultBackends[j].BackendName
-	})
 
 	expected := &rgv1.RouteGroup{
 		ObjectMeta: metav1.ObjectMeta{
