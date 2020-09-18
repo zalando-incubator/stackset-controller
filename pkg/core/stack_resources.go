@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
@@ -389,6 +390,11 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 		}
 		result.Spec.Backends = append(result.Spec.Backends, backend)
 	}
+
+	// sort backends to ensure have a consistent generated RoutGroup resource
+	sort.Slice(result.Spec.Backends, func(i, j int) bool {
+		return result.Spec.Backends[i].Name < result.Spec.Backends[j].Name
+	})
 
 	return result, nil
 }
