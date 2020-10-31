@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -324,27 +325,48 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 		return nil, nil
 	}
 
-	result := &networking.Ingress{
-		ObjectMeta: sc.resourceMeta(),
-		Spec: networking.IngressSpec{
-			Rules: []networking.IngressRule{
-				{
-					IngressRuleValue: networking.IngressRuleValue{
-						HTTP: &networking.HTTPIngressRuleValue{
-							Paths: []networking.HTTPIngressPath{
-								{
-									Path: sc.ingressSpec.Path,
-									Backend: networking.IngressBackend{
-										ServiceName: sc.Name(),
-										ServicePort: *sc.backendPort,
-									},
-								},
+	clusterDomains := make(map[string]struct{}, len(sc.ingressSpec.Hosts))
+	for _, host := range sc.ingressSpec.Hosts {
+		for _, domain := range sc.clusterDomains {
+			if strings.HasSuffix(host, domain) {
+				clusterDomains[domain] = struct{}{}
+			}
+		}
+	}
+
+	if len(clusterDomains) == 0 {
+		return nil, nil
+	}
+
+	rules := make([]networking.IngressRule, 0, len(clusterDomains))
+	for domain := range clusterDomains {
+		rules = append(rules, networking.IngressRule{
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{
+						{
+							Path: sc.ingressSpec.Path,
+							Backend: networking.IngressBackend{
+								ServiceName: sc.Name(),
+								ServicePort: *sc.backendPort,
 							},
 						},
 					},
-					Host: fmt.Sprintf("%s.%s", sc.Name(), sc.clusterDomain),
 				},
 			},
+			Host: fmt.Sprintf("%s.%s", sc.Name(), domain),
+		})
+	}
+
+	// sort rules by hostname for a stable order
+	sort.Slice(rules, func(i, j int) bool {
+		return rules[i].Host < rules[j].Host
+	})
+
+	result := &networking.Ingress{
+		ObjectMeta: sc.resourceMeta(),
+		Spec: networking.IngressSpec{
+			Rules: rules,
 		},
 	}
 
@@ -358,10 +380,31 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 		return nil, nil
 	}
 
+	clusterDomains := make(map[string]struct{}, len(sc.routeGroupSpec.Hosts))
+	for _, host := range sc.routeGroupSpec.Hosts {
+		for _, domain := range sc.clusterDomains {
+			if strings.HasSuffix(host, domain) {
+				clusterDomains[domain] = struct{}{}
+			}
+		}
+	}
+
+	if len(clusterDomains) == 0 {
+		return nil, nil
+	}
+
+	hosts := make([]string, 0, len(clusterDomains))
+	for domain := range clusterDomains {
+		hosts = append(hosts, fmt.Sprintf("%s.%s", sc.Name(), domain))
+	}
+
+	// sort hosts for a stable order
+	sort.Strings(hosts)
+
 	result := &rgv1.RouteGroup{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: rgv1.RouteGroupSpec{
-			Hosts: []string{fmt.Sprintf("%s.%s", sc.Name(), sc.clusterDomain)},
+			Hosts: hosts,
 			Backends: []rgv1.RouteGroupBackend{
 				{
 					Name:        sc.Name(),

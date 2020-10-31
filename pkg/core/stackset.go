@@ -284,6 +284,11 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 		result.Spec.Rules = append(result.Spec.Rules, r)
 	}
 
+	// sort rules by host to have a consistent generated ingress resource.
+	sort.Slice(result.Spec.Rules, func(i, j int) bool {
+		return result.Spec.Rules[i].Host < result.Spec.Rules[j].Host
+	})
+
 	actualWeightsData, err := json.Marshal(&actualWeights)
 	if err != nil {
 		return nil, err
