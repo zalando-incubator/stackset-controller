@@ -12,7 +12,7 @@ require (
 	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.8.0
 	github.com/sirupsen/logrus v1.6.0
 	github.com/stretchr/testify v1.6.1
 	github.com/szuecs/routegroup-client v0.17.8-0.20200915193527-b33447c7d964
