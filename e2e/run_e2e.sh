@@ -5,6 +5,9 @@ shopt -s nullglob
 
 CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-""}
 CLUSTER_NAME=${CLUSTER_NAME:-""}
+# Set TEST_NAME to run a single test
+# eg.: TEST_NAME=TestIngressToRouteGroupSwitch ./e2e/run_e2e.sh
+TEST_NAME=${TEST_NAME:-""}
 CONTROLLER_ID="ssc-e2e-$(dd if=/dev/urandom bs=8 count=1 2>/dev/null | hexdump -e '"%x"')"
 
 if [[ -z "${CLUSTER_DOMAIN}" ]]; then
@@ -39,14 +42,24 @@ echo ">>> Writing controller logs in $controllerLog"
 
 # Find and run the controller locally.
 sscPath=$(find build/ -name "stackset-controller" | head -n 1)
-command $sscPath --apiserver=http://127.0.0.1:8001 --controller-id=$CONTROLLER_ID 2>$controllerLog&
+command $sscPath --apiserver=http://127.0.0.1:8001 \
+  --ingress-source-switch-ttl="1m" \
+  --enable-routegroup-support \
+  --controller-id=$CONTROLLER_ID 2>$controllerLog&
 
 # Create the Kubernetes namespace to be used for this test run.
 zkubectl create ns $CONTROLLER_ID
+
+test_args="-test.v"
+if [[ -z "${TEST_NAME}" ]]; then
+  test_args="${test_args} -test.parallel 64"
+else
+  test_args="${test_args} -test.parallel 1 -test.run=${TEST_NAME}"
+fi
 
 # Run the end-to-end tests against the controller we just deployed.
 # -count=1 disables go test caching.
 env E2E_NAMESPACE=$CONTROLLER_ID \
     CONTROLLER_ID=$CONTROLLER_ID \
     KUBECONFIG=$HOME/.kube/config \
-    build/e2e -test.v -test.parallel 64 || true
+    build/e2e ${test_args} || true

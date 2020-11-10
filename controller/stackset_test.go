@@ -449,8 +449,8 @@ func TestReconcileStackSetDesiredTraffic(t *testing.T) {
 	}
 }
 
-func TestReconcileStackSetIngress(t *testing.T) {
-	exampleRules := []networking.IngressRule{
+func TestReconcileStackSetIngressSources(t *testing.T) {
+	exampleIngRules := []networking.IngressRule{
 		{
 			Host: "example.org",
 			IngressRuleValue: networking.IngressRuleValue{
@@ -468,238 +468,8 @@ func TestReconcileStackSetIngress(t *testing.T) {
 			},
 		},
 	}
-	exampleUpdatedRules := []networking.IngressRule{
-		{
-			Host: "example.com",
-			IngressRuleValue: networking.IngressRuleValue{
-				HTTP: &networking.HTTPIngressRuleValue{
-					Paths: []networking.HTTPIngressPath{
-						{
-							Path: "/",
-							Backend: networking.IngressBackend{
-								ServiceName: "bar",
-								ServicePort: intstr.FromInt(8181),
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 
-	withAnnotations := func(meta metav1.ObjectMeta, annotations map[string]string) metav1.ObjectMeta {
-		updated := meta.DeepCopy()
-		if updated.Annotations == nil {
-			updated.Annotations = map[string]string{}
-		}
-		for k, v := range annotations {
-			updated.Annotations[k] = v
-		}
-		return *updated
-	}
-
-	for _, tc := range []struct {
-		name           string
-		existing       *networking.Ingress
-		routegroupSpec *zv1.RouteGroupSpec
-		routegroup     *rgv1.RouteGroup
-		updated        *networking.Ingress
-		expected       *networking.Ingress
-	}{
-		{
-			name: "ingress is created if it doesn't exist",
-			updated: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			expected: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-		},
-		{
-			name: "ingress is removed if it is no longer needed",
-			existing: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			updated:  nil,
-			expected: nil,
-		},
-		{
-			name: "ingress is updated if the spec is changed",
-			existing: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			updated: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleUpdatedRules,
-				},
-			},
-			expected: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleUpdatedRules,
-				},
-			},
-		},
-		{
-			name: "ingress is updated if the annotations change",
-			existing: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			updated: &networking.Ingress{
-				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar"}),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			expected: &networking.Ingress{
-				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar"}),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-		},
-		{
-			name: "ingress is not rolled back if the server injects some defaults",
-			existing: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			updated: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Backend: &networking.IngressBackend{
-						ServiceName: "test",
-					},
-					Rules: exampleRules,
-				},
-			},
-			expected: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Backend: &networking.IngressBackend{
-						ServiceName: "test",
-					},
-					Rules: exampleRules,
-				},
-			},
-		},
-		{
-			name: "ingress is not removed if RouteGroup is too young",
-			existing: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			routegroupSpec: &zv1.RouteGroupSpec{
-				Hosts: []string{"example.org"},
-			},
-			routegroup: &rgv1.RouteGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              testStackSet.Name,
-					CreationTimestamp: metav1.NewTime(time.Now().UTC()),
-				},
-			},
-			updated: nil,
-			expected: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-		},
-		{
-			name: "ingress is not removed if RouteGroup is not yet created",
-			existing: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			routegroupSpec: &zv1.RouteGroupSpec{
-				Hosts: []string{"example.org"},
-			},
-			updated: nil,
-			expected: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-		},
-		{
-			name: "ingress is removed if RouteGroup is old enough",
-			existing: &networking.Ingress{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec: networking.IngressSpec{
-					Rules: exampleRules,
-				},
-			},
-			routegroupSpec: &zv1.RouteGroupSpec{
-				Hosts: []string{"example.org"},
-			},
-			routegroup: &rgv1.RouteGroup{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              testStackSet.Name,
-					CreationTimestamp: metav1.NewTime(time.Now().UTC().Add(-2 * time.Minute)),
-				},
-			},
-			updated:  nil,
-			expected: nil,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			env := NewTestEnvironment()
-
-			stackset := testStackSet
-			if tc.routegroupSpec != nil {
-				stackset.Spec.RouteGroup = tc.routegroupSpec
-			}
-
-			err := env.CreateStacksets(context.Background(), []zv1.StackSet{stackset})
-			require.NoError(t, err)
-
-			if tc.existing != nil {
-				err = env.CreateIngresses(context.Background(), []networking.Ingress{*tc.existing})
-				require.NoError(t, err)
-			}
-
-			err = env.controller.ReconcileStackSetIngress(context.Background(), &stackset, tc.existing, tc.routegroup, func() (*networking.Ingress, error) {
-				return tc.updated, nil
-			})
-			require.NoError(t, err)
-
-			updated, err := env.client.NetworkingV1beta1().Ingresses(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
-			if tc.expected != nil {
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, updated)
-			} else {
-				require.True(t, errors.IsNotFound(err))
-			}
-		})
-	}
-}
-
-func TestReconcileStackSetRouteGroup(t *testing.T) {
-	exampleSpec := rgv1.RouteGroupSpec{
+	exampleRgSpec := rgv1.RouteGroupSpec{
 		Hosts: []string{"example.org"},
 		Backends: []rgv1.RouteGroupBackend{
 			{
@@ -722,7 +492,26 @@ func TestReconcileStackSetRouteGroup(t *testing.T) {
 		},
 	}
 
-	exampleUpdatedSpec := rgv1.RouteGroupSpec{
+	exampleUpdatedIngRules := []networking.IngressRule{
+		{
+			Host: "example.com",
+			IngressRuleValue: networking.IngressRuleValue{
+				HTTP: &networking.HTTPIngressRuleValue{
+					Paths: []networking.HTTPIngressPath{
+						{
+							Path: "/",
+							Backend: networking.IngressBackend{
+								ServiceName: "bar",
+								ServicePort: intstr.FromInt(8181),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	exampleUpdatedRgSpec := rgv1.RouteGroupSpec{
 		Hosts: []string{"example.org"},
 		Backends: []rgv1.RouteGroupBackend{
 			{
@@ -760,131 +549,780 @@ func TestReconcileStackSetRouteGroup(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		name        string
-		existing    *rgv1.RouteGroup
-		ingress     *networking.Ingress
-		ingressSpec *zv1.StackSetIngressSpec
-		updated     *rgv1.RouteGroup
-		expected    *rgv1.RouteGroup
+		name             string
+		existingIng      *networking.Ingress
+		existingRg       *rgv1.RouteGroup
+		ingSpec          *zv1.StackSetIngressSpec
+		rgSpec           *zv1.RouteGroupSpec
+		generatedIng     *networking.Ingress
+		generatedRg      *rgv1.RouteGroup
+		expectedIng      *networking.Ingress
+		expectedRg       *rgv1.RouteGroup
+		disableRgSupport bool
 	}{
 		{
-			name: "routegroup is created if it doesn't exist",
-			updated: &rgv1.RouteGroup{
+			name: "ingress is created if it doesn't exist",
+			generatedIng: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
 			},
-			expected: &rgv1.RouteGroup{
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "routegroup is created if it doesn't exist",
+			generatedRg: &rgv1.RouteGroup{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+		},
+		{
+			name: "routegroup isn't created if its support is disabled",
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg:       nil,
+			disableRgSupport: true,
+		},
+		{
+			name: "ingress and routegroup are created if they don't exist",
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is updated if the updatedTimestamp annotation is missing, RouteGroup remains the same",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+		},
+		{
+			name: "routegroup is updated if the updatedTimestamp annotation is missing, Ingress remains the same",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "Both ingress and RouteGroup are updated if the updatedTimestamp annotation is missing",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+		},
+		{
+			name: "ingress is removed if it is no longer needed",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: nil,
+			expectedIng:  nil,
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
 			},
 		},
 		{
 			name: "routegroup is removed if it is no longer needed",
-			existing: &rgv1.RouteGroup{
+			existingRg: &rgv1.RouteGroup{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
+				Spec:       exampleRgSpec,
 			},
-			updated:  nil,
-			expected: nil,
-		},
-		{
-			name: "routegroup is updated if the spec is changed",
-			existing: &rgv1.RouteGroup{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
-			},
-			updated: &rgv1.RouteGroup{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleUpdatedSpec,
-			},
-			expected: &rgv1.RouteGroup{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleUpdatedSpec,
-			},
-		},
-		{
-			name: "routegroup is not removed if Ingress is too young",
-			existing: &rgv1.RouteGroup{
-				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
-			},
-			ingressSpec: &zv1.StackSetIngressSpec{
-				Hosts: []string{"example.org"},
-			},
-			ingress: &networking.Ingress{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              testStackSet.Name,
-					CreationTimestamp: metav1.NewTime(time.Now().UTC()),
+			generatedRg: nil,
+			expectedRg:  nil,
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
 				},
 			},
-			updated: nil,
-			expected: &rgv1.RouteGroup{
+			generatedIng: &networking.Ingress{
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is updated if the spec is changed, routegroup remains the same",
+			existingIng: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleUpdatedIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleUpdatedIngRules,
+				},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+		},
+		{
+			name: "routegroup is updated if the spec is changed, ingress remains the same",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleUpdatedRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleUpdatedRgSpec,
+			},
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "Both routegroup and ingress are updated if the specs are changed",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleUpdatedRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleUpdatedRgSpec,
+			},
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleUpdatedIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleUpdatedIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is updated if the annotations change",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar"}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{"foo": "bar", ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not rolled back if the server injects some defaults",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
+						ServiceName: "test",
+					},
+					Rules: exampleIngRules,
+				},
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Backend: &networking.IngressBackend{
+						ServiceName: "test",
+					},
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not removed if RouteGroup is modified recently",
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: timeNow,
+					},
+				),
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedIng: nil,
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not removed if RouteGroup is modified at the same time it's deleted",
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec:       exampleRgSpec,
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedIng: nil,
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleUpdatedRgSpec,
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleUpdatedRgSpec,
+			},
+		},
+		{
+			name: "ingress is removed right away if RouteGroup support is disabled",
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedIng: nil,
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleUpdatedRgSpec,
+			},
+			expectedIng:      nil,
+			expectedRg:       nil,
+			disableRgSupport: true,
+		},
+		{
+			name: "routegroup is not removed if Ingress was recently modified",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: timeNow,
+					},
+				),
+			},
+			ingSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedRg: nil,
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+		},
+		{
+			name: "routegroup is not removed if deleted but the ingress is modified at the same time",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: timeOldEnough,
+					},
+				),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			ingSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedRg: nil,
+			generatedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleUpdatedIngRules,
+				},
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: timeNow,
+					},
+				),
+				Spec: networking.IngressSpec{
+					Rules: exampleUpdatedIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not removed if RouteGroup was recently modified. Ingress receives an updated timestamp",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: timeNow,
+					},
+				),
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+
+			generatedIng: nil,
+			expectedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not removed if RouteGroup does not have the updatedTimestamp",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+			},
+			generatedIng: nil,
+			expectedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not removed if RouteGroup has an invalid updatedTimestamp",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: "ANotValidTimeStamp",
+					},
+				),
+			},
+			generatedIng: nil,
+			expectedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "ingress is not removed if RouteGroup is not yet created",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedIng: nil,
+			expectedIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
+				},
+			},
+		},
+		{
+			name: "routegroup is not removed if Ingress does not have the updatedTimestamp",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			ingSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+			},
+			generatedRg: nil,
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+		},
+		{
+			name: "routegroup is not removed if Ingress has an invalid updatedTimestamp",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
+			},
+			ingSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: "ANotValidTimeStamp",
+					},
+				),
+			},
+			generatedRg: nil,
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+				Spec:       exampleRgSpec,
 			},
 		},
 		{
 			name: "routegroup is not removed if Ingress is not yet created",
-			existing: &rgv1.RouteGroup{
+			existingRg: &rgv1.RouteGroup{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
+				Spec:       exampleRgSpec,
 			},
-			ingressSpec: &zv1.StackSetIngressSpec{
+			ingSpec: &zv1.StackSetIngressSpec{
 				Hosts: []string{"example.org"},
 			},
-			updated: nil,
-			expected: &rgv1.RouteGroup{
+			generatedRg: nil,
+			expectedRg: &rgv1.RouteGroup{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
+				Spec:       exampleRgSpec,
 			},
 		},
 		{
-			name: "routegroup is removed if Ingress is old enough",
-			existing: &rgv1.RouteGroup{
+			name: "ingress is removed if RouteGroup is old enough",
+			existingIng: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
-				Spec:       exampleSpec,
-			},
-			ingressSpec: &zv1.StackSetIngressSpec{
-				Hosts: []string{"example.org"},
-			},
-			ingress: &networking.Ingress{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              testStackSet.Name,
-					CreationTimestamp: metav1.NewTime(time.Now().UTC().Add(-2 * time.Minute)),
+				Spec: networking.IngressSpec{
+					Rules: exampleIngRules,
 				},
 			},
-			updated:  nil,
-			expected: nil,
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec: exampleRgSpec,
+			},
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{ControllerLastUpdatedAnnotationKey: timeOldEnough}),
+				Spec: exampleRgSpec,
+			},
+			generatedIng: nil,
+			expectedIng:  nil,
+		},
+		{
+			name: "routegroup is removed if Ingress is old enough",
+			existingIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(
+					stacksetOwned(testStackSet),
+					map[string]string{
+						ControllerLastUpdatedAnnotationKey: timeOldEnough,
+					},
+				),
+			},
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+				Spec:       exampleRgSpec,
+			},
+			ingSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.org"},
+			},
+			generatedRg: nil,
+			expectedRg:  nil,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
 			stackset := testStackSet
-			if tc.ingressSpec != nil {
-				stackset.Spec.Ingress = tc.ingressSpec
+			if tc.rgSpec != nil {
+				stackset.Spec.RouteGroup = tc.rgSpec
+			}
+			if tc.ingSpec != nil {
+				stackset.Spec.Ingress = tc.ingSpec
 			}
 
 			err := env.CreateStacksets(context.Background(), []zv1.StackSet{stackset})
 			require.NoError(t, err)
 
-			if tc.existing != nil {
-				err = env.CreateRouteGroups(context.Background(), []rgv1.RouteGroup{*tc.existing})
+			if tc.existingIng != nil {
+				err = env.CreateIngresses(context.Background(), []networking.Ingress{*tc.existingIng})
+				require.NoError(t, err)
+			}
+			if tc.existingRg != nil {
+				err = env.CreateRouteGroups(context.Background(), []rgv1.RouteGroup{*tc.existingRg})
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackSetRouteGroup(context.Background(), &stackset, tc.existing, tc.ingress, func() (*rgv1.RouteGroup, error) {
-				return tc.updated, nil
-			})
+			if tc.disableRgSupport {
+				env.controller.routeGroupSupportEnabled = false
+			}
+
+			err = env.controller.ReconcileStackSetIngressSources(
+				context.Background(),
+				&stackset,
+				tc.existingIng,
+				tc.existingRg,
+				func() (*networking.Ingress, error) { return tc.generatedIng, nil },
+				func() (*rgv1.RouteGroup, error) { return tc.generatedRg, nil },
+			)
 			require.NoError(t, err)
 
-			updated, err := env.client.RouteGroupV1().RouteGroups(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
-			if tc.expected != nil {
+			updatedIng, err := env.client.NetworkingV1beta1().Ingresses(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
+			if tc.expectedIng != nil {
 				require.NoError(t, err)
-				require.Equal(t, tc.expected, updated)
+				require.Equal(t, tc.expectedIng, updatedIng)
+			} else {
+				require.True(t, errors.IsNotFound(err))
+			}
+
+			updatedRg, err := env.client.RouteGroupV1().RouteGroups(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
+			if tc.expectedRg != nil {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedRg, updatedRg)
 			} else {
 				require.True(t, errors.IsNotFound(err))
 			}
 		})
 	}
+}
+
+func withAnnotations(meta metav1.ObjectMeta, annotations map[string]string) metav1.ObjectMeta {
+	updated := meta.DeepCopy()
+	if updated.Annotations == nil {
+		updated.Annotations = map[string]string{}
+	}
+	for k, v := range annotations {
+		updated.Annotations[k] = v
+	}
+	return *updated
 }
