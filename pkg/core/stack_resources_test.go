@@ -646,7 +646,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 								Containers: []v1.Container{
 									{
 										Name:  "foo",
-										Image: "nginx",
+										Image: "registry.opensource.zalan.do/pathfinder/skipper:v0.11.194",
 									},
 								},
 							},
@@ -687,7 +687,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 							Containers: []v1.Container{
 								{
 									Name:  "foo",
-									Image: "nginx",
+									Image: "registry.opensource.zalan.do/pathfinder/skipper:v0.11.194",
 								},
 							},
 						},
@@ -794,7 +794,7 @@ func TestGenerateHPA(t *testing.T) {
 					Containers: []v1.Container{
 						{
 							Name:  "foo",
-							Image: "nginx",
+							Image: "registry.opensource.zalan.do/pathfinder/skipper:v0.11.194",
 						},
 					},
 				},

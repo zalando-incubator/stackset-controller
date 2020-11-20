@@ -56,7 +56,7 @@ func TestReconcileStackDeployment(t *testing.T) {
 			Containers: []v1.Container{
 				{
 					Name:  "foo",
-					Image: "nginx",
+					Image: "registry.opensource.zalan.do/pathfinder/skipper:v0.11.194",
 				},
 			},
 		},
@@ -66,7 +66,7 @@ func TestReconcileStackDeployment(t *testing.T) {
 			Containers: []v1.Container{
 				{
 					Name:  "bar",
-					Image: "nginx",
+					Image: "registry.opensource.zalan.do/pathfinder/skipper:v0.11.194",
 				},
 			},
 		},

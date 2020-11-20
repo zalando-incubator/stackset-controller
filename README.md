@@ -98,8 +98,13 @@ spec:
       podTemplate:
         spec:
           containers:
-          - name: nginx
-            image: nginx
+          - name: skipper
+            image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+            args:
+            - skipper
+            - -inline-routes
+            - '* -> inlineContent("OK") -> <shunt>'
+            - -address=:80
             ports:
             - containerPort: 80
               name: ingress
@@ -135,8 +140,12 @@ spec:
   podTemplate:
     spec:
       containers:
-      - image: nginx
-        name: nginx
+        image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+        args:
+        - skipper
+        - -inline-routes
+        - '* -> inlineContent("OK") -> <shunt>'
+        - -address=:80
         ports:
         - containerPort: 80
           name: ingress
