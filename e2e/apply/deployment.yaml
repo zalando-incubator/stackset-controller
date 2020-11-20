@@ -26,6 +26,7 @@ spec:
           - "--controller-id={{{CONTROLLER_ID}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
           - "--enable-routegroup-support"
+          - "--ingress-source-switch-ttl=1m"
         resources:
           limits:
             cpu: 10m

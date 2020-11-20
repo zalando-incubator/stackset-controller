@@ -444,6 +444,34 @@ func waitForRouteGroup(t *testing.T, name string) (*rgv1.RouteGroup, error) {
 	return routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
+func waitForUpdatedRouteGroup(t *testing.T, name string, oldTimestamp string) (*rgv1.RouteGroup, error) {
+	err := newAwaiter(t, fmt.Sprintf("updated RouteGroup %s", name)).withPoll(func() (bool, error) {
+		rg, err := routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return apiErrors.IsNotFound(err.(error)), err.(error)
+		}
+		return rg.Annotations[controller.ControllerLastUpdatedAnnotationKey] != oldTimestamp, nil
+	}).await()
+	if err != nil {
+		return nil, err
+	}
+	return routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
+}
+
+func waitForUpdatedIngress(t *testing.T, name string, oldTimestamp string) (*networkingv1beta1.Ingress, error) {
+	err := newAwaiter(t, fmt.Sprintf("updated Ingress %s", name)).withPoll(func() (bool, error) {
+		ing, err := ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			return apiErrors.IsNotFound(err.(error)), err.(error)
+		}
+		return ing.Annotations[controller.ControllerLastUpdatedAnnotationKey] != oldTimestamp, nil
+	}).await()
+	if err != nil {
+		return nil, err
+	}
+	return ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
+}
+
 func getIngressTrafficWeights(ingress *networkingv1beta1.Ingress, kind weightKind) map[string]float64 {
 	weights := ingress.Annotations[string(kind)]
 	if weights == "" {

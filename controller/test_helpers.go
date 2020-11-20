@@ -24,6 +24,13 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
+var (
+	timeNow = time.Now().Format(time.RFC3339)
+	// ttl for the test environment is time.Minute, here
+	// timeOldEnough is set to twice this value.
+	timeOldEnough = time.Now().Add(-2 * time.Minute).Format(time.RFC3339)
+)
+
 type testClient struct {
 	kubernetes.Interface
 	ssClient ssinterface.Interface
@@ -51,6 +58,11 @@ func NewTestEnvironment() *testEnvironment {
 	}
 
 	controller, err := NewStackSetController(client, "", "", "", prometheus.NewPedanticRegistry(), time.Minute, true, time.Minute)
+
+	controller.now = func() string {
+		return timeNow
+	}
+
 	if err != nil {
 		panic(err)
 	}
