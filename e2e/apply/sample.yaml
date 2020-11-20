@@ -30,8 +30,13 @@ spec:
             application: "e2e-deploy-sample"
         spec:
           containers:
-          - name: "e2e-deploy-sample"
-            image: nginx
+          - name: skipper
+            image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+            args:
+            - skipper
+            - -inline-routes
+            - '* -> inlineContent("OK") -> <shunt>'
+            - -address=:80
             ports:
             - containerPort: 80
             resources:

@@ -109,7 +109,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 				StackSpec: zv1.StackSpec{
 					Replicas: pint32(f.replicas),
 					PodTemplate: zv1.PodTemplateSpec{
-						Spec: nginxPod,
+						Spec: skipperPod,
 					},
 					Service: &zv1.StackServiceSpec{
 						EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{

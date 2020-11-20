@@ -38,11 +38,17 @@ const (
 )
 
 var (
-	nginxPod = corev1.PodSpec{
+	skipperPod = corev1.PodSpec{
 		Containers: []corev1.Container{
 			{
-				Name:  "nginx",
-				Image: "nginx",
+				Name:  "skipper",
+				Image: "registry.opensource.zalan.do/pathfinder/skipper:v0.11.194",
+				Args: []string{
+					"skipper",
+					"-inline-routes",
+					`* -> inlineContent("OK") -> <shunt>`,
+					"-address=:80",
+				},
 				Ports: []corev1.ContainerPort{
 					{
 						ContainerPort: 80,
