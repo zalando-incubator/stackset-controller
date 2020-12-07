@@ -9,7 +9,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/api/autoscaling/v2beta2"
 	apiv1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -183,7 +183,7 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 	// Ingress removed
 	if ingress == nil {
 		if existing != nil {
-			err := c.client.NetworkingV1beta1().Ingresses(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
+			err := c.client.NetworkingV1().Ingresses(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -199,7 +199,7 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 
 	// Create new Ingress
 	if existing == nil {
-		_, err := c.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ctx, ingress, metav1.CreateOptions{})
+		_, err := c.client.NetworkingV1().Ingresses(ingress.Namespace).Create(ctx, ingress, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -221,7 +221,7 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 	syncObjectMeta(updated, ingress)
 	updated.Spec = ingress.Spec
 
-	_, err = c.client.NetworkingV1beta1().Ingresses(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
+	_, err = c.client.NetworkingV1().Ingresses(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}

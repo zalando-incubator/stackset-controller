@@ -8,7 +8,7 @@ import (
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	corev1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -259,10 +259,16 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 			actualWeights[sc.Name()] = sc.actualTrafficWeight
 
 			rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, networking.HTTPIngressPath{
-				Path: stackset.Spec.Ingress.Path,
+				Path:     stackset.Spec.Ingress.Path,
+				PathType: &PathTypeImplementationSpecific,
 				Backend: networking.IngressBackend{
-					ServiceName: sc.Name(),
-					ServicePort: stackset.Spec.Ingress.BackendPort,
+					Service: &networking.IngressServiceBackend{
+						Name: sc.Name(),
+						Port: networking.ServiceBackendPort{
+							Number: stackset.Spec.Ingress.BackendPort.IntVal,
+							Name:   stackset.Spec.Ingress.BackendPort.StrVal,
+						},
+					},
 				},
 			})
 		}
@@ -274,7 +280,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 
 	// sort backends by name to have a consistent generated ingress resource.
 	sort.Slice(rule.IngressRuleValue.HTTP.Paths, func(i, j int) bool {
-		return rule.IngressRuleValue.HTTP.Paths[i].Backend.ServiceName < rule.IngressRuleValue.HTTP.Paths[j].Backend.ServiceName
+		return rule.IngressRuleValue.HTTP.Paths[i].Backend.Service.Name < rule.IngressRuleValue.HTTP.Paths[j].Backend.Service.Name
 	})
 
 	// create rule per hostname

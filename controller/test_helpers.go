@@ -17,7 +17,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -107,7 +107,7 @@ func (f *testEnvironment) CreateDeployments(ctx context.Context, deployments []a
 
 func (f *testEnvironment) CreateIngresses(ctx context.Context, ingresses []networking.Ingress) error {
 	for _, ingress := range ingresses {
-		_, err := f.client.NetworkingV1beta1().Ingresses(ingress.Namespace).Create(ctx, &ingress, metav1.CreateOptions{})
+		_, err := f.client.NetworkingV1().Ingresses(ingress.Namespace).Create(ctx, &ingress, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}

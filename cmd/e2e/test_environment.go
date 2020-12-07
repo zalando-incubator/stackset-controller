@@ -13,7 +13,7 @@ import (
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
 	autoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
 	corev1typed "k8s.io/client-go/kubernetes/typed/core/v1"
-	networking "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
+	networking "k8s.io/client-go/kubernetes/typed/networking/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -79,7 +79,7 @@ func hpaInterface() autoscalingv2.HorizontalPodAutoscalerInterface {
 }
 
 func ingressInterface() networking.IngressInterface {
-	return kubernetesClient.NetworkingV1beta1().Ingresses(namespace)
+	return kubernetesClient.NetworkingV1().Ingresses(namespace)
 }
 
 func routegroupInterface() rgv1client.RouteGroupInterface {

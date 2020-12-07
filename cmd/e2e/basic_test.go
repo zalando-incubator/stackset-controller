@@ -12,7 +12,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -21,7 +21,7 @@ const (
 )
 
 var (
-	pathType = v1beta1.PathTypeImplementationSpecific
+	pathType = v1.PathTypeImplementationSpecific
 )
 
 type TestStacksetSpecFactory struct {
@@ -303,18 +303,22 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		stackIngress, err := waitForIngress(t, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, stackIngress.Labels)
-		stackIngressRules := make([]v1beta1.IngressRule, 0, len(clusterDomains))
+		stackIngressRules := make([]v1.IngressRule, 0, len(clusterDomains))
 		for _, domain := range clusterDomains {
-			stackIngressRules = append(stackIngressRules, v1beta1.IngressRule{
+			stackIngressRules = append(stackIngressRules, v1.IngressRule{
 				Host: fmt.Sprintf("%s.%s", stack.Name, domain),
-				IngressRuleValue: v1beta1.IngressRuleValue{
-					HTTP: &v1beta1.HTTPIngressRuleValue{
-						Paths: []v1beta1.HTTPIngressPath{
+				IngressRuleValue: v1.IngressRuleValue{
+					HTTP: &v1.HTTPIngressRuleValue{
+						Paths: []v1.HTTPIngressPath{
 							{
 								PathType: &pathType,
-								Backend: v1beta1.IngressBackend{
-									ServiceName: service.Name,
-									ServicePort: intstr.FromInt(80),
+								Backend: v1.IngressBackend{
+									Service: &v1.IngressServiceBackend{
+										Name: service.Name,
+										Port: v1.ServiceBackendPort{
+											Number: 80,
+										},
+									},
 								},
 							},
 						},
@@ -358,7 +362,7 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 
 	expectedWeights := make(map[string]float64)
 
-	var expectedPaths []v1beta1.HTTPIngressPath
+	var expectedPaths []v1.HTTPIngressPath
 	for stack, weight := range stackWeights {
 		serviceName := fmt.Sprintf("%s-%s", stacksetName, stack)
 		expectedWeights[serviceName] = weight
@@ -367,15 +371,19 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 			continue
 		}
 
-		expectedPaths = append(expectedPaths, v1beta1.HTTPIngressPath{
+		expectedPaths = append(expectedPaths, v1.HTTPIngressPath{
 			PathType: &pathType,
-			Backend: v1beta1.IngressBackend{
-				ServiceName: serviceName,
-				ServicePort: intstr.FromInt(80),
+			Backend: v1.IngressBackend{
+				Service: &v1.IngressServiceBackend{
+					Name: serviceName,
+					Port: v1.ServiceBackendPort{
+						Number: 80,
+					},
+				},
 			},
 		})
 		sort.Slice(expectedPaths, func(i, j int) bool {
-			return strings.Compare(expectedPaths[i].Backend.ServiceName, expectedPaths[j].Backend.ServiceName) < 0
+			return strings.Compare(expectedPaths[i].Backend.Service.Name, expectedPaths[j].Backend.Service.Name) < 0
 		})
 	}
 
@@ -384,12 +392,12 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	require.EqualValues(t, stacksetResourceLabels, globalIngress.Labels)
 	require.Contains(t, globalIngress.Annotations, userTestAnnotation)
 	require.Equal(t, "test", globalIngress.Annotations[userTestAnnotation])
-	globalIngressRules := make([]v1beta1.IngressRule, 0, len(stacksetSpec.Ingress.Hosts))
+	globalIngressRules := make([]v1.IngressRule, 0, len(stacksetSpec.Ingress.Hosts))
 	for _, host := range stacksetSpec.Ingress.Hosts {
-		globalIngressRules = append(globalIngressRules, v1beta1.IngressRule{
+		globalIngressRules = append(globalIngressRules, v1.IngressRule{
 			Host: host,
-			IngressRuleValue: v1beta1.IngressRuleValue{
-				HTTP: &v1beta1.HTTPIngressRuleValue{
+			IngressRuleValue: v1.IngressRuleValue{
+				HTTP: &v1.HTTPIngressRuleValue{
 					Paths: expectedPaths,
 				},
 			},
