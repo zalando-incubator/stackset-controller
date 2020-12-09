@@ -26,8 +26,10 @@ import (
 )
 
 // StackLister helps list Stacks.
+// All objects returned here must be treated as read-only.
 type StackLister interface {
 	// List lists all Stacks in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.Stack, err error)
 	// Stacks returns an object that can list and get Stacks.
 	Stacks(namespace string) StackNamespaceLister
@@ -58,10 +60,13 @@ func (s *stackLister) Stacks(namespace string) StackNamespaceLister {
 }
 
 // StackNamespaceLister helps list and get Stacks.
+// All objects returned here must be treated as read-only.
 type StackNamespaceLister interface {
 	// List lists all Stacks in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v1.Stack, err error)
 	// Get retrieves the Stack from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v1.Stack, error)
 	StackNamespaceListerExpansion
 }
