@@ -29,7 +29,6 @@ type TestStacksetSpecFactory struct {
 	hpa                           bool
 	hpaBehavior                   bool
 	ingress                       bool
-	ingressAnnotations            map[string]string
 	routegroup                    bool
 	externalIngress               bool
 	limit                         int32
@@ -71,9 +70,8 @@ func (f *TestStacksetSpecFactory) Behavior(stabilizationWindowSeconds int32) *Te
 	return f
 }
 
-func (f *TestStacksetSpecFactory) Ingress(annotations map[string]string) *TestStacksetSpecFactory {
+func (f *TestStacksetSpecFactory) Ingress() *TestStacksetSpecFactory {
 	f.ingress = true
-	f.ingressAnnotations = annotations
 	return f
 }
 
@@ -185,6 +183,11 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 	}
 	if f.routegroup {
 		result.RouteGroup = &zv1.RouteGroupSpec{
+			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+				Annotations: map[string]string{
+					userTestAnnotation: "test",
+				},
+			},
 			Hosts:       []string{hostname(f.stacksetName)},
 			BackendPort: 80,
 			Routes: []rgv1.RouteGroupRouteSpec{
@@ -343,7 +346,7 @@ func verifyStacksetExternalIngress(t *testing.T, stacksetName string, stacksetSp
 	require.NoError(t, err)
 }
 
-func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
+func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64) {
 	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
 
 	expectedWeights := make(map[string]float64)
@@ -428,6 +431,8 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 	globalRouteGroup, err := waitForRouteGroup(t, stacksetName)
 	require.NoError(t, err)
 	require.EqualValues(t, stacksetResourceLabels, globalRouteGroup.Labels)
+	require.Contains(t, globalRouteGroup.Annotations, userTestAnnotation)
+	require.Equal(t, "test", globalRouteGroup.Annotations[userTestAnnotation])
 
 	sort.Slice(globalRouteGroup.Spec.DefaultBackends, func(i, j int) bool {
 		return strings.Compare(globalRouteGroup.Spec.DefaultBackends[i].BackendName, globalRouteGroup.Spec.DefaultBackends[j].BackendName) < 0
@@ -453,9 +458,8 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	if hpa {
 		stacksetSpecFactory.HPA(1, 3)
 	}
-	ingressAnnotations := map[string]string{userTestAnnotation: "test"}
 	if ingress {
-		stacksetSpecFactory.Ingress(ingressAnnotations)
+		stacksetSpecFactory.Ingress()
 	}
 	if routegroup {
 		stacksetSpecFactory.RouteGroup()
@@ -473,7 +477,7 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	verifyStack(t, stacksetName, stackVersion, stacksetSpec)
 
 	if ingress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, ingressAnnotations)
+		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
 	}
 	if routegroup {
 		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
@@ -495,7 +499,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 		stacksetSpecFactory.HPA(1, 3)
 	}
 	if oldIngress {
-		stacksetSpecFactory.Ingress(nil)
+		stacksetSpecFactory.Ingress()
 	}
 	if oldRouteGroup {
 		stacksetSpecFactory.RouteGroup()
@@ -521,7 +525,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	verifyStack(t, stacksetName, initialVersion, stacksetSpec)
 
 	if oldIngress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, nil)
+		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
 	}
 	if oldRouteGroup {
 		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
@@ -540,9 +544,8 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	if newHpa {
 		stacksetSpecFactory.HPA(1, 3)
 	}
-	ingressAnnotations := map[string]string{userTestAnnotation: "test"}
 	if newIngress {
-		stacksetSpecFactory.Ingress(ingressAnnotations)
+		stacksetSpecFactory.Ingress()
 	} else if newRouteGroup {
 		stacksetSpecFactory.RouteGroup()
 	} else if newExternalIngress {
@@ -578,7 +581,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	})
 
 	if newIngress {
-		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, ingressAnnotations)
+		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0})
 		// no traffic switch here
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,

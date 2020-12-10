@@ -115,6 +115,7 @@ type StackSetExternalIngressSpec struct {
 // to a StackSet.
 // +k8s:deepcopy-gen=true
 type RouteGroupSpec struct {
+	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 	// Hosts is the list of hostnames to add to the routegroup.
 	Hosts []string `json:"hosts,omitempty"`
 	// AdditionalBackends is the list of additional backends to use for

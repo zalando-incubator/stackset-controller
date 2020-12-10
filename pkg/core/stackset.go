@@ -148,9 +148,10 @@ func (ssc *StackSetContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 
 	result := &rgv1.RouteGroup{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      stackset.Name,
-			Namespace: stackset.Namespace,
-			Labels:    labels,
+			Name:        stackset.Name,
+			Namespace:   stackset.Namespace,
+			Labels:      labels,
+			Annotations: stackset.Spec.RouteGroup.Annotations,
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion: stackset.APIVersion,
