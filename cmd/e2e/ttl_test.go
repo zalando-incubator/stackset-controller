@@ -47,7 +47,7 @@ func TestStackTTLWithoutIngress(t *testing.T) {
 func TestStackTTLWithIngress(t *testing.T) {
 	t.Parallel()
 	stacksetName := "stackset-ttl-ingress"
-	specFactory := NewTestStacksetSpecFactory(stacksetName).StackGC(3, 15).Ingress(nil)
+	specFactory := NewTestStacksetSpecFactory(stacksetName).StackGC(3, 15).Ingress()
 
 	// Create 6 stacks each with an ingress
 	for i := 0; i < 6; i++ {
@@ -140,7 +140,7 @@ func TestStackTTLWithExternalIngress(t *testing.T) {
 func TestStackTTLForLatestStack(t *testing.T) {
 	t.Parallel()
 	stacksetName := "stackset-ttl-last-stack"
-	specFactory := NewTestStacksetSpecFactory(stacksetName).StackGC(1, 15).Ingress(nil)
+	specFactory := NewTestStacksetSpecFactory(stacksetName).StackGC(1, 15).Ingress()
 
 	// Create 2 stacks in total and wait for their deployments to come up
 	for i := 0; i < 2; i++ {

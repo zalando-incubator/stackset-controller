@@ -136,6 +136,15 @@ spec:
                     items:
                       type: string
                     type: array
+                  metadata:
+                    description: EmbeddedObjectMetaWithAnnotations defines the metadata which can be attached to a resource. It's a slimmed down version of metav1.ObjectMeta only containing annotations.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: 'Annotations is an unstructured key value map stored with a resource that may be set by external tools to store and retrieve arbitrary metadata. They are not queryable and should be preserved when modifying objects. More info: http://kubernetes.io/docs/user-guide/annotations'
+                        type: object
+                    type: object
                   routes:
                     description: Routes is the list of routes to be applied to the routegroup.
                     items:

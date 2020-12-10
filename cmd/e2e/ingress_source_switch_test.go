@@ -21,7 +21,7 @@ func TestIngressSourceSwitch(t *testing.T) {
 	firstVersion := "v1"
 
 	// create stackset with ingress
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress(nil)
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress()
 	spec := factory.Create(firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func TestIngressToRouteGroupSwitch(t *testing.T) {
 	firstVersion := "v1"
 
 	// create stackset with ingress and routegroup
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress(nil).RouteGroup()
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().RouteGroup()
 	spec := factory.Create(firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
@@ -108,7 +108,7 @@ func TestRouteGroupToIngressSwitch(t *testing.T) {
 	firstVersion := "v1"
 
 	// create stackset with ingress and routegroup
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress(nil).RouteGroup()
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().RouteGroup()
 	spec := factory.Create(firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)

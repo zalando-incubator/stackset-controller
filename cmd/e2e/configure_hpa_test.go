@@ -14,7 +14,7 @@ func TestConfigureHPA(t *testing.T) {
 	stacksetName := "configured-hpa"
 	var stabilizationWindow int32 = 60
 	factory := NewTestStacksetSpecFactory(stacksetName).
-		Ingress(nil).
+		Ingress().
 		HPA(1, 3).
 		Behavior(stabilizationWindow)
 	firstVersion := "v1"
@@ -42,7 +42,7 @@ func TestConfigureAutoscaling(t *testing.T) {
 	require.Len(t, metrics, 3)
 
 	factory := NewTestStacksetSpecFactory(stacksetName).
-		Ingress(nil).
+		Ingress().
 		Autoscaler(1, 10, metrics).
 		Behavior(stabilizationWindow)
 	firstVersion := "v1"
