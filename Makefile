@@ -25,7 +25,7 @@ clean:
 	rm -f $(GENERATED_CRDS)
 
 test: $(GENERATED)
-	go test -v $(GOPKGS)
+	go test -v -coverprofile=profile.cov $(GOPKGS)
 
 check: $(GENERATED)
 	go mod download

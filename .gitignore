@@ -16,3 +16,4 @@ build/
 
 # ignore vendored dependencies
 vendor/
+profile.cov
