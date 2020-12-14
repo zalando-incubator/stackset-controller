@@ -117,14 +117,14 @@ type StackSetExternalIngressSpec struct {
 type RouteGroupSpec struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 	// Hosts is the list of hostnames to add to the routegroup.
-	Hosts []string `json:"hosts,omitempty"`
+	Hosts []string `json:"hosts"`
 	// AdditionalBackends is the list of additional backends to use for
 	// routing.
 	// +optional
 	AdditionalBackends []rg.RouteGroupBackend `json:"additionalBackends,omitempty"`
 	// Routes is the list of routes to be applied to the routegroup.
 	// +kubebuilder:validation:MinItems=1
-	Routes      []rg.RouteGroupRouteSpec `json:"routes,omitempty"`
+	Routes      []rg.RouteGroupRouteSpec `json:"routes"`
 	BackendPort int                      `json:"backendPort"`
 }
 
