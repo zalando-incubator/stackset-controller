@@ -21,7 +21,7 @@ import (
 var (
 	kubernetesClient, stacksetClient, routegroupClient = createClients()
 	namespace                                          = requiredEnvar("E2E_NAMESPACE")
-	clusterDomain                                      = requiredEnvar("CLUSTER_DOMAIN")
+	clusterDomains                                     = []string{requiredEnvar("CLUSTER_DOMAIN"), requiredEnvar("CLUSTER_DOMAIN_INTERNAL")}
 	controllerId                                       = os.Getenv("CONTROLLER_ID")
 )
 
@@ -94,6 +94,10 @@ func requiredEnvar(envar string) string {
 	return namespace
 }
 
-func hostname(stacksetName string) string {
-	return fmt.Sprintf("%s-%s.%s", namespace, stacksetName, clusterDomain)
+func hostnames(stacksetName string) []string {
+	names := make([]string, 0, len(clusterDomains))
+	for _, domain := range clusterDomains {
+		names = append(names, fmt.Sprintf("%s-%s.%s", namespace, stacksetName, domain))
+	}
+	return names
 }

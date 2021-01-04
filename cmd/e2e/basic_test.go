@@ -177,7 +177,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 					userTestAnnotation: "test",
 				},
 			},
-			Hosts:       []string{hostname(f.stacksetName)},
+			Hosts:       hostnames(f.stacksetName),
 			BackendPort: intstr.FromInt(80),
 		}
 	}
@@ -188,7 +188,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 					userTestAnnotation: "test",
 				},
 			},
-			Hosts:       []string{hostname(f.stacksetName)},
+			Hosts:       hostnames(f.stacksetName),
 			BackendPort: 80,
 			Routes: []rgv1.RouteGroupRouteSpec{
 				{
@@ -303,22 +303,29 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		stackIngress, err := waitForIngress(t, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, stackIngress.Labels)
-		stackIngressRules := []v1beta1.IngressRule{{
-			Host: fmt.Sprintf("%s.%s", stack.Name, clusterDomain),
-			IngressRuleValue: v1beta1.IngressRuleValue{
-				HTTP: &v1beta1.HTTPIngressRuleValue{
-					Paths: []v1beta1.HTTPIngressPath{
-						{
-							PathType: &pathType,
-							Backend: v1beta1.IngressBackend{
-								ServiceName: service.Name,
-								ServicePort: intstr.FromInt(80),
+		stackIngressRules := make([]v1beta1.IngressRule, 0, len(clusterDomains))
+		for _, domain := range clusterDomains {
+			stackIngressRules = append(stackIngressRules, v1beta1.IngressRule{
+				Host: fmt.Sprintf("%s.%s", stack.Name, domain),
+				IngressRuleValue: v1beta1.IngressRuleValue{
+					HTTP: &v1beta1.HTTPIngressRuleValue{
+						Paths: []v1beta1.HTTPIngressPath{
+							{
+								PathType: &pathType,
+								Backend: v1beta1.IngressBackend{
+									ServiceName: service.Name,
+									ServicePort: intstr.FromInt(80),
+								},
 							},
 						},
 					},
 				},
-			},
-		}}
+			})
+		}
+		// sort rules by hostname for a stable order
+		sort.Slice(stackIngressRules, func(i, j int) bool {
+			return stackIngressRules[i].Host < stackIngressRules[j].Host
+		})
 		require.EqualValues(t, stackIngressRules, stackIngress.Spec.Rules)
 	}
 }
@@ -377,14 +384,21 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	require.EqualValues(t, stacksetResourceLabels, globalIngress.Labels)
 	require.Contains(t, globalIngress.Annotations, userTestAnnotation)
 	require.Equal(t, "test", globalIngress.Annotations[userTestAnnotation])
-	globalIngressRules := []v1beta1.IngressRule{{
-		Host: stacksetSpec.Ingress.Hosts[0],
-		IngressRuleValue: v1beta1.IngressRuleValue{
-			HTTP: &v1beta1.HTTPIngressRuleValue{
-				Paths: expectedPaths,
+	globalIngressRules := make([]v1beta1.IngressRule, 0, len(stacksetSpec.Ingress.Hosts))
+	for _, host := range stacksetSpec.Ingress.Hosts {
+		globalIngressRules = append(globalIngressRules, v1beta1.IngressRule{
+			Host: host,
+			IngressRuleValue: v1beta1.IngressRuleValue{
+				HTTP: &v1beta1.HTTPIngressRuleValue{
+					Paths: expectedPaths,
+				},
 			},
-		},
-	}}
+		})
+	}
+	// sort rules by hostname for a stable order
+	sort.Slice(globalIngressRules, func(i, j int) bool {
+		return globalIngressRules[i].Host < globalIngressRules[j].Host
+	})
 	require.EqualValues(t, globalIngressRules, globalIngress.Spec.Rules)
 
 	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindDesired, expectedWeights, nil).await()

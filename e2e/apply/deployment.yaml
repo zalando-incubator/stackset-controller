@@ -25,6 +25,7 @@ spec:
         args:
           - "--controller-id={{{CONTROLLER_ID}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
+          - "--cluster-domain={{{CLUSTER_DOMAIN_INTERNAL}}}"
           - "--enable-routegroup-support"
           - "--ingress-source-switch-ttl=1m"
         resources:

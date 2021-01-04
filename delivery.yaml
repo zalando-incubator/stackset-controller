@@ -46,6 +46,8 @@ pipeline:
         value: "#{CDP_BUILD_VERSION}"
       - name: CLUSTER_DOMAIN
         value: stups-test.zalan.do
+      - name: CLUSTER_DOMAIN_INTERNAL
+        value: ingress.cluster.local
     end2end_tests:
       metadata:
         name: e2e
@@ -63,6 +65,8 @@ pipeline:
                 value: "#{CDP_BUILD_VERSION}"
               - name: CLUSTER_DOMAIN
                 value: stups-test.zalan.do
+              - name: CLUSTER_DOMAIN_INTERNAL
+                value: ingress.cluster.local
               - name: "E2E_NAMESPACE"
                 valueFrom:
                   fieldRef:

@@ -473,13 +473,13 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 
 func TestStackSetUpdateFromResourcesClusterDomain(t *testing.T) {
 	c := dummyStacksetContainer()
-	c.clusterDomain = "foo.example.org"
+	c.clusterDomains = []string{"foo.example.org"}
 
 	err := c.UpdateFromResources()
 	require.NoError(t, err)
 
 	for _, sc := range c.StackContainers {
-		require.Equal(t, c.clusterDomain, sc.clusterDomain)
+		require.Equal(t, c.clusterDomains, sc.clusterDomains)
 	}
 }
 
@@ -958,7 +958,7 @@ func TestStackSetGenerateIngress(t *testing.T) {
 		Spec: networking.IngressSpec{
 			Rules: []networking.IngressRule{
 				{
-					Host: "example.org",
+					Host: "example.com",
 					IngressRuleValue: networking.IngressRuleValue{
 						HTTP: &networking.HTTPIngressRuleValue{
 							Paths: []networking.HTTPIngressPath{
@@ -988,7 +988,7 @@ func TestStackSetGenerateIngress(t *testing.T) {
 					},
 				},
 				{
-					Host: "example.com",
+					Host: "example.org",
 					IngressRuleValue: networking.IngressRuleValue{
 						HTTP: &networking.HTTPIngressRuleValue{
 							Paths: []networking.HTTPIngressPath{

@@ -62,9 +62,9 @@ type StackSetContainer struct {
 	// traffic.DefaultBackendWeightsAnnotationKey
 	backendWeightsAnnotationKey string
 
-	// clusterDomain stores the main domain name of the cluster; per-stack ingress hostnames
-	// are not generated for names outside of it
-	clusterDomain string
+	// clusterDomains stores the main domain names of the cluster;
+	// per-stack ingress hostnames are not generated for names outside of them
+	clusterDomains []string
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -86,7 +86,7 @@ type StackContainer struct {
 	routeGroupSpec *zv1.RouteGroupSpec
 	scaledownTTL   time.Duration
 	backendPort    *intstr.IntOrString
-	clusterDomain  string
+	clusterDomains []string
 
 	// Fields from the stack itself, with some defaults applied
 	stackReplicas int32
@@ -181,13 +181,13 @@ type StackResources struct {
 	RouteGroup *rgv1.RouteGroup
 }
 
-func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey, clusterDomain string) *StackSetContainer {
+func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {
 	return &StackSetContainer{
 		StackSet:                    stackset,
 		StackContainers:             map[types.UID]*StackContainer{},
 		TrafficReconciler:           reconciler,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
-		clusterDomain:               clusterDomain,
+		clusterDomains:              clusterDomains,
 	}
 }
 
@@ -309,7 +309,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		sc.backendPort = backendPort
 		sc.routeGroupSpec = routeGroupSpec
 		sc.scaledownTTL = scaledownTTL
-		sc.clusterDomain = ssc.clusterDomain
+		sc.clusterDomains = ssc.clusterDomains
 		sc.updateFromResources()
 	}
 

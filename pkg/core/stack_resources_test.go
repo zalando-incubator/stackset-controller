@@ -279,8 +279,8 @@ func TestStackGenerateIngress(t *testing.T) {
 			Hosts: []string{"foo.example.org", "foo.example.com"},
 			Path:  "example",
 		},
-		backendPort:   &backendPort,
-		clusterDomain: "example.org",
+		backendPort:    &backendPort,
+		clusterDomains: []string{"example.org"},
 	}
 	ingress, err := c.GenerateIngress()
 	require.NoError(t, err)
