@@ -34,7 +34,7 @@ spec:
         spec:
           containers:
           - name: skipper
-            image: registry.opensource.zalan.do/pathfinder/skipper:latest
+            image: registry.opensource.zalan.do/teapot/skipper:latest
             args:
             - skipper
             - -inline-routes
@@ -68,7 +68,7 @@ for the container:
 ```yaml
 containers:
 - name: skipper
-  image: registry.opensource.zalan.do/pathfinder/skipper:latest
+  image: registry.opensource.zalan.do/teapot/skipper:latest
   args:
   - skipper
   - -inline-routes
@@ -130,7 +130,7 @@ spec:
         spec:
           containers:
           - name: skipper
-            image: registry.opensource.zalan.do/pathfinder/skipper:latest
+            image: registry.opensource.zalan.do/teapot/skipper:latest
             args:
             - skipper
             - -inline-routes
@@ -379,7 +379,7 @@ spec:
         spec:
           containers:
           - name: skipper
-            image: registry.opensource.zalan.do/pathfinder/skipper:latest
+            image: registry.opensource.zalan.do/teapot/skipper:latest
             args:
             - skipper
             - -inline-routes
