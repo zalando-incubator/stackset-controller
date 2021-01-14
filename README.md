@@ -213,6 +213,9 @@ behavior for the `StackSet`:
   `externalIngress:` spec, such that external controllers can manage
   the Ingress or CRD creation, that will configure the routing into
   the cluster.
+* You can use skipper's
+  [RouteGroups](https://opensource.zalando.com/skipper/kubernetes/routegroups)
+  to configure more complex routing rules.
 
 ## Docs
 
