@@ -34,7 +34,7 @@ spec:
         spec:
           containers:
           - name: skipper
-            image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+            image: registry.opensource.zalan.do/teapot/skipper:latest
             args:
             - skipper
             - -inline-routes
@@ -68,7 +68,7 @@ for the container:
 ```yaml
 containers:
 - name: skipper
-  image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+  image: registry.opensource.zalan.do/teapot/skipper:latest
   args:
   - skipper
   - -inline-routes
@@ -130,7 +130,7 @@ spec:
         spec:
           containers:
           - name: skipper
-            image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+            image: registry.opensource.zalan.do/teapot/skipper:latest
             args:
             - skipper
             - -inline-routes
@@ -336,4 +336,55 @@ status:
     serviceName: my-app-v2
     servicePort: 8080
     weight: 0
+```
+
+## Using RouteGroups
+
+[RouteGroups](https://opensource.zalando.com/skipper/kubernetes/routegroups)
+is a skipper specific CRD and are a more powerful routing
+configuration than ingress. For example you want to redirect `/login`,
+if the cookie "my-login-cookie" is not set, to your Open ID Connect
+provider or something like this?  Here is how you can do that:
+
+```yaml
+apiVersion: zalando.org/v1
+kind: StackSet
+metadata:
+  name: my-app
+spec:
+  routegroup:
+    additionalBackends:
+    - name: theShunt
+      type: shunt
+    backendPort: 9090
+    hosts:
+    - "www.example.org"
+    routes:
+    - pathSubtree: "/"
+    # route with more predicates has more weight, than the redirected route
+    - path: "/login"
+      predicates:
+      - Cookie("my-login-cookie")
+    - path: "/login"
+      # backends within a route overwrites
+      backends:
+      - backendName: theShunt
+      filters:
+      - redirectTo(308, "https://login.example.com")
+  stackTemplate:
+    spec:
+      version: v1
+      replicas: 3
+      podTemplate:
+        spec:
+          containers:
+          - name: skipper
+            image: registry.opensource.zalan.do/teapot/skipper:latest
+            args:
+            - skipper
+            - -inline-routes
+            - 'r0: * -> inlineContent("OK") -> <shunt>; r1: Path("/login") -> inlineContent("login") -> <shunt>;'
+            - -address=:9090
+            ports:
+            - containerPort: 9090
 ```

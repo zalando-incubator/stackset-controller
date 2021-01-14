@@ -99,7 +99,7 @@ spec:
         spec:
           containers:
           - name: skipper
-            image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+            image: registry.opensource.zalan.do/teapot/skipper:latest
             args:
             - skipper
             - -inline-routes
@@ -140,7 +140,7 @@ spec:
   podTemplate:
     spec:
       containers:
-        image: registry.opensource.zalan.do/pathfinder/skipper:v0.11.194
+        image: registry.opensource.zalan.do/teapot/skipper:latest
         args:
         - skipper
         - -inline-routes
@@ -213,6 +213,9 @@ behavior for the `StackSet`:
   `externalIngress:` spec, such that external controllers can manage
   the Ingress or CRD creation, that will configure the routing into
   the cluster.
+* You can use skipper's
+  [RouteGroups](https://opensource.zalando.com/skipper/kubernetes/routegroups)
+  to configure more complex routing rules.
 
 ## Docs
 
