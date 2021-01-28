@@ -180,7 +180,7 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 				// TODO: Selector
 			},
 			DescribedObject: autoscaling.CrossVersionObjectReference{
-				APIVersion: "networking.k8s.io/v1beta1",
+				APIVersion: "networking.k8s.io/v1",
 				Kind:       "Ingress",
 				Name:       ingressName,
 			},

@@ -12,7 +12,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -832,26 +832,26 @@ func TestGenerateStackSetStatus(t *testing.T) {
 			{
 				StackName:   "v2",
 				ServiceName: "v2",
-				ServicePort: intstr.FromInt(testPort),
+				ServicePort: intStrTestPort,
 				Weight:      90,
 			},
 			{
 				StackName:   "v3",
 				ServiceName: "v3",
-				ServicePort: intstr.FromInt(testPort),
+				ServicePort: intStrTestPort,
 				Weight:      0,
 			},
 
 			{
 				StackName:   "v4",
 				ServiceName: "v4",
-				ServicePort: intstr.FromInt(testPort),
+				ServicePort: intStrTestPort,
 				Weight:      0,
 			},
 			{
 				StackName:   "v5",
 				ServiceName: "v5",
-				ServicePort: intstr.FromInt(testPort),
+				ServicePort: intStrTestPort,
 				Weight:      10,
 			},
 		},
@@ -915,7 +915,7 @@ func TestStackSetGenerateIngress(t *testing.T) {
 						Annotations: map[string]string{"ingress": "annotation"},
 					},
 					Hosts:       []string{"example.org", "example.com"},
-					BackendPort: intstr.FromInt(testPort),
+					BackendPort: intStrTestPort,
 					Path:        "example",
 				},
 			},
@@ -963,24 +963,39 @@ func TestStackSetGenerateIngress(t *testing.T) {
 						HTTP: &networking.HTTPIngressRuleValue{
 							Paths: []networking.HTTPIngressPath{
 								{
-									Path: "example",
+									Path:     "example",
+									PathType: &PathTypeImplementationSpecific,
 									Backend: networking.IngressBackend{
-										ServiceName: "foo-v1",
-										ServicePort: intstr.FromInt(testPort),
+										Service: &networking.IngressServiceBackend{
+											Name: "foo-v1",
+											Port: networking.ServiceBackendPort{
+												Number: testPort,
+											},
+										},
 									},
 								},
 								{
-									Path: "example",
+									Path:     "example",
+									PathType: &PathTypeImplementationSpecific,
 									Backend: networking.IngressBackend{
-										ServiceName: "foo-v2",
-										ServicePort: intstr.FromInt(testPort),
+										Service: &networking.IngressServiceBackend{
+											Name: "foo-v2",
+											Port: networking.ServiceBackendPort{
+												Number: testPort,
+											},
+										},
 									},
 								},
 								{
-									Path: "example",
+									Path:     "example",
+									PathType: &PathTypeImplementationSpecific,
 									Backend: networking.IngressBackend{
-										ServiceName: "foo-v3",
-										ServicePort: intstr.FromInt(testPort),
+										Service: &networking.IngressServiceBackend{
+											Name: "foo-v3",
+											Port: networking.ServiceBackendPort{
+												Number: testPort,
+											},
+										},
 									},
 								},
 							},
@@ -993,24 +1008,39 @@ func TestStackSetGenerateIngress(t *testing.T) {
 						HTTP: &networking.HTTPIngressRuleValue{
 							Paths: []networking.HTTPIngressPath{
 								{
-									Path: "example",
+									Path:     "example",
+									PathType: &PathTypeImplementationSpecific,
 									Backend: networking.IngressBackend{
-										ServiceName: "foo-v1",
-										ServicePort: intstr.FromInt(testPort),
+										Service: &networking.IngressServiceBackend{
+											Name: "foo-v1",
+											Port: networking.ServiceBackendPort{
+												Number: testPort,
+											},
+										},
 									},
 								},
 								{
-									Path: "example",
+									Path:     "example",
+									PathType: &PathTypeImplementationSpecific,
 									Backend: networking.IngressBackend{
-										ServiceName: "foo-v2",
-										ServicePort: intstr.FromInt(testPort),
+										Service: &networking.IngressServiceBackend{
+											Name: "foo-v2",
+											Port: networking.ServiceBackendPort{
+												Number: testPort,
+											},
+										},
 									},
 								},
 								{
-									Path: "example",
+									Path:     "example",
+									PathType: &PathTypeImplementationSpecific,
 									Backend: networking.IngressBackend{
-										ServiceName: "foo-v3",
-										ServicePort: intstr.FromInt(testPort),
+										Service: &networking.IngressServiceBackend{
+											Name: "foo-v3",
+											Port: networking.ServiceBackendPort{
+												Number: testPort,
+											},
+										},
 									},
 								},
 							},
@@ -1070,7 +1100,7 @@ func TestStackSetGenerateRouteGroup(t *testing.T) {
 							},
 						},
 					},
-					BackendPort: testPort,
+					BackendPort: int(testPort),
 				},
 			},
 		},
@@ -1108,25 +1138,25 @@ func TestStackSetGenerateRouteGroup(t *testing.T) {
 					Name:        "foo-v1",
 					Type:        rgv1.ServiceRouteGroupBackend,
 					ServiceName: "foo-v1",
-					ServicePort: testPort,
+					ServicePort: int(testPort),
 				},
 				{
 					Name:        "foo-v2",
 					Type:        rgv1.ServiceRouteGroupBackend,
 					ServiceName: "foo-v2",
-					ServicePort: testPort,
+					ServicePort: int(testPort),
 				},
 				{
 					Name:        "foo-v3",
 					Type:        rgv1.ServiceRouteGroupBackend,
 					ServiceName: "foo-v3",
-					ServicePort: testPort,
+					ServicePort: int(testPort),
 				},
 				{
 					Name:        "foo-v4",
 					Type:        rgv1.ServiceRouteGroupBackend,
 					ServiceName: "foo-v4",
-					ServicePort: testPort,
+					ServicePort: int(testPort),
 				},
 				{
 					Name: "shunt",

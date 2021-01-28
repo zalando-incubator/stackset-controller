@@ -10,7 +10,7 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -589,8 +589,12 @@ func TestReconcileStackIngress(t *testing.T) {
 						{
 							Path: "/",
 							Backend: networking.IngressBackend{
-								ServiceName: "foo",
-								ServicePort: intstr.FromInt(80),
+								Service: &networking.IngressServiceBackend{
+									Name: "foo",
+									Port: networking.ServiceBackendPort{
+										Number: 80,
+									},
+								},
 							},
 						},
 					},
@@ -607,8 +611,12 @@ func TestReconcileStackIngress(t *testing.T) {
 						{
 							Path: "/",
 							Backend: networking.IngressBackend{
-								ServiceName: "bar",
-								ServicePort: intstr.FromInt(8181),
+								Service: &networking.IngressServiceBackend{
+									Name: "bar",
+									Port: networking.ServiceBackendPort{
+										Number: 8181,
+									},
+								},
 							},
 						},
 					},
@@ -716,7 +724,7 @@ func TestReconcileStackIngress(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			updated, err := env.client.NetworkingV1beta1().Ingresses(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
+			updated, err := env.client.NetworkingV1().Ingresses(tc.stack.Namespace).Get(context.Background(), tc.stack.Name, metav1.GetOptions{})
 			if tc.expected != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expected, updated)

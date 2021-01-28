@@ -13,11 +13,10 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 func TestGetOwnerUID(t *testing.T) {
@@ -459,8 +458,12 @@ func TestReconcileStackSetIngressSources(t *testing.T) {
 						{
 							Path: "/",
 							Backend: networking.IngressBackend{
-								ServiceName: "foo",
-								ServicePort: intstr.FromInt(80),
+								Service: &networking.IngressServiceBackend{
+									Name: "foo",
+									Port: networking.ServiceBackendPort{
+										Number: 80,
+									},
+								},
 							},
 						},
 					},
@@ -501,8 +504,12 @@ func TestReconcileStackSetIngressSources(t *testing.T) {
 						{
 							Path: "/",
 							Backend: networking.IngressBackend{
-								ServiceName: "bar",
-								ServicePort: intstr.FromInt(8181),
+								Service: &networking.IngressServiceBackend{
+									Name: "bar",
+									Port: networking.ServiceBackendPort{
+										Number: 8181,
+									},
+								},
 							},
 						},
 					},
@@ -897,8 +904,10 @@ func TestReconcileStackSetIngressSources(t *testing.T) {
 			generatedIng: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
 				Spec: networking.IngressSpec{
-					Backend: &networking.IngressBackend{
-						ServiceName: "test",
+					DefaultBackend: &networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: "test",
+						},
 					},
 					Rules: exampleIngRules,
 				},
@@ -906,8 +915,10 @@ func TestReconcileStackSetIngressSources(t *testing.T) {
 			expectedIng: &networking.Ingress{
 				ObjectMeta: withAnnotations(stacksetOwned(testStackSet), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
 				Spec: networking.IngressSpec{
-					Backend: &networking.IngressBackend{
-						ServiceName: "test",
+					DefaultBackend: &networking.IngressBackend{
+						Service: &networking.IngressServiceBackend{
+							Name: "test",
+						},
 					},
 					Rules: exampleIngRules,
 				},
@@ -1297,7 +1308,7 @@ func TestReconcileStackSetIngressSources(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			updatedIng, err := env.client.NetworkingV1beta1().Ingresses(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
+			updatedIng, err := env.client.NetworkingV1().Ingresses(stackset.Namespace).Get(context.Background(), stackset.Name, metav1.GetOptions{})
 			if tc.expectedIng != nil {
 				require.NoError(t, err)
 				require.Equal(t, tc.expectedIng, updatedIng)

@@ -11,7 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -28,6 +28,10 @@ var (
 		StacksetHeritageLabelKey: {},
 		StackVersionLabelKey:     {},
 	}
+
+	// PathTypeImplementationSpecific is the used implementation path type
+	// for k8s.io/api/networking/v1.HTTPIngressPath resources.
+	PathTypeImplementationSpecific = networking.PathTypeImplementationSpecific
 )
 
 func mapCopy(m map[string]string) map[string]string {
@@ -345,10 +349,16 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 				HTTP: &networking.HTTPIngressRuleValue{
 					Paths: []networking.HTTPIngressPath{
 						{
-							Path: sc.ingressSpec.Path,
+							PathType: &PathTypeImplementationSpecific,
+							Path:     sc.ingressSpec.Path,
 							Backend: networking.IngressBackend{
-								ServiceName: sc.Name(),
-								ServicePort: *sc.backendPort,
+								Service: &networking.IngressServiceBackend{
+									Name: sc.Name(),
+									Port: networking.ServiceBackendPort{
+										Name:   sc.backendPort.StrVal,
+										Number: sc.backendPort.IntVal,
+									},
+								},
 							},
 						},
 					},

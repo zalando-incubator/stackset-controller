@@ -10,8 +10,9 @@ import (
 )
 
 var (
-	testDefaultCreationTime = time.Now().Add(-time.Hour)
-	testPort                = 8080
+	testDefaultCreationTime       = time.Now().Add(-time.Hour)
+	testPort                int32 = 8080
+	intStrTestPort                = intstr.FromInt(int(testPort))
 )
 
 type testStackFactory struct {
@@ -19,11 +20,9 @@ type testStackFactory struct {
 }
 
 func testStack(name string) *testStackFactory {
-	backendPort := intstr.FromInt(testPort)
-
 	return &testStackFactory{
 		container: &StackContainer{
-			backendPort: &backendPort,
+			backendPort: &intStrTestPort,
 			Stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              name,

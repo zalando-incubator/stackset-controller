@@ -11,7 +11,7 @@ import (
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
-	networking "k8s.io/api/networking/v1beta1"
+	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -266,7 +266,8 @@ func TestLimitLabels(t *testing.T) {
 }
 
 func TestStackGenerateIngress(t *testing.T) {
-	backendPort := intstr.FromInt(80)
+	backendPort := int32(80)
+	intStrBackendPort := intstr.FromInt(int(backendPort))
 	c := &StackContainer{
 		Stack: &zv1.Stack{
 			ObjectMeta: testStackMeta,
@@ -279,7 +280,7 @@ func TestStackGenerateIngress(t *testing.T) {
 			Hosts: []string{"foo.example.org", "foo.example.com"},
 			Path:  "example",
 		},
-		backendPort:    &backendPort,
+		backendPort:    &intStrBackendPort,
 		clusterDomains: []string{"example.org"},
 	}
 	ingress, err := c.GenerateIngress()
@@ -299,10 +300,15 @@ func TestStackGenerateIngress(t *testing.T) {
 						HTTP: &networking.HTTPIngressRuleValue{
 							Paths: []networking.HTTPIngressPath{
 								{
-									Path: "example",
+									Path:     "example",
+									PathType: &PathTypeImplementationSpecific,
 									Backend: networking.IngressBackend{
-										ServiceName: "foo-v1",
-										ServicePort: backendPort,
+										Service: &networking.IngressServiceBackend{
+											Name: "foo-v1",
+											Port: networking.ServiceBackendPort{
+												Number: backendPort,
+											},
+										},
 									},
 								},
 							},
