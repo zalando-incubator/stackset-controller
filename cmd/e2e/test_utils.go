@@ -42,7 +42,7 @@ var (
 		Containers: []corev1.Container{
 			{
 				Name:  "skipper",
-				Image: "registry.opensource.zalan.do/teapot/skipper:latest",
+				Image: "registry.opensource.zalan.do/teapot/skipper:v0.13.21",
 				Args: []string{
 					"skipper",
 					"-inline-routes",
