@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
@@ -319,6 +320,63 @@ func TestStackGenerateIngress(t *testing.T) {
 		},
 	}
 	require.Equal(t, expected, ingress)
+}
+
+func TestStackGenerateRouteGroup(t *testing.T) {
+	backendPort := int32(80)
+	intStrBackendPort := intstr.FromInt(int(backendPort))
+	c := &StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: testStackMeta,
+		},
+		stacksetName: "foo",
+		routeGroupSpec: &zv1.RouteGroupSpec{
+			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+				Annotations: map[string]string{"routegroup": "annotation"},
+			},
+			Hosts: []string{"foo.example.org", "foo.example.com"},
+			Routes: []rgv1.RouteGroupRouteSpec{
+				{
+					PathSubtree: "/example",
+				},
+			},
+		},
+		backendPort:    &intStrBackendPort,
+		clusterDomains: []string{"example.org"},
+	}
+	rg, err := c.GenerateRouteGroup()
+	require.NoError(t, err)
+
+	// Annotations are copied from the routegroup as well
+	expectedMeta := testResourceMeta.DeepCopy()
+	expectedMeta.Annotations["routegroup"] = "annotation"
+
+	expected := &rgv1.RouteGroup{
+		ObjectMeta: *expectedMeta,
+		Spec: rgv1.RouteGroupSpec{
+			Hosts: []string{"foo-v1.example.org"},
+			Backends: []rgv1.RouteGroupBackend{
+				{
+					Name:        "foo-v1",
+					Type:        rgv1.ServiceRouteGroupBackend,
+					ServiceName: "foo-v1",
+					ServicePort: int(backendPort),
+				},
+			},
+			DefaultBackends: []rgv1.RouteGroupBackendReference{
+				{
+					BackendName: "foo-v1",
+					Weight:      100,
+				},
+			},
+			Routes: []rgv1.RouteGroupRouteSpec{
+				{
+					PathSubtree: "/example",
+				},
+			},
+		},
+	}
+	require.Equal(t, expected, rg)
 }
 
 func TestStackGenerateIngressNone(t *testing.T) {

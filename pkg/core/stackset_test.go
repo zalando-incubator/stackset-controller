@@ -1080,6 +1080,11 @@ func TestStackSetGenerateRouteGroup(t *testing.T) {
 			},
 			Spec: zv1.StackSetSpec{
 				RouteGroup: &zv1.RouteGroupSpec{
+					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+						Annotations: map[string]string{
+							"routegroup": "annotation",
+						},
+					},
 					Hosts: []string{"example.org", "example.com"},
 					AdditionalBackends: []rgv1.RouteGroupBackend{
 						{
@@ -1121,6 +1126,9 @@ func TestStackSetGenerateRouteGroup(t *testing.T) {
 			Labels: map[string]string{
 				"stackset":       "foo",
 				"stackset-label": "foobar",
+			},
+			Annotations: map[string]string{
+				"routegroup": "annotation",
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				{

@@ -449,6 +449,9 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 		return result.Spec.Backends[i].Name < result.Spec.Backends[j].Name
 	})
 
+	// insert annotations
+	result.Annotations = mergeLabels(result.Annotations, sc.routeGroupSpec.Annotations)
+
 	return result, nil
 }
 
