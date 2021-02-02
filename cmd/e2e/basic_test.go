@@ -303,6 +303,8 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		stackIngress, err := waitForIngress(t, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, stackIngress.Labels)
+		require.Contains(t, stackIngress.Annotations, userTestAnnotation)
+		require.Equal(t, "test", stackIngress.Annotations[userTestAnnotation])
 		stackIngressRules := make([]v1.IngressRule, 0, len(clusterDomains))
 		for _, domain := range clusterDomains {
 			stackIngressRules = append(stackIngressRules, v1.IngressRule{
@@ -331,6 +333,30 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 			return stackIngressRules[i].Host < stackIngressRules[j].Host
 		})
 		require.EqualValues(t, stackIngressRules, stackIngress.Spec.Rules)
+	}
+	// Verify the RouteGroup
+	if stacksetSpec.RouteGroup != nil {
+		// Per-stack RouteGroup
+		stackRG, err := waitForRouteGroup(t, stack.Name)
+		require.NoError(t, err)
+		require.EqualValues(t, stackResourceLabels, stackRG.Labels)
+		require.Contains(t, stackRG.Annotations, userTestAnnotation)
+		require.Equal(t, "test", stackRG.Annotations[userTestAnnotation])
+		stackRGHosts := make([]string, 0, len(clusterDomains))
+		stackRGBackends := []rgv1.RouteGroupBackend{{
+			Name:        stack.Name,
+			Type:        rgv1.ServiceRouteGroupBackend,
+			ServiceName: stack.Name,
+			ServicePort: 80,
+		}}
+		for _, domain := range clusterDomains {
+			stackRGHosts = append(stackRGHosts, fmt.Sprintf("%s.%s", stack.Name, domain))
+		}
+		// sort hosts for a stable order
+		sort.Strings(stackRGHosts)
+
+		require.EqualValues(t, stackRGBackends, stackRG.Spec.Backends)
+		require.EqualValues(t, stackRGHosts, stackRG.Spec.Hosts)
 	}
 }
 
