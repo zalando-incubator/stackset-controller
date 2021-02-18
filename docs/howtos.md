@@ -168,6 +168,7 @@ with an equivalent spec. Currently, the autoscaler can be used to specify scalin
 3. `AmazonSQS`
 4. `PodJSON`
 5. `Ingress`
+6. `ZMON`
 
 _Note:_ Based on the metrics type specified you may need to also deploy the [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter)
 in your cluster.
@@ -222,8 +223,26 @@ autoscaler:
   maxReplicas: 3
   metrics:
   - type: Ingress
-    ingress:
-      name: my-app
+    average: 30
+```
+
+If ZMON based metrics are supported you can enable scaling based on ZMON checks
+as shown in the following metric configuration:
+
+```yaml
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: ZMON
+    zmon:
+      checkID: "1234"
+      key: "custom.value"
+      duration: "5m"
+      aggregators:
+      - avg
+      tags:
+        application: "my-app"
     average: 30
 ```
 

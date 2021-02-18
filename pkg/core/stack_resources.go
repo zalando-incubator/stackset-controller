@@ -238,7 +238,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		result.Spec.MinReplicas = autoscalerSpec.MinReplicas
 		result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
 
-		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), autoscalerSpec.Metrics)
+		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerSpec.Metrics)
 		if err != nil {
 			return nil, err
 		}
