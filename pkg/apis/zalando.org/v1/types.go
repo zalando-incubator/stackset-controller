@@ -170,6 +170,38 @@ type MetricsQueue struct {
 	Region string `json:"region"`
 }
 
+// ZMONMetricAggregatorType is the type of aggregator used in a ZMON based
+// metric.
+// +kubebuilder:validation:Enum=avg;dev;count;first;last;max;min;sum;diff
+type ZMONMetricAggregatorType string
+
+const (
+	AvgZMONMetricAggregator   ZMONMetricAggregatorType = "avg"
+	DevZMONMetricAggregator   ZMONMetricAggregatorType = "dev"
+	CountZMONMetricAggregator ZMONMetricAggregatorType = "count"
+	FirstZMONMetricAggregator ZMONMetricAggregatorType = "first"
+	LastZMONMetricAggregator  ZMONMetricAggregatorType = "last"
+	MaxZMONMetricAggregator   ZMONMetricAggregatorType = "max"
+	MinZMONMetricAggregator   ZMONMetricAggregatorType = "min"
+	SumZMONMetricAggregator   ZMONMetricAggregatorType = "sum"
+	DiffZMONMetricAggregator  ZMONMetricAggregatorType = "diff"
+)
+
+// MetricsZMON specifies the ZMON check which should be used for scaling.
+// +k8s:deepcopy-gen=true
+type MetricsZMON struct {
+	// +kubebuilder:validation:Pattern:="^[0-9]+$"
+	CheckID string `json:"checkID"`
+	Key     string `json:"key"`
+	// +kubebuilder:default:="5m"
+	// +optional
+	Duration string `json:"duration"`
+	// +optional
+	Aggregators []ZMONMetricAggregatorType `json:"aggregators,omitempty"`
+	// +optional
+	Tags map[string]string `json:"tags,omitempty"`
+}
+
 // AutoscalerMetricType is the type of the metric used for scaling.
 // +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;ZMON
 type AutoscalerMetricType string
@@ -191,6 +223,7 @@ type AutoscalerMetrics struct {
 	Endpoint           *MetricsEndpoint     `json:"endpoint,omitempty"`
 	AverageUtilization *int32               `json:"averageUtilization,omitempty"`
 	Queue              *MetricsQueue        `json:"queue,omitempty"`
+	ZMON               *MetricsZMON         `json:"zmon,omitempty"`
 }
 
 // Autoscaler is the autoscaling definition for a stack

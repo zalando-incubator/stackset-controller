@@ -64,6 +64,25 @@ func generateAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueNam
 	)
 	return container
 }
+func generateAutoscalerZMON(minReplicas, maxReplicas, utilization int32, checkID, key, application, duration string, aggregators []zv1.ZMONMetricAggregatorType) StackContainer {
+	container := generateAutoscalerStub(minReplicas, maxReplicas)
+	container.Stack.Spec.Autoscaler.Metrics = append(
+		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+			Type: zv1.ZMONAutoscalerMetric,
+			ZMON: &zv1.MetricsZMON{
+				CheckID:     checkID,
+				Key:         key,
+				Duration:    duration,
+				Aggregators: aggregators,
+				Tags: map[string]string{
+					"application": application,
+				},
+			},
+			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
+		},
+	)
+	return container
+}
 
 func generateAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int32, name, path, key string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
@@ -167,6 +186,25 @@ func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
 	require.Equal(t, ingressMetrics.Object.Metric.Name, fmt.Sprintf("%s,%s", "requests-per-second", "stackset-v1"))
 }
 
+func TestStackSetController_ReconcileAutoscalersZMON(t *testing.T) {
+	ssc := generateAutoscalerZMON(1, 10, 80, "1234", "key", "app", "10m", []zv1.ZMONMetricAggregatorType{"avg", "max"})
+	hpa, err := ssc.GenerateHPA()
+	require.NoError(t, err, "failed to create an HPA")
+	require.NotNil(t, hpa, "hpa not generated")
+	require.Equal(t, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
+	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
+	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
+	externalMetric := hpa.Spec.Metrics[0]
+	require.Equal(t, externalMetric.Type, autoscaling.ExternalMetricSourceType)
+	require.Equal(t, externalMetric.External.Metric.Name, zmonCheckMetricName)
+	require.Equal(t, externalMetric.External.Metric.Selector.MatchLabels[zmonCheckCheckIDTag], "1234")
+	require.Equal(t, externalMetric.External.Metric.Selector.MatchLabels[zmonCheckDurationTag], "10m")
+	require.Equal(t, externalMetric.External.Metric.Selector.MatchLabels[zmonCheckAggregatorsTag], "avg,max")
+	require.Equal(t, hpa.Annotations[zmonCheckKeyAnnotation], "key")
+	require.Equal(t, hpa.Annotations[zmonCheckTagAnnotationPrefix+"application"], "app")
+	require.Equal(t, externalMetric.External.Target.AverageValue.Value(), int64(80))
+}
+
 func TestCPUMetricValid(t *testing.T) {
 	var utilization int32 = 80
 	metrics := zv1.AutoscalerMetrics{Type: "cpu", AverageUtilization: &utilization}
@@ -222,6 +260,12 @@ func TestPodJsonMetricInvalid(t *testing.T) {
 		_, _, err := podJsonMetric(metrics)
 		require.Error(t, err, "created metric with invalid configuration")
 	}
+}
+
+func TestZMONMetricInvalid(t *testing.T) {
+	metrics := zv1.AutoscalerMetrics{Type: zv1.ZMONAutoscalerMetric, Average: nil}
+	_, _, err := zmonMetric(metrics, "stack-name", "namespace")
+	require.Errorf(t, err, "created metric with invalid configuration")
 }
 
 func TestIngressMetricInvalid(t *testing.T) {

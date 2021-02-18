@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
@@ -12,13 +13,20 @@ import (
 )
 
 const (
-	requestsPerSecondName = "requests-per-second"
-	metricConfigJSONPath  = "metric-config.pods.%s.json-path/path"
-	metricConfigJSONKey   = "metric-config.pods.%s.json-path/json-key"
-	metricConfigJSONPort  = "metric-config.pods.%s.json-path/port"
-	sqsQueueLengthTag     = "sqs-queue-length"
-	sqsQueueNameTag       = "queue-name"
-	sqsQueueRegionTag     = "region"
+	requestsPerSecondName        = "requests-per-second"
+	metricConfigJSONPath         = "metric-config.pods.%s.json-path/path"
+	metricConfigJSONKey          = "metric-config.pods.%s.json-path/json-key"
+	metricConfigJSONPort         = "metric-config.pods.%s.json-path/port"
+	sqsQueueLengthTag            = "sqs-queue-length"
+	zmonCheckMetricName          = "zmon-check"
+	zmonCheckCheckIDTag          = "check-id"
+	zmonCheckAggregatorsTag      = "aggregators"
+	zmonCheckDurationTag         = "duration"
+	zmonCheckStackTag            = "stack"
+	zmonCheckKeyAnnotation       = "metric-config.external.zmon-check.zmon/key"
+	zmonCheckTagAnnotationPrefix = "metric-config.external.zmon-check.zmon/tag-"
+	sqsQueueNameTag              = "queue-name"
+	sqsQueueRegionTag            = "region"
 )
 
 type MetricsList []autoscaling.MetricSpec
@@ -37,7 +45,7 @@ func (l MetricsList) Less(i, j int) bool {
 	return l[i].Type < l[j].Type
 }
 
-func convertCustomMetrics(stacksetName, stackName string, metrics []zv1.AutoscalerMetrics) ([]autoscaling.MetricSpec, map[string]string, error) {
+func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []zv1.AutoscalerMetrics) ([]autoscaling.MetricSpec, map[string]string, error) {
 	var resultMetrics MetricsList
 	resultAnnotations := make(map[string]string)
 
@@ -55,7 +63,7 @@ func convertCustomMetrics(stacksetName, stackName string, metrics []zv1.Autoscal
 		case zv1.IngressAutoscalerMetric:
 			generated, err = ingressMetric(m, stacksetName, stackName)
 		case zv1.ZMONAutoscalerMetric:
-			err = fmt.Errorf("not implemented metric type: %s", zv1.ZMONAutoscalerMetric)
+			generated, annotations, err = zmonMetric(m, stackName, namespace)
 		case zv1.CPUAutoscalerMetric:
 			generated, err = cpuMetric(m)
 		case zv1.MemoryAutoscalerMetric:
@@ -191,4 +199,48 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 		},
 	}
 	return generated, nil
+}
+
+func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*autoscaling.MetricSpec, map[string]string, error) {
+	if metrics.Average == nil {
+		return nil, nil, fmt.Errorf("average not specified")
+	}
+	average := metrics.Average.DeepCopy()
+	aggregators := make([]string, 0, len(metrics.ZMON.Aggregators))
+	for _, agg := range metrics.ZMON.Aggregators {
+		aggregators = append(aggregators, string(agg))
+	}
+	generated := &autoscaling.MetricSpec{
+		Type: autoscaling.ExternalMetricSourceType,
+		External: &autoscaling.ExternalMetricSource{
+			Metric: autoscaling.MetricIdentifier{
+				Name: zmonCheckMetricName,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						zmonCheckCheckIDTag:  metrics.ZMON.CheckID,
+						zmonCheckDurationTag: metrics.ZMON.Duration,
+						// uniqly identifies the metric to this particular stack
+						// we include namespace as this is not yet handled in kube-metrics-adapter
+						zmonCheckStackTag: namespace + "-" + stackName,
+					},
+				},
+			},
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
+		},
+	}
+
+	if len(aggregators) > 0 {
+		generated.External.Metric.Selector.MatchLabels[zmonCheckAggregatorsTag] = strings.Join(aggregators, ",")
+	}
+
+	annotations := map[string]string{
+		zmonCheckKeyAnnotation: metrics.ZMON.Key,
+	}
+	for k, v := range metrics.ZMON.Tags {
+		annotations[zmonCheckTagAnnotationPrefix+k] = v
+	}
+	return generated, annotations, nil
 }
