@@ -115,7 +115,6 @@ func (ssc *StackSetContainer) MarkExpiredStacks() {
 		hasIngress := sc.ingressSpec != nil || ssc.StackSet.Spec.ExternalIngress != nil
 		hasRouteGroup := sc.routeGroupSpec != nil
 		if !(hasIngress || hasRouteGroup) || sc.ScaledDown() {
-			//if !hasIngress || sc.ScaledDown() {
 			gcCandidates = append(gcCandidates, sc)
 		}
 	}
