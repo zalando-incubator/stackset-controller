@@ -26,6 +26,7 @@ func TestExpiredStacks(t *testing.T) {
 		limit        int32
 		scaledownTTL time.Duration
 		ingress      bool
+		routegroup   bool
 		stacks       []*StackContainer
 		expected     map[string]bool
 	}{
@@ -33,6 +34,16 @@ func TestExpiredStacks(t *testing.T) {
 			name:    "test GC oldest stack",
 			limit:   1,
 			ingress: true,
+			stacks: []*StackContainer{
+				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
+			},
+			expected: map[string]bool{"stack2": true},
+		},
+		{
+			name:       "test GC oldest RouteGroup stack",
+			limit:      1,
+			routegroup: true,
 			stacks: []*StackContainer{
 				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
 				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
@@ -60,9 +71,29 @@ func TestExpiredStacks(t *testing.T) {
 			expected: nil,
 		},
 		{
+			name:       "test don't GC RouteGroup stacks when all are getting traffic",
+			limit:      1,
+			routegroup: true,
+			stacks: []*StackContainer{
+				testStack("stack1").createdAt(now.Add(-1*time.Hour)).noTrafficSince(now.Add(-1*time.Hour)).traffic(1, 0).stack(),
+				testStack("stack2").createdAt(now.Add(-2*time.Hour)).noTrafficSince(now.Add(-2*time.Hour)).traffic(0, 1).stack(),
+			},
+			expected: nil,
+		},
+		{
 			name:    "test don't GC stacks when there are less than limit",
 			limit:   3,
 			ingress: true,
+			stacks: []*StackContainer{
+				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-2 * time.Hour)).stack(),
+			},
+			expected: nil,
+		},
+		{
+			name:       "test don't GC RouteGroup stacks when there are less than limit",
+			limit:      3,
+			routegroup: true,
 			stacks: []*StackContainer{
 				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
 				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-2 * time.Hour)).stack(),
@@ -81,9 +112,31 @@ func TestExpiredStacks(t *testing.T) {
 			expected: nil,
 		},
 		{
+			name:       "test stacks with RouteGroup with traffic don't count against limit",
+			limit:      2,
+			routegroup: true,
+			stacks: []*StackContainer{
+				testStack("stack1").createdAt(now.Add(-1*time.Hour)).noTrafficSince(now.Add(-1*time.Hour)).traffic(1, 1).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-2 * time.Hour)).stack(),
+				testStack("stack3").createdAt(now.Add(-3 * time.Hour)).noTrafficSince(now.Add(-3 * time.Hour)).stack(),
+			},
+			expected: nil,
+		},
+		{
 			name:         "not GC'ing a stack with no-traffic-since less than ScaledownTTLSeconds",
 			limit:        1,
 			ingress:      true,
+			scaledownTTL: 300,
+			stacks: []*StackContainer{
+				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-200 * time.Second)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-250 * time.Second)).stack(),
+			},
+			expected: nil,
+		},
+		{
+			name:         "not GC'ing a stack with RouteGroup with no-traffic-since less than ScaledownTTLSeconds",
+			limit:        1,
+			routegroup:   true,
 			scaledownTTL: 300,
 			stacks: []*StackContainer{
 				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-200 * time.Second)).stack(),
@@ -114,6 +167,9 @@ func TestExpiredStacks(t *testing.T) {
 				}
 				if tc.ingress {
 					stack.ingressSpec = &zv1.StackSetIngressSpec{}
+				}
+				if tc.routegroup {
+					stack.routeGroupSpec = &zv1.RouteGroupSpec{}
 				}
 				c.StackContainers[types.UID(stack.Name())] = stack
 			}

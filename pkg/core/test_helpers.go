@@ -33,7 +33,7 @@ func testStack(name string) *testStackFactory {
 				Service: &v1.Service{
 					Spec: v1.ServiceSpec{
 						Ports: []v1.ServicePort{
-							v1.ServicePort{
+							{
 								Port: int32(testPort),
 							},
 						},
