@@ -111,10 +111,9 @@ func (ssc *StackSetContainer) MarkExpiredStacks() {
 	gcCandidates := make([]*StackContainer, 0, len(ssc.StackContainers))
 
 	for _, sc := range ssc.StackContainers {
-		// Stacks are considered for cleanup if we don't have an ingress or if the stack is scaled down because of inactivity
-		hasIngress := sc.ingressSpec != nil || ssc.StackSet.Spec.ExternalIngress != nil
-		hasRouteGroup := sc.routeGroupSpec != nil
-		if !(hasIngress || hasRouteGroup) || sc.ScaledDown() {
+		// Stacks are considered for cleanup if we don't have RouteGroup nor an ingress or if the stack is scaled down because of inactivity
+		hasIngress := sc.routeGroupSpec != nil || sc.ingressSpec != nil || ssc.StackSet.Spec.ExternalIngress != nil
+		if !hasIngress || sc.ScaledDown() {
 			gcCandidates = append(gcCandidates, sc)
 		}
 	}
