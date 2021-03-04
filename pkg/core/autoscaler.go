@@ -1,6 +1,8 @@
 package core
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"strconv"
@@ -210,6 +212,14 @@ func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*au
 	for _, agg := range metrics.ZMON.Aggregators {
 		aggregators = append(aggregators, string(agg))
 	}
+
+	// includes the namespace on the hash to allow stacksets in multiple
+	// namespaces with the same metric.
+	metricHash, err := metricHash(namespace, stackName)
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not hash metric name")
+	}
+
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
@@ -219,9 +229,9 @@ func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*au
 					MatchLabels: map[string]string{
 						zmonCheckCheckIDTag:  metrics.ZMON.CheckID,
 						zmonCheckDurationTag: metrics.ZMON.Duration,
-						// uniqly identifies the metric to this particular stack
-						// we include namespace as this is not yet handled in kube-metrics-adapter
-						zmonCheckStackTag: namespace + "-" + stackName,
+						// uniquely identifies the metric to this
+						// particular stack using a hash
+						zmonCheckStackTag: metricHash,
 					},
 				},
 			},
@@ -243,4 +253,13 @@ func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*au
 		annotations[zmonCheckTagAnnotationPrefix+k] = v
 	}
 	return generated, annotations, nil
+}
+
+func metricHash(namespace, name string) (string, error) {
+	h := sha1.New()
+	_, err := h.Write([]byte(namespace + "-" + name))
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
