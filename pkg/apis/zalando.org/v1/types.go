@@ -226,6 +226,11 @@ type AutoscalerMetrics struct {
 	AverageUtilization *int32               `json:"averageUtilization,omitempty"`
 	Queue              *MetricsQueue        `json:"queue,omitempty"`
 	ZMON               *MetricsZMON         `json:"zmon,omitempty"`
+	// optional container name that can be used to scale based on CPU or
+	// Memory metrics of a specific container as opposed to an average of
+	// all containers in a pod.
+	// +optional
+	Container string `json:"container,omitempty"`
 }
 
 // Autoscaler is the autoscaling definition for a stack

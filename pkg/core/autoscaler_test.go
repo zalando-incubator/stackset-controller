@@ -31,22 +31,24 @@ func generateAutoscalerStub(minReplicas, maxReplicas int32) StackContainer {
 	}
 }
 
-func generateAutoscalerCPU(minReplicas, maxReplicas, utilization int32) StackContainer {
+func generateAutoscalerCPU(minReplicas, maxReplicas, utilization int32, containerName string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:               zv1.CPUAutoscalerMetric,
 			AverageUtilization: &utilization,
+			Container:          containerName,
 		})
 	return container
 }
 
-func generateAutoscalerMemory(minReplicas, maxReplicas, utilization int32) StackContainer {
+func generateAutoscalerMemory(minReplicas, maxReplicas, utilization int32, containerName string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:               zv1.MemoryAutoscalerMetric,
 			AverageUtilization: &utilization,
+			Container:          containerName,
 		})
 	return container
 }
@@ -112,7 +114,7 @@ func generateAutoscalerIngress(minReplicas, maxReplicas, utilization int32) Stac
 }
 
 func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
-	ssc := generateAutoscalerCPU(1, 10, 80)
+	ssc := generateAutoscalerCPU(1, 10, 80, "")
 	hpa, err := ssc.GenerateHPA()
 	require.NoError(t, err, "failed to create an HPA")
 	require.NotNil(t, hpa, "hpa not generated")
@@ -123,10 +125,23 @@ func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	require.Equal(t, cpuMetric.Type, autoscaling.ResourceMetricSourceType)
 	require.Equal(t, cpuMetric.Resource.Name, corev1.ResourceCPU)
 	require.Equal(t, *cpuMetric.Resource.Target.AverageUtilization, int32(80))
+
+	ssc = generateAutoscalerCPU(1, 10, 80, "container-x")
+	hpa, err = ssc.GenerateHPA()
+	require.NoError(t, err, "failed to create an HPA")
+	require.NotNil(t, hpa, "hpa not generated")
+	require.Equal(t, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
+	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
+	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
+	cpuMetric = hpa.Spec.Metrics[0]
+	require.Equal(t, autoscaling.ContainerResourceMetricSourceType, cpuMetric.Type)
+	require.Equal(t, corev1.ResourceCPU, cpuMetric.ContainerResource.Name)
+	require.Equal(t, int32(80), *cpuMetric.ContainerResource.Target.AverageUtilization)
+	require.Equal(t, "container-x", cpuMetric.ContainerResource.Container)
 }
 
 func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
-	ssc := generateAutoscalerMemory(1, 10, 80)
+	ssc := generateAutoscalerMemory(1, 10, 80, "")
 	hpa, err := ssc.GenerateHPA()
 	require.NoError(t, err, "failed to create an HPA")
 	require.NotNil(t, hpa, "hpa not generated")
@@ -137,6 +152,19 @@ func TestStackSetController_ReconcileAutoscalersMemory(t *testing.T) {
 	require.Equal(t, memoryMetric.Type, autoscaling.ResourceMetricSourceType)
 	require.Equal(t, memoryMetric.Resource.Name, corev1.ResourceMemory)
 	require.Equal(t, *memoryMetric.Resource.Target.AverageUtilization, int32(80))
+
+	ssc = generateAutoscalerMemory(1, 10, 80, "container-x")
+	hpa, err = ssc.GenerateHPA()
+	require.NoError(t, err, "failed to create an HPA")
+	require.NotNil(t, hpa, "hpa not generated")
+	require.Equal(t, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
+	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
+	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
+	memoryMetric = hpa.Spec.Metrics[0]
+	require.Equal(t, autoscaling.ContainerResourceMetricSourceType, memoryMetric.Type)
+	require.Equal(t, corev1.ResourceMemory, memoryMetric.ContainerResource.Name)
+	require.Equal(t, int32(80), *memoryMetric.ContainerResource.Target.AverageUtilization)
+	require.Equal(t, "container-x", memoryMetric.ContainerResource.Container)
 }
 
 func TestStackSetController_ReconcileAutoscalersSQS(t *testing.T) {

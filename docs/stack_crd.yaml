@@ -209,6 +209,11 @@ spec:
                         averageUtilization:
                           format: int32
                           type: integer
+                        container:
+                          description: optional container name that can be used to
+                            scale based on CPU or Memory metrics of a specific container
+                            as opposed to an average of all containers in a pod.
+                          type: string
                         endpoint:
                           description: MetricsEndpoint specified the endpoint where
                             the custom endpoint where the metrics can be queried
