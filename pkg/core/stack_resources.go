@@ -244,7 +244,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		}
 		result.Spec.Metrics = metrics
 		result.Annotations = mergeLabels(result.Annotations, annotations)
-		result.Spec.Behavior = customBehaviorToV2Beta2Behavior(autoscalerSpec.Behavior)
+		result.Spec.Behavior = autoscalerSpec.Behavior
 	} else {
 		result.Spec.MinReplicas = hpaSpec.MinReplicas
 		result.Spec.MaxReplicas = hpaSpec.MaxReplicas
@@ -259,7 +259,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 			metrics = append(metrics, metric)
 		}
 		result.Spec.Metrics = metrics
-		result.Spec.Behavior = customBehaviorToV2Beta2Behavior(hpaSpec.Behavior)
+		result.Spec.Behavior = hpaSpec.Behavior
 	}
 
 	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
@@ -269,31 +269,6 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 	}
 
 	return result, nil
-}
-
-// converts our custom version of HorizontalPodAutoscalerBehavior to the
-// upstream v2beta2 version.
-func customBehaviorToV2Beta2Behavior(customBehavior *zv1.HorizontalPodAutoscalerBehavior) *autoscaling.HorizontalPodAutoscalerBehavior {
-	if customBehavior != nil {
-		behavior := &autoscaling.HorizontalPodAutoscalerBehavior{}
-		if customBehavior.ScaleUp != nil {
-			behavior.ScaleUp = &autoscaling.HPAScalingRules{
-				StabilizationWindowSeconds: customBehavior.ScaleUp.StabilizationWindowSeconds,
-				SelectPolicy:               customBehavior.ScaleUp.SelectPolicy,
-				Policies:                   customBehavior.ScaleUp.Policies,
-			}
-		}
-
-		if customBehavior.ScaleDown != nil {
-			behavior.ScaleDown = &autoscaling.HPAScalingRules{
-				StabilizationWindowSeconds: customBehavior.ScaleDown.StabilizationWindowSeconds,
-				SelectPolicy:               customBehavior.ScaleDown.SelectPolicy,
-				Policies:                   customBehavior.ScaleDown.Policies,
-			}
-		}
-		return behavior
-	}
-	return nil
 }
 
 func (sc *StackContainer) GenerateService() (*v1.Service, error) {
