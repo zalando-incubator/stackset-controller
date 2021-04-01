@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
@@ -29,6 +30,10 @@ const (
 	zmonCheckTagAnnotationPrefix = "metric-config.external.zmon-check.zmon/tag-"
 	sqsQueueNameTag              = "queue-name"
 	sqsQueueRegionTag            = "region"
+)
+
+var (
+	errMissingZMONDefinition = errors.New("missing ZMON metric definition")
 )
 
 type MetricsList []autoscaling.MetricSpec
@@ -208,6 +213,11 @@ func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*au
 		return nil, nil, fmt.Errorf("average not specified")
 	}
 	average := metrics.Average.DeepCopy()
+
+	if metrics.ZMON == nil {
+		return nil, nil, errMissingZMONDefinition
+	}
+
 	aggregators := make([]string, 0, len(metrics.ZMON.Aggregators))
 	for _, agg := range metrics.ZMON.Aggregators {
 		aggregators = append(aggregators, string(agg))

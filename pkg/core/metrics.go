@@ -27,6 +27,7 @@ type MetricsReporter struct {
 	stackPrescalingActive     *prometheus.GaugeVec
 	stackPrescalingReplicas   *prometheus.GaugeVec
 	errorsCount               prometheus.Counter
+	panicsCount               prometheus.Counter
 }
 
 type resourceKey struct {
@@ -83,6 +84,12 @@ func NewMetricsReporter(registry prometheus.Registerer) (*MetricsReporter, error
 			Name:      "count",
 			Help:      "Number of errors encountered",
 		}),
+		panicsCount: prometheus.NewCounter(prometheus.CounterOpts{
+			Namespace: metricsNamespace,
+			Subsystem: metricsSubsystemErrors,
+			Name:      "panic_count",
+			Help:      "Number of panics encountered",
+		}),
 	}
 
 	for _, metric := range []prometheus.Collector{
@@ -93,6 +100,7 @@ func NewMetricsReporter(registry prometheus.Registerer) (*MetricsReporter, error
 		result.stackPrescalingActive,
 		result.stackPrescalingReplicas,
 		result.errorsCount,
+		result.panicsCount,
 	} {
 		err := registry.Register(metric)
 		if err != nil {
@@ -203,4 +211,8 @@ func (reporter *MetricsReporter) removeStackMetrics(labels prometheus.Labels) {
 	reporter.stackReady.Delete(labels)
 	reporter.stackPrescalingActive.Delete(labels)
 	reporter.stackPrescalingReplicas.Delete(labels)
+}
+
+func (reporter *MetricsReporter) ReportPanic() {
+	reporter.panicsCount.Inc()
 }

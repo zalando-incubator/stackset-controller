@@ -263,9 +263,25 @@ func TestPodJsonMetricInvalid(t *testing.T) {
 }
 
 func TestZMONMetricInvalid(t *testing.T) {
-	metrics := zv1.AutoscalerMetrics{Type: zv1.ZMONAutoscalerMetric, Average: nil}
-	_, _, err := zmonMetric(metrics, "stack-name", "namespace")
-	require.Errorf(t, err, "created metric with invalid configuration")
+	onemilli := resource.MustParse("1m")
+	for _, tc := range []struct {
+		name    string
+		metrics zv1.AutoscalerMetrics
+	}{
+		{
+			name:    "missing average",
+			metrics: zv1.AutoscalerMetrics{Type: zv1.ZMONAutoscalerMetric, Average: nil},
+		},
+		{
+			name:    "missing zmon definition",
+			metrics: zv1.AutoscalerMetrics{Type: zv1.ZMONAutoscalerMetric, Average: &onemilli},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := zmonMetric(tc.metrics, "stack-name", "namespace")
+			require.Errorf(t, err, "created metric with invalid configuration")
+		})
+	}
 }
 
 func TestIngressMetricInvalid(t *testing.T) {
