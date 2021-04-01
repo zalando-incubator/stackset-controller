@@ -7,7 +7,7 @@ require (
 	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
 	github.com/fatih/color v1.9.0 // indirect
 	github.com/go-openapi/spec v0.19.6 // indirect
-	github.com/google/go-cmp v0.5.4
+	github.com/google/go-cmp v0.5.5
 	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
