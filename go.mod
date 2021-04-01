@@ -12,7 +12,7 @@ require (
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/prometheus/client_golang v1.9.0
-	github.com/sirupsen/logrus v1.8.0
+	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/szuecs/routegroup-client v0.17.8-0.20200915193527-b33447c7d964
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
