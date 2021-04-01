@@ -984,6 +984,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *core.StackSetContainer) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
+			c.metricsReporter.ReportPanic()
 			c.stacksetLogger(container).Errorf("Encountered a panic while processing a stackset: %v\n%s", r, debug.Stack())
 			err = fmt.Errorf("panic: %v", r)
 		}
