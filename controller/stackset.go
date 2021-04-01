@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -980,9 +981,16 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 }
 
 // ReconcileStackSet reconciles all the things from a stackset
-func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *core.StackSetContainer) error {
+func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *core.StackSetContainer) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.stacksetLogger(container).Errorf("Encountered a panic while processing a stackset: %v\n%s", r, debug.Stack())
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+
 	// Create current stack, if needed. Proceed on errors.
-	err := c.CreateCurrentStack(ctx, container)
+	err = c.CreateCurrentStack(ctx, container)
 	if err != nil {
 		err = c.errorEventf(container.StackSet, "FailedCreateStack", err)
 		c.stacksetLogger(container).Errorf("Unable to create stack: %v", err)
