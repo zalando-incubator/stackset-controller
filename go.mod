@@ -8,7 +8,6 @@ require (
 	github.com/emicklei/go-restful v2.15.0+incompatible // indirect
 	github.com/fatih/color v1.10.0 // indirect
 	github.com/go-openapi/spec v0.20.3 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.5
@@ -33,13 +32,13 @@ require (
 	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/api v0.20.5
-	k8s.io/apimachinery v0.20.5
-	k8s.io/client-go v0.20.5
-	k8s.io/code-generator v0.20.5
+	k8s.io/api v0.19.10
+	k8s.io/apimachinery v0.19.10
+	k8s.io/client-go v0.19.10
+	k8s.io/code-generator v0.19.10
 	k8s.io/klog/v2 v2.8.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210323165736-1a6458611d18 // indirect
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10 // indirect
-	sigs.k8s.io/controller-tools v0.5.0
+	sigs.k8s.io/controller-tools v0.4.1-0.20200911221209-6c9ddb17dfd0
 	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
 )
