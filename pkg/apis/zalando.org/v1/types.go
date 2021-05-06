@@ -16,6 +16,7 @@ import (
 
 // StackSet describes an application resource.
 // +k8s:deepcopy-gen=true
+// +kubebuilder:resource:categories=all
 // +kubebuilder:printcolumn:name="Stacks",type=integer,JSONPath=`.status.stacks`,description="Number of Stacks belonging to the StackSet"
 // +kubebuilder:printcolumn:name="Ready",type=integer,JSONPath=`.status.readyStacks`,description="Number of Ready Stacks"
 // +kubebuilder:printcolumn:name="Traffic",type=integer,JSONPath=`.status.stacksWithTraffic`,description="Number of Ready Stacks with traffic"
@@ -339,6 +340,7 @@ type StackSetList struct {
 // Stack defines one version of an application. It is possible to
 // switch traffic between multiple versions of an application.
 // +k8s:deepcopy-gen=true
+// +kubebuilder:resource:categories=all
 // +kubebuilder:printcolumn:name="Desired",type=integer,JSONPath=`.spec.replicas`,description="Number of desired replicas"
 // +kubebuilder:printcolumn:name="Current",type=integer,JSONPath=`.status.replicas`,description="Number of current replicas"
 // +kubebuilder:printcolumn:name="Up-To-Date",type=integer,JSONPath=`.status.updatedReplicas`,description="Number of up-to-date replicas"
