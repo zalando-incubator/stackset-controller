@@ -10,6 +10,8 @@ metadata:
 spec:
   group: zalando.org
   names:
+    categories:
+    - all
     kind: StackSet
     listKind: StackSetList
     plural: stacksets
