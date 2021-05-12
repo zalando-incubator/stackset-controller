@@ -11,7 +11,7 @@ spec:
     limit: 5
   stackTemplate:
     spec:
-      version: v2
+      version: v1
       replicas: 3
       horizontalPodAutoscaler:
         minReplicas: 3

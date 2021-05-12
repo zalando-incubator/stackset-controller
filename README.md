@@ -237,6 +237,12 @@ by the `Stack` and will be cleaned up if the stack is deleted.
 
 ## Setup
 
+Use an existing cluster or create a test cluster with
+
+```bash
+kind create cluster --name testcluster001
+```
+
 The `stackset-controller` can be run as a deployment in the cluster.
 See [deployment.yaml](/docs/deployment.yaml).
 
@@ -246,7 +252,7 @@ The controller depends on the [StackSet](/docs/stackset_crd.yaml) and
 You must install these into your cluster before running the controller:
 
 ```bash
-$ kubectl apply -f docs/stackset_crd.yaml -f docs/stackset_stack_crd.yaml
+$ kubectl apply -f docs/stackset_crd.yaml -f docs/stack_crd.yaml -f docs/rbac.yaml
 ```
 
 After the CRDs are installed the controller can be deployed:
@@ -291,7 +297,7 @@ And soon after you will see the first `Stack` of the `my-app`
 stackset:
 
 ```bash
-$ kubectl get stacksetstacks
+$ kubectl get stacks
 NAME                  CREATED AT
 my-app-v1             30s
 ```
@@ -319,7 +325,7 @@ Imagine you want to roll out a new version of your stackset. You can do this
 by changing the `StackSet` resource. E.g. by changing the version:
 
 ```bash
-$ kubectl patch apps my-app --type='json' -p='[{"op": "replace", "path": "/spec/stackTemplate/spec/version", "value": "v2"}]'
+$ kubectl patch stackset my-app --type='json' -p='[{"op": "replace", "path": "/spec/stackTemplate/spec/version", "value": "v2"}]'
 stackset.zalando.org/my-app patched
 ```
 
