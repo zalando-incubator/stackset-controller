@@ -188,8 +188,14 @@ autoscaler:
     average: 30
   - type: CPU
     averageUtilization: 80
+    # optional: scale based on metrics from a single named container as
+    # opposed to the average of all containers in a pod.
+    container: "app"
   - type: Memory
     averageUtilization: 80
+    # optional: scale based on metrics from a single named container as
+    # opposed to the average of all containers in a pod.
+    container: "app"
 ```
 
 Here the stackset would be scaled based on the length of the Amazon SQS Queue size so that there are no more
