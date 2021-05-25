@@ -96,7 +96,21 @@ func memoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error
 	if metrics.AverageUtilization == nil {
 		return nil, fmt.Errorf("utilization is not specified")
 	}
-	generated := &autoscaling.MetricSpec{
+	if metrics.Container != "" {
+		return &autoscaling.MetricSpec{
+			Type: autoscaling.ContainerResourceMetricSourceType,
+			ContainerResource: &autoscaling.ContainerResourceMetricSource{
+				Name: v1.ResourceMemory,
+				Target: autoscaling.MetricTarget{
+					Type:               autoscaling.UtilizationMetricType,
+					AverageUtilization: metrics.AverageUtilization,
+				},
+				Container: metrics.Container,
+			},
+		}, nil
+	}
+
+	return &autoscaling.MetricSpec{
 		Type: autoscaling.ResourceMetricSourceType,
 		Resource: &autoscaling.ResourceMetricSource{
 			Name: v1.ResourceMemory,
@@ -105,15 +119,29 @@ func memoryMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error
 				AverageUtilization: metrics.AverageUtilization,
 			},
 		},
-	}
-	return generated, nil
+	}, nil
 }
 
 func cpuMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	if metrics.AverageUtilization == nil {
 		return nil, fmt.Errorf("utilization is not specified")
 	}
-	generated := &autoscaling.MetricSpec{
+
+	if metrics.Container != "" {
+		return &autoscaling.MetricSpec{
+			Type: autoscaling.ContainerResourceMetricSourceType,
+			ContainerResource: &autoscaling.ContainerResourceMetricSource{
+				Name: v1.ResourceCPU,
+				Target: autoscaling.MetricTarget{
+					Type:               autoscaling.UtilizationMetricType,
+					AverageUtilization: metrics.AverageUtilization,
+				},
+				Container: metrics.Container,
+			},
+		}, nil
+	}
+
+	return &autoscaling.MetricSpec{
 		Type: autoscaling.ResourceMetricSourceType,
 		Resource: &autoscaling.ResourceMetricSource{
 			Name: v1.ResourceCPU,
@@ -122,8 +150,7 @@ func cpuMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 				AverageUtilization: metrics.AverageUtilization,
 			},
 		},
-	}
-	return generated, nil
+	}, nil
 }
 
 func sqsMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {

@@ -782,17 +782,6 @@ func TestGenerateHPA(t *testing.T) {
 			},
 		},
 	}
-	exampleBehaviorZV1 := &zv1.HorizontalPodAutoscalerBehavior{
-		ScaleDown: &zv1.HPAScalingRules{
-			Policies: []autoscaling.HPAScalingPolicy{
-				{
-					Type:          autoscaling.PercentScalingPolicy,
-					Value:         10,
-					PeriodSeconds: 60,
-				},
-			},
-		},
-	}
 	for _, tc := range []struct {
 		name                string
 		autoscaler          *zv1.Autoscaler
@@ -814,7 +803,7 @@ func TestGenerateHPA(t *testing.T) {
 						AverageUtilization: &utilization,
 					},
 				},
-				Behavior: exampleBehaviorZV1,
+				Behavior: exampleBehavior,
 			},
 			hpa: &zv1.HorizontalPodAutoscaler{
 				MinReplicas: &min,
@@ -828,7 +817,7 @@ func TestGenerateHPA(t *testing.T) {
 						},
 					},
 				},
-				Behavior: exampleBehaviorZV1,
+				Behavior: exampleBehavior,
 			},
 			expectedMinReplicas: &min,
 			expectedMaxReplicas: max,
