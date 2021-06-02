@@ -204,28 +204,50 @@ type MetricsZMON struct {
 	Tags map[string]string `json:"tags,omitempty"`
 }
 
+// MetricsScalingSchedule specifies the ScalingSchedule object which
+// should be used for scaling.
+// +k8s:deepcopy-gen=true
+type MetricsScalingSchedule struct {
+	// The name of the referenced ScalingSchedule object.
+	// +kubebuilder:validation:Pattern:=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+	Name string `json:"name"`
+}
+
+// MetricsClusterScalingSchedule specifies the ClusterScalingSchedule
+// object which should be used for scaling.
+// +k8s:deepcopy-gen=true
+type MetricsClusterScalingSchedule struct {
+	// The name of the referenced ClusterScalingSchedule object.
+	// +kubebuilder:validation:Pattern:=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+	Name string `json:"name"`
+}
+
 // AutoscalerMetricType is the type of the metric used for scaling.
-// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;ZMON
+// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;ZMON;ScalingSchedule;ClusterScalingSchedule
 type AutoscalerMetricType string
 
 const (
-	CPUAutoscalerMetric       AutoscalerMetricType = "CPU"
-	MemoryAutoscalerMetric    AutoscalerMetricType = "Memory"
-	AmazonSQSAutoscalerMetric AutoscalerMetricType = "AmazonSQS"
-	PodJSONAutoscalerMetric   AutoscalerMetricType = "PodJSON"
-	IngressAutoscalerMetric   AutoscalerMetricType = "Ingress"
-	ZMONAutoscalerMetric      AutoscalerMetricType = "ZMON"
+	CPUAutoscalerMetric          AutoscalerMetricType = "CPU"
+	MemoryAutoscalerMetric       AutoscalerMetricType = "Memory"
+	AmazonSQSAutoscalerMetric    AutoscalerMetricType = "AmazonSQS"
+	PodJSONAutoscalerMetric      AutoscalerMetricType = "PodJSON"
+	IngressAutoscalerMetric      AutoscalerMetricType = "Ingress"
+	ZMONAutoscalerMetric         AutoscalerMetricType = "ZMON"
+	ClusterScalingScheduleMetric AutoscalerMetricType = "ClusterScalingSchedule"
+	ScalingScheduleMetric        AutoscalerMetricType = "ScalingSchedule"
 )
 
 // AutoscalerMetrics is the type of metric to be be used for autoscaling.
 // +k8s:deepcopy-gen=true
 type AutoscalerMetrics struct {
-	Type               AutoscalerMetricType `json:"type"`
-	Average            *resource.Quantity   `json:"average,omitempty"`
-	Endpoint           *MetricsEndpoint     `json:"endpoint,omitempty"`
-	AverageUtilization *int32               `json:"averageUtilization,omitempty"`
-	Queue              *MetricsQueue        `json:"queue,omitempty"`
-	ZMON               *MetricsZMON         `json:"zmon,omitempty"`
+	Type                   AutoscalerMetricType           `json:"type"`
+	Average                *resource.Quantity             `json:"average,omitempty"`
+	Endpoint               *MetricsEndpoint               `json:"endpoint,omitempty"`
+	AverageUtilization     *int32                         `json:"averageUtilization,omitempty"`
+	Queue                  *MetricsQueue                  `json:"queue,omitempty"`
+	ZMON                   *MetricsZMON                   `json:"zmon,omitempty"`
+	ScalingSchedule        *MetricsScalingSchedule        `json:"scalingSchedule,omitempty"`
+	ClusterScalingSchedule *MetricsClusterScalingSchedule `json:"clusterScalingSchedule,omitempty"`
 	// optional container name that can be used to scale based on CPU or
 	// Memory metrics of a specific container as opposed to an average of
 	// all containers in a pod.

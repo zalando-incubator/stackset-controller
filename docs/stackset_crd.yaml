@@ -432,6 +432,19 @@ spec:
                                 averageUtilization:
                                   format: int32
                                   type: integer
+                                clusterScalingSchedule:
+                                  description: MetricsClusterScalingSchedule specifies
+                                    the ClusterScalingSchedule object which should
+                                    be used for scaling.
+                                  properties:
+                                    name:
+                                      description: The name of the referenced ClusterScalingSchedule
+                                        object.
+                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
                                 container:
                                   description: optional container name that can be
                                     used to scale based on CPU or Memory metrics of
@@ -470,6 +483,19 @@ spec:
                                   - name
                                   - region
                                   type: object
+                                scalingSchedule:
+                                  description: MetricsScalingSchedule specifies the
+                                    ScalingSchedule object which should be used for
+                                    scaling.
+                                  properties:
+                                    name:
+                                      description: The name of the referenced ScalingSchedule
+                                        object.
+                                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
                                 type:
                                   description: AutoscalerMetricType is the type of
                                     the metric used for scaling.
@@ -480,6 +506,8 @@ spec:
                                   - PodJSON
                                   - Ingress
                                   - ZMON
+                                  - ScalingSchedule
+                                  - ClusterScalingSchedule
                                   type: string
                                 zmon:
                                   description: MetricsZMON specifies the ZMON check

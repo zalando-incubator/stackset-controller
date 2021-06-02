@@ -161,7 +161,8 @@ traffic and then scale back down during off-peak hours to save costs.
 HPAs can be specified in 2 different ways for stacksets. The first is to use the `horizontalPodAutoscaler`
 field which is similar in syntax to the original Horizontal Pod Autoscaler. The second way is to use
 the `autoscaler` field. This is then resolved by the _stackset-controller_ which generates an HPA
-with an equivalent spec. Currently, the autoscaler can be used to specify scaling based on 4 metrics:
+with an equivalent spec. Currently, the autoscaler can be used to
+specify scaling based on the following metrics:
 
 1. `CPU`
 2. `Memory`
@@ -169,6 +170,8 @@ with an equivalent spec. Currently, the autoscaler can be used to specify scalin
 4. `PodJSON`
 5. `Ingress`
 6. `ZMON`
+7. `ScalingSchedule`
+8. `ClusterScalingSchedule`
 
 _Note:_ Based on the metrics type specified you may need to also deploy the [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter)
 in your cluster.
@@ -250,6 +253,31 @@ autoscaler:
       tags:
         application: "my-app"
     average: 30
+```
+
+Metrics to scale based on time are also supported. It relies on the
+[`ScalingSchedule`
+collectors](https://github.com/zalando-incubator/kube-metrics-adapter#scalingschedule-collectors).
+The following is an example of metrics configuration, for both
+`ScalingSchedule` and `ClusterScalingSchedule` resources:
+
+```yaml
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 30
+  metrics:
+  - type: ClusterScalingSchedule
+    # The average value per pod of the returned metric
+    average: 1000
+    clusterScalingSchedule:
+      # The name of the deployed ClusterScalingSchedule object
+      name: "cluster-wide-scheduling-event"
+  - type: ScalingSchedule
+    # The average value per pod of the returned metric
+    average: 10
+    scalingSchedule:
+      # The name of the deployed ScalingSchedule object
+      name: "namespaced-scheduling-event"
 ```
 
 ## Enable stack prescaling
