@@ -12,6 +12,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	autoscaling "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,10 +31,15 @@ const (
 	zmonCheckTagAnnotationPrefix = "metric-config.external.zmon-check.zmon/tag-"
 	sqsQueueNameTag              = "queue-name"
 	sqsQueueRegionTag            = "region"
+	scalingScheduleAPIVersion    = "zalando.org/v1"
 )
 
 var (
-	errMissingZMONDefinition = errors.New("missing ZMON metric definition")
+	errMissingZMONDefinition                   = errors.New("missing ZMON metric definition")
+	errMissingScalingScheduleDefinition        = errors.New("missing ScalingSchedule metric definition")
+	errMissingClusterScalingScheduleDefinition = errors.New("missing ClusterScalingSchedule metric definition")
+	errMissingScalingScheduleName              = errors.New("missing ScalingSchedule metric object name")
+	errMissingClusterScalingScheduleName       = errors.New("missing ClusterScalingSchedule metric object name")
 )
 
 type MetricsList []autoscaling.MetricSpec
@@ -71,6 +77,10 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 			generated, err = ingressMetric(m, stacksetName, stackName)
 		case zv1.ZMONAutoscalerMetric:
 			generated, annotations, err = zmonMetric(m, stackName, namespace)
+		case zv1.ScalingScheduleMetric:
+			generated, err = scalingScheduleMetric(m, stackName, namespace)
+		case zv1.ClusterScalingScheduleMetric:
+			generated, err = clusterScalingScheduleMetric(m, stackName, namespace)
 		case zv1.CPUAutoscalerMetric:
 			generated, err = cpuMetric(m)
 		case zv1.MemoryAutoscalerMetric:
@@ -290,6 +300,62 @@ func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*au
 		annotations[zmonCheckTagAnnotationPrefix+k] = v
 	}
 	return generated, annotations, nil
+}
+
+func scalingScheduleMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*autoscaling.MetricSpec, error) {
+	if metrics.Average == nil {
+		return nil, fmt.Errorf("average not specified")
+	}
+	average := metrics.Average.DeepCopy()
+
+	if metrics.ScalingSchedule == nil {
+		return nil, errMissingScalingScheduleDefinition
+	}
+
+	name := metrics.ScalingSchedule.Name
+	if name == "" {
+		return nil, errMissingScalingScheduleName
+	}
+
+	return generateScalingScheduleMetricSpec("ScalingSchedule", name, average), nil
+}
+
+func clusterScalingScheduleMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*autoscaling.MetricSpec, error) {
+	if metrics.Average == nil {
+		return nil, fmt.Errorf("average not specified")
+	}
+	average := metrics.Average.DeepCopy()
+
+	if metrics.ClusterScalingSchedule == nil {
+		return nil, errMissingClusterScalingScheduleDefinition
+	}
+
+	name := metrics.ClusterScalingSchedule.Name
+	if name == "" {
+		return nil, errMissingClusterScalingScheduleName
+	}
+
+	return generateScalingScheduleMetricSpec("ClusterScalingSchedule", name, average), nil
+}
+
+func generateScalingScheduleMetricSpec(kind, name string, average resource.Quantity) *autoscaling.MetricSpec {
+	return &autoscaling.MetricSpec{
+		Type: autoscaling.ObjectMetricSourceType,
+		Object: &autoscaling.ObjectMetricSource{
+			DescribedObject: autoscaling.CrossVersionObjectReference{
+				Kind:       kind,
+				APIVersion: scalingScheduleAPIVersion,
+				Name:       name,
+			},
+			Metric: autoscaling.MetricIdentifier{
+				Name: name,
+			},
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
+		},
+	}
 }
 
 func metricHash(namespace, name string) (string, error) {

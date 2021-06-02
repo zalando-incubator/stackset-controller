@@ -86,6 +86,34 @@ func generateAutoscalerZMON(minReplicas, maxReplicas, utilization int32, checkID
 	return container
 }
 
+func generateAutoscalerScalingSchedule(minReplicas, maxReplicas, average int32, name string) StackContainer {
+	container := generateAutoscalerStub(minReplicas, maxReplicas)
+	container.Stack.Spec.Autoscaler.Metrics = append(
+		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+			Type: zv1.ScalingScheduleMetric,
+			ScalingSchedule: &zv1.MetricsScalingSchedule{
+				Name: name,
+			},
+			Average: resource.NewQuantity(int64(average), resource.DecimalSI),
+		},
+	)
+	return container
+}
+
+func generateAutoscalerClusterScalingSchedule(minReplicas, maxReplicas, average int32, name string) StackContainer {
+	container := generateAutoscalerStub(minReplicas, maxReplicas)
+	container.Stack.Spec.Autoscaler.Metrics = append(
+		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+			Type: zv1.ClusterScalingScheduleMetric,
+			ClusterScalingSchedule: &zv1.MetricsClusterScalingSchedule{
+				Name: name,
+			},
+			Average: resource.NewQuantity(int64(average), resource.DecimalSI),
+		},
+	)
+	return container
+}
+
 func generateAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int32, name, path, key string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
@@ -233,6 +261,38 @@ func TestStackSetController_ReconcileAutoscalersZMON(t *testing.T) {
 	require.Equal(t, externalMetric.External.Target.AverageValue.Value(), int64(80))
 }
 
+func TestStackSetController_ReconcileAutoscalersScalingSchedule(t *testing.T) {
+	average := 80
+	name := "scaling-schedule-name"
+
+	validateHpa := func(t *testing.T, kind string, ssc StackContainer) {
+		hpa, err := ssc.GenerateHPA()
+		require.NoError(t, err, "failed to create an HPA")
+		require.NotNil(t, hpa, "hpa not generated")
+		require.Equal(t, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
+		require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
+		require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
+		objectMetric := hpa.Spec.Metrics[0]
+		require.Equal(t, autoscaling.ObjectMetricSourceType, objectMetric.Type)
+		require.Equal(t, name, objectMetric.Object.Metric.Name)
+		require.Equal(t, name, objectMetric.Object.DescribedObject.Name)
+		require.Equal(t, kind, objectMetric.Object.DescribedObject.Kind)
+		require.Equal(t, scalingScheduleAPIVersion, objectMetric.Object.DescribedObject.APIVersion)
+		require.Equal(t, int64(average), objectMetric.Object.Target.AverageValue.Value())
+	}
+
+	ssc := generateAutoscalerScalingSchedule(1, 10, int32(average), name)
+	t.Run("generate ScalingSchedule HPA", func(t *testing.T) {
+		validateHpa(t, "ScalingSchedule", ssc)
+	})
+
+	ssc = generateAutoscalerClusterScalingSchedule(1, 10, int32(average), name)
+	t.Run("generate ClusterScalingSchedule HPA", func(t *testing.T) {
+		validateHpa(t, "ClusterScalingSchedule", ssc)
+	})
+
+}
+
 func TestCPUMetricValid(t *testing.T) {
 	var utilization int32 = 80
 	metrics := zv1.AutoscalerMetrics{Type: "cpu", AverageUtilization: &utilization}
@@ -307,6 +367,56 @@ func TestZMONMetricInvalid(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, _, err := zmonMetric(tc.metrics, "stack-name", "namespace")
+			require.Errorf(t, err, "created metric with invalid configuration")
+		})
+	}
+}
+
+func TestScalingScheduleMetricInvalid(t *testing.T) {
+	onemilli := resource.MustParse("1m")
+	for _, tc := range []struct {
+		name    string
+		metrics zv1.AutoscalerMetrics
+	}{
+		{
+			name:    "missing average",
+			metrics: zv1.AutoscalerMetrics{Type: zv1.ScalingScheduleMetric, Average: nil},
+		},
+		{
+			name:    "missing average",
+			metrics: zv1.AutoscalerMetrics{Type: zv1.ClusterScalingScheduleMetric, Average: nil},
+		},
+		{
+			name:    "missing ScalingSchedule",
+			metrics: zv1.AutoscalerMetrics{Type: zv1.ScalingScheduleMetric, Average: &onemilli},
+		},
+		{
+			name:    "missing ClusterScalingSchedule",
+			metrics: zv1.AutoscalerMetrics{Type: zv1.ClusterScalingScheduleMetric, Average: &onemilli},
+		},
+		{
+			name: "missing ScalingSchedule name",
+			metrics: zv1.AutoscalerMetrics{
+				Type:            zv1.ScalingScheduleMetric,
+				Average:         &onemilli,
+				ScalingSchedule: &zv1.MetricsScalingSchedule{Name: ""}},
+		},
+		{
+			name: "missing ClusterScalingSchedule name",
+			metrics: zv1.AutoscalerMetrics{
+				Type:                   zv1.ClusterScalingScheduleMetric,
+				Average:                &onemilli,
+				ClusterScalingSchedule: &zv1.MetricsClusterScalingSchedule{Name: ""}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var err error
+			switch tc.metrics.Type {
+			case zv1.ClusterScalingScheduleMetric:
+				_, err = clusterScalingScheduleMetric(tc.metrics, "stack-name", "namespace")
+			case zv1.ScalingScheduleMetric:
+				_, err = scalingScheduleMetric(tc.metrics, "stack-name", "namespace")
+			}
 			require.Errorf(t, err, "created metric with invalid configuration")
 		})
 	}
