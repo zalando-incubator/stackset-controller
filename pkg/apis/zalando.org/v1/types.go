@@ -96,12 +96,6 @@ type EmbeddedObjectMeta struct {
 	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
-type IngressOrRouteGroupSpec interface {
-	GetHosts() []string
-	GetAnnotations() map[string]string
-	GetOverrides() *StackIngressRouteGroupOverrides
-}
-
 // +k8s:deepcopy-gen=true
 type StackIngressRouteGroupOverrides struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`

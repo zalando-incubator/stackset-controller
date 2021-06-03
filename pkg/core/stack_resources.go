@@ -23,6 +23,12 @@ const (
 	kindDeployment   = "Deployment"
 )
 
+type ingressOrRouteGroupSpec interface {
+	GetHosts() []string
+	GetAnnotations() map[string]string
+	GetOverrides() *zv1.StackIngressRouteGroupOverrides
+}
+
 var (
 	// set implementation with 0 Byte value
 	selectorLabels = map[string]struct{}{
@@ -300,7 +306,7 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	}, nil
 }
 
-func (sc *StackContainer) stackHostnames(spec zv1.IngressOrRouteGroupSpec) ([]string, error) {
+func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec) ([]string, error) {
 	result := sets.NewString()
 
 	if spec.GetOverrides() != nil && len(spec.GetOverrides().Hosts) > 0 {
@@ -325,7 +331,7 @@ func (sc *StackContainer) stackHostnames(spec zv1.IngressOrRouteGroupSpec) ([]st
 	return result.List(), nil
 }
 
-func stackIngressRouteGroupAnnotations(spec zv1.IngressOrRouteGroupSpec) map[string]string {
+func stackIngressRouteGroupAnnotations(spec ingressOrRouteGroupSpec) map[string]string {
 	if spec.GetOverrides() == nil || len(spec.GetOverrides().EmbeddedObjectMetaWithAnnotations.Annotations) == 0 {
 		return spec.GetAnnotations()
 	}
