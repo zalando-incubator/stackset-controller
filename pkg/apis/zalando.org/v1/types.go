@@ -96,6 +96,27 @@ type EmbeddedObjectMeta struct {
 	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
+// +k8s:deepcopy-gen=true
+type StackIngressRouteGroupOverrides struct {
+	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
+
+	// Whether to enable per-stack ingresses or routegroups. Defaults to enabled if unset.
+	// +optional
+	Enabled *bool `json:"enabled"`
+
+	// Hostnames to use for the per-stack ingresses (or route groups). These must contain the special $stack_name$ token,
+	// which will replaced with the stack's name accordingly. Would be automatically generated based on the hosts in
+	// the ingress/routegroup entry if unset.
+	Hosts []string `json:"hosts,omitempty"`
+}
+
+func (o *StackIngressRouteGroupOverrides) IsEnabled() bool {
+	if o == nil || o.Enabled == nil {
+		return true
+	}
+	return *o.Enabled
+}
+
 // StackSetIngressSpec is the ingress defintion of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
@@ -103,6 +124,10 @@ type StackSetIngressSpec struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 	Hosts                             []string           `json:"hosts"`
 	BackendPort                       intstr.IntOrString `json:"backendPort"`
+
+	// Settings for the per-stack ingresses
+	// +optional
+	StackIngressOverrides *StackIngressRouteGroupOverrides `json:"stackOverrides"`
 	// +optional
 	Path string `json:"path"`
 }
@@ -120,6 +145,9 @@ type RouteGroupSpec struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 	// Hosts is the list of hostnames to add to the routegroup.
 	Hosts []string `json:"hosts"`
+	// Settings for the per-stack route groups
+	// +optional
+	StackIngressOverrides *StackIngressRouteGroupOverrides `json:"stackOverrides"`
 	// AdditionalBackends is the list of additional backends to use for
 	// routing.
 	// +optional
