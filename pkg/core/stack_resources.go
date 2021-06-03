@@ -25,7 +25,6 @@ const (
 
 type ingressOrRouteGroupSpec interface {
 	GetHosts() []string
-	GetAnnotations() map[string]string
 	GetOverrides() *zv1.StackIngressRouteGroupOverrides
 }
 
@@ -331,13 +330,6 @@ func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec) ([]string
 	return result.List(), nil
 }
 
-func stackIngressRouteGroupAnnotations(spec ingressOrRouteGroupSpec) map[string]string {
-	if spec.GetOverrides() == nil || len(spec.GetOverrides().EmbeddedObjectMetaWithAnnotations.Annotations) == 0 {
-		return spec.GetAnnotations()
-	}
-	return spec.GetOverrides().EmbeddedObjectMetaWithAnnotations.Annotations
-}
-
 func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 	if !sc.HasBackendPort() || sc.ingressSpec == nil || !sc.ingressSpec.StackIngressOverrides.IsEnabled() {
 		return nil, nil
@@ -390,7 +382,7 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 	}
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, stackIngressRouteGroupAnnotations(sc.ingressSpec))
+	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.Annotations, sc.ingressSpec.StackIngressOverrides.GetAnnotations())
 	return result, nil
 }
 
@@ -446,7 +438,7 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	})
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, stackIngressRouteGroupAnnotations(sc.routeGroupSpec))
+	result.Annotations = mergeLabels(result.Annotations, sc.routeGroupSpec.Annotations, sc.routeGroupSpec.StackRouteGroupOverrides.GetAnnotations())
 
 	return result, nil
 }

@@ -117,6 +117,13 @@ func (o *StackIngressRouteGroupOverrides) IsEnabled() bool {
 	return *o.Enabled
 }
 
+func (o *StackIngressRouteGroupOverrides) GetAnnotations() map[string]string {
+	if o == nil {
+		return nil
+	}
+	return o.Annotations
+}
+
 // StackSetIngressSpec is the ingress defintion of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
@@ -134,10 +141,6 @@ type StackSetIngressSpec struct {
 
 func (s *StackSetIngressSpec) GetHosts() []string {
 	return s.Hosts
-}
-
-func (s *StackSetIngressSpec) GetAnnotations() map[string]string {
-	return s.EmbeddedObjectMetaWithAnnotations.Annotations
 }
 
 func (s *StackSetIngressSpec) GetOverrides() *StackIngressRouteGroupOverrides {
@@ -172,10 +175,6 @@ type RouteGroupSpec struct {
 
 func (s *RouteGroupSpec) GetHosts() []string {
 	return s.Hosts
-}
-
-func (s *RouteGroupSpec) GetAnnotations() map[string]string {
-	return s.EmbeddedObjectMetaWithAnnotations.Annotations
 }
 
 func (s *RouteGroupSpec) GetOverrides() *StackIngressRouteGroupOverrides {

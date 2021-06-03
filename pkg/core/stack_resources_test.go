@@ -354,19 +354,21 @@ func TestStackGenerateIngress(t *testing.T) {
 			name: "custom annotations via overrides",
 			ingressSpec: &zv1.StackSetIngressSpec{
 				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"ingress": "annotation"},
+					Annotations: map[string]string{"ingress": "annotation", "foo": "bar"},
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Path:  "example",
 				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
 					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-						Annotations: map[string]string{"custom": "override"},
+						Annotations: map[string]string{"custom": "override", "foo": "baz"},
 					},
 				},
 			},
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
+				"ingress":                    "annotation",
 				"custom":                     "override",
+				"foo":                        "baz",
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
@@ -537,7 +539,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			name: "custom annotations via overrides",
 			routeGroupSpec: &zv1.RouteGroupSpec{
 				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"routegroup": "annotation"},
+					Annotations: map[string]string{"routegroup": "annotation", "foo": "bar"},
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Routes: []rgv1.RouteGroupRouteSpec{
@@ -547,13 +549,15 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				},
 				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
 					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-						Annotations: map[string]string{"custom": "override"},
+						Annotations: map[string]string{"custom": "override", "foo": "baz"},
 					},
 				},
 			},
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
+				"routegroup":                 "annotation",
 				"custom":                     "override",
+				"foo":                        "baz",
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
