@@ -322,8 +322,8 @@ func TestStackGenerateIngress(t *testing.T) {
 				Path:  "example",
 				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
 					Hosts: []string{
-						"test-$stack_name$.internal.foobar",
-						"$stack_name$.internal.test",
+						"test-$(STACK_NAME).internal.foobar",
+						"$(STACK_NAME).internal.test",
 					},
 				},
 			},
@@ -344,7 +344,7 @@ func TestStackGenerateIngress(t *testing.T) {
 				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
 					Hosts: []string{
 						"test.internal.foobar",
-						"$stack_name$.internal.test",
+						"$(STACK_NAME).internal.test",
 					},
 				},
 			},
@@ -501,8 +501,8 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				},
 				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
 					Hosts: []string{
-						"test-$stack_name$.internal.foobar",
-						"$stack_name$.internal.test",
+						"test-$(STACK_NAME).internal.foobar",
+						"$(STACK_NAME).internal.test",
 					},
 				},
 			},
@@ -527,7 +527,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
 					Hosts: []string{
 						"test.internal.foobar",
-						"$stack_name$.internal.test",
+						"$(STACK_NAME).internal.test",
 					},
 				},
 			},

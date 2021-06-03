@@ -311,9 +311,9 @@ func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec) ([]string
 
 	if spec.GetOverrides() != nil && len(spec.GetOverrides().Hosts) > 0 {
 		for _, host := range spec.GetOverrides().Hosts {
-			interpolated := strings.ReplaceAll(host, "$stack_name$", sc.Name())
+			interpolated := strings.ReplaceAll(host, "$(STACK_NAME)", sc.Name())
 			if interpolated == host {
-				return nil, fmt.Errorf("$stack_name$ token is required for a per-stack ingress or route group")
+				return nil, fmt.Errorf("override hostname must contain $(STACK_NAME)")
 			}
 			result.Insert(interpolated)
 		}
