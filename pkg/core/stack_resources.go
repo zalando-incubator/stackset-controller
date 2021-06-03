@@ -24,8 +24,8 @@ const (
 )
 
 type ingressOrRouteGroupSpec interface {
+	GetAnnotations() map[string]string
 	GetHosts() []string
-	GetOverrides() *zv1.StackIngressRouteGroupOverrides
 }
 
 var (
@@ -305,11 +305,11 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	}, nil
 }
 
-func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec) ([]string, error) {
+func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec, overrides *zv1.StackIngressRouteGroupOverrides) ([]string, error) {
 	result := sets.NewString()
 
-	if spec.GetOverrides() != nil && len(spec.GetOverrides().Hosts) > 0 {
-		for _, host := range spec.GetOverrides().Hosts {
+	if overrides != nil && len(overrides.Hosts) > 0 {
+		for _, host := range overrides.Hosts {
 			interpolated := strings.ReplaceAll(host, "$(STACK_NAME)", sc.Name())
 			if interpolated == host {
 				return nil, fmt.Errorf("override hostname must contain $(STACK_NAME)")
@@ -330,12 +330,19 @@ func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec) ([]string
 	return result.List(), nil
 }
 
+func effectiveAnnotations(spec ingressOrRouteGroupSpec, overrides *zv1.StackIngressRouteGroupOverrides) map[string]string {
+	if overrides != nil && len(overrides.Annotations) > 0 {
+		return overrides.Annotations
+	}
+	return spec.GetAnnotations()
+}
+
 func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
-	if !sc.HasBackendPort() || sc.ingressSpec == nil || !sc.ingressSpec.StackIngressOverrides.IsEnabled() {
+	if !sc.HasBackendPort() || sc.ingressSpec == nil || !sc.Stack.Spec.IngressOverrides.IsEnabled() {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(sc.ingressSpec)
+	hostnames, err := sc.stackHostnames(sc.ingressSpec, sc.Stack.Spec.IngressOverrides)
 	if err != nil {
 		return nil, err
 	}
@@ -382,16 +389,16 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 	}
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.Annotations, sc.ingressSpec.StackIngressOverrides.GetAnnotations())
+	result.Annotations = mergeLabels(result.Annotations, effectiveAnnotations(sc.ingressSpec, sc.Stack.Spec.IngressOverrides))
 	return result, nil
 }
 
 func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
-	if !sc.HasBackendPort() || sc.routeGroupSpec == nil || !sc.routeGroupSpec.StackRouteGroupOverrides.IsEnabled() {
+	if !sc.HasBackendPort() || sc.routeGroupSpec == nil || !sc.Stack.Spec.RouteGroupOverrides.IsEnabled() {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(sc.routeGroupSpec)
+	hostnames, err := sc.stackHostnames(sc.routeGroupSpec, sc.Stack.Spec.RouteGroupOverrides)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +445,7 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	})
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, sc.routeGroupSpec.Annotations, sc.routeGroupSpec.StackRouteGroupOverrides.GetAnnotations())
+	result.Annotations = mergeLabels(result.Annotations, effectiveAnnotations(sc.routeGroupSpec, sc.Stack.Spec.RouteGroupOverrides))
 
 	return result, nil
 }

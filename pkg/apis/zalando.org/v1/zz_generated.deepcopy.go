@@ -338,11 +338,6 @@ func (in *RouteGroupSpec) DeepCopyInto(out *RouteGroupSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.StackRouteGroupOverrides != nil {
-		in, out := &in.StackRouteGroupOverrides, &out.StackRouteGroupOverrides
-		*out = new(StackIngressRouteGroupOverrides)
-		(*in).DeepCopyInto(*out)
-	}
 	if in.AdditionalBackends != nil {
 		in, out := &in.AdditionalBackends, &out.AdditionalBackends
 		*out = make([]zalandoorgv1.RouteGroupBackend, len(*in))
@@ -546,11 +541,6 @@ func (in *StackSetIngressSpec) DeepCopyInto(out *StackSetIngressSpec) {
 		copy(*out, *in)
 	}
 	out.BackendPort = in.BackendPort
-	if in.StackIngressOverrides != nil {
-		in, out := &in.StackIngressOverrides, &out.StackIngressOverrides
-		*out = new(StackIngressRouteGroupOverrides)
-		(*in).DeepCopyInto(*out)
-	}
 	return
 }
 
@@ -690,6 +680,16 @@ func (in *StackSpec) DeepCopyInto(out *StackSpec) {
 	if in.Autoscaler != nil {
 		in, out := &in.Autoscaler, &out.Autoscaler
 		*out = new(Autoscaler)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.IngressOverrides != nil {
+		in, out := &in.IngressOverrides, &out.IngressOverrides
+		*out = new(StackIngressRouteGroupOverrides)
+		(*in).DeepCopyInto(*out)
+	}
+	if in.RouteGroupOverrides != nil {
+		in, out := &in.RouteGroupOverrides, &out.RouteGroupOverrides
+		*out = new(StackIngressRouteGroupOverrides)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Strategy != nil {

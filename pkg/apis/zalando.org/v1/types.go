@@ -117,13 +117,6 @@ func (o *StackIngressRouteGroupOverrides) IsEnabled() bool {
 	return *o.Enabled
 }
 
-func (o *StackIngressRouteGroupOverrides) GetAnnotations() map[string]string {
-	if o == nil {
-		return nil
-	}
-	return o.Annotations
-}
-
 // StackSetIngressSpec is the ingress defintion of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
@@ -132,9 +125,6 @@ type StackSetIngressSpec struct {
 	Hosts                             []string           `json:"hosts"`
 	BackendPort                       intstr.IntOrString `json:"backendPort"`
 
-	// Settings for the per-stack ingresses
-	// +optional
-	StackIngressOverrides *StackIngressRouteGroupOverrides `json:"stackOverrides"`
 	// +optional
 	Path string `json:"path"`
 }
@@ -143,8 +133,8 @@ func (s *StackSetIngressSpec) GetHosts() []string {
 	return s.Hosts
 }
 
-func (s *StackSetIngressSpec) GetOverrides() *StackIngressRouteGroupOverrides {
-	return s.StackIngressOverrides
+func (s *StackSetIngressSpec) GetAnnotations() map[string]string {
+	return s.Annotations
 }
 
 // StackSetExternalIngressSpec defines the required service
@@ -160,9 +150,6 @@ type RouteGroupSpec struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 	// Hosts is the list of hostnames to add to the routegroup.
 	Hosts []string `json:"hosts"`
-	// Settings for the per-stack route groups
-	// +optional
-	StackRouteGroupOverrides *StackIngressRouteGroupOverrides `json:"stackOverrides"`
 	// AdditionalBackends is the list of additional backends to use for
 	// routing.
 	// +optional
@@ -177,8 +164,8 @@ func (s *RouteGroupSpec) GetHosts() []string {
 	return s.Hosts
 }
 
-func (s *RouteGroupSpec) GetOverrides() *StackIngressRouteGroupOverrides {
-	return s.StackRouteGroupOverrides
+func (s *RouteGroupSpec) GetAnnotations() map[string]string {
+	return s.Annotations
 }
 
 // StackLifecycle defines lifecycle of the Stacks of a StackSet.
@@ -467,6 +454,12 @@ type StackSpec struct {
 	PodTemplate PodTemplateSpec `json:"podTemplate"`
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
+
+	// Settings for the per-stack ingresses (in case the StackSet has a configured ingress)
+	IngressOverrides *StackIngressRouteGroupOverrides `json:"ingress,omitempty"`
+
+	// Settings for the per-stack route groups (in case the StackSet has a configured RouteGroup)
+	RouteGroupOverrides *StackIngressRouteGroupOverrides `json:"routegroup,omitempty"`
 
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`

@@ -270,8 +270,9 @@ func TestStackGenerateIngress(t *testing.T) {
 	boolFalse := false
 
 	for _, tc := range []struct {
-		name        string
-		ingressSpec *zv1.StackSetIngressSpec
+		name             string
+		ingressSpec      *zv1.StackSetIngressSpec
+		ingressOverrides *zv1.StackIngressRouteGroupOverrides
 
 		expectDisabled      bool
 		expectError         bool
@@ -292,6 +293,7 @@ func TestStackGenerateIngress(t *testing.T) {
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Path:  "example",
 			},
+			ingressOverrides: nil,
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
 				"ingress":                    "annotation",
@@ -306,9 +308,9 @@ func TestStackGenerateIngress(t *testing.T) {
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Path:  "example",
-				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
-					Enabled: &boolFalse,
-				},
+			},
+			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
+				Enabled: &boolFalse,
 			},
 			expectDisabled: true,
 		},
@@ -320,11 +322,11 @@ func TestStackGenerateIngress(t *testing.T) {
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Path:  "example",
-				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
-					Hosts: []string{
-						"test-$(STACK_NAME).internal.foobar",
-						"$(STACK_NAME).internal.test",
-					},
+			},
+			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
+				Hosts: []string{
+					"test-$(STACK_NAME).internal.foobar",
+					"$(STACK_NAME).internal.test",
 				},
 			},
 			expectedAnnotations: map[string]string{
@@ -341,11 +343,11 @@ func TestStackGenerateIngress(t *testing.T) {
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Path:  "example",
-				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
-					Hosts: []string{
-						"test.internal.foobar",
-						"$(STACK_NAME).internal.test",
-					},
+			},
+			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
+				Hosts: []string{
+					"test.internal.foobar",
+					"$(STACK_NAME).internal.test",
 				},
 			},
 			expectError: true,
@@ -354,21 +356,19 @@ func TestStackGenerateIngress(t *testing.T) {
 			name: "custom annotations via overrides",
 			ingressSpec: &zv1.StackSetIngressSpec{
 				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"ingress": "annotation", "foo": "bar"},
+					Annotations: map[string]string{"ingress": "annotation"},
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Path:  "example",
-				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
-					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-						Annotations: map[string]string{"custom": "override", "foo": "baz"},
-					},
+			},
+			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"custom": "override"},
 				},
 			},
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
-				"ingress":                    "annotation",
 				"custom":                     "override",
-				"foo":                        "baz",
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
@@ -379,6 +379,9 @@ func TestStackGenerateIngress(t *testing.T) {
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpec{
+						IngressOverrides: tc.ingressOverrides,
+					},
 				},
 				stacksetName:   "foo",
 				ingressSpec:    tc.ingressSpec,
@@ -439,8 +442,9 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 	boolFalse := false
 
 	for _, tc := range []struct {
-		name           string
-		routeGroupSpec *zv1.RouteGroupSpec
+		name                string
+		routeGroupSpec      *zv1.RouteGroupSpec
+		routeGroupOverrides *zv1.StackIngressRouteGroupOverrides
 
 		expectDisabled      bool
 		expectError         bool
@@ -465,6 +469,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 					},
 				},
 			},
+			routeGroupOverrides: nil,
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
 				"routegroup":                 "annotation",
@@ -483,9 +488,9 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 						PathSubtree: "/example",
 					},
 				},
-				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-					Enabled: &boolFalse,
-				},
+			},
+			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+				Enabled: &boolFalse,
 			},
 			expectDisabled: true,
 		},
@@ -501,11 +506,11 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 						PathSubtree: "/example",
 					},
 				},
-				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-					Hosts: []string{
-						"test-$(STACK_NAME).internal.foobar",
-						"$(STACK_NAME).internal.test",
-					},
+			},
+			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+				Hosts: []string{
+					"test-$(STACK_NAME).internal.foobar",
+					"$(STACK_NAME).internal.test",
 				},
 			},
 			expectedAnnotations: map[string]string{
@@ -526,11 +531,11 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 						PathSubtree: "/example",
 					},
 				},
-				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-					Hosts: []string{
-						"test.internal.foobar",
-						"$(STACK_NAME).internal.test",
-					},
+			},
+			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+				Hosts: []string{
+					"test.internal.foobar",
+					"$(STACK_NAME).internal.test",
 				},
 			},
 			expectError: true,
@@ -539,7 +544,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			name: "custom annotations via overrides",
 			routeGroupSpec: &zv1.RouteGroupSpec{
 				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"routegroup": "annotation", "foo": "bar"},
+					Annotations: map[string]string{"routegroup": "annotation"},
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Routes: []rgv1.RouteGroupRouteSpec{
@@ -547,17 +552,15 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 						PathSubtree: "/example",
 					},
 				},
-				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-						Annotations: map[string]string{"custom": "override", "foo": "baz"},
-					},
+			},
+			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"custom": "override"},
 				},
 			},
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
-				"routegroup":                 "annotation",
 				"custom":                     "override",
-				"foo":                        "baz",
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
@@ -568,6 +571,9 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpec{
+						RouteGroupOverrides: tc.routeGroupOverrides,
+					},
 				},
 				stacksetName:   "foo",
 				routeGroupSpec: tc.routeGroupSpec,
