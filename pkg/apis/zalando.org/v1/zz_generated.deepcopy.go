@@ -338,8 +338,8 @@ func (in *RouteGroupSpec) DeepCopyInto(out *RouteGroupSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
-	if in.StackIngressOverrides != nil {
-		in, out := &in.StackIngressOverrides, &out.StackIngressOverrides
+	if in.StackRouteGroupOverrides != nil {
+		in, out := &in.StackRouteGroupOverrides, &out.StackRouteGroupOverrides
 		*out = new(StackIngressRouteGroupOverrides)
 		(*in).DeepCopyInto(*out)
 	}

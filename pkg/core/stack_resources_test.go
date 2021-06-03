@@ -267,36 +267,147 @@ func TestLimitLabels(t *testing.T) {
 }
 
 func TestStackGenerateIngress(t *testing.T) {
-	backendPort := int32(80)
-	intStrBackendPort := intstr.FromInt(int(backendPort))
-	c := &StackContainer{
-		Stack: &zv1.Stack{
-			ObjectMeta: testStackMeta,
+	boolFalse := false
+
+	for _, tc := range []struct {
+		name        string
+		ingressSpec *zv1.StackSetIngressSpec
+
+		expectDisabled      bool
+		expectError         bool
+		expectedAnnotations map[string]string
+		expectedHosts       []string
+	}{
+		{
+			name:           "no ingress spec",
+			ingressSpec:    nil,
+			expectDisabled: true,
 		},
-		stacksetName: "foo",
-		ingressSpec: &zv1.StackSetIngressSpec{
-			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-				Annotations: map[string]string{"ingress": "annotation"},
+		{
+			name: "basic, no overrides",
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"ingress": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Path:  "example",
 			},
-			Hosts: []string{"foo.example.org", "foo.example.com"},
-			Path:  "example",
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"ingress":                    "annotation",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
 		},
-		backendPort:    &intStrBackendPort,
-		clusterDomains: []string{"example.org"},
-	}
-	ingress, err := c.GenerateIngress()
-	require.NoError(t, err)
+		{
+			name: "disabled by overrides",
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"ingress": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Path:  "example",
+				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
+					Enabled: &boolFalse,
+				},
+			},
+			expectDisabled: true,
+		},
+		{
+			name: "custom domains via overrides",
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"ingress": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Path:  "example",
+				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
+					Hosts: []string{
+						"test-$stack_name$.internal.foobar",
+						"$stack_name$.internal.test",
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"ingress":                    "annotation",
+			},
+			expectedHosts: []string{"foo-v1.internal.test", "test-foo-v1.internal.foobar"},
+		},
+		{
+			name: "custom domains in the overrides must include the stack_name token",
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"ingress": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Path:  "example",
+				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
+					Hosts: []string{
+						"test.internal.foobar",
+						"$stack_name$.internal.test",
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "custom annotations via overrides",
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"ingress": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Path:  "example",
+				StackIngressOverrides: &zv1.StackIngressRouteGroupOverrides{
+					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+						Annotations: map[string]string{"custom": "override"},
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"custom":                     "override",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			backendPort := int32(80)
+			intStrBackendPort := intstr.FromInt(int(backendPort))
+			c := &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+				},
+				stacksetName:   "foo",
+				ingressSpec:    tc.ingressSpec,
+				backendPort:    &intStrBackendPort,
+				clusterDomains: []string{"example.org"},
+			}
+			ingress, err := c.GenerateIngress()
 
-	// Annotations are copied from the ingress as well
-	expectedMeta := testResourceMeta.DeepCopy()
-	expectedMeta.Annotations["ingress"] = "annotation"
+			if tc.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
 
-	expected := &networking.Ingress{
-		ObjectMeta: *expectedMeta,
-		Spec: networking.IngressSpec{
-			Rules: []networking.IngressRule{
-				{
-					Host: "foo-v1.example.org",
+			if tc.expectDisabled {
+				require.Nil(t, ingress)
+				return
+			}
+
+			expectedMeta := testResourceMeta.DeepCopy()
+			expectedMeta.Annotations = tc.expectedAnnotations
+
+			expected := &networking.Ingress{
+				ObjectMeta: *expectedMeta,
+				Spec: networking.IngressSpec{
+					Rules: []networking.IngressRule{},
+				},
+			}
+			for _, host := range tc.expectedHosts {
+				expected.Spec.Rules = append(expected.Spec.Rules, networking.IngressRule{
+					Host: host,
 					IngressRuleValue: networking.IngressRuleValue{
 						HTTP: &networking.HTTPIngressRuleValue{
 							Paths: []networking.HTTPIngressPath{
@@ -315,75 +426,194 @@ func TestStackGenerateIngress(t *testing.T) {
 							},
 						},
 					},
-				},
-			},
-		},
+				})
+			}
+			require.Equal(t, expected, ingress)
+		})
 	}
-	require.Equal(t, expected, ingress)
 }
 
 func TestStackGenerateRouteGroup(t *testing.T) {
-	backendPort := int32(80)
-	intStrBackendPort := intstr.FromInt(int(backendPort))
-	c := &StackContainer{
-		Stack: &zv1.Stack{
-			ObjectMeta: testStackMeta,
+	boolFalse := false
+
+	for _, tc := range []struct {
+		name           string
+		routeGroupSpec *zv1.RouteGroupSpec
+
+		expectDisabled      bool
+		expectError         bool
+		expectedAnnotations map[string]string
+		expectedHosts       []string
+	}{
+		{
+			name:           "no route group spec",
+			routeGroupSpec: nil,
+			expectDisabled: true,
 		},
-		stacksetName: "foo",
-		routeGroupSpec: &zv1.RouteGroupSpec{
-			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-				Annotations: map[string]string{"routegroup": "annotation"},
-			},
-			Hosts: []string{"foo.example.org", "foo.example.com"},
-			Routes: []rgv1.RouteGroupRouteSpec{
-				{
-					PathSubtree: "/example",
+		{
+			name: "basic, no overrides",
+			routeGroupSpec: &zv1.RouteGroupSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"routegroup": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						PathSubtree: "/example",
+					},
 				},
 			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"routegroup":                 "annotation",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
 		},
-		backendPort:    &intStrBackendPort,
-		clusterDomains: []string{"example.org"},
+		{
+			name: "disabled by overrides",
+			routeGroupSpec: &zv1.RouteGroupSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"routegroup": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						PathSubtree: "/example",
+					},
+				},
+				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+					Enabled: &boolFalse,
+				},
+			},
+			expectDisabled: true,
+		},
+		{
+			name: "custom domains via overrides",
+			routeGroupSpec: &zv1.RouteGroupSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"routegroup": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						PathSubtree: "/example",
+					},
+				},
+				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+					Hosts: []string{
+						"test-$stack_name$.internal.foobar",
+						"$stack_name$.internal.test",
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"routegroup":                 "annotation",
+			},
+			expectedHosts: []string{"foo-v1.internal.test", "test-foo-v1.internal.foobar"},
+		},
+		{
+			name: "custom domains in the overrides must include the stack_name token",
+			routeGroupSpec: &zv1.RouteGroupSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"routegroup": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						PathSubtree: "/example",
+					},
+				},
+				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+					Hosts: []string{
+						"test.internal.foobar",
+						"$stack_name$.internal.test",
+					},
+				},
+			},
+			expectError: true,
+		},
+		{
+			name: "custom annotations via overrides",
+			routeGroupSpec: &zv1.RouteGroupSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"routegroup": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						PathSubtree: "/example",
+					},
+				},
+				StackRouteGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
+					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+						Annotations: map[string]string{"custom": "override"},
+					},
+				},
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"custom":                     "override",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			backendPort := int32(80)
+			intStrBackendPort := intstr.FromInt(int(backendPort))
+			c := &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+				},
+				stacksetName:   "foo",
+				routeGroupSpec: tc.routeGroupSpec,
+				backendPort:    &intStrBackendPort,
+				clusterDomains: []string{"example.org"},
+			}
+			rg, err := c.GenerateRouteGroup()
+			if tc.expectError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+
+			if tc.expectDisabled {
+				require.Nil(t, rg)
+				return
+			}
+
+			// Annotations are copied from the routegroup as well
+			expectedMeta := testResourceMeta.DeepCopy()
+			expectedMeta.Annotations = tc.expectedAnnotations
+
+			expected := &rgv1.RouteGroup{
+				ObjectMeta: *expectedMeta,
+				Spec: rgv1.RouteGroupSpec{
+					Hosts: tc.expectedHosts,
+					Backends: []rgv1.RouteGroupBackend{
+						{
+							Name:        "foo-v1",
+							Type:        rgv1.ServiceRouteGroupBackend,
+							ServiceName: "foo-v1",
+							ServicePort: int(backendPort),
+						},
+					},
+					DefaultBackends: []rgv1.RouteGroupBackendReference{
+						{
+							BackendName: "foo-v1",
+							Weight:      100,
+						},
+					},
+					Routes: []rgv1.RouteGroupRouteSpec{
+						{
+							PathSubtree: "/example",
+						},
+					},
+				},
+			}
+			require.Equal(t, expected, rg)
+		})
 	}
-	rg, err := c.GenerateRouteGroup()
-	require.NoError(t, err)
-
-	// Annotations are copied from the routegroup as well
-	expectedMeta := testResourceMeta.DeepCopy()
-	expectedMeta.Annotations["routegroup"] = "annotation"
-
-	expected := &rgv1.RouteGroup{
-		ObjectMeta: *expectedMeta,
-		Spec: rgv1.RouteGroupSpec{
-			Hosts: []string{"foo-v1.example.org"},
-			Backends: []rgv1.RouteGroupBackend{
-				{
-					Name:        "foo-v1",
-					Type:        rgv1.ServiceRouteGroupBackend,
-					ServiceName: "foo-v1",
-					ServicePort: int(backendPort),
-				},
-			},
-			DefaultBackends: []rgv1.RouteGroupBackendReference{
-				{
-					BackendName: "foo-v1",
-					Weight:      100,
-				},
-			},
-			Routes: []rgv1.RouteGroupRouteSpec{
-				{
-					PathSubtree: "/example",
-				},
-			},
-		},
-	}
-	require.Equal(t, expected, rg)
-}
-
-func TestStackGenerateIngressNone(t *testing.T) {
-	c := &StackContainer{}
-	ingress, err := c.GenerateIngress()
-	require.NoError(t, err)
-	require.Nil(t, ingress)
 }
 
 func TestStackGenerateService(t *testing.T) {

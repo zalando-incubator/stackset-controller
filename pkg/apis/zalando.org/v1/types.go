@@ -96,6 +96,12 @@ type EmbeddedObjectMeta struct {
 	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
+type IngressOrRouteGroupSpec interface {
+	GetHosts() []string
+	GetAnnotations() map[string]string
+	GetOverrides() *StackIngressRouteGroupOverrides
+}
+
 // +k8s:deepcopy-gen=true
 type StackIngressRouteGroupOverrides struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
@@ -132,6 +138,18 @@ type StackSetIngressSpec struct {
 	Path string `json:"path"`
 }
 
+func (s *StackSetIngressSpec) GetHosts() []string {
+	return s.Hosts
+}
+
+func (s *StackSetIngressSpec) GetAnnotations() map[string]string {
+	return s.EmbeddedObjectMetaWithAnnotations.Annotations
+}
+
+func (s *StackSetIngressSpec) GetOverrides() *StackIngressRouteGroupOverrides {
+	return s.StackIngressOverrides
+}
+
 // StackSetExternalIngressSpec defines the required service
 // backendport for ingress managed outside of stackset.
 type StackSetExternalIngressSpec struct {
@@ -147,7 +165,7 @@ type RouteGroupSpec struct {
 	Hosts []string `json:"hosts"`
 	// Settings for the per-stack route groups
 	// +optional
-	StackIngressOverrides *StackIngressRouteGroupOverrides `json:"stackOverrides"`
+	StackRouteGroupOverrides *StackIngressRouteGroupOverrides `json:"stackOverrides"`
 	// AdditionalBackends is the list of additional backends to use for
 	// routing.
 	// +optional
@@ -156,6 +174,18 @@ type RouteGroupSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Routes      []rg.RouteGroupRouteSpec `json:"routes"`
 	BackendPort int                      `json:"backendPort"`
+}
+
+func (s *RouteGroupSpec) GetHosts() []string {
+	return s.Hosts
+}
+
+func (s *RouteGroupSpec) GetAnnotations() map[string]string {
+	return s.EmbeddedObjectMetaWithAnnotations.Annotations
+}
+
+func (s *RouteGroupSpec) GetOverrides() *StackIngressRouteGroupOverrides {
+	return s.StackRouteGroupOverrides
 }
 
 // StackLifecycle defines lifecycle of the Stacks of a StackSet.
