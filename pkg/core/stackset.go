@@ -62,9 +62,9 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 	// If the current stack doesn't exist, check that we haven't created it before. We shouldn't recreate
 	// it if it was removed for any reason.
 	if stack == nil && observedStackVersion != stackVersion {
-		var service *zv1.StackServiceSpec
-		if stackset.Spec.StackTemplate.Spec.Service != nil {
-			service = sanitizeServicePorts(stackset.Spec.StackTemplate.Spec.Service)
+		newSpec := stackset.Spec.StackTemplate.Spec.StackSpec.DeepCopy()
+		if newSpec.Service != nil {
+			newSpec.Service = sanitizeServicePorts(newSpec.Service)
 		}
 
 		return &StackContainer{
@@ -86,14 +86,7 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 						map[string]string{StackVersionLabelKey: stackVersion}),
 					Annotations: stackset.Spec.StackTemplate.Annotations,
 				},
-				Spec: zv1.StackSpec{
-					Replicas:                stackset.Spec.StackTemplate.Spec.Replicas,
-					HorizontalPodAutoscaler: stackset.Spec.StackTemplate.Spec.HorizontalPodAutoscaler.DeepCopy(),
-					Service:                 service,
-					PodTemplate:             stackset.Spec.StackTemplate.Spec.PodTemplate,
-					Autoscaler:              stackset.Spec.StackTemplate.Spec.Autoscaler.DeepCopy(),
-					Strategy:                stackset.Spec.StackTemplate.Spec.Strategy,
-				},
+				Spec: *newSpec,
 			},
 		}, stackVersion
 	}
