@@ -96,6 +96,27 @@ type EmbeddedObjectMeta struct {
 	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
+// +k8s:deepcopy-gen=true
+type StackIngressRouteGroupOverrides struct {
+	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
+
+	// Whether to enable per-stack ingresses or routegroups. Defaults to enabled if unset.
+	// +optional
+	Enabled *bool `json:"enabled"`
+
+	// Hostnames to use for the per-stack ingresses (or route groups). These must contain the special $(STACK_NAME)
+	// token, which will be replaced with the stack's name. Would be automatically generated based on the hosts in the
+	// ingress/routegroup entry if unset.
+	Hosts []string `json:"hosts,omitempty"`
+}
+
+func (o *StackIngressRouteGroupOverrides) IsEnabled() bool {
+	if o == nil || o.Enabled == nil {
+		return true
+	}
+	return *o.Enabled
+}
+
 // StackSetIngressSpec is the ingress defintion of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
@@ -103,8 +124,17 @@ type StackSetIngressSpec struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 	Hosts                             []string           `json:"hosts"`
 	BackendPort                       intstr.IntOrString `json:"backendPort"`
+
 	// +optional
 	Path string `json:"path"`
+}
+
+func (s *StackSetIngressSpec) GetHosts() []string {
+	return s.Hosts
+}
+
+func (s *StackSetIngressSpec) GetAnnotations() map[string]string {
+	return s.Annotations
 }
 
 // StackSetExternalIngressSpec defines the required service
@@ -128,6 +158,14 @@ type RouteGroupSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Routes      []rg.RouteGroupRouteSpec `json:"routes"`
 	BackendPort int                      `json:"backendPort"`
+}
+
+func (s *RouteGroupSpec) GetHosts() []string {
+	return s.Hosts
+}
+
+func (s *RouteGroupSpec) GetAnnotations() map[string]string {
+	return s.Annotations
 }
 
 // StackLifecycle defines lifecycle of the Stacks of a StackSet.
@@ -416,6 +454,12 @@ type StackSpec struct {
 	PodTemplate PodTemplateSpec `json:"podTemplate"`
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
+
+	// Settings for the per-stack ingresses (in case the StackSet has a configured ingress)
+	IngressOverrides *StackIngressRouteGroupOverrides `json:"ingress,omitempty"`
+
+	// Settings for the per-stack route groups (in case the StackSet has a configured RouteGroup)
+	RouteGroupOverrides *StackIngressRouteGroupOverrides `json:"routegroup,omitempty"`
 
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
