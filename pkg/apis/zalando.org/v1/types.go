@@ -102,7 +102,7 @@ type StackIngressRouteGroupOverrides struct {
 
 	// Whether to enable per-stack ingresses or routegroups. Defaults to enabled if unset.
 	// +optional
-	Enabled *bool `json:"enabled"`
+	Enabled *bool `json:"enabled,omitempty"`
 
 	// Hostnames to use for the per-stack ingresses (or route groups). These must contain the special $(STACK_NAME)
 	// token, which will be replaced with the stack's name. Would be automatically generated based on the hosts in the

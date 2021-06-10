@@ -71,6 +71,10 @@ func (f *TestStacksetSpecFactory) Behavior(stabilizationWindowSeconds int32) *Te
 	return f
 }
 
+func (f *TestStacksetSpecFactory) StackName(version string) string {
+	return fmt.Sprintf("%s-%s", f.stacksetName, version)
+}
+
 func (f *TestStacksetSpecFactory) Ingress() *TestStacksetSpecFactory {
 	f.ingress = true
 	return f
