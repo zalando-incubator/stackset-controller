@@ -45,6 +45,9 @@ func createClients() (kubernetes.Interface, clientset.Interface, rg.Interface) {
 		panic(err)
 	}
 
+	cfg.QPS = 100
+	cfg.Burst = 100
+
 	kubeClient, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
 		panic(err)

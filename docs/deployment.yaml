@@ -20,7 +20,7 @@ spec:
       serviceAccountName: stackset-controller
       containers:
       - name: stackset-controller
-        image: registry.opensource.zalan.do/teapot/stackset-controller:v1.3.30
+        image: registry.opensource.zalan.do/teapot/stackset-controller:v1.3.37
         args: ["--cluster-domain=kubernetes.local"]
         resources:
           limits:
