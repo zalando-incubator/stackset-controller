@@ -21,7 +21,9 @@ import (
 var (
 	kubernetesClient, stacksetClient, routegroupClient = createClients()
 	namespace                                          = requiredEnvar("E2E_NAMESPACE")
-	clusterDomains                                     = []string{requiredEnvar("CLUSTER_DOMAIN"), requiredEnvar("CLUSTER_DOMAIN_INTERNAL")}
+	clusterDomain                                      = requiredEnvar("CLUSTER_DOMAIN")
+	clusterDomainInternal                              = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
+	clusterDomains                                     = []string{clusterDomain, clusterDomainInternal}
 	controllerId                                       = os.Getenv("CONTROLLER_ID")
 )
 
