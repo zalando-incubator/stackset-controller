@@ -20,7 +20,9 @@ spec:
       serviceAccountName: stackset-controller
       containers:
       - name: stackset-controller
-        image: zalando-incubator/stackset-controller:v0.0.1
+        image: registry.opensource.zalan.do/teapot/stackset-controller:v1.3.37
+        # please adjust this for your environment
+        args: ["--cluster-domain=kubernetes.local"]
         resources:
           limits:
             cpu: 10m
