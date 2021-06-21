@@ -48,6 +48,17 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - zalando.org
+  resources:
+  - routegroups
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - ""
   resources:
   - services
