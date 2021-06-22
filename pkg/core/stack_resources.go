@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -322,6 +323,8 @@ func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec, overrides
 			for _, domain := range sc.clusterDomains {
 				if strings.HasSuffix(host, domain) {
 					result.Insert(fmt.Sprintf("%s.%s", sc.Name(), domain))
+				} else {
+					log.Debugf("Ingress host: %s suffix did not match cluster-domain %s", host, domain)
 				}
 			}
 		}

@@ -4,14 +4,21 @@ metadata:
   name: my-app
 spec:
   ingress:
-    hosts: [my-app.example.org, alt.name.org]
+    hosts:
+      - my-app.example.org
+      - alt.name.org
     backendPort: 80
+  traffic:
+  - stackName: my-app-v1
+    weight: 40
+  - stackName: my-app-v2
+    weight: 60
   stackLifecycle:
     scaledownTTLSeconds: 300
     limit: 5
   stackTemplate:
     spec:
-      version: v2
+      version: v1
       replicas: 3
       horizontalPodAutoscaler:
         minReplicas: 3
