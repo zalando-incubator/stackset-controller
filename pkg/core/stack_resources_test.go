@@ -567,7 +567,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 		{
 			name: "custom load balancer",
 			routeGroupSpec: &zv1.RouteGroupSpec{
-				BackendAlgorithm:                  "consistenthash",
+				LBAlgorithm:                       "consistenthash",
 				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{},
 				Hosts:                             []string{"foo.example.org"},
 				Routes: []rgv1.RouteGroupRouteSpec{
@@ -624,7 +624,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 							Type:        rgv1.ServiceRouteGroupBackend,
 							ServiceName: "foo-v1",
 							ServicePort: int(backendPort),
-							Algorithm:   tc.routeGroupSpec.BackendAlgorithm,
+							Algorithm:   tc.routeGroupSpec.LBAlgorithm,
 						},
 					},
 					DefaultBackends: []rgv1.RouteGroupBackendReference{

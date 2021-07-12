@@ -156,9 +156,9 @@ type RouteGroupSpec struct {
 	AdditionalBackends []rg.RouteGroupBackend `json:"additionalBackends,omitempty"`
 	// Routes is the list of routes to be applied to the routegroup.
 	// +kubebuilder:validation:MinItems=1
-	Routes           []rg.RouteGroupRouteSpec `json:"routes"`
-	BackendPort      int                      `json:"backendPort"`
-	BackendAlgorithm string                   `json:"algorithm,omitempty"`
+	Routes      []rg.RouteGroupRouteSpec `json:"routes"`
+	BackendPort int                      `json:"backendPort"`
+	LBAlgorithm string                   `json:"lbAlgorithm,omitempty"`
 }
 
 func (s *RouteGroupSpec) GetHosts() []string {

@@ -152,7 +152,7 @@ spec:
                     type: array
                   backendPort:
                     type: integer
-                  backendAlgorithm:
+                  lbAlgorithm:
                     description: The load balancing algorithm for the generated default backend to use.
                     type: string
                   hosts:

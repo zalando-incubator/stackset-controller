@@ -419,7 +419,7 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 					Type:        rgv1.ServiceRouteGroupBackend,
 					ServiceName: sc.Name(),
 					ServicePort: sc.backendPort.IntValue(),
-					Algorithm:   sc.routeGroupSpec.BackendAlgorithm,
+					Algorithm:   sc.routeGroupSpec.LBAlgorithm,
 				},
 			},
 			DefaultBackends: []rgv1.RouteGroupBackendReference{
