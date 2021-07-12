@@ -170,6 +170,7 @@ func (ssc *StackSetContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 			Type:        rgv1.ServiceRouteGroupBackend,
 			ServiceName: sc.Name(),
 			ServicePort: stackset.Spec.RouteGroup.BackendPort,
+			Algorithm:   stackset.Spec.RouteGroup.BackendAlgorithm,
 		})
 		if sc.actualTrafficWeight > 0 {
 			result.Spec.DefaultBackends = append(result.Spec.DefaultBackends, rgv1.RouteGroupBackendReference{

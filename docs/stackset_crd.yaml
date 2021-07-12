@@ -152,6 +152,9 @@ spec:
                     type: array
                   backendPort:
                     type: integer
+                  backendAlgorithm:
+                    description: The load balancing algorithm for the generated default backend to use.
+                    type: string
                   hosts:
                     description: Hosts is the list of hostnames to add to the routegroup.
                     items:
