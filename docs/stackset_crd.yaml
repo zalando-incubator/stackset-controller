@@ -164,9 +164,8 @@ spec:
                       type: string
                     type: array
                   lbAlgorithm:
-                    description: BackendAlgorithmType is the type of algorithm used
-                      for load balancing traffic to a backend. This is only valid
-                      for backend type lb|service.
+                    description: The load balancing algorithm used for the generated
+                      per stack backends.
                     enum:
                     - roundRobin
                     - random

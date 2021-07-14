@@ -158,6 +158,7 @@ type RouteGroupSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Routes      []rg.RouteGroupRouteSpec `json:"routes"`
 	BackendPort int                      `json:"backendPort"`
+	// The load balancing algorithm used for the generated per stack backends.
 	// +optional
 	LBAlgorithm rg.BackendAlgorithmType `json:"lbAlgorithm,omitempty"`
 }
