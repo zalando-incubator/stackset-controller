@@ -19,7 +19,7 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
-	github.com/szuecs/routegroup-client v0.17.8-0.20200915193527-b33447c7d964
+	github.com/szuecs/routegroup-client v0.17.8-0.20210112151959-1b69df565b42
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2 // indirect
 	golang.org/x/net v0.0.0-20210331212208-0fccb6fa2b5c // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

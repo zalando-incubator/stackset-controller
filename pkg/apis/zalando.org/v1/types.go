@@ -158,7 +158,8 @@ type RouteGroupSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	Routes      []rg.RouteGroupRouteSpec `json:"routes"`
 	BackendPort int                      `json:"backendPort"`
-	LBAlgorithm string                   `json:"lbAlgorithm,omitempty"`
+	// +optional
+	LBAlgorithm rg.BackendAlgorithmType `json:"lbAlgorithm,omitempty"`
 }
 
 func (s *RouteGroupSpec) GetHosts() []string {
