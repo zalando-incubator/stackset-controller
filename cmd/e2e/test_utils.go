@@ -27,7 +27,7 @@ import (
 type weightKind string
 
 const (
-	defaultWaitTimeout       = 30 * time.Second
+	defaultWaitTimeout       = 60 * time.Second
 	trafficSwitchWaitTimeout = 150 * time.Second
 
 	stacksetHeritageLabelKey = "stackset"
