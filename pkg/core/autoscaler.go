@@ -75,6 +75,8 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 			generated, annotations, err = podJsonMetric(m)
 		case zv1.IngressAutoscalerMetric:
 			generated, err = ingressMetric(m, stacksetName, stackName)
+		case zv1.RouteGroupAutoscalerMetric:
+			generated, err = routegroupMetric(m, stacksetName, stackName)
 		case zv1.ZMONAutoscalerMetric:
 			generated, annotations, err = zmonMetric(m, stackName, namespace)
 		case zv1.ScalingScheduleMetric:
@@ -228,13 +230,49 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 		Type: autoscaling.ObjectMetricSourceType,
 		Object: &autoscaling.ObjectMetricSource{
 			Metric: autoscaling.MetricIdentifier{
-				Name: fmt.Sprintf("%s,%s", requestsPerSecondName, backendName),
-				// TODO: Selector
+				Name: requestsPerSecondName,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"backend": backendName,
+					},
+				},
 			},
 			DescribedObject: autoscaling.CrossVersionObjectReference{
 				APIVersion: "networking.k8s.io/v1",
 				Kind:       "Ingress",
 				Name:       ingressName,
+			},
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
+		},
+	}
+	return generated, nil
+}
+
+func routegroupMetric(metrics zv1.AutoscalerMetrics, rgName, backendName string) (*autoscaling.MetricSpec, error) {
+	if metrics.Average == nil {
+		return nil, fmt.Errorf("average value not specified for metric")
+	}
+
+	average := metrics.Average.DeepCopy()
+
+	generated := &autoscaling.MetricSpec{
+		Type: autoscaling.ObjectMetricSourceType,
+		Object: &autoscaling.ObjectMetricSource{
+			Metric: autoscaling.MetricIdentifier{
+				Name: requestsPerSecondName,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"backend": backendName,
+					},
+				},
+			},
+			DescribedObject: autoscaling.CrossVersionObjectReference{
+				APIVersion: "zalando.org/v1",
+				Kind:       "RouteGroup",
+				Name:       rgName,
 			},
 			Target: autoscaling.MetricTarget{
 				Type:         autoscaling.AverageValueMetricType,

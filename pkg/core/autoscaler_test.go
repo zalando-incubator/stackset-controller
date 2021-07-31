@@ -1,7 +1,6 @@
 package core
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -141,6 +140,17 @@ func generateAutoscalerIngress(minReplicas, maxReplicas, utilization int32) Stac
 	return container
 }
 
+func generateAutoscalerRouteGroup(minReplicas, maxReplicas, utilization int32) StackContainer {
+	container := generateAutoscalerStub(minReplicas, maxReplicas)
+	container.Stack.Spec.Autoscaler.Metrics = append(
+		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+			Type:    zv1.RouteGroupAutoscalerMetric,
+			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
+		},
+	)
+	return container
+}
+
 func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	ssc := generateAutoscalerCPU(1, 10, 80, "")
 	hpa, err := ssc.GenerateHPA()
@@ -239,7 +249,23 @@ func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
 	ingressMetrics := hpa.Spec.Metrics[0]
 	require.Equal(t, autoscaling.ObjectMetricSourceType, ingressMetrics.Type)
 	require.Equal(t, int64(80), ingressMetrics.Object.Target.AverageValue.Value())
-	require.Equal(t, ingressMetrics.Object.Metric.Name, fmt.Sprintf("%s,%s", "requests-per-second", "stackset-v1"))
+	require.Equal(t, ingressMetrics.Object.Metric.Name, "requests-per-second")
+	require.Equal(t, ingressMetrics.Object.Metric.Selector.MatchLabels, map[string]string{"backend": "stackset-v1"})
+}
+
+func TestStackSetController_ReconcileAutoscalersRouteGroup(t *testing.T) {
+	ssc := generateAutoscalerRouteGroup(1, 10, 80)
+	hpa, err := ssc.GenerateHPA()
+	require.NoError(t, err, "failed to create an HPA")
+	require.NotNil(t, hpa, "hpa not generated")
+	require.Equal(t, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
+	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
+	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
+	metrics := hpa.Spec.Metrics[0]
+	require.Equal(t, autoscaling.ObjectMetricSourceType, metrics.Type)
+	require.Equal(t, int64(80), metrics.Object.Target.AverageValue.Value())
+	require.Equal(t, metrics.Object.Metric.Name, "requests-per-second")
+	require.Equal(t, metrics.Object.Metric.Selector.MatchLabels, map[string]string{"backend": "stackset-v1"})
 }
 
 func TestStackSetController_ReconcileAutoscalersZMON(t *testing.T) {
