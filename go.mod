@@ -29,13 +29,11 @@ require (
 	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/api v0.20.7
-	k8s.io/apimachinery v0.20.7
+	k8s.io/api v0.21.3
+	k8s.io/apimachinery v0.21.3
 	k8s.io/client-go v0.20.7
 	k8s.io/code-generator v0.20.7
-	k8s.io/klog/v2 v2.8.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20210323165736-1a6458611d18 // indirect
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10 // indirect
 	sigs.k8s.io/controller-tools v0.5.0
-	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
 )
