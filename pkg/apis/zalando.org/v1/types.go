@@ -264,7 +264,7 @@ type MetricsClusterScalingSchedule struct {
 }
 
 // AutoscalerMetricType is the type of the metric used for scaling.
-// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;ZMON;ScalingSchedule;ClusterScalingSchedule
+// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule
 type AutoscalerMetricType string
 
 const (
@@ -273,6 +273,7 @@ const (
 	AmazonSQSAutoscalerMetric    AutoscalerMetricType = "AmazonSQS"
 	PodJSONAutoscalerMetric      AutoscalerMetricType = "PodJSON"
 	IngressAutoscalerMetric      AutoscalerMetricType = "Ingress"
+	RouteGroupAutoscalerMetric   AutoscalerMetricType = "RouteGroup"
 	ZMONAutoscalerMetric         AutoscalerMetricType = "ZMON"
 	ClusterScalingScheduleMetric AutoscalerMetricType = "ClusterScalingSchedule"
 	ScalingScheduleMetric        AutoscalerMetricType = "ScalingSchedule"

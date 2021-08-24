@@ -169,9 +169,10 @@ specify scaling based on the following metrics:
 3. `AmazonSQS`
 4. `PodJSON`
 5. `Ingress`
-6. `ZMON`
-7. `ScalingSchedule`
-8. `ClusterScalingSchedule`
+6. `RouteGroup`
+7. `ZMON`
+8. `ScalingSchedule`
+9. `ClusterScalingSchedule`
 
 _Note:_ Based on the metrics type specified you may need to also deploy the [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter)
 in your cluster.
@@ -232,6 +233,18 @@ autoscaler:
   maxReplicas: 3
   metrics:
   - type: Ingress
+    average: 30
+```
+
+If using `RouteGroup` instead of `Ingress`, then the following config is the
+equivalent:
+
+```yaml
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: RouteGroup
     average: 30
 ```
 
