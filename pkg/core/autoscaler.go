@@ -230,12 +230,13 @@ func ingressMetric(metrics zv1.AutoscalerMetrics, ingressName, backendName strin
 		Type: autoscaling.ObjectMetricSourceType,
 		Object: &autoscaling.ObjectMetricSource{
 			Metric: autoscaling.MetricIdentifier{
-				Name: requestsPerSecondName,
-				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{
-						"backend": backendName,
-					},
-				},
+				Name: fmt.Sprintf("%s,%s", requestsPerSecondName, backendName),
+				// TODO:
+				// Selector: &metav1.LabelSelector{
+				// 	MatchLabels: map[string]string{
+				// 		"backend": backendName,
+				// 	},
+				// },
 			},
 			DescribedObject: autoscaling.CrossVersionObjectReference{
 				APIVersion: "networking.k8s.io/v1",
