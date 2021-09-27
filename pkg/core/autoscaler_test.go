@@ -249,8 +249,8 @@ func TestStackSetController_ReconcileAutoscalersIngress(t *testing.T) {
 	ingressMetrics := hpa.Spec.Metrics[0]
 	require.Equal(t, autoscaling.ObjectMetricSourceType, ingressMetrics.Type)
 	require.Equal(t, int64(80), ingressMetrics.Object.Target.AverageValue.Value())
-	require.Equal(t, ingressMetrics.Object.Metric.Name, "requests-per-second")
-	require.Equal(t, ingressMetrics.Object.Metric.Selector.MatchLabels, map[string]string{"backend": "stackset-v1"})
+	require.Equal(t, ingressMetrics.Object.Metric.Name, "requests-per-second,stackset-v1")
+	// require.Equal(t, ingressMetrics.Object.Metric.Selector.MatchLabels, map[string]string{"backend": "stackset-v1"})
 }
 
 func TestStackSetController_ReconcileAutoscalersRouteGroup(t *testing.T) {
