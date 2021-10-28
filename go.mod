@@ -22,10 +22,10 @@ require (
 	golang.org/x/term v0.0.0-20210317153231-de623e64d2a6 // indirect
 	gopkg.in/DATA-DOG/go-sqlmock.v1 v1.3.0 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
-	k8s.io/api v0.21.3
-	k8s.io/apimachinery v0.21.3
-	k8s.io/client-go v0.21.3
-	k8s.io/code-generator v0.21.3
+	k8s.io/api v0.21.5
+	k8s.io/apimachinery v0.21.5
+	k8s.io/client-go v0.21.5
+	k8s.io/code-generator v0.21.5
 	k8s.io/kube-openapi v0.0.0-20210323165736-1a6458611d18 // indirect
 	k8s.io/utils v0.0.0-20210305010621-2afb4311ab10 // indirect
 	sigs.k8s.io/controller-tools v0.6.2
