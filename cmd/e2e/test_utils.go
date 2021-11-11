@@ -112,16 +112,21 @@ func newAwaiter(t *testing.T, description string) *awaiter {
 
 func (a *awaiter) await() error {
 	deadline := time.Now().Add(a.timeout)
-	a.t.Logf("Waiting for %s...", a.description)
+	a.t.Logf("Waiting %v for %s...", a.timeout, a.description)
 	for {
 		retry, err := a.poll()
 		if err != nil {
-			if retry && time.Now().Before(deadline) {
-				a.t.Logf("%v", err)
-				time.Sleep(1 * time.Second)
-				continue
+			if time.Now().After(deadline) {
+				a.t.Logf("Wait deadline exceeded")
+				return err
 			}
-			return err
+			if !retry {
+				a.t.Logf("Non-retryable error: %v", err)
+				return err
+			}
+			a.t.Logf("%v", err)
+			time.Sleep(1 * time.Second)
+			continue
 		}
 		a.t.Logf("Finished waiting for %s", a.description)
 		return nil
