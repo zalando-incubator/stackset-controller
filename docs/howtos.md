@@ -44,11 +44,11 @@ spec:
             - containerPort: 80
 ```
 
-This will result in an `Ingress` resource where the `servicePort` value is
+This will result in an `Ingress` resource where the `service.port.number` value is
 `80`:
 
 ```yaml
-apiVersion: networking/v1beta1
+apiVersion: networking/v1
 kind: Ingress
 metadata:
   name: my-app
@@ -58,8 +58,10 @@ spec:
     http:
       paths:
       - backend:
-          serviceName: my-app-v1
-          servicePort: 80
+          service:
+            name: my-app-v1
+            port:
+              number: 80
 ```
 
 And since the `podTemplate` of the `StackSet` also defines a containerPort `80`
@@ -348,7 +350,8 @@ the prescale logic.
 ## Traffic Switch resources controlled by External Controllers
 
 External controllers could create routes based on multiple Ingress,
-[RouteGroup](https://github.com/zalando/skipper/blob/feature/routegroup-crd/dataclients/kubernetes/crd.md),
+[FabricGateway](https://github.com/zalando-incubator/fabric-gateway/blob/master/deploy/operator/apply/01_FabricGatewayCRD.yaml)
+[RouteGroup](https://opensource.zalando.com/skipper/kubernetes/routegroup-crd/)
 [SMI](https://smi-spec.io/),
 [Istio](https://istio.io/docs/tasks/traffic-management/request-routing/)
 or other CRDs.
