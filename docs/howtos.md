@@ -350,7 +350,8 @@ the prescale logic.
 ## Traffic Switch resources controlled by External Controllers
 
 External controllers could create routes based on multiple Ingress,
-[RouteGroup](https://github.com/zalando/skipper/blob/feature/routegroup-crd/dataclients/kubernetes/crd.md),
+[FabricGateway](https://github.com/zalando-incubator/fabric-gateway/blob/master/deploy/operator/apply/01_FabricGatewayCRD.yaml)
+[RouteGroup](https://opensource.zalando.com/skipper/kubernetes/routegroup-crd/)
 [SMI](https://smi-spec.io/),
 [Istio](https://istio.io/docs/tasks/traffic-management/request-routing/)
 or other CRDs.
