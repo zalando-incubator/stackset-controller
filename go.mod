@@ -14,7 +14,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/heptiolabs/healthcheck v0.0.0-20180807145615-6ff867650f40
 	github.com/imdario/mergo v0.3.12 // indirect
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.12.1
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	github.com/szuecs/routegroup-client v0.17.8-0.20210112151959-1b69df565b42
