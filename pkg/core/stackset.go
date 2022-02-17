@@ -116,10 +116,9 @@ func (ssc *StackSetContainer) MarkExpiredStacks() {
 		return
 	}
 
-	// sort candidates by oldest
+	// sort condidates by when they last had traffic.
 	sort.Slice(gcCandidates, func(i, j int) bool {
-		// TODO: maybe we use noTrafficSince instead of CreationTimeStamp to decide oldest
-		return gcCandidates[i].Stack.CreationTimestamp.Time.Before(gcCandidates[j].Stack.CreationTimestamp.Time)
+		return gcCandidates[i].Stack.Status.NoTrafficSince.Time.Before(gcCandidates[j].Stack.Status.NoTrafficSince.Time)
 	})
 
 	excessStacks := len(gcCandidates) - historyLimit
