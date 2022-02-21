@@ -31,22 +31,22 @@ func TestExpiredStacks(t *testing.T) {
 		expected     map[string]bool
 	}{
 		{
-			name:    "test GC oldest stack",
+			name:    "test GC stack last received traffic",
 			limit:   1,
 			ingress: true,
 			stacks: []*StackContainer{
 				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
-				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-2 * time.Hour)).stack(),
 			},
 			expected: map[string]bool{"stack2": true},
 		},
 		{
-			name:       "test GC oldest RouteGroup stack",
+			name:       "test GC RouteGroup stack last received traffic",
 			limit:      1,
 			routegroup: true,
 			stacks: []*StackContainer{
 				testStack("stack1").createdAt(now.Add(-1 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
-				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-1 * time.Hour)).stack(),
+				testStack("stack2").createdAt(now.Add(-2 * time.Hour)).noTrafficSince(now.Add(-2 * time.Hour)).stack(),
 			},
 			expected: map[string]bool{"stack2": true},
 		},
