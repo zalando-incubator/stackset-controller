@@ -119,16 +119,15 @@ func (ssc *StackSetContainer) MarkExpiredStacks() {
 	// sort condidates by when they last had traffic.
 	sort.Slice(gcCandidates, func(i, j int) bool {
 		// First check if NoTrafficSince is set. If not, fall back to the creation timestamp
-		iTime := gcCandidates[i].Stack.Status.NoTrafficSince
+		iTime := gcCandidates[i].noTrafficSince
 		if iTime.IsZero() {
-			iTime = &gcCandidates[i].Stack.CreationTimestamp
+			iTime = gcCandidates[i].Stack.CreationTimestamp.Time
 		}
 
-		jTime := gcCandidates[j].Stack.Status.NoTrafficSince
+		jTime := gcCandidates[j].noTrafficSince
 		if jTime.IsZero() {
-			jTime = &gcCandidates[j].Stack.CreationTimestamp
+			jTime = gcCandidates[j].Stack.CreationTimestamp.Time
 		}
-
 		return iTime.Before(jTime)
 	})
 
