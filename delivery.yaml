@@ -1,8 +1,10 @@
 version: "2017-09-20"
 pipeline:
 - id: build
-  overlay: ci/golang
-  vm: large
+  vm_config:
+    type: linux
+    image: "cdp-runtime/go"
+    size: large
   type: script
   env:
     GOFLAGS: "-mod=readonly"
