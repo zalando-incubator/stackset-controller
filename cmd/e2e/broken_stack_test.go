@@ -89,5 +89,4 @@ func TestBrokenStacks(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-
 }
