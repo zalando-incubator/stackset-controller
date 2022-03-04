@@ -246,7 +246,6 @@ func trafficWeightsUpdatedStackset(t *testing.T, stacksetName string, kind weigh
 		if err != nil {
 			return false, err
 		}
-
 		actualWeights := getStacksetTrafficWeights(stackset, kind)
 
 		if asserter != nil {
@@ -391,6 +390,8 @@ func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {
 		if err != nil {
 			return err
 		}
+		// Keep the desired traffic
+		spec.Traffic = ss.Spec.Traffic
 		ss.Spec = spec
 		_, err = stacksetInterface().Update(context.Background(), ss, metav1.UpdateOptions{})
 		if apiErrors.IsConflict(err) {
