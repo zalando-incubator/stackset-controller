@@ -84,7 +84,7 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 
 	// Check that the unhealthy stack was deleted
-	for _, stack := range []string{firstStack, unhealthyStack} {
+	for _, stack := range []string{unhealthyStack, firstStack} {
 		err := resourceDeleted(t, "stack", stack, stackInterface()).withTimeout(time.Second * 60).await()
 		require.NoError(t, err)
 	}

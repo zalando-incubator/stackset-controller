@@ -111,7 +111,7 @@ func TestStackTTLWithExternalIngress(t *testing.T) {
 		require.NoError(t, err)
 		fullStackName := fmt.Sprintf("%s-%s", stacksetName, stackVersion)
 
-		// // once the stack is created switch full traffic to it
+		// once the stack is created switch full traffic to it
 		newWeight := map[string]float64{fullStackName: 100}
 		err = setDesiredTrafficWeightsStackset(stacksetName, newWeight)
 		require.NoError(t, err)
