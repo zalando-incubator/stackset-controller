@@ -792,7 +792,7 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 
 	updated := existing.DeepCopy()
 	updated.Spec = rg.Spec
-	if ingress.Annotations != nil {
+	if rg.Annotations != nil {
 		updated.Annotations = rg.Annotations
 	} else {
 		updated.Annotations = make(map[string]string)
