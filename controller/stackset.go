@@ -784,9 +784,14 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 		return createdRg, nil
 	}
 
+	_, existingHaveUpdateTimeStamp := existing.Annotations[ControllerLastUpdatedAnnotationKey]
+	if existingHaveUpdateTimeStamp {
+		delete(existing.Annotations, ControllerLastUpdatedAnnotationKey)
+	}
+
 	// Check if we need to update the RouteGroup
-	if _, exists := existing.Annotations[ControllerLastUpdatedAnnotationKey]; exists &&
-		equality.Semantic.DeepDerivative(rg.Spec, existing.Spec) {
+	if existingHaveUpdateTimeStamp && equality.Semantic.DeepDerivative(rg.Spec, existing.Spec) &&
+		equality.Semantic.DeepEqual(rg.Annotations, existing.Annotations) {
 		return existing, nil
 	}
 
