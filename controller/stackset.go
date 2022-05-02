@@ -687,7 +687,7 @@ func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stack
 		return createdIng, nil
 	}
 
-	_, existingHaveUpdateTimeStamp := existing.Annotations[ControllerLastUpdatedAnnotationKey]
+	lastUpdateValue, existingHaveUpdateTimeStamp := existing.Annotations[ControllerLastUpdatedAnnotationKey]
 	if existingHaveUpdateTimeStamp {
 		delete(existing.Annotations, ControllerLastUpdatedAnnotationKey)
 	}
@@ -695,6 +695,8 @@ func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stack
 	// Check if we need to update the Ingress
 	if existingHaveUpdateTimeStamp && equality.Semantic.DeepDerivative(ingress.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(ingress.Annotations, existing.Annotations) {
+		// add the annotation back after comparing
+		existing.Annotations[ControllerLastUpdatedAnnotationKey] = lastUpdateValue
 		return existing, nil
 	}
 
@@ -784,7 +786,7 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 		return createdRg, nil
 	}
 
-	_, existingHaveUpdateTimeStamp := existing.Annotations[ControllerLastUpdatedAnnotationKey]
+	lastUpdateValue, existingHaveUpdateTimeStamp := existing.Annotations[ControllerLastUpdatedAnnotationKey]
 	if existingHaveUpdateTimeStamp {
 		delete(existing.Annotations, ControllerLastUpdatedAnnotationKey)
 	}
@@ -792,6 +794,8 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 	// Check if we need to update the RouteGroup
 	if existingHaveUpdateTimeStamp && equality.Semantic.DeepDerivative(rg.Spec, existing.Spec) &&
 		equality.Semantic.DeepEqual(rg.Annotations, existing.Annotations) {
+		// add the annotation back after comparing
+		existing.Annotations[ControllerLastUpdatedAnnotationKey] = lastUpdateValue
 		return existing, nil
 	}
 
