@@ -17,12 +17,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const (
-	userTestAnnotation = "user-test-annotation"
-)
-
 var (
-	pathType = v1.PathTypeImplementationSpecific
+	pathType              = v1.PathTypeImplementationSpecific
+	testAnnotationsCreate = map[string]string{
+		"user-test-annotation": "create",
+	}
+	testAnnotationsUpdate = map[string]string{
+		"user-test-annotation": "updated",
+	}
 )
 
 type TestStacksetSpecFactory struct {
@@ -42,19 +44,21 @@ type TestStacksetSpecFactory struct {
 	maxSurge                      int
 	maxUnavailable                int
 	metrics                       []zv1.AutoscalerMetrics
+	subResourceAnnotations        map[string]string
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	return &TestStacksetSpecFactory{
-		stacksetName:    stacksetName,
-		hpa:             false,
-		ingress:         false,
-		externalIngress: false,
-		limit:           4,
-		scaleDownTTL:    10,
-		replicas:        1,
-		hpaMinReplicas:  1,
-		hpaMaxReplicas:  3,
+		stacksetName:           stacksetName,
+		hpa:                    false,
+		ingress:                false,
+		externalIngress:        false,
+		limit:                  4,
+		scaleDownTTL:           10,
+		replicas:               1,
+		hpaMinReplicas:         1,
+		hpaMaxReplicas:         3,
+		subResourceAnnotations: map[string]string{},
 	}
 }
 
@@ -101,6 +105,11 @@ func (f *TestStacksetSpecFactory) Replicas(replicas int32) *TestStacksetSpecFact
 	return f
 }
 
+func (f *TestStacksetSpecFactory) SubResourceAnnotations(annotations map[string]string) *TestStacksetSpecFactory {
+	f.subResourceAnnotations = annotations
+	return f
+}
+
 func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 	var result = zv1.StackSetSpec{
 		StackLifecycle: zv1.StackLifecycle{
@@ -116,9 +125,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 					},
 					Service: &zv1.StackServiceSpec{
 						EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-							Annotations: map[string]string{
-								userTestAnnotation: "test",
-							},
+							Annotations: f.subResourceAnnotations,
 						},
 						Ports: []corev1.ServicePort{
 							{
@@ -178,9 +185,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 	if f.ingress {
 		result.Ingress = &zv1.StackSetIngressSpec{
 			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-				Annotations: map[string]string{
-					userTestAnnotation: "test",
-				},
+				Annotations: f.subResourceAnnotations,
 			},
 			Hosts:       hostnames(f.stacksetName),
 			BackendPort: intstr.FromInt(80),
@@ -189,9 +194,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 	if f.routegroup {
 		result.RouteGroup = &zv1.RouteGroupSpec{
 			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-				Annotations: map[string]string{
-					userTestAnnotation: "test",
-				},
+				Annotations: f.subResourceAnnotations,
 			},
 			Hosts:       hostnames(f.stacksetName),
 			BackendPort: 80,
@@ -252,7 +255,7 @@ func replicas(value *int32) int32 {
 	return *value
 }
 
-func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec zv1.StackSetSpec) {
+func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec zv1.StackSetSpec, subResourceAnnotations map[string]string) {
 	stackResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName, stackVersionLabelKey: currentVersion}
 
 	// Verify stack
@@ -274,8 +277,10 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	// Verify service
 	service, err := waitForService(t, stack.Name)
 	require.NoError(t, err)
-	require.Contains(t, service.Annotations, userTestAnnotation)
-	require.Equal(t, "test", service.Annotations[userTestAnnotation])
+	for k, v := range subResourceAnnotations {
+		require.Contains(t, service.Annotations, k)
+		require.Equal(t, v, service.Annotations[k])
+	}
 	require.EqualValues(t, stackResourceLabels, service.Labels)
 	require.EqualValues(t, stackResourceLabels, service.Spec.Selector)
 
@@ -308,8 +313,10 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		stackIngress, err := waitForIngress(t, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, stackIngress.Labels)
-		require.Contains(t, stackIngress.Annotations, userTestAnnotation)
-		require.Equal(t, "test", stackIngress.Annotations[userTestAnnotation])
+		for k, v := range subResourceAnnotations {
+			require.Contains(t, stackIngress.Annotations, k)
+			require.Equal(t, v, stackIngress.Annotations[k])
+		}
 		stackIngressRules := make([]v1.IngressRule, 0, len(clusterDomains))
 		for _, domain := range clusterDomains {
 			stackIngressRules = append(stackIngressRules, v1.IngressRule{
@@ -345,8 +352,10 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		stackRG, err := waitForRouteGroup(t, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, stackRG.Labels)
-		require.Contains(t, stackRG.Annotations, userTestAnnotation)
-		require.Equal(t, "test", stackRG.Annotations[userTestAnnotation])
+		for k, v := range subResourceAnnotations {
+			require.Contains(t, stackRG.Annotations, k)
+			require.Equal(t, v, stackRG.Annotations[k])
+		}
 		stackRGHosts := make([]string, 0, len(clusterDomains))
 		stackRGBackends := []rgv1.RouteGroupBackend{{
 			Name:        stack.Name,
@@ -388,7 +397,7 @@ func verifyStacksetExternalIngress(t *testing.T, stacksetName string, stacksetSp
 	require.NoError(t, err)
 }
 
-func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64) {
+func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
 	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
 
 	expectedWeights := make(map[string]float64)
@@ -421,8 +430,10 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	globalIngress, err := waitForIngress(t, stacksetName)
 	require.NoError(t, err)
 	require.EqualValues(t, stacksetResourceLabels, globalIngress.Labels)
-	require.Contains(t, globalIngress.Annotations, userTestAnnotation)
-	require.Equal(t, "test", globalIngress.Annotations[userTestAnnotation])
+	for k, v := range annotations {
+		require.Contains(t, globalIngress.Annotations, k)
+		require.Equal(t, v, globalIngress.Annotations[k])
+	}
 	globalIngressRules := make([]v1.IngressRule, 0, len(stacksetSpec.Ingress.Hosts))
 	for _, host := range stacksetSpec.Ingress.Hosts {
 		globalIngressRules = append(globalIngressRules, v1.IngressRule{
@@ -446,7 +457,7 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 	require.NoError(t, err)
 }
 
-func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64) {
+func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
 	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
 
 	expectedWeights := make(map[string]float64)
@@ -484,8 +495,10 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 	globalRouteGroup, err := waitForRouteGroup(t, stacksetName)
 	require.NoError(t, err)
 	require.EqualValues(t, stacksetResourceLabels, globalRouteGroup.Labels)
-	require.Contains(t, globalRouteGroup.Annotations, userTestAnnotation)
-	require.Equal(t, "test", globalRouteGroup.Annotations[userTestAnnotation])
+	for k, v := range annotations {
+		require.Contains(t, globalRouteGroup.Annotations, k)
+		require.Equal(t, v, globalRouteGroup.Annotations[k])
+	}
 
 	sort.Slice(globalRouteGroup.Spec.DefaultBackends, func(i, j int) bool {
 		return strings.Compare(globalRouteGroup.Spec.DefaultBackends[i].BackendName, globalRouteGroup.Spec.DefaultBackends[j].BackendName) < 0
@@ -502,7 +515,7 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 	require.NoError(t, err)
 }
 
-func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup, externalIngress bool, updateStrategy bool) {
+func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup, externalIngress bool, updateStrategy bool, subResourceAnnotations map[string]string) {
 	t.Parallel()
 
 	stacksetName := fmt.Sprintf("stackset-create-%s", testName)
@@ -523,24 +536,27 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	if updateStrategy {
 		stacksetSpecFactory.UpdateMaxSurge(10).UpdateMaxUnavailable(100)
 	}
+	if len(subResourceAnnotations) > 0 {
+		stacksetSpecFactory.SubResourceAnnotations(subResourceAnnotations)
+	}
 	stacksetSpec := stacksetSpecFactory.Create(stackVersion)
 	err := createStackSet(stacksetName, 0, stacksetSpec)
 	require.NoError(t, err)
 
-	verifyStack(t, stacksetName, stackVersion, stacksetSpec)
+	verifyStack(t, stacksetName, stackVersion, stacksetSpec, subResourceAnnotations)
 
 	if ingress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
+		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, subResourceAnnotations)
 	}
 	if routegroup {
-		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
+		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, subResourceAnnotations)
 	}
 	if externalIngress {
 		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
 	}
 }
 
-func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngress, newIngress, oldRouteGroup, newRouteGroup, oldExternalIngress, newExternalIngress bool) {
+func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngress, newIngress, oldRouteGroup, newRouteGroup, oldExternalIngress, newExternalIngress bool, oldSubResourceAnnotations, newSubResourceAnnotations map[string]string) {
 	t.Parallel()
 
 	var actualTraffic []*zv1.ActualTraffic
@@ -571,17 +587,20 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 			},
 		}
 	}
+	if len(oldSubResourceAnnotations) > 0 {
+		stacksetSpecFactory.SubResourceAnnotations(oldSubResourceAnnotations)
+	}
 	stacksetSpec := stacksetSpecFactory.Create(initialVersion)
 
 	err := createStackSet(stacksetName, 0, stacksetSpec)
 	require.NoError(t, err)
-	verifyStack(t, stacksetName, initialVersion, stacksetSpec)
+	verifyStack(t, stacksetName, initialVersion, stacksetSpec, oldSubResourceAnnotations)
 
 	if oldIngress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
+		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, oldSubResourceAnnotations)
 	}
 	if oldRouteGroup {
-		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
+		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, oldSubResourceAnnotations)
 	}
 	if oldExternalIngress {
 		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
@@ -624,17 +643,21 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 		}
 	}
 
+	if len(newSubResourceAnnotations) > 0 {
+		stacksetSpecFactory.SubResourceAnnotations(newSubResourceAnnotations)
+	}
+
 	updatedSpec := stacksetSpecFactory.Create(updatedVersion)
 	err = updateStackset(stacksetName, updatedSpec)
 	require.NoError(t, err)
-	verifyStack(t, stacksetName, updatedVersion, updatedSpec)
+	verifyStack(t, stacksetName, updatedVersion, updatedSpec, newSubResourceAnnotations)
 	verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 		observedStackVersion: updatedVersion,
 		actualTraffic:        actualTraffic,
 	})
 
 	if newIngress {
-		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0})
+		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, newSubResourceAnnotations)
 		// no traffic switch here
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,
@@ -651,7 +674,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 			actualTraffic:        nil,
 		})
 	} else if newRouteGroup {
-		verifyStacksetRouteGroup(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0})
+		verifyStacksetRouteGroup(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, newSubResourceAnnotations)
 		// no traffic switch here
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,
@@ -681,69 +704,69 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 }
 
 func TestStacksetCreateBasic(t *testing.T) {
-	testStacksetCreate(t, "basic", false, false, false, false, false)
+	testStacksetCreate(t, "basic", false, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateHPA(t *testing.T) {
-	testStacksetCreate(t, "hpa", true, false, false, false, false)
+	testStacksetCreate(t, "hpa", true, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateIngress(t *testing.T) {
-	testStacksetCreate(t, "ingress", false, true, false, false, false)
+	testStacksetCreate(t, "ingress", false, true, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateRouteGroup(t *testing.T) {
-	testStacksetCreate(t, "routegroup", false, false, true, false, false)
+	testStacksetCreate(t, "routegroup", false, false, true, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateExternalIngress(t *testing.T) {
-	testStacksetCreate(t, "externalingress", false, false, false, true, false)
+	testStacksetCreate(t, "externalingress", false, false, false, true, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateUpdateStrategy(t *testing.T) {
-	testStacksetCreate(t, "updatestrategy", false, false, false, false, true)
+	testStacksetCreate(t, "updatestrategy", false, false, false, false, true, testAnnotationsCreate)
 }
 
 func TestStacksetUpdateBasic(t *testing.T) {
-	testStacksetUpdate(t, "basic", false, false, false, false, false, false, false, false)
+	testStacksetUpdate(t, "basic", false, false, false, false, false, false, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateAddHPA(t *testing.T) {
-	testStacksetUpdate(t, "add-hpa", false, true, false, false, false, false, false, false)
+	testStacksetUpdate(t, "add-hpa", false, true, false, false, false, false, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateDeleteHPA(t *testing.T) {
-	testStacksetUpdate(t, "delete-hpa", true, false, false, false, false, false, false, false)
+	testStacksetUpdate(t, "delete-hpa", true, false, false, false, false, false, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateIngress(t *testing.T) {
-	testStacksetUpdate(t, "update-ingress", false, false, true, true, false, false, false, false)
+	testStacksetUpdate(t, "update-ingress", false, false, true, true, false, false, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateAddIngress(t *testing.T) {
-	testStacksetUpdate(t, "add-ingress", false, false, false, true, false, false, false, false)
+	testStacksetUpdate(t, "add-ingress", false, false, false, true, false, false, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateDeleteIngress(t *testing.T) {
-	testStacksetUpdate(t, "delete-ingress", false, false, true, false, false, false, false, false)
+	testStacksetUpdate(t, "delete-ingress", false, false, true, false, false, false, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateRouteGroup(t *testing.T) {
-	testStacksetUpdate(t, "update-routegroup", false, false, false, false, true, true, false, false)
+	testStacksetUpdate(t, "update-routegroup", false, false, false, false, true, true, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateAddRouteGroup(t *testing.T) {
-	testStacksetUpdate(t, "add-rotuegroup", false, false, false, false, false, true, false, false)
+	testStacksetUpdate(t, "add-rotuegroup", false, false, false, false, false, true, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateDeleteRouteGroup(t *testing.T) {
-	testStacksetUpdate(t, "delete-routegroup", false, false, false, false, true, false, false, false)
+	testStacksetUpdate(t, "delete-routegroup", false, false, false, false, true, false, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateAddExternalIngress(t *testing.T) {
-	testStacksetUpdate(t, "add-externalingress", false, false, false, false, false, false, false, true)
+	testStacksetUpdate(t, "add-externalingress", false, false, false, false, false, false, false, true, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateDeleteExternalIngress(t *testing.T) {
-	testStacksetUpdate(t, "delete-externalingress", false, false, false, false, false, false, true, false)
+	testStacksetUpdate(t, "delete-externalingress", false, false, false, false, false, false, true, false, testAnnotationsCreate, testAnnotationsUpdate)
 }

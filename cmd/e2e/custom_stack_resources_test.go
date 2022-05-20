@@ -32,7 +32,6 @@ func TestStackIngressCustomAnnotations(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, customStackIngressRouteGroupAnnotationValue, stackIngress.Annotations[customStackIngressRouteGroupAnnotation])
-	require.NotContains(t, stackIngress.Annotations, userTestAnnotation)
 }
 
 func TestStackIngressCustomHosts(t *testing.T) {
@@ -107,7 +106,6 @@ func TestStackRouteGroupCustomAnnotations(t *testing.T) {
 	require.NoError(t, err)
 
 	require.EqualValues(t, customStackIngressRouteGroupAnnotationValue, stackRoutegroup.Annotations[customStackIngressRouteGroupAnnotation])
-	require.NotContains(t, stackRoutegroup.Annotations, userTestAnnotation)
 }
 
 func TestStackRouteGroupCustomHosts(t *testing.T) {
