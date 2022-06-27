@@ -41,18 +41,26 @@ $(GENERATED_CRDS): $(GENERATED) $(CRD_SOURCES)
 
 build.local: $(LOCAL_BINARIES) $(GENERATED_CRDS)
 build.linux: $(LINUX_BINARIES)
+build.linux.amd64: build/linux/amd64/$(BINARY)
+build.linux.arm64: build/linux/arm64/$(BINARY)
 
 build/linux/e2e: $(GENERATED) $(SOURCES)
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c -o build/linux/$(notdir $@) $(BUILD_FLAGS) ./cmd/$(notdir $@)
 
-build/darwin/e2e: $(GENERATED) $(SOURCES)
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go test -c -o build/darwin/$(notdir $@) $(BUILD_FLAGS) ./cmd/$(notdir $@)
+build/linux/amd64/e2e: $(GENERATED) $(SOURCES)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go test -c -o build/linux/amd64/$(notdir $@) $(BUILD_FLAGS) ./cmd/$(notdir $@)
+
+build/linux/arm64/e2e: $(GENERATED) $(SOURCES)
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go test -c -o build/linux/arm64/$(notdir $@) $(BUILD_FLAGS) ./cmd/$(notdir $@)
 
 build/linux/%: $(GENERATED) $(SOURCES)
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/linux/$(notdir $@) -ldflags "$(LDFLAGS)" ./cmd/$(notdir $@)
 
-build/darwin/%: $(GENERATED) $(SOURCES)
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/darwin/$(notdir $@) -ldflags "$(LDFLAGS)" ./cmd/$(notdir $@)
+build/linux/amd64/%: go.mod $(SOURCES)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/linux/amd64/$(notdir $@) -ldflags "$(LDFLAGS)" ./cmd/$(notdir $@)
+
+build/linux/arm64/%: go.mod $(SOURCES)
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(BUILD_FLAGS) -o build/linux/arm64/$(notdir $@) -ldflags "$(LDFLAGS)" ./cmd/$(notdir $@)
 
 build/e2e: $(GENERATED) $(SOURCES)
 	CGO_ENABLED=0 go test -c -o build/$(notdir $@) ./cmd/$(notdir $@)
@@ -61,8 +69,8 @@ build/%: $(GENERATED) $(SOURCES)
 	CGO_ENABLED=0 go build -o build/$(notdir $@) $(BUILD_FLAGS) -ldflags "$(LDFLAGS)" ./cmd/$(notdir $@)
 
 build.docker: build.linux build/linux/e2e
-	docker build --rm -t "$(E2E_IMAGE):$(TAG)" -f Dockerfile.e2e .
-	docker build --rm -t "$(IMAGE):$(TAG)" -f Dockerfile .
+	docker build --rm -t "$(E2E_IMAGE):$(TAG)" -f Dockerfile.e2e --build-arg TARGETARCH= .
+	docker build --rm -t "$(IMAGE):$(TAG)" -f Dockerfile --build-arg TARGETARCH= .
 
 build.push: build.docker
 	docker push "$(E2E_IMAGE):$(TAG)"
