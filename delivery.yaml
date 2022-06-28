@@ -29,6 +29,14 @@ pipeline:
     cmd: |
       IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
       IMAGE=$IMAGE VERSION=$CDP_BUILD_VERSION make build.push
+  - desc: Build and push image to Zalando's registry
+    cmd: |
+      IMAGE=container-registry-test.zalando.net/teapot/stackset-controller
+      make build.linux.amd64 build.linux.arm64 build/linux/amd64/e2e build/linux/arm64/e2e
+
+      docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
+      docker buildx build --rm --build-arg BASE_IMAGE=container-registry.zalando.net/library/alpine-3.13:latest -t "${IMAGE}:${CDP_BUILD_VERSION}" --platform linux/amd64,linux/arm64 --push .
+      docker buildx build --rm --build-arg BASE_IMAGE=container-registry.zalando.net/library/alpine-3.13:latest -t "${IMAGE}-e2e:${CDP_BUILD_VERSION}" -f Dockerfile.e2e --platform linux/amd64,linux/arm64 --push .
 
 - id: e2e
   type: process
@@ -43,7 +51,7 @@ pipeline:
       - name: DEPLOYMENT_PATH
         value: e2e
       - name: IMAGE
-        value: "registry.opensource.zalan.do/teapot/stackset-controller-test:#{CDP_BUILD_VERSION}"
+        value: "container-registry-test.zalando.net/teapot/stackset-controller:#{CDP_BUILD_VERSION}"
       - name: CONTROLLER_ID
         value: "#{CDP_BUILD_VERSION}"
       - name: CLUSTER_DOMAIN
@@ -58,7 +66,7 @@ pipeline:
         restartPolicy: Never
         containers:
           - name: e2e
-            image: "registry.opensource.zalan.do/teapot/stackset-controller-test-e2e:#{CDP_BUILD_VERSION}"
+            image: "container-registry-test.zalando.net/teapot/stackset-controller-e2e:#{CDP_BUILD_VERSION}"
             args:
             - "-test.parallel"
             - "64"
@@ -102,6 +110,15 @@ pipeline:
       IMAGE=$IMAGE VERSION=$VERSION make build.docker
       git diff --stat --exit-code
       IMAGE=$IMAGE VERSION=$VERSION make build.push
+
+      # Build and push image to Zalando's registry
+      IMAGE=container-registry-test.zalando.net/teapot/stackset-controller
+      make build.linux.amd64 build.linux.arm64
+
+      docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
+      docker buildx build --rm --build-arg BASE_IMAGE=container-registry.zalando.net/library/alpine-3.13:latest -t "${IMAGE}:${VERSION}" --platform linux/amd64,linux/arm64 --push .
+      cdp-promote-image "${IMAGE}:${VERSION}"
+
       echo "create release page"
       tf=$(mktemp)
       echo -e "### Changes\n" >$tf
