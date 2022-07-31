@@ -894,6 +894,18 @@ func TestReconcileStackSetIngressSources(t *testing.T) {
 			},
 		},
 		{
+			name: "ingress is updated if the labels change",
+			existingIng: &networking.Ingress{
+				ObjectMeta: stacksetOwned(testStackSet),
+			},
+			generatedIng: &networking.Ingress{
+				ObjectMeta: withLabels(stacksetOwned(testStackSet), map[string]string{"label1": "value1"}),
+			},
+			expectedIng: &networking.Ingress{
+				ObjectMeta: withAnnotations(withLabels(stacksetOwned(testStackSet), map[string]string{"label1": "value1"}), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+			},
+		},
+		{
 			name: "ingress is not rolled back if the server injects some defaults",
 			existingIng: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
@@ -1335,5 +1347,17 @@ func withAnnotations(meta metav1.ObjectMeta, annotations map[string]string) meta
 	for k, v := range annotations {
 		updated.Annotations[k] = v
 	}
+	return *updated
+}
+
+func withLabels(meta metav1.ObjectMeta, labels map[string]string) metav1.ObjectMeta {
+	updated := meta.DeepCopy()
+	if updated.Labels == nil {
+		updated.Labels = map[string]string{}
+	}
+	for k, v := range labels {
+		updated.Labels[k] = v
+	}
+
 	return *updated
 }
