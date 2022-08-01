@@ -796,7 +796,8 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 
 	// Check if we need to update the RouteGroup
 	if existingHaveUpdateTimeStamp && equality.Semantic.DeepDerivative(rg.Spec, existing.Spec) &&
-		equality.Semantic.DeepEqual(rg.Annotations, existing.Annotations) {
+		equality.Semantic.DeepEqual(rg.Annotations, existing.Annotations) &&
+		equality.Semantic.DeepEqual(rg.Labels, existing.Labels) {
 		// add the annotation back after comparing
 		existing.Annotations[ControllerLastUpdatedAnnotationKey] = lastUpdateValue
 		return existing, nil
@@ -810,6 +811,8 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 		updated.Annotations = make(map[string]string)
 	}
 	updated.Annotations[ControllerLastUpdatedAnnotationKey] = c.now()
+
+	updated.Labels = rg.Labels
 
 	createdRg, err := c.client.RouteGroupV1().RouteGroups(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {

@@ -906,6 +906,18 @@ func TestReconcileStackSetIngressSources(t *testing.T) {
 			},
 		},
 		{
+			name: "routegroup is updated if the labels change",
+			existingRg: &rgv1.RouteGroup{
+				ObjectMeta: stacksetOwned(testStackSet),
+			},
+			generatedRg: &rgv1.RouteGroup{
+				ObjectMeta: withLabels(stacksetOwned(testStackSet), map[string]string{"label1": "value1"}),
+			},
+			expectedRg: &rgv1.RouteGroup{
+				ObjectMeta: withAnnotations(withLabels(stacksetOwned(testStackSet), map[string]string{"label1": "value1"}), map[string]string{ControllerLastUpdatedAnnotationKey: timeNow}),
+			},
+		},
+		{
 			name: "ingress is not rolled back if the server injects some defaults",
 			existingIng: &networking.Ingress{
 				ObjectMeta: stacksetOwned(testStackSet),
