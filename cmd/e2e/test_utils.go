@@ -27,9 +27,6 @@ import (
 type weightKind string
 
 const (
-	defaultWaitTimeout       = 60 * time.Second
-	trafficSwitchWaitTimeout = 150 * time.Second
-
 	stacksetHeritageLabelKey = "stackset"
 	stackVersionLabelKey     = "stack-version"
 
@@ -106,7 +103,7 @@ func newAwaiter(t *testing.T, description string) *awaiter {
 	return &awaiter{
 		t:           t,
 		description: description,
-		timeout:     defaultWaitTimeout,
+		timeout:     waitTimeout,
 	}
 }
 
@@ -183,7 +180,7 @@ type trafficAsserter func(map[string]float64) error
 
 func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
 	removeZeroWeights(expectedWeights)
-	timeout := defaultWaitTimeout
+	timeout := waitTimeout
 	if kind == weightKindActual {
 		timeout = trafficSwitchWaitTimeout
 	}
@@ -232,12 +229,12 @@ func ingressTrafficAuthoritative(t *testing.T, ingressName string, expectedAutho
 		}
 
 		return false, nil
-	}).withTimeout(defaultWaitTimeout)
+	}).withTimeout(waitTimeout)
 }
 
 func trafficWeightsUpdatedStackset(t *testing.T, stacksetName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
 	removeZeroWeights(expectedWeights)
-	timeout := defaultWaitTimeout
+	timeout := waitTimeout
 	if kind == weightKindActual {
 		timeout = trafficSwitchWaitTimeout
 	}
