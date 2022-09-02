@@ -3,15 +3,15 @@ run:
   - 'pkg/core/conversion.go'
   - 'pkg/core/generated.conversion.go'
 linters-settings:
-  golint:
-      min-confidence: 0.9
+  revive:
+    confidence: 0.9
 
 linters:
   disable-all: true
   enable:
     - staticcheck
     - ineffassign
-    - golint
+    - revive
     - goimports
     - errcheck
 issues:

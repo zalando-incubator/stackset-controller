@@ -55,11 +55,11 @@ func normalizeWeights(backendWeights map[string]float64) {
 //
 // The weights:
 //
-//   [33.33, 33.33, 33.33]
+//	[33.33, 33.33, 33.33]
 //
 // will be rounded to:
 //
-//   [34, 33, 33]
+//	[34, 33, 33]
 //
 // The function assumes that the weights are already normalized to a sum of
 // 100.
