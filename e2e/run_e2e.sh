@@ -9,6 +9,7 @@ CLUSTER_NAME=${CLUSTER_NAME:-""}
 # Set TEST_NAME to run a single test
 # eg.: TEST_NAME=TestIngressToRouteGroupSwitch ./e2e/run_e2e.sh
 TEST_NAME=${TEST_NAME:-""}
+TEST_ARGS=${@:-""}
 CONTROLLER_ID="ssc-e2e-$(dd if=/dev/urandom bs=8 count=1 2>/dev/null | hexdump -e '"%x"')"
 
 if [[ -z "${CLUSTER_DOMAIN}" ]]; then
@@ -60,9 +61,9 @@ zkubectl create ns $CONTROLLER_ID
 
 test_args="-test.v"
 if [[ -z "${TEST_NAME}" ]]; then
-  test_args="${test_args} -test.parallel 64"
+  test_args="${test_args} ${TEST_ARGS} -test.parallel 64"
 else
-  test_args="${test_args} -test.parallel 1 -test.run=${TEST_NAME}"
+  test_args="${test_args} ${TEST_ARGS} -test.parallel 1 -test.run=${TEST_NAME}"
 fi
 
 # Run the end-to-end tests against the controller we just deployed.
