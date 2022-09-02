@@ -27,11 +27,13 @@ var (
 	clusterDomainInternal                              = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
 	clusterDomains                                     = []string{clusterDomain, clusterDomainInternal}
 	controllerId                                       = os.Getenv("CONTROLLER_ID")
-	waitTimeout                                        = *flag.Duration("wait-timeout", 60*time.Second, "Waiting interval before getting the resource")
-	trafficSwitchWaitTimeout                           = *flag.Duration("traffic-switch-wait-timeout", 150*time.Second, "Waiting interval before getting the checking stackset new traffic")
+	waitTimeout                                        time.Duration
+	trafficSwitchWaitTimeout                           time.Duration
 )
 
 func init() {
+	flag.DurationVar(&waitTimeout, "wait-timeout", 60*time.Second, "Waiting interval before getting the resource")
+	flag.DurationVar(&trafficSwitchWaitTimeout, "traffic-switch-wait-timeout", 150*time.Second, "Waiting interval before getting the checking stackset new traffic")
 	logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
 }
 
