@@ -1,8 +1,10 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	rg "github.com/szuecs/routegroup-client/client/clientset/versioned"
@@ -25,6 +27,8 @@ var (
 	clusterDomainInternal                              = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
 	clusterDomains                                     = []string{clusterDomain, clusterDomainInternal}
 	controllerId                                       = os.Getenv("CONTROLLER_ID")
+	waitTimeout                                        = *flag.Duration("wait-timeout", 60*time.Second, "Waiting interval before getting the resource")
+	trafficSwitchWaitTimeout                           = *flag.Duration("traffic-switch-wait-timeout", 150*time.Second, "Waiting interval before getting the checking stackset new traffic")
 )
 
 func init() {
