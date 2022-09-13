@@ -20,7 +20,6 @@ import (
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"golang.org/x/sync/errgroup"
-	apiv1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -39,9 +38,6 @@ const (
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 	ControllerLastUpdatedAnnotationKey        = "stackset-controller.zalando.org/updated-timestamp"
-
-	stackTrafficWeightsAnnotationKey = "zalando.org/stack-traffic-weights"
-	ingressAuthorativeAnnotationKey  = "zalando.org/traffic-authoritative"
 
 	reasonFailedManageStackSet = "FailedManageStackSet"
 
@@ -162,6 +158,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			var reconcileGroup errgroup.Group
 			for stackset, container := range stackContainers {
 				container := container
+				stackset := stackset
 
 				reconcileGroup.Go(func() error {
 					if _, ok := c.stacksetStore[stackset]; ok {
@@ -443,7 +440,7 @@ func (c *StackSetController) errorEventf(object runtime.Object, reason string, e
 	default:
 		c.recorder.Eventf(
 			object,
-			apiv1.EventTypeWarning,
+			v1.EventTypeWarning,
 			reason,
 			err.Error())
 		return &eventedError{err: err}
@@ -612,7 +609,7 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 
 	c.recorder.Eventf(
 		ssc.StackSet,
-		apiv1.EventTypeNormal,
+		v1.EventTypeNormal,
 		"CreatedStack",
 		"Created stack %s",
 		newStack.Name())
@@ -650,7 +647,7 @@ func (c *StackSetController) CleanupOldStacks(ctx context.Context, ssc *core.Sta
 		}
 		c.recorder.Eventf(
 			ssc.StackSet,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"DeletedExcessStack",
 			"Deleted excess stack %s",
 			stack.Name)
@@ -680,7 +677,7 @@ func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stack
 		}
 		c.recorder.Eventf(
 			stackset,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"CreatedIngress",
 			"Created Ingress %s",
 			ingress.Name)
@@ -718,7 +715,7 @@ func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stack
 	}
 	c.recorder.Eventf(
 		stackset,
-		apiv1.EventTypeNormal,
+		v1.EventTypeNormal,
 		"UpdatedIngress",
 		"Updated Ingress %s",
 		ingress.Name)
@@ -755,7 +752,7 @@ func (c *StackSetController) deleteIngress(ctx context.Context, stackset *zv1.St
 	}
 	c.recorder.Eventf(
 		stackset,
-		apiv1.EventTypeNormal,
+		v1.EventTypeNormal,
 		"DeletedIngress",
 		"Deleted Ingress %s",
 		existing.Namespace)
@@ -782,7 +779,7 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 		}
 		c.recorder.Eventf(
 			stackset,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"CreatedRouteGroup",
 			"Created RouteGroup %s",
 			rg.Name)
@@ -820,7 +817,7 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 	}
 	c.recorder.Eventf(
 		stackset,
-		apiv1.EventTypeNormal,
+		v1.EventTypeNormal,
 		"UpdatedRouteGroup",
 		"Updated RouteGroup %s",
 		rg.Name)
@@ -857,7 +854,7 @@ func (c *StackSetController) deleteRouteGroup(ctx context.Context, stackset *zv1
 	}
 	c.recorder.Eventf(
 		stackset,
-		apiv1.EventTypeNormal,
+		v1.EventTypeNormal,
 		"DeletedRouteGroup",
 		"Deleted RouteGroup %s",
 		rg.Namespace)
@@ -934,7 +931,7 @@ func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc
 
 		c.recorder.Eventf(
 			ssc.StackSet,
-			apiv1.EventTypeNormal,
+			v1.EventTypeNormal,
 			"TrafficSwitched",
 			"Switched traffic: %s",
 			strings.Join(changeMessages, ", "))
@@ -959,7 +956,7 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 	}
 	c.recorder.Eventf(
 		updated,
-		apiv1.EventTypeNormal,
+		v1.EventTypeNormal,
 		"UpdatedStackSet",
 		"Updated StackSet %s",
 		updated.Name)

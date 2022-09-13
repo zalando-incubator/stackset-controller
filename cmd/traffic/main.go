@@ -72,9 +72,7 @@ func main() {
 }
 
 func printTrafficTable(stacks []traffic.StackTrafficWeight) {
-	var w *tabwriter.Writer
-
-	w = tabwriter.NewWriter(os.Stdout, 8, 8, 4, ' ', 0)
+	w := tabwriter.NewWriter(os.Stdout, 8, 8, 4, ' ', 0)
 	fmt.Fprintf(w, "%s\t%s\t%s\n", "STACK", "DESIRED TRAFFIC", "ACTUAL TRAFFIC")
 
 	for _, stack := range stacks {

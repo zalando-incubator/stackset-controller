@@ -16,7 +16,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -49,7 +48,7 @@ var (
 				Ports: []corev1.ContainerPort{
 					{
 						ContainerPort: 80,
-						Protocol:      v1.ProtocolTCP,
+						Protocol:      corev1.ProtocolTCP,
 					},
 				},
 				Resources: corev1.ResourceRequirements{
@@ -366,19 +365,13 @@ func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSe
 
 func stacksetExists(stacksetName string) bool {
 	_, err := stacksetInterface().Get(context.Background(), stacksetName, metav1.GetOptions{})
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func stackExists(stacksetName, stackVersion string) bool {
 	fullStackName := fmt.Sprintf("%s-%s", stacksetName, stackVersion)
 	_, err := stackInterface().Get(context.Background(), fullStackName, metav1.GetOptions{})
-	if err != nil {
-		return false
-	}
-	return true
+	return err == nil
 }
 
 func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {
@@ -466,7 +459,7 @@ func waitForUpdatedRouteGroup(t *testing.T, name string, oldTimestamp string) (*
 	err := newAwaiter(t, fmt.Sprintf("updated RouteGroup %s", name)).withPoll(func() (bool, error) {
 		rg, err := routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
-			return apiErrors.IsNotFound(err.(error)), err.(error)
+			return apiErrors.IsNotFound(err), err
 		}
 		return rg.Annotations[controller.ControllerLastUpdatedAnnotationKey] != oldTimestamp, nil
 	}).await()
@@ -480,7 +473,7 @@ func waitForUpdatedIngress(t *testing.T, name string, oldTimestamp string) (*net
 	err := newAwaiter(t, fmt.Sprintf("updated Ingress %s", name)).withPoll(func() (bool, error) {
 		ing, err := ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
 		if err != nil {
-			return apiErrors.IsNotFound(err.(error)), err.(error)
+			return apiErrors.IsNotFound(err), err
 		}
 		return ing.Annotations[controller.ControllerLastUpdatedAnnotationKey] != oldTimestamp, nil
 	}).await()
