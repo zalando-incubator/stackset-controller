@@ -35,8 +35,8 @@ pipeline:
       make build.linux.amd64 build.linux.arm64 build/linux/amd64/e2e build/linux/arm64/e2e
 
       docker buildx create --config /etc/cdp-buildkitd.toml --driver-opt network=host --bootstrap --use
-      docker buildx build --rm --build-arg BASE_IMAGE=container-registry.zalando.net/library/alpine-3.13:latest -t "${IMAGE}:${CDP_BUILD_VERSION}" --platform linux/amd64,linux/arm64 --push .
-      docker buildx build --rm --build-arg BASE_IMAGE=container-registry.zalando.net/library/alpine-3.13:latest -t "${IMAGE}-e2e:${CDP_BUILD_VERSION}" -f Dockerfile.e2e --platform linux/amd64,linux/arm64 --push .
+      docker buildx build --rm --build-arg BASE_IMAGE=container-registry.zalando.net/library/alpine-3:latest -t "${IMAGE}:${CDP_BUILD_VERSION}" --platform linux/amd64,linux/arm64 --push .
+      docker buildx build --rm --build-arg BASE_IMAGE=container-registry.zalando.net/library/alpine-3:latest -t "${IMAGE}-e2e:${CDP_BUILD_VERSION}" -f Dockerfile.e2e --platform linux/amd64,linux/arm64 --push .
 
 - id: e2e
   type: process
