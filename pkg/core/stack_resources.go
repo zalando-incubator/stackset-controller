@@ -73,14 +73,6 @@ func objectMetaInjectLabels(objectMeta metav1.ObjectMeta, labels map[string]stri
 	return objectMeta
 }
 
-func embeddedToObjectMeta(embedded zv1.EmbeddedObjectMeta) metav1.ObjectMeta {
-	c := embedded.DeepCopy()
-	return metav1.ObjectMeta{
-		Annotations: c.Annotations,
-		Labels:      c.Labels,
-	}
-}
-
 func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 

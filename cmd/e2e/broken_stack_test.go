@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -28,7 +27,7 @@ func TestBrokenStacks(t *testing.T) {
 	unhealthyVersion := "v2"
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
 	spec = factory.Create(unhealthyVersion)
-	spec.StackTemplate.Spec.Service.Ports = []v1.ServicePort{
+	spec.StackTemplate.Spec.Service.Ports = []corev1.ServicePort{
 		{
 			Protocol:   corev1.ProtocolTCP,
 			TargetPort: intstr.FromString("foobar"),
