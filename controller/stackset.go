@@ -62,6 +62,7 @@ type StackSetController struct {
 	routeGroupSupportEnabled    bool
 	ingressSourceSwitchTTL      time.Duration
 	now                         func() string
+	reconcileWorkers            int
 	sync.Mutex
 }
 
@@ -84,7 +85,7 @@ func now() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID, backendWeightsAnnotationKey string, clusterDomains []string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, controllerID string, parallelWork int, backendWeightsAnnotationKey string, clusterDomains []string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -105,6 +106,7 @@ func NewStackSetController(client clientset.Interface, controllerID, backendWeig
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		now:                         now,
+		reconcileWorkers:            parallelWork,
 	}, nil
 }
 
@@ -156,6 +158,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			}
 
 			var reconcileGroup errgroup.Group
+			reconcileGroup.SetLimit(c.reconcileWorkers)
 			for stackset, container := range stackContainers {
 				container := container
 				stackset := stackset

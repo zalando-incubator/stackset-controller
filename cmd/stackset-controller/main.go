@@ -26,6 +26,7 @@ const (
 	defaultIngressSourceSwitchTTL = "5m"
 	defaultMetricsAddress         = ":7979"
 	defaultClientGOTimeout        = 30 * time.Second
+	defaultReconcileWorkers       = "10"
 )
 
 var (
@@ -40,6 +41,7 @@ var (
 		BackendWeightsAnnotationKey string
 		RouteGroupSupportEnabled    bool
 		IngressSourceSwitchTTL      time.Duration
+		ReconcileWorkers            int
 	}
 )
 
@@ -50,6 +52,8 @@ func main() {
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
+	kingpin.Flag("reconcile-workers", "The amount of stacksets to reconcile in parallel at a time.").
+		Default(defaultReconcileWorkers).IntVar(&config.ReconcileWorkers)
 	kingpin.Flag("backend-weights-key", "Backend weights annotation key the controller will use to set current traffic values").Default(traffic.DefaultBackendWeightsAnnotationKey).StringVar(&config.BackendWeightsAnnotationKey)
 	kingpin.Flag("cluster-domain", "Main domains of the cluster, used for generating Stack Ingress hostnames").Envar("CLUSTER_DOMAIN").Required().StringsVar(&config.ClusterDomains)
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
@@ -75,6 +79,7 @@ func main() {
 	controller, err := controller.NewStackSetController(
 		client,
 		config.ControllerID,
+		config.ReconcileWorkers,
 		config.BackendWeightsAnnotationKey,
 		config.ClusterDomains,
 		prometheus.DefaultRegisterer,
