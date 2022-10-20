@@ -194,7 +194,8 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
-			Replicas: updatedReplicas,
+			Replicas:        updatedReplicas,
+			MinReadySeconds: sc.Stack.Spec.MinReadySeconds,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: sc.selector(),
 			},
