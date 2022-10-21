@@ -801,6 +801,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 		name               string
 		hpaEnabled         bool
 		stackReplicas      int32
+		minReadySeconds    int32
 		prescalingActive   bool
 		prescalingReplicas int32
 		deploymentReplicas int32
@@ -937,6 +938,10 @@ func TestStackGenerateDeployment(t *testing.T) {
 			maxSurge:           1,
 			maxUnavailable:     10,
 		},
+		{
+			name:            "minReadySeconds should be set",
+			minReadySeconds: 5,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var strategy *apps.DeploymentStrategy
@@ -958,7 +963,8 @@ func TestStackGenerateDeployment(t *testing.T) {
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
 					Spec: zv1.StackSpec{
-						Strategy: strategy,
+						MinReadySeconds: tc.minReadySeconds,
+						Strategy:        strategy,
 						PodTemplate: zv1.PodTemplateSpec{
 							EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
 								Labels: map[string]string{
@@ -990,7 +996,8 @@ func TestStackGenerateDeployment(t *testing.T) {
 			expected := &apps.Deployment{
 				ObjectMeta: testResourceMeta,
 				Spec: apps.DeploymentSpec{
-					Replicas: wrapReplicas(tc.expectedReplicas),
+					Replicas:        wrapReplicas(tc.expectedReplicas),
+					MinReadySeconds: c.Stack.Spec.MinReadySeconds,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							StacksetHeritageLabelKey: "foo",

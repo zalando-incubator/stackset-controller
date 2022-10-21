@@ -448,7 +448,12 @@ type StackSpec struct {
 	// Number of desired pods. This is a pointer to distinguish between explicit
 	// zero and not specified. Defaults to 1.
 	// +optional
-	Replicas                *int32                   `json:"replicas,omitempty"`
+	Replicas *int32 `json:"replicas,omitempty"`
+	// Minimum number of seconds for which a newly created pod should be ready
+	// without any of its container crashing, for it to be considered available.
+	// Defaults to 0 (pod will be considered available as soon as it is ready)
+	// +optional
+	MinReadySeconds         int32                    `json:"minReadySeconds,omitempty"`
 	HorizontalPodAutoscaler *HorizontalPodAutoscaler `json:"horizontalPodAutoscaler,omitempty"`
 	// Service can be used to configure a custom service, if not
 	// set stackset-controller will generate a service based on
