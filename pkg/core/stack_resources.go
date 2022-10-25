@@ -262,6 +262,11 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		result.Spec.Behavior = hpaSpec.Behavior
 	}
 
+	// Ensure HPA min replicas is not below Stack replicas in case Stack was scaled
+	if sc.Stack.Spec.Replicas != nil && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < *sc.Stack.Spec.Replicas) {
+		result.Spec.MinReplicas = sc.Stack.Spec.Replicas
+	}
+
 	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
 	if sc.prescalingActive && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < sc.prescalingReplicas) {
 		pr := sc.prescalingReplicas
