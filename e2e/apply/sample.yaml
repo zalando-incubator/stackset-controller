@@ -9,7 +9,7 @@ metadata:
 spec:
   ingress:
     hosts:
-    - "cname-e2e-deploy-sample.{{{CLUSTER_DOMAIN}}}"
+    - "e2e-deploy-sample.{{{CLUSTER_DOMAIN}}}"
     backendPort: 80
   stackLifecycle:
     scaledownTTLSeconds: 300
