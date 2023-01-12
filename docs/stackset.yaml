@@ -13,6 +13,7 @@ spec:
     weight: 40
   - stackName: my-app-v2
     weight: 60
+  minReadyPercent: 90
   stackLifecycle:
     scaledownTTLSeconds: 300
     limit: 5
