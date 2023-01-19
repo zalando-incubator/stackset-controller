@@ -76,6 +76,9 @@ spec:
     weight: 80
   - stackName: mystack-v2
     weight: 20
+  # optional percentage of required Replicas ready to allow traffic switch
+  # if none specified, defaults to 100
+  minReadyPercent: 90
   stackLifecycle:
     scaledownTTLSeconds: 300
     limit: 5 # maximum number of scaled down stacks to keep.

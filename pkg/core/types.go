@@ -117,6 +117,7 @@ type StackContainer struct {
 	prescalingReplicas             int32
 	prescalingDesiredTrafficWeight float64
 	prescalingLastTrafficIncrease  time.Time
+	minReadyPercent                float64
 }
 
 // TrafficChange contains information about a traffic change event
@@ -139,8 +140,14 @@ func (sc *StackContainer) HasTraffic() bool {
 }
 
 func (sc *StackContainer) IsReady() bool {
-	// Stacks are considered ready when all subresources have been updated, and we have enough replicas
-	return sc.resourcesUpdated && sc.deploymentReplicas > 0 && sc.deploymentReplicas == sc.updatedReplicas && sc.deploymentReplicas == sc.readyReplicas
+	// Calculate minmum required replicas for the Deployment to be considered ready
+	minRequiredReplicas := int32(math.Ceil(float64(sc.deploymentReplicas) * sc.minReadyPercent))
+
+	// Stacks are considered ready when all subresources have been updated
+	// and the minimum ready percentage is hit on and replicas
+	return (sc.resourcesUpdated && sc.deploymentReplicas > 0 &&
+		minRequiredReplicas <= sc.updatedReplicas &&
+		minRequiredReplicas <= sc.readyReplicas)
 }
 
 func (sc *StackContainer) MaxReplicas() int32 {

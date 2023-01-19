@@ -61,6 +61,9 @@ type StackSetSpec struct {
 	// weights. It defines the desired traffic. Clients that
 	// orchestrate traffic switching should write this part.
 	Traffic []*DesiredTraffic `json:"traffic,omitempty"`
+	// minReadyPercent sets the minimum percentage of Pods expected
+	// to be Ready to consider a Stack for traffic switch
+	MinReadyPercent int `json:"minReadyPercent,omitempty"`
 }
 
 // EmbeddedObjectMetaWithAnnotations defines the metadata which can be attached

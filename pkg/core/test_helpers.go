@@ -45,10 +45,14 @@ func testStack(name string) *testStackFactory {
 }
 
 func (f *testStackFactory) ready(replicas int32) *testStackFactory {
+	return f.partiallyReady(replicas, replicas)
+}
+
+func (f *testStackFactory) partiallyReady(readyReplicas, replicas int32) *testStackFactory {
 	f.container.resourcesUpdated = true
 	f.container.deploymentReplicas = replicas
-	f.container.updatedReplicas = replicas
-	f.container.readyReplicas = replicas
+	f.container.updatedReplicas = readyReplicas
+	f.container.readyReplicas = readyReplicas
 	return f
 }
 

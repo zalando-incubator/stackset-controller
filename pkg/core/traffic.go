@@ -21,6 +21,16 @@ func allZero(weights map[string]float64) bool {
 	return true
 }
 
+// normalizeMinReadyPercent normalizes minimum percentage of Ready pods.
+// If value is under or equal to 0, or over or equal to 100, set it to 1.0
+// If value is between 0-100, it's then set as decimal
+func normalizeMinReadyPercent(minReadyPercent int) float64 {
+	if minReadyPercent >= 100 || minReadyPercent <= 0 {
+		return 1.0
+	}
+	return float64(minReadyPercent) / 100
+}
+
 // normalizeWeights normalizes a map of backend weights.
 // If all weights are zero the total weight of 100 is distributed equally
 // between all backends.
@@ -155,9 +165,11 @@ func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 		}
 	}
 
+	minReadyPercent := normalizeMinReadyPercent(ssc.StackSet.Spec.MinReadyPercent)
 	for stackName, stack := range stacks {
 		stack.desiredTrafficWeight = desiredWeights[stackName]
 		stack.actualTrafficWeight = actualWeights[stackName]
+		stack.minReadyPercent = minReadyPercent
 	}
 
 	// Run the traffic reconciler which will update the actual weights according to the desired weights. The resulting
