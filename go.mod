@@ -1,6 +1,6 @@
 module github.com/zalando-incubator/stackset-controller
 
-go 1.18
+go 1.19
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
