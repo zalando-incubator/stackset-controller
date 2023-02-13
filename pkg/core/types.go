@@ -154,14 +154,11 @@ func (sc *StackContainer) MaxReplicas() int32 {
 	if sc.Stack.Spec.Autoscaler != nil {
 		return sc.Stack.Spec.Autoscaler.MaxReplicas
 	}
-	if sc.Stack.Spec.HorizontalPodAutoscaler != nil {
-		return sc.Stack.Spec.HorizontalPodAutoscaler.MaxReplicas
-	}
 	return math.MaxInt32
 }
 
 func (sc *StackContainer) IsAutoscaled() bool {
-	return sc.Stack.Spec.HorizontalPodAutoscaler != nil || sc.Stack.Spec.Autoscaler != nil
+	return sc.Stack.Spec.Autoscaler != nil
 }
 
 func (sc *StackContainer) ScaledDown() bool {

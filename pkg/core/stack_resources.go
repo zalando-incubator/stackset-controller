@@ -213,10 +213,14 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 
 func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, error) {
 	autoscalerSpec := sc.Stack.Spec.Autoscaler
-	hpaSpec := sc.Stack.Spec.HorizontalPodAutoscaler
 
-	if autoscalerSpec == nil && hpaSpec == nil {
+	if autoscalerSpec == nil {
 		return nil, nil
+	}
+
+	metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerSpec.Metrics)
+	if err != nil {
+		return nil, err
 	}
 
 	result := &autoscaling.HorizontalPodAutoscaler{
@@ -231,36 +235,14 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 				Kind:       kindDeployment,
 				Name:       sc.Name(),
 			},
+			MinReplicas: autoscalerSpec.MinReplicas,
+			MaxReplicas: autoscalerSpec.MaxReplicas,
+			Behavior:    autoscalerSpec.Behavior,
+			Metrics:     metrics,
 		},
 	}
 
-	if autoscalerSpec != nil {
-		result.Spec.MinReplicas = autoscalerSpec.MinReplicas
-		result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
-
-		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerSpec.Metrics)
-		if err != nil {
-			return nil, err
-		}
-		result.Spec.Metrics = metrics
-		result.Annotations = mergeLabels(result.Annotations, annotations)
-		result.Spec.Behavior = autoscalerSpec.Behavior
-	} else {
-		result.Spec.MinReplicas = hpaSpec.MinReplicas
-		result.Spec.MaxReplicas = hpaSpec.MaxReplicas
-		metrics := make([]autoscaling.MetricSpec, 0, len(hpaSpec.Metrics))
-		for _, m := range hpaSpec.Metrics {
-			m := m
-			metric := autoscaling.MetricSpec{}
-			err := Convert_v2beta1_MetricSpec_To_autoscaling_MetricSpec(&m, &metric, nil)
-			if err != nil {
-				return nil, err
-			}
-			metrics = append(metrics, metric)
-		}
-		result.Spec.Metrics = metrics
-		result.Spec.Behavior = hpaSpec.Behavior
-	}
+	result.Annotations = mergeLabels(result.Annotations, annotations)
 
 	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
 	if sc.prescalingActive && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < sc.prescalingReplicas) {
