@@ -10,13 +10,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/zalando-incubator/stackset-controller/controller"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
-	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 )
