@@ -102,7 +102,7 @@ spec:
         spec:
           containers:
           - name: skipper
-            image: registry.opensource.zalan.do/teapot/skipper:latest
+            image: ghcr.io/zalando/skipper:latest
             args:
             - skipper
             - -inline-routes
@@ -143,7 +143,7 @@ spec:
   podTemplate:
     spec:
       containers:
-        image: registry.opensource.zalan.do/teapot/skipper:latest
+        image: ghcr.io/zalando/skipper:latest
         args:
         - skipper
         - -inline-routes
