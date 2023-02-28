@@ -273,7 +273,7 @@ func TestCreateCurrentStack(t *testing.T) {
 					Containers: []v1.Container{
 						{
 							Name:  "foo",
-							Image: "registry.opensource.zalan.do/teapot/skipper:latest",
+							Image: "ghcr.io/zalando/skipper:latest",
 						},
 					},
 				},
