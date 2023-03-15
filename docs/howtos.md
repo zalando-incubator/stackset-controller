@@ -347,6 +347,8 @@ This means that it might overscale for some minutes before the HPA kicks in and
 scales back down to the needed resources. Reliability is favoured over cost in
 the prescale logic.
 
+### Overscaling Example
+
 To explain further, the amount of this overscale is decided as follows. Imagine
 a case with `minReplicas: 20` and `maxReplicas: 40` and traffic is switched in
 steps as `1%`, `25%`, `50%` and `100%`. Additionally, imagine the existing
@@ -365,8 +367,6 @@ the new stack is to be scaled to 55 replicas, however, since `maxReplicas` is
 set to 40, stack size will be set to `40`.
 4. Similarly, when `100%` of the traffic is to be switched, the size of
 `maxReplicas` will be enforced.
-
-A good discussion regarding how this issue can arise is in [this issue](https://github.bus.zalan.do/zooport/issues/issues/3466).
 
 ## Traffic Switch resources controlled by External Controllers
 
