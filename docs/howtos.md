@@ -342,10 +342,31 @@ configure the time by setting the
 on the stackset.
 
 **Note**: Even if you switch traffic gradually like `10%...20%..50%..80%..100%`
-It will still prescale to the sum of stacks getting traffic within each step.
+It will still prescale based on the **_sum of all stacks_** getting traffic within each step.
 This means that it might overscale for some minutes before the HPA kicks in and
 scales back down to the needed resources. Reliability is favoured over cost in
 the prescale logic.
+
+### Overscaling Example
+
+To explain further, the amount of this overscale is decided as follows. Imagine
+a case with `minReplicas: 20` and `maxReplicas: 40` and traffic is switched in
+steps as `1%`, `25%`, `50%` and `100%`. Additionally, imagine the existing
+stack has 20 replicas running.
+
+1. Upon switching of `1%` of the traffic to the new stack, the amount of
+prescale should be 1 % of 20 (sum of all stacks sizes receiving traffic currently).
+However, since this is less than `minReplicas`, the scale will be up to
+`minReplicas` and will be 20.
+2. Before switching to `25%` of the traffic, the stack is increased in size by
+25% of 40 = 10 (20 from old stack + 20 from the new), so the new stack is
+scaled to 20 + 10 = 30 replicas before the switch.
+3. Before switching to `50%`, same follows, and the prescale is now done as
+50% of 50 = 25 (30 replicas of new stack + 20 replicas of the old), and so
+the new stack is to be scaled to 55 replicas, however, since `maxReplicas` is
+set to 40, stack size will be set to `40`.
+4. Similarly, when `100%` of the traffic is to be switched, the size of
+`maxReplicas` will be enforced.
 
 ## Traffic Switch resources controlled by External Controllers
 
