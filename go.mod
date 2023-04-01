@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/alecthomas/kingpin/v2 v2.3.1
+	github.com/alecthomas/kingpin/v2 v2.3.2
 	github.com/google/go-cmp v0.5.9
 	github.com/heptiolabs/healthcheck v0.0.0-20211123025425-613501dd5deb
 	github.com/prometheus/client_golang v1.14.0
@@ -55,7 +55,7 @@ require (
 	github.com/prometheus/procfs v0.9.0 // indirect
 	github.com/spf13/cobra v1.2.1 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/xhit/go-str2duration v1.2.0 // indirect
+	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.5.0 // indirect
