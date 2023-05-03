@@ -117,7 +117,7 @@ func (c *FakeStacks) UpdateStatus(ctx context.Context, stack *zalandoorgv1.Stack
 // Delete takes name of the stack and deletes it. Returns an error if one occurs.
 func (c *FakeStacks) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(stacksResource, c.ns, name), &zalandoorgv1.Stack{})
+		Invokes(testing.NewDeleteActionWithOptions(stacksResource, c.ns, name, opts), &zalandoorgv1.Stack{})
 
 	return err
 }

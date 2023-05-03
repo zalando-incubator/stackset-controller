@@ -117,7 +117,7 @@ func (c *FakeStackSets) UpdateStatus(ctx context.Context, stackSet *zalandoorgv1
 // Delete takes name of the stackSet and deletes it. Returns an error if one occurs.
 func (c *FakeStackSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(stacksetsResource, c.ns, name), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewDeleteActionWithOptions(stacksetsResource, c.ns, name, opts), &zalandoorgv1.StackSet{})
 
 	return err
 }
