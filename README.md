@@ -226,7 +226,7 @@ behavior for the `StackSet`:
 
 ### Kubernetes Compatibilty
 
-The StackSet controller works with Kubernetes `>=v1.14`.
+The StackSet controller works with Kubernetes `>=v1.23`.
 
 ## How it works
 

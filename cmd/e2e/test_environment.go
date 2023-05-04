@@ -13,7 +13,7 @@ import (
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"k8s.io/client-go/kubernetes"
 	appsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
-	autoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/client-go/kubernetes/typed/autoscaling/v2"
 	corev1typed "k8s.io/client-go/kubernetes/typed/core/v1"
 	networking "k8s.io/client-go/kubernetes/typed/networking/v1"
 	"k8s.io/client-go/rest"
@@ -86,7 +86,7 @@ func serviceInterface() corev1typed.ServiceInterface {
 }
 
 func hpaInterface() autoscalingv2.HorizontalPodAutoscalerInterface {
-	return kubernetesClient.AutoscalingV2beta2().HorizontalPodAutoscalers(namespace)
+	return kubernetesClient.AutoscalingV2().HorizontalPodAutoscalers(namespace)
 }
 
 func ingressInterface() networking.IngressInterface {

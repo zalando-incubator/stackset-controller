@@ -7,7 +7,7 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
-	"k8s.io/api/autoscaling/v2beta2"
+	"k8s.io/api/autoscaling/v2"
 	apiv1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +70,7 @@ func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.Stack, existing *v2beta2.HorizontalPodAutoscaler, generateUpdated func() (*v2beta2.HorizontalPodAutoscaler, error)) error {
+func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.Stack, existing *v2.HorizontalPodAutoscaler, generateUpdated func() (*v2.HorizontalPodAutoscaler, error)) error {
 	hpa, err := generateUpdated()
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 	// HPA removed
 	if hpa == nil {
 		if existing != nil {
-			err := c.client.AutoscalingV2beta2().HorizontalPodAutoscalers(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
+			err := c.client.AutoscalingV2().HorizontalPodAutoscalers(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
 			if err != nil {
 				return err
 			}
@@ -95,7 +95,7 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 
 	// Create new HPA
 	if existing == nil {
-		_, err := c.client.AutoscalingV2beta2().HorizontalPodAutoscalers(hpa.Namespace).Create(ctx, hpa, metav1.CreateOptions{})
+		_, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(hpa.Namespace).Create(ctx, hpa, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
@@ -117,7 +117,7 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 	syncObjectMeta(updated, hpa)
 	updated.Spec = hpa.Spec
 
-	_, err = c.client.AutoscalingV2beta2().HorizontalPodAutoscalers(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
+	_, err = c.client.AutoscalingV2().HorizontalPodAutoscalers(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
 	if err != nil {
 		return err
 	}
