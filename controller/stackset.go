@@ -400,7 +400,7 @@ Items:
 }
 
 func (c *StackSetController) collectHPAs(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	hpas, err := c.client.AutoscalingV2beta2().HorizontalPodAutoscalers(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	hpas, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list HPAs: %v", err)
 	}

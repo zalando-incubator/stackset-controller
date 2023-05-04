@@ -24,8 +24,8 @@ package v1
 import (
 	zalandoorgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	v2 "k8s.io/api/autoscaling/v2"
 	v2beta1 "k8s.io/api/autoscaling/v2beta1"
-	v2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
@@ -47,7 +47,7 @@ func (in *Autoscaler) DeepCopyInto(out *Autoscaler) {
 	}
 	if in.Behavior != nil {
 		in, out := &in.Behavior, &out.Behavior
-		*out = new(v2beta2.HorizontalPodAutoscalerBehavior)
+		*out = new(v2.HorizontalPodAutoscalerBehavior)
 		(*in).DeepCopyInto(*out)
 	}
 	return
@@ -184,7 +184,7 @@ func (in *HorizontalPodAutoscaler) DeepCopyInto(out *HorizontalPodAutoscaler) {
 	}
 	if in.Behavior != nil {
 		in, out := &in.Behavior, &out.Behavior
-		*out = new(v2beta2.HorizontalPodAutoscalerBehavior)
+		*out = new(v2.HorizontalPodAutoscalerBehavior)
 		(*in).DeepCopyInto(*out)
 	}
 	return

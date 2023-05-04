@@ -10,8 +10,8 @@ import (
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -157,8 +157,8 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 
 		if f.hpaBehavior {
 			result.StackTemplate.Spec.HorizontalPodAutoscaler.Behavior =
-				&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
-					ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+				&autoscalingv2.HorizontalPodAutoscalerBehavior{
+					ScaleDown: &autoscalingv2.HPAScalingRules{
 						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
 					},
 				}
@@ -174,8 +174,8 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 
 		if f.hpaBehavior {
 			result.StackTemplate.Spec.Autoscaler.Behavior =
-				&autoscalingv2beta2.HorizontalPodAutoscalerBehavior{
-					ScaleDown: &autoscalingv2beta2.HPAScalingRules{
+				&autoscalingv2.HorizontalPodAutoscalerBehavior{
+					ScaleDown: &autoscalingv2.HPAScalingRules{
 						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
 					},
 				}

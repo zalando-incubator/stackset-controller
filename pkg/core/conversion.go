@@ -2,7 +2,7 @@ package core
 
 import (
 	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
-	autoscaling "k8s.io/api/autoscaling/v2beta2"
+	autoscaling "k8s.io/api/autoscaling/v2"
 	core "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/conversion"
 )
