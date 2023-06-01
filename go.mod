@@ -9,7 +9,7 @@ require (
 	github.com/heptiolabs/healthcheck v0.0.0-20211123025425-613501dd5deb
 	github.com/prometheus/client_golang v1.15.0
 	github.com/sirupsen/logrus v1.9.0
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	github.com/szuecs/routegroup-client v0.21.1
 	golang.org/x/sync v0.1.0
 	k8s.io/api v0.23.17
