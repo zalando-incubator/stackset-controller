@@ -5,10 +5,16 @@ updates:
   schedule:
     interval: monthly
     time: "07:00"
-  open-pull-requests-limit: 10
+  groups:
+    dev-dependencies:
+      patterns:
+        - "*"
 - package-ecosystem: gomod
   directory: "/"
   schedule:
-    interval: monthly
+    interval: weekly
     time: "07:00"
-  open-pull-requests-limit: 10
+  groups:
+    dev-dependencies:
+      patterns:
+        - "*"
