@@ -73,7 +73,7 @@ func normalizeWeights(backendWeights map[string]float64) {
 //
 // The function assumes that the weights are already normalized to a sum of
 // 100.
-// It's using the "Largets Remainder Method" for rounding:
+// It's using the "Largest Remainder Method" for rounding:
 // https://en.wikipedia.org/wiki/Largest_remainder_method
 func roundWeights(weights map[string]float64) {
 	type backendWeight struct {

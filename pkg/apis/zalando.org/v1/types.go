@@ -120,7 +120,7 @@ func (o *StackIngressRouteGroupOverrides) IsEnabled() bool {
 	return *o.Enabled
 }
 
-// StackSetIngressSpec is the ingress defintion of an StackSet. This
+// StackSetIngressSpec is the ingress definition of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
 type StackSetIngressSpec struct {
