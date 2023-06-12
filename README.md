@@ -224,7 +224,7 @@ behavior for the `StackSet`:
 
 * [How To's](/docs/howtos.md)
 
-### Kubernetes Compatibilty
+### Kubernetes Compatibility
 
 The StackSet controller works with Kubernetes `>=v1.23`.
 

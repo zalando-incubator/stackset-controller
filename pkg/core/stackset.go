@@ -116,7 +116,7 @@ func (ssc *StackSetContainer) MarkExpiredStacks() {
 		return
 	}
 
-	// sort condidates by when they last had traffic.
+	// sort candidates by when they last had traffic.
 	sort.Slice(gcCandidates, func(i, j int) bool {
 		// First check if NoTrafficSince is set. If not, fall back to the creation timestamp
 		iTime := gcCandidates[i].noTrafficSince

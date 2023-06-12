@@ -101,7 +101,7 @@ one port of the containers must have the same name or port number as the
 ### Configure custom service ports
 
 In some cases you want to expose multiple ports in your service. For this use
-case it's posible to define the service ports on the `StackSet`.
+case it's possible to define the service ports on the `StackSet`.
 
 ```yaml
 apiVersion: zalando.org/v1
@@ -207,7 +207,7 @@ autoscaler:
 Here the stackset would be scaled based on the length of the Amazon SQS Queue size so that there are no more
 than 30 items in the queue per pod. Also the autoscaler tries to keep the CPU usage below 80% in the pods by
 scaling. If multiple metrics are specified then the HPA calculates the number of pods required per metrics
-and uses the higest recommendation.
+and uses the highest recommendation.
 
 JSON metrics exposed by the pods are also supported. Here's an example where the pods expose metrics in
 JSON format on the `/metrics` endpoint on port 9090. The key for the metrics should be specified as well.
@@ -326,7 +326,7 @@ spec:
 The pre scaling works as follows:
 
 1. User directs/increases traffic to a stack.
-2. Before the stack gets any traffic it will caculate a prescale value `n` of
+2. Before the stack gets any traffic it will calculate a prescale value `n` of
    replicas based on the sum of all stacks currently getting traffic.
 3. The HPA of the stack will get the `MinReplicas` value set equal to the
    prescale value calculated in 2.

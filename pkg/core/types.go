@@ -23,10 +23,10 @@ const (
 )
 
 // StackSetContainer is a container for storing the full state of a StackSet
-// including the sub-resources which are part of the StackSet. It respresents a
+// including the sub-resources which are part of the StackSet. It represents a
 // snapshot of the resources currently in the Cluster. This includes an
 // optional Ingress resource as well as the current Traffic distribution. It
-// also contains a set of StackContainers which respresents the full state of
+// also contains a set of StackContainers which represents the full state of
 // the individual Stacks part of the StackSet.
 type StackSetContainer struct {
 	StackSet *zv1.StackSet
@@ -140,7 +140,7 @@ func (sc *StackContainer) HasTraffic() bool {
 }
 
 func (sc *StackContainer) IsReady() bool {
-	// Calculate minmum required replicas for the Deployment to be considered ready
+	// Calculate minimum required replicas for the Deployment to be considered ready
 	minRequiredReplicas := int32(math.Ceil(float64(sc.deploymentReplicas) * sc.minReadyPercent))
 
 	// Stacks are considered ready when all subresources have been updated
