@@ -581,6 +581,22 @@ spec:
                         - maxReplicas
                         - metrics
                         type: object
+                      configResourcesTemplate:
+                        description: ConfigResourcesTemplate describes the configuration
+                          resources that will be attached to the Stack.
+                        items:
+                          description: ConfigResourcesTemplateSpec is the definition
+                            of Config Resources of a Stack.
+                          properties:
+                            name:
+                              type: string
+                            type:
+                              type: string
+                          required:
+                          - name
+                          - type
+                          type: object
+                        type: array
                       horizontalPodAutoscaler:
                         description: HorizontalPodAutoscaler is the Autoscaling configuration
                           of a Stack. If defined an HPA will be created for the Stack.
@@ -8024,22 +8040,6 @@ spec:
                                                   secret data to project
                                                 properties:
                                                   items:
-                                                    description: If unspecified, each
-                                                      key-value pair in the Data field
-                                                      of the referenced Secret will
-                                                      be projected into the volume
-                                                      as a file whose name is the
-                                                      key and content is the value.
-                                                      If specified, the listed keys
-                                                      will be projected into the specified
-                                                      paths, and unlisted keys will
-                                                      not be present. If a key is
-                                                      specified which is not present
-                                                      in the Secret, the volume setup
-                                                      will error unless it is marked
-                                                      optional. Paths must be relative
-                                                      and may not contain the '..'
-                                                      path or start with '..'.
                                                     items:
                                                       properties:
                                                         key:
@@ -8616,6 +8616,7 @@ spec:
                         pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                         type: string
                     required:
+                    - configResourcesTemplate
                     - podTemplate
                     - version
                     type: object

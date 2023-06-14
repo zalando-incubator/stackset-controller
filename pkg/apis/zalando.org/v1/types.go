@@ -445,6 +445,14 @@ type PodTemplateSpec struct {
 	Spec v1.PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
 }
 
+// ConfigResourcesTemplateSpec is the definition of Config Resources of a Stack.
+// +k8s:deepcopy-gen=true
+type ConfigResourcesTemplateSpec struct {
+	Type      string `json:"type"`
+	Name      string `json:"name"`
+	SecretRef v1.SecretReference
+}
+
 // StackSpec is the spec part of the Stack.
 // +k8s:deepcopy-gen=true
 type StackSpec struct {
@@ -462,17 +470,16 @@ type StackSpec struct {
 	// set stackset-controller will generate a service based on
 	// container port and ingress backendport.
 	Service *StackServiceSpec `json:"service,omitempty"`
+	// ConfigResourcesTemplate describes the configuration resources that will
+	// be attached to the Stack.
+	ConfigResourcesTemplate []ConfigResourcesTemplateSpec `json:"configResourcesTemplate"`
 	// PodTemplate describes the pods that will be created.
 	PodTemplate PodTemplateSpec `json:"podTemplate"`
-
-	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
-
+	Autoscaler  *Autoscaler     `json:"autoscaler,omitempty"`
 	// Settings for the per-stack ingresses (in case the StackSet has a configured ingress)
 	IngressOverrides *StackIngressRouteGroupOverrides `json:"ingress,omitempty"`
-
 	// Settings for the per-stack route groups (in case the StackSet has a configured RouteGroup)
 	RouteGroupOverrides *StackIngressRouteGroupOverrides `json:"routegroup,omitempty"`
-
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 }

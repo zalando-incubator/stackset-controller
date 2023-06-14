@@ -45,6 +45,10 @@ type TestStacksetSpecFactory struct {
 	maxUnavailable                int
 	metrics                       []zv1.AutoscalerMetrics
 	subResourceAnnotations        map[string]string
+	configResources               bool
+	configType                    string
+	configName                    string
+	configRef                     corev1.SecretReference
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
@@ -53,6 +57,7 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 		hpa:                    false,
 		ingress:                false,
 		externalIngress:        false,
+		configResources:        false,
 		limit:                  4,
 		scaleDownTTL:           10,
 		replicas:               1,
@@ -60,6 +65,14 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 		hpaMaxReplicas:         3,
 		subResourceAnnotations: map[string]string{},
 	}
+}
+
+func (f *TestStacksetSpecFactory) configResource(configType, configName string, configRef corev1.SecretReference) *TestStacksetSpecFactory {
+	f.configResources = true
+	f.configType = configType
+	f.configName = configName
+	f.configRef = configRef
+	return f
 }
 
 func (f *TestStacksetSpecFactory) HPA(minReplicas, maxReplicas int32) *TestStacksetSpecFactory {
@@ -111,7 +124,7 @@ func (f *TestStacksetSpecFactory) SubResourceAnnotations(annotations map[string]
 }
 
 func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
-	var result = zv1.StackSetSpec{
+	result := zv1.StackSetSpec{
 		StackLifecycle: zv1.StackLifecycle{
 			Limit:               pint32(f.limit),
 			ScaledownTTLSeconds: &f.scaleDownTTL,
@@ -140,6 +153,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			},
 		},
 	}
+
 	if f.hpa {
 		result.StackTemplate.Spec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{
 			MaxReplicas: f.hpaMaxReplicas,
@@ -156,12 +170,11 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		}
 
 		if f.hpaBehavior {
-			result.StackTemplate.Spec.HorizontalPodAutoscaler.Behavior =
-				&autoscalingv2.HorizontalPodAutoscalerBehavior{
-					ScaleDown: &autoscalingv2.HPAScalingRules{
-						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
-					},
-				}
+			result.StackTemplate.Spec.HorizontalPodAutoscaler.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
+				},
+			}
 		}
 	}
 
@@ -173,12 +186,11 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		}
 
 		if f.hpaBehavior {
-			result.StackTemplate.Spec.Autoscaler.Behavior =
-				&autoscalingv2.HorizontalPodAutoscalerBehavior{
-					ScaleDown: &autoscalingv2.HPAScalingRules{
-						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
-					},
-				}
+			result.StackTemplate.Spec.Autoscaler.Behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{
+				ScaleDown: &autoscalingv2.HPAScalingRules{
+					StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
+				},
+			}
 		}
 	}
 
@@ -191,6 +203,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			BackendPort: intstr.FromInt(80),
 		}
 	}
+
 	if f.routegroup {
 		result.RouteGroup = &zv1.RouteGroupSpec{
 			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
@@ -205,11 +218,13 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			},
 		}
 	}
+
 	if f.externalIngress {
 		result.ExternalIngress = &zv1.StackSetExternalIngressSpec{
 			BackendPort: intstr.FromInt(80),
 		}
 	}
+
 	if f.maxSurge != 0 || f.maxUnavailable != 0 {
 		strategy := &apps.DeploymentStrategy{
 			Type:          apps.RollingUpdateDeploymentStrategyType,
@@ -222,6 +237,20 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			strategy.RollingUpdate.MaxUnavailable = intstrptr(f.maxUnavailable)
 		}
 	}
+
+	if f.configResources {
+		result.StackTemplate.Spec.ConfigResourcesTemplate = []zv1.ConfigResourcesTemplateSpec{
+			{
+				Type: "Secret",
+				Name: "secret-test",
+				SecretRef: corev1.SecretReference{
+					Name:      "secret-template",
+					Namespace: "default",
+				},
+			},
+		}
+	}
+
 	return result
 }
 
@@ -515,7 +544,7 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 	require.NoError(t, err)
 }
 
-func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup, externalIngress bool, updateStrategy bool, subResourceAnnotations map[string]string) {
+func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup, externalIngress bool, updateStrategy bool, configResources bool, subResourceAnnotations map[string]string) {
 	t.Parallel()
 
 	stacksetName := fmt.Sprintf("stackset-create-%s", testName)
@@ -538,6 +567,10 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	}
 	if len(subResourceAnnotations) > 0 {
 		stacksetSpecFactory.SubResourceAnnotations(subResourceAnnotations)
+	}
+	if configResources {
+		secretRef := corev1.SecretReference{Name: "secret-template", Namespace: "default"}
+		stacksetSpecFactory.configResource("Secret", "secrete-template", secretRef)
 	}
 	stacksetSpec := stacksetSpecFactory.Create(stackVersion)
 	err := createStackSet(stacksetName, 0, stacksetSpec)
@@ -704,27 +737,31 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 }
 
 func TestStacksetCreateBasic(t *testing.T) {
-	testStacksetCreate(t, "basic", false, false, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "basic", false, false, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateHPA(t *testing.T) {
-	testStacksetCreate(t, "hpa", true, false, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "hpa", true, false, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateIngress(t *testing.T) {
-	testStacksetCreate(t, "ingress", false, true, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "ingress", false, true, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateRouteGroup(t *testing.T) {
-	testStacksetCreate(t, "routegroup", false, false, true, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "routegroup", false, false, true, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateExternalIngress(t *testing.T) {
-	testStacksetCreate(t, "externalingress", false, false, false, true, false, testAnnotationsCreate)
+	testStacksetCreate(t, "externalingress", false, false, false, true, false, false, testAnnotationsCreate)
+}
+
+func TestStacksetCreateConfigResources(t *testing.T) {
+	testStacksetCreate(t, "updatestrategy", false, false, false, false, true, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateUpdateStrategy(t *testing.T) {
-	testStacksetCreate(t, "updatestrategy", false, false, false, false, true, testAnnotationsCreate)
+	testStacksetCreate(t, "updatestrategy", false, false, false, false, false, true, testAnnotationsCreate)
 }
 
 func TestStacksetUpdateBasic(t *testing.T) {

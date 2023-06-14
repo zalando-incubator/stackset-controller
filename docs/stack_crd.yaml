@@ -334,6 +334,22 @@ spec:
                 - maxReplicas
                 - metrics
                 type: object
+              configResourcesTemplate:
+                description: ConfigResourcesTemplate describes the configuration resources
+                  that will be attached to the Stack.
+                items:
+                  description: ConfigResourcesTemplateSpec is the definition of Config
+                    Resources of a Stack.
+                  properties:
+                    name:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                type: array
               horizontalPodAutoscaler:
                 description: HorizontalPodAutoscaler is the Autoscaling configuration
                   of a Stack. If defined an HPA will be created for the Stack.
@@ -1271,14 +1287,6 @@ spec:
                                                   and DoesNotExist.
                                                 type: string
                                               values:
-                                                description: values is an array of
-                                                  string values. If the operator is
-                                                  In or NotIn, the values array must
-                                                  be non-empty. If the operator is
-                                                  Exists or DoesNotExist, the values
-                                                  array must be empty. This array
-                                                  is replaced during a strategic merge
-                                                  patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -1641,14 +1649,6 @@ spec:
                                                   and DoesNotExist.
                                                 type: string
                                               values:
-                                                description: values is an array of
-                                                  string values. If the operator is
-                                                  In or NotIn, the values array must
-                                                  be non-empty. If the operator is
-                                                  Exists or DoesNotExist, the values
-                                                  array must be empty. This array
-                                                  is replaced during a strategic merge
-                                                  patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -7883,6 +7883,7 @@ spec:
                     type: string
                 type: object
             required:
+            - configResourcesTemplate
             - podTemplate
             type: object
           status:
