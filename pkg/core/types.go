@@ -23,10 +23,10 @@ const (
 )
 
 // StackSetContainer is a container for storing the full state of a StackSet
-// including the sub-resources which are part of the StackSet. It respresents a
+// including the sub-resources which are part of the StackSet. It represents a
 // snapshot of the resources currently in the Cluster. This includes an
 // optional Ingress resource as well as the current Traffic distribution. It
-// also contains a set of StackContainers which respresents the full state of
+// also contains a set of StackContainers which represents the full state of
 // the individual Stacks part of the StackSet.
 type StackSetContainer struct {
 	StackSet *zv1.StackSet
@@ -181,11 +181,13 @@ func (sc *StackContainer) Namespace() string {
 
 // StackResources describes the resources of a stack.
 type StackResources struct {
-	Deployment *appsv1.Deployment
-	HPA        *autoscaling.HorizontalPodAutoscaler
-	Service    *v1.Service
-	Ingress    *networking.Ingress
-	RouteGroup *rgv1.RouteGroup
+	Deployment        *appsv1.Deployment
+	HPA               *autoscaling.HorizontalPodAutoscaler
+	Service           *v1.Service
+	Ingress           *networking.Ingress
+	IngressSegment    *networking.Ingress
+	RouteGroup        *rgv1.RouteGroup
+	RouteGroupSegment *rgv1.RouteGroup
 }
 
 func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {
