@@ -88,15 +88,13 @@ spec:
     spec:
       version: v1 # version of the Stack.
       replicas: 3
-      # optional horizontalPodAutoscaler definition (will create an HPA for the stack).
-      horizontalPodAutoscaler:
+      # optional autoscaler definition (will create an HPA for the stack).
+      autoscaler:
         minReplicas: 3
         maxReplicas: 10
         metrics:
-        - type: Resource
-          resource:
-            name: cpu
-            targetAverageUtilization: 50
+        - type: cpu
+          averageUtilization: 50
       # full Pod template.
       podTemplate:
         spec:
@@ -132,14 +130,12 @@ metadata:
     stackset-version: v1
 spec:
   replicas: 3
-  horizontalPodAutoscaler:
+  autoscaler:
     minReplicas: 3
     maxReplicas: 10
     metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        targetAverageUtilization: 50
+    - type: cpu
+      averageUtilization: 50
   podTemplate:
     spec:
       containers:
