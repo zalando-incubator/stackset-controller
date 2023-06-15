@@ -140,7 +140,7 @@ func (sc *StackContainer) HasTraffic() bool {
 }
 
 func (sc *StackContainer) IsReady() bool {
-	// Calculate minmum required replicas for the Deployment to be considered ready
+	// Calculate minimum required replicas for the Deployment to be considered ready
 	minRequiredReplicas := int32(math.Ceil(float64(sc.deploymentReplicas) * sc.minReadyPercent))
 
 	// Stacks are considered ready when all subresources have been updated
