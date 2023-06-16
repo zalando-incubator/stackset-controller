@@ -1,4 +1,3 @@
----
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -945,16 +944,6 @@ spec:
                                                   Gt, and Lt.
                                                 type: string
                                               values:
-                                                description: An array of string values.
-                                                  If the operator is In or NotIn,
-                                                  the values array must be non-empty.
-                                                  If the operator is Exists or DoesNotExist,
-                                                  the values array must be empty.
-                                                  If the operator is Gt or Lt, the
-                                                  values array must have a single
-                                                  element, which will be interpreted
-                                                  as an integer. This array is replaced
-                                                  during a strategic merge patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -983,16 +972,6 @@ spec:
                                                   Gt, and Lt.
                                                 type: string
                                               values:
-                                                description: An array of string values.
-                                                  If the operator is In or NotIn,
-                                                  the values array must be non-empty.
-                                                  If the operator is Exists or DoesNotExist,
-                                                  the values array must be empty.
-                                                  If the operator is Gt or Lt, the
-                                                  values array must have a single
-                                                  element, which will be interpreted
-                                                  as an integer. This array is replaced
-                                                  during a strategic merge patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -1051,16 +1030,6 @@ spec:
                                                   Gt, and Lt.
                                                 type: string
                                               values:
-                                                description: An array of string values.
-                                                  If the operator is In or NotIn,
-                                                  the values array must be non-empty.
-                                                  If the operator is Exists or DoesNotExist,
-                                                  the values array must be empty.
-                                                  If the operator is Gt or Lt, the
-                                                  values array must have a single
-                                                  element, which will be interpreted
-                                                  as an integer. This array is replaced
-                                                  during a strategic merge patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -1089,16 +1058,6 @@ spec:
                                                   Gt, and Lt.
                                                 type: string
                                               values:
-                                                description: An array of string values.
-                                                  If the operator is In or NotIn,
-                                                  the values array must be non-empty.
-                                                  If the operator is Exists or DoesNotExist,
-                                                  the values array must be empty.
-                                                  If the operator is Gt or Lt, the
-                                                  values array must have a single
-                                                  element, which will be interpreted
-                                                  as an integer. This array is replaced
-                                                  during a strategic merge patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -1156,25 +1115,10 @@ spec:
                                                   the key and values.
                                                 properties:
                                                   key:
-                                                    description: key is the label
-                                                      key that the selector applies
-                                                      to.
                                                     type: string
                                                   operator:
-                                                    description: operator represents
-                                                      a key's relationship to a set
-                                                      of values. Valid operators are
-                                                      In, NotIn, Exists and DoesNotExist.
                                                     type: string
                                                   values:
-                                                    description: values is an array
-                                                      of string values. If the operator
-                                                      is In or NotIn, the values array
-                                                      must be non-empty. If the operator
-                                                      is Exists or DoesNotExist, the
-                                                      values array must be empty.
-                                                      This array is replaced during
-                                                      a strategic merge patch.
                                                     items:
                                                       type: string
                                                     type: array
@@ -1220,25 +1164,10 @@ spec:
                                                   the key and values.
                                                 properties:
                                                   key:
-                                                    description: key is the label
-                                                      key that the selector applies
-                                                      to.
                                                     type: string
                                                   operator:
-                                                    description: operator represents
-                                                      a key's relationship to a set
-                                                      of values. Valid operators are
-                                                      In, NotIn, Exists and DoesNotExist.
                                                     type: string
                                                   values:
-                                                    description: values is an array
-                                                      of string values. If the operator
-                                                      is In or NotIn, the values array
-                                                      must be non-empty. If the operator
-                                                      is Exists or DoesNotExist, the
-                                                      values array must be empty.
-                                                      This array is replaced during
-                                                      a strategic merge patch.
                                                     items:
                                                       type: string
                                                     type: array
@@ -1497,25 +1426,10 @@ spec:
                                                   the key and values.
                                                 properties:
                                                   key:
-                                                    description: key is the label
-                                                      key that the selector applies
-                                                      to.
                                                     type: string
                                                   operator:
-                                                    description: operator represents
-                                                      a key's relationship to a set
-                                                      of values. Valid operators are
-                                                      In, NotIn, Exists and DoesNotExist.
                                                     type: string
                                                   values:
-                                                    description: values is an array
-                                                      of string values. If the operator
-                                                      is In or NotIn, the values array
-                                                      must be non-empty. If the operator
-                                                      is Exists or DoesNotExist, the
-                                                      values array must be empty.
-                                                      This array is replaced during
-                                                      a strategic merge patch.
                                                     items:
                                                       type: string
                                                     type: array
@@ -1561,25 +1475,10 @@ spec:
                                                   the key and values.
                                                 properties:
                                                   key:
-                                                    description: key is the label
-                                                      key that the selector applies
-                                                      to.
                                                     type: string
                                                   operator:
-                                                    description: operator represents
-                                                      a key's relationship to a set
-                                                      of values. Valid operators are
-                                                      In, NotIn, Exists and DoesNotExist.
                                                     type: string
                                                   values:
-                                                    description: values is an array
-                                                      of string values. If the operator
-                                                      is In or NotIn, the values array
-                                                      must be non-empty. If the operator
-                                                      is Exists or DoesNotExist, the
-                                                      values array must be empty.
-                                                      This array is replaced during
-                                                      a strategic merge patch.
                                                     items:
                                                       type: string
                                                     type: array
@@ -6919,25 +6818,10 @@ spec:
                                                   the key and values.
                                                 properties:
                                                   key:
-                                                    description: key is the label
-                                                      key that the selector applies
-                                                      to.
                                                     type: string
                                                   operator:
-                                                    description: operator represents
-                                                      a key's relationship to a set
-                                                      of values. Valid operators are
-                                                      In, NotIn, Exists and DoesNotExist.
                                                     type: string
                                                   values:
-                                                    description: values is an array
-                                                      of string values. If the operator
-                                                      is In or NotIn, the values array
-                                                      must be non-empty. If the operator
-                                                      is Exists or DoesNotExist, the
-                                                      values array must be empty.
-                                                      This array is replaced during
-                                                      a strategic merge patch.
                                                     items:
                                                       type: string
                                                     type: array
@@ -7378,32 +7262,11 @@ spec:
                                                 path within a volume.
                                               properties:
                                                 key:
-                                                  description: The key to project.
                                                   type: string
                                                 mode:
-                                                  description: 'Optional: mode bits
-                                                    used to set permissions on this
-                                                    file. Must be an octal value between
-                                                    0000 and 0777 or a decimal value
-                                                    between 0 and 511. YAML accepts
-                                                    both octal and decimal values,
-                                                    JSON requires decimal values for
-                                                    mode bits. If not specified, the
-                                                    volume defaultMode will be used.
-                                                    This might be in conflict with
-                                                    other options that affect the
-                                                    file mode, like fsGroup, and the
-                                                    result can be other mode bits
-                                                    set.'
                                                   format: int32
                                                   type: integer
                                                 path:
-                                                  description: The relative path of
-                                                    the file to map the key to. May
-                                                    not be an absolute path. May not
-                                                    contain the path element '..'.
-                                                    May not start with the string
-                                                    '..'.
                                                   type: string
                                               required:
                                               - key
@@ -7434,75 +7297,30 @@ spec:
                                                 the pod field
                                               properties:
                                                 fieldRef:
-                                                  description: 'Required: Selects
-                                                    a field of the pod: only annotations,
-                                                    labels, name and namespace are
-                                                    supported.'
                                                   properties:
                                                     apiVersion:
-                                                      description: Version of the
-                                                        schema the FieldPath is written
-                                                        in terms of, defaults to "v1".
                                                       type: string
                                                     fieldPath:
-                                                      description: Path of the field
-                                                        to select in the specified
-                                                        API version.
                                                       type: string
                                                   required:
                                                   - fieldPath
                                                   type: object
                                                 mode:
-                                                  description: 'Optional: mode bits
-                                                    used to set permissions on this
-                                                    file, must be an octal value between
-                                                    0000 and 0777 or a decimal value
-                                                    between 0 and 511. YAML accepts
-                                                    both octal and decimal values,
-                                                    JSON requires decimal values for
-                                                    mode bits. If not specified, the
-                                                    volume defaultMode will be used.
-                                                    This might be in conflict with
-                                                    other options that affect the
-                                                    file mode, like fsGroup, and the
-                                                    result can be other mode bits
-                                                    set.'
                                                   format: int32
                                                   type: integer
                                                 path:
-                                                  description: 'Required: Path is  the
-                                                    relative path name of the file
-                                                    to be created. Must not be absolute
-                                                    or contain the ''..'' path. Must
-                                                    be utf-8 encoded. The first item
-                                                    of the relative path must not
-                                                    start with ''..'''
                                                   type: string
                                                 resourceFieldRef:
-                                                  description: 'Selects a resource
-                                                    of the container: only resources
-                                                    limits and requests (limits.cpu,
-                                                    limits.memory, requests.cpu and
-                                                    requests.memory) are currently
-                                                    supported.'
                                                   properties:
                                                     containerName:
-                                                      description: 'Container name:
-                                                        required for volumes, optional
-                                                        for env vars'
                                                       type: string
                                                     divisor:
                                                       anyOf:
                                                       - type: integer
                                                       - type: string
-                                                      description: Specifies the output
-                                                        format of the exposed resources,
-                                                        defaults to "1"
                                                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                       x-kubernetes-int-or-string: true
                                                     resource:
-                                                      description: 'Required: resource
-                                                        to select'
                                                       type: string
                                                   required:
                                                   - resource
@@ -7535,32 +7353,11 @@ spec:
                                                 path within a volume.
                                               properties:
                                                 key:
-                                                  description: The key to project.
                                                   type: string
                                                 mode:
-                                                  description: 'Optional: mode bits
-                                                    used to set permissions on this
-                                                    file. Must be an octal value between
-                                                    0000 and 0777 or a decimal value
-                                                    between 0 and 511. YAML accepts
-                                                    both octal and decimal values,
-                                                    JSON requires decimal values for
-                                                    mode bits. If not specified, the
-                                                    volume defaultMode will be used.
-                                                    This might be in conflict with
-                                                    other options that affect the
-                                                    file mode, like fsGroup, and the
-                                                    result can be other mode bits
-                                                    set.'
                                                   format: int32
                                                   type: integer
                                                 path:
-                                                  description: The relative path of
-                                                    the file to map the key to. May
-                                                    not be an absolute path. May not
-                                                    contain the path element '..'.
-                                                    May not start with the string
-                                                    '..'.
                                                   type: string
                                               required:
                                               - key
