@@ -291,7 +291,12 @@ Items:
 			// stack ingress
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
-					s.Resources.Ingress = &ingress
+					if strings.HasSuffix(ingress.ObjectMeta.Name, core.SegmentSuffix) {
+						// Traffic Segment
+						s.Resources.IngressSegment = &ingress
+					} else {
+						s.Resources.Ingress = &ingress
+					}
 					continue Items
 				}
 			}
@@ -615,7 +620,8 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 		v1.EventTypeNormal,
 		"CreatedStack",
 		"Created stack %s",
-		newStack.Name())
+		newStack.Name(),
+	)
 
 	// Persist ObservedStackVersion in the status
 	updated := ssc.StackSet.DeepCopy()
@@ -667,7 +673,7 @@ func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stack
 		return existing, nil
 	}
 
-	// Create new Ingress
+
 	if existing == nil {
 		if ingress.Annotations == nil {
 			ingress.Annotations = make(map[string]string)
@@ -920,13 +926,14 @@ func (c *StackSetController) ReconcileStackSetIngressSources(
 }
 
 func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
-	err := c.ReconcileStackSetIngressSources(ctx, ssc.StackSet, ssc.Ingress, ssc.RouteGroup, ssc.GenerateIngress, ssc.GenerateRouteGroup)
-	if err != nil {
-		return err
-	}
-
 	trafficChanges := ssc.TrafficChanges()
 	if len(trafficChanges) != 0 {
+		res, err := ssc.ComputeTrafficSegments()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("New segments: %v\n", res)
+
 		var changeMessages []string
 		for _, change := range trafficChanges {
 			changeMessages = append(changeMessages, change.String())
@@ -939,6 +946,21 @@ func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc
 			"Switched traffic: %s",
 			strings.Join(changeMessages, ", "))
 	}
+
+	return nil
+}
+
+func (c *StackSetController) assignSegments(
+	ssc *core.StackSetContainer,
+	changes []core.TrafficChange,
+) error {
+	for _, stack := range ssc.StackContainers {
+	 	fmt.Printf("Segment %v, Name %v, Low %f High %f\n", stack.Resources, stack.Name(), 0.0, 0.0)
+	}
+
+	for _, c := range changes {
+		fmt.Printf("%s\n", c.String())
+	} 
 
 	return nil
 }
@@ -987,6 +1009,16 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		return c.errorEventf(sc.Stack, "FailedManageIngress", err)
 	}
 
+	err = c.ReconcileStackIngress(
+		ctx,
+		sc.Stack,
+		sc.Resources.IngressSegment,
+		sc.GenerateIngressSegment,
+	)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManageIngressSegment", err)
+	}
+ 
 	if c.routeGroupSupportEnabled {
 		err = c.ReconcileStackRouteGroup(ctx, sc.Stack, sc.Resources.RouteGroup, sc.GenerateRouteGroup)
 		if err != nil {

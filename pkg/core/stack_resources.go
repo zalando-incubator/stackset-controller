@@ -20,8 +20,11 @@ import (
 )
 
 const (
-	apiVersionAppsV1 = "apps/v1"
-	kindDeployment   = "Deployment"
+	apiVersionAppsV1    = "apps/v1"
+	kindDeployment      = "Deployment"
+
+	SegmentSuffix	    = "-traffic-segment"
+	IngressPredicateKey = "zalando.org/skipper-predicate"
 )
 
 type ingressOrRouteGroupSpec interface {
@@ -34,6 +37,10 @@ var (
 	selectorLabels = map[string]struct{}{
 		StacksetHeritageLabelKey: {},
 		StackVersionLabelKey:     {},
+	}
+
+	initialIngressSegment = map[string]string{
+		IngressPredicateKey: "TrafficSegment(0.0, 0.0)",
 	}
 
 	// PathTypeImplementationSpecific is the used implementation path type
@@ -74,10 +81,23 @@ func objectMetaInjectLabels(objectMeta metav1.ObjectMeta, labels map[string]stri
 }
 
 func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
+	return sc.objectMeta(false)
+}
+
+func (sc *StackContainer) segmentMeta() metav1.ObjectMeta {
+	return sc.objectMeta(true)
+}
+
+func (sc *StackContainer) objectMeta(segment bool) metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 
+	name := sc.Name()
+	if segment {
+		name += SegmentSuffix
+	}
+
 	return metav1.ObjectMeta{
-		Name:      sc.Name(),
+		Name:      name,
 		Namespace: sc.Namespace(),
 		Annotations: map[string]string{
 			stackGenerationAnnotationKey: strconv.FormatInt(sc.Stack.Generation, 10),
@@ -299,7 +319,17 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 	}, nil
 }
 
-func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec, overrides *zv1.StackIngressRouteGroupOverrides) ([]string, error) {
+func (sc *StackContainer) stackHostnames(
+	spec ingressOrRouteGroupSpec,
+	overrides *zv1.StackIngressRouteGroupOverrides,
+	segment bool,
+) ([]string, error) {
+
+	// The Ingress segment uses the original hostnames
+	if segment {
+		return spec.GetHosts(), nil
+	}
+
 	result := sets.NewString()
 
 	if overrides != nil && len(overrides.Hosts) > 0 {
@@ -333,12 +363,32 @@ func effectiveAnnotations(spec ingressOrRouteGroupSpec, overrides *zv1.StackIngr
 	return spec.GetAnnotations()
 }
 
-func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
+
+func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error)  {
+	return sc.generateIngress(false)
+}
+
+func (sc *StackContainer) GenerateIngressSegment() (
+	*networking.Ingress,
+	error,
+) {
+	return sc.generateIngress(true)
+}
+
+func (sc *StackContainer) generateIngress(segment bool) (
+	*networking.Ingress,
+	error,
+) {
+
 	if !sc.HasBackendPort() || sc.ingressSpec == nil || !sc.Stack.Spec.IngressOverrides.IsEnabled() {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(sc.ingressSpec, sc.Stack.Spec.IngressOverrides)
+	hostnames, err := sc.stackHostnames(
+		sc.ingressSpec,
+		sc.Stack.Spec.IngressOverrides,
+		segment,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +428,7 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 	})
 
 	result := &networking.Ingress{
-		ObjectMeta: sc.resourceMeta(),
+		ObjectMeta: sc.objectMeta(segment),
 		Spec: networking.IngressSpec{
 			Rules: rules,
 		},
@@ -386,6 +436,9 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 
 	// insert annotations
 	result.Annotations = mergeLabels(result.Annotations, effectiveAnnotations(sc.ingressSpec, sc.Stack.Spec.IngressOverrides))
+	if segment {
+		result.Annotations = mergeLabels(result.Annotations, initialIngressSegment)
+	}
 	return result, nil
 }
 
@@ -394,7 +447,11 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(sc.routeGroupSpec, sc.Stack.Spec.RouteGroupOverrides)
+	hostnames, err := sc.stackHostnames(
+		sc.routeGroupSpec,
+		sc.Stack.Spec.RouteGroupOverrides,
+		false,
+	)
 	if err != nil {
 		return nil, err
 	}
