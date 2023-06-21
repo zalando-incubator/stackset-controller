@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	tsRe = regexp.MustCompile(`TrafficSegment\((?P<Low>.*?),(?P<High>.*?)\)`)
+	tsRe = regexp.MustCompile(`TrafficSegment\((?P<Low>.*?), (?P<High>.*?)\)`)
 )
 
 // StackSetContainer is a container for storing the full state of a StackSet
@@ -251,29 +251,6 @@ func (sc *StackContainer) getPredicates() string {
 	return predicates
 }
 
-// func (sc *StackContainer) GetSegmentLimits() (float64, float64, error) {
-// 	// TODO ignore traffic switch from central ingress
-// 	// Set 100% traffic for initial stack
-// 	{
-// 	predicates := getPredicates()
-// 	vals := tsRe.FindStringSubmatch(predicates)
-// 	if len(vals) != 3 {
-// 		return 0, 0, fmt.Errorf("invalid TrafficSegment annotation")
-// 	}
-
-// 	low, err := strconv.ParseFloat(vals[1], 64)
-// 	if err != nil {
-// 		return 0, 0, fmt.Errorf("invalid low limit: %w", err)
-// 	}
-
-// 	high, err := strconv.ParseFloat(vals[2], 64)
-// 	if err != nil {
-// 		return 0, 0, fmt.Errorf("invalid high limit: %w", err)
-// 	}
-
-// 	return 0, 0, nil
-// }
-
 // StackResources describes the resources of a stack.
 type StackResources struct {
 	Deployment        *appsv1.Deployment
@@ -451,7 +428,8 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 	return result
 }
 
-// ComputeTrafficSegments computes the stack segments to fulfill the actual  returns updates the TrafficSegment predicates on all
+// ComputeTrafficSegments computes the stack segments to fulfill the actual
+// traffic configured in the main StackSet. Returns the updated segments, ordere  returns updates the TrafficSegment predicates on all
 // ingresses/routegroups to match the actual traffic weights.
 func (ssc *StackSetContainer) ComputeTrafficSegments() ([]segment, error) {
 	segments, growing, shrinking := []segment{}, []segment{}, []segment{}
@@ -461,7 +439,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() ([]segment, error) {
 	for uid, sc := range ssc.StackContainers {
 		// Active Stacks, as StackSet CRD traffic defines
 		if sc.actualTrafficWeight > 0 {
-			newWeights[uid] = sc.actualTrafficWeight
+			newWeights[uid] = sc.actualTrafficWeight / 100.0
 		}
 
 		// Currently assigend segments
