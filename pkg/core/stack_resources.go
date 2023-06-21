@@ -84,10 +84,6 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 	return sc.objectMeta(false)
 }
 
-func (sc *StackContainer) segmentMeta() metav1.ObjectMeta {
-	return sc.objectMeta(true)
-}
-
 func (sc *StackContainer) objectMeta(segment bool) metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 
