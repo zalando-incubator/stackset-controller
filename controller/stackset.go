@@ -950,21 +950,6 @@ func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc
 	return nil
 }
 
-func (c *StackSetController) assignSegments(
-	ssc *core.StackSetContainer,
-	changes []core.TrafficChange,
-) error {
-	for _, stack := range ssc.StackContainers {
-	 	fmt.Printf("Segment %v, Name %v, Low %f High %f\n", stack.Resources, stack.Name(), 0.0, 0.0)
-	}
-
-	for _, c := range changes {
-		fmt.Printf("%s\n", c.String())
-	} 
-
-	return nil
-}
-
 func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context, existing *zv1.StackSet, generateUpdated func() []*zv1.DesiredTraffic) error {
 	updatedTraffic := generateUpdated()
 
