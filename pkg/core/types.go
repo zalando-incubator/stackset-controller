@@ -506,22 +506,22 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		}
 	}
 
-	fmt.Printf("toUpdate: %v %v", growing, shrinking)
-	// segmentsToUpdate := []*networking.Ingress{}
-	// for _, s := range append(growing, shrinking...) {
-	// 	rsc, err := ssc.StackContainers[s.id].SetSegmentLimits(
-	// 		s.lowLimit,
-	// 		s.highLimit,
-	// 	)
+	fmt.Printf("toUpdate: %v %v\n", growing, shrinking)
+	segmentsToUpdate := []*networking.Ingress{}
+    for _, s := range append(growing, shrinking...) {
+	 	rsc, err := ssc.StackContainers[s.id].SetSegmentLimits(
+	 		s.lowLimit,
+	 		s.highLimit,
+	 	)
 
-	// 	if err != nil {
-	// 		return nil, err
-	// 	}
+		if err != nil {
+			return nil, err
+		}
 
-	// 	segmentsToUpdate = append(segmentsToUpdate, rsc)
-	// }
+		segmentsToUpdate = append(segmentsToUpdate, rsc)
+	}
 
-	return []*networking.Ingress{}, nil
+	return segmentsToUpdate, nil
 }
 
 type segment struct {

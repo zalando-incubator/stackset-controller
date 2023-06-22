@@ -1054,15 +1054,6 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 		}
 	}
 
-	// Compute segments
-	res, err := container.ComputeTrafficSegments()
-	if err != nil {
-		return err
-	}
-	for _, r := range res {
-		fmt.Printf("New segments: %s %v\n", r.Name, r.ObjectMeta.Annotations[core.IngressPredicateKey])
-	}
-
 	// Reconcile stackset resources (update ingress and/or routegroups). Proceed on errors.
 	err = c.ReconcileStackSetResources(ctx, container)
 	if err != nil {
@@ -1088,6 +1079,42 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 	err = c.ReconcileStatuses(ctx, container)
 	if err != nil {
 		return err
+	}
+
+	// Compute segments
+	res, err := container.ComputeTrafficSegments()
+	if err != nil {
+		err = c.errorEventf(container.StackSet, "FailedManageSegments", err)
+		c.stacksetLogger(container).Errorf(
+			"Unable to compute stack traffic segments: %v",
+			err,
+		)
+	}
+	for _, r := range res {
+		fmt.Printf("New segments: %s %v\n", r.Name, r.ObjectMeta.Annotations[core.IngressPredicateKey])
+	}
+
+	if len(res) > 0 {
+		for _, r := range res {
+			_, err = c.client.NetworkingV1().Ingresses(r.Namespace).Update(
+				ctx,
+				r,
+				metav1.UpdateOptions{},
+			)
+			if err != nil {
+				c.stacksetLogger(container).Errorf(
+					"Unable to update stack traffic segment: %v",
+					err,
+				)
+				continue
+			}
+			c.recorder.Eventf(
+				container.StackSet,
+				v1.EventTypeNormal,
+				"UpdatedIngress",
+				"Updated Ingress %s",
+				r.Name)
+		}
 	}
 
 	return nil
