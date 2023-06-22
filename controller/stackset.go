@@ -928,12 +928,6 @@ func (c *StackSetController) ReconcileStackSetIngressSources(
 func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
 	trafficChanges := ssc.TrafficChanges()
 	if len(trafficChanges) != 0 {
-		res, err := ssc.ComputeTrafficSegments()
-		if err != nil {
-			return err
-		}
-		fmt.Printf("New segments: %v\n", res)
-
 		var changeMessages []string
 		for _, change := range trafficChanges {
 			changeMessages = append(changeMessages, change.String())
@@ -1058,6 +1052,15 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 			err = c.errorEventf(sc.Stack, "FailedManageStack", err)
 			c.stackLogger(container, sc).Errorf("Unable to reconcile stack resources: %v", err)
 		}
+	}
+
+	// Compute segments
+	res, err := container.ComputeTrafficSegments()
+	if err != nil {
+		return err
+	}
+	for _, r := range res {
+		fmt.Printf("New segments: %s %v\n", r.Name, r.ObjectMeta.Annotations[core.IngressPredicateKey])
 	}
 
 	// Reconcile stackset resources (update ingress and/or routegroups). Proceed on errors.

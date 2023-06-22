@@ -187,18 +187,14 @@ func (sc *StackContainer) Namespace() string {
 
 func (sc *StackContainer) GetSegmentLimits() (float64, float64, error) {
 	if sc.Resources.Ingress == nil && sc.Resources.RouteGroup == nil {
+		fmt.Printf("Nil segment\n")
 		return 0.0, 0.0, nil
 	}
 
-	predicates := ""
-	if sc.Resources.IngressSegment != nil {
-		annotations := sc.Resources.IngressSegment.Annotations
-		predicates = annotations[IngressPredicateKey]
-	} else {
-		return -1.0, -1.0, fmt.Errorf(
-			"IngressSegment not found for %s",
-			sc.Name(),
-		)
+	fmt.Printf("Found segment\n")
+	predicates, err := sc.getSegmentPredicates()
+	if err != nil {
+		return -1.0, -1.0, err		
 	}
 
 	vals := tsRe.FindStringSubmatch(predicates)
@@ -219,36 +215,48 @@ func (sc *StackContainer) GetSegmentLimits() (float64, float64, error) {
 	return low, high, nil
 }
 
-func (sc *StackContainer) SetSegmentLimits(low, high float64) error {
- 	if high > low {
- 		return fmt.Errorf("high limit must be greater than low limit")
+// SetSegmentLimits assigns the provided limits to the traffic segment of the
+// StackContainer. Returns the updated segment resource.
+//
+// TODO RouteGroup
+func (sc *StackContainer) SetSegmentLimits(low, high float64) (
+	*networking.Ingress,
+	error,
+ ) {
+ 	if low > high {
+ 		return nil, fmt.Errorf("high limit must be greater than low limit")
  	}
 
- 	predicates := sc.getPredicates()
- 	newPredicates := tsRe.ReplaceAllString(
+	fmt.Printf("Before SetSegment\n")
+	predicates, err := sc.getSegmentPredicates()
+	if err != nil {
+		return nil, err
+	}
+
+	newPredicates := tsRe.ReplaceAllString(
  		predicates,
  		fmt.Sprintf("TrafficSegment(%.2f, %.2f)", low, high),
  	)
 
-	if sc.Resources.IngressSegment != nil {
-		sc.Resources.IngressSegment.Annotations[IngressPredicateKey] = newPredicates
-	}
-
-	return nil
+	sc.Resources.IngressSegment.Annotations[IngressPredicateKey] = newPredicates
+	return sc.Resources.IngressSegment, nil
 }
 
-func (sc *StackContainer) getPredicates() string {
-	fmt.Printf("Aqui %v\n", sc.Resources.IngressSegment)
+func (sc *StackContainer) getSegmentPredicates() (string, error) {
 	predicates := ""
 	if sc.Resources.IngressSegment != nil {
 		annotations := sc.Resources.IngressSegment.Annotations
 		predicates = annotations[IngressPredicateKey]
-		fmt.Printf("Pred %v\n", predicates)
+	} else {
+		return "", fmt.Errorf("%s: nil predicates not found", sc.Name())
 	}
 
+	if predicates == "" {
+		return "", fmt.Errorf("%s: predicates not found", sc.Name())
+	}
 	// TODO RouteGroup
 
-	return predicates
+	return predicates, nil
 }
 
 // StackResources describes the resources of a stack.
@@ -429,9 +437,11 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 }
 
 // ComputeTrafficSegments computes the stack segments to fulfill the actual
-// traffic configured in the main StackSet. Returns the updated segments, ordere  returns updates the TrafficSegment predicates on all
-// ingresses/routegroups to match the actual traffic weights.
-func (ssc *StackSetContainer) ComputeTrafficSegments() ([]segment, error) {
+// traffic configured in the main StackSet. Returns the updated resources.
+func (ssc *StackSetContainer) ComputeTrafficSegments() (
+	[]*networking.Ingress,
+	error,
+) {
 	segments, growing, shrinking := []segment{}, []segment{}, []segment{}
 	existingStacks := map[types.UID]bool{}
 	newWeights := map[types.UID]float64{}
@@ -496,7 +506,22 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() ([]segment, error) {
 		}
 	}
 
-	return append(growing, shrinking...), nil
+	fmt.Printf("toUpdate: %v %v", growing, shrinking)
+	// segmentsToUpdate := []*networking.Ingress{}
+	// for _, s := range append(growing, shrinking...) {
+	// 	rsc, err := ssc.StackContainers[s.id].SetSegmentLimits(
+	// 		s.lowLimit,
+	// 		s.highLimit,
+	// 	)
+
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+
+	// 	segmentsToUpdate = append(segmentsToUpdate, rsc)
+	// }
+
+	return []*networking.Ingress{}, nil
 }
 
 type segment struct {
