@@ -280,6 +280,7 @@ const (
 	ZMONAutoscalerMetric         AutoscalerMetricType = "ZMON"
 	ClusterScalingScheduleMetric AutoscalerMetricType = "ClusterScalingSchedule"
 	ScalingScheduleMetric        AutoscalerMetricType = "ScalingSchedule"
+	ExternalRPSMetric            AutoscalerMetricType = "ExternalRPS"
 )
 
 // AutoscalerMetrics is the type of metric to be be used for autoscaling.
@@ -298,6 +299,8 @@ type AutoscalerMetrics struct {
 	// all containers in a pod.
 	// +optional
 	Container string `json:"container,omitempty"`
+	Hostname  string `json:"hostname,omitempty"`
+	Weight    string `json:"weight,omitempty"`
 }
 
 // Autoscaler is the autoscaling definition for a stack
