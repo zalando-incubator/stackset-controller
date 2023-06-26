@@ -280,7 +280,7 @@ const (
 	ZMONAutoscalerMetric         AutoscalerMetricType = "ZMON"
 	ClusterScalingScheduleMetric AutoscalerMetricType = "ClusterScalingSchedule"
 	ScalingScheduleMetric        AutoscalerMetricType = "ScalingSchedule"
-	ExternalRPSMetric            AutoscalerMetricType = "ExternalRPS"
+	ExternalRPSMetric            AutoscalerMetricType = "requests-per-second"
 )
 
 // AutoscalerMetrics is the type of metric to be be used for autoscaling.
