@@ -88,7 +88,7 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 		case zv1.MemoryAutoscalerMetric:
 			generated, err = memoryMetric(m)
 		case zv1.ExternalRPSMetric:
-			generated, annotations, err = externalRPSMetric(m, stackName)
+			generated, annotations, err = externalRPSMetric(m)
 		default:
 			err = fmt.Errorf("metric type %s not supported", m.Type)
 		}
@@ -286,13 +286,21 @@ func routegroupMetric(metrics zv1.AutoscalerMetrics, rgName, backendName string)
 	return generated, nil
 }
 
-func externalRPSMetric(metrics zv1.AutoscalerMetrics, stacksetName string) (*autoscaling.MetricSpec, map[string]string, error) {
+func externalRPSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[string]string, error) {
 	if metrics.Average == nil {
 		return nil, nil, fmt.Errorf("average value not specified for metric")
 	}
 
-	if len(metrics.Hostnames) == 0 {
-		return nil, nil, fmt.Errorf("hostnames value not specified for metric")
+	if metrics.RequestsPerSecond == nil {
+		return nil, nil, fmt.Errorf("RequestsPerSecond value not specified for metric")
+	}
+
+	if len(metrics.RequestsPerSecond.Hostnames) == 0 {
+		return nil, nil, fmt.Errorf("RequestsPerSecond.hostnames value not specified for metric")
+	}
+
+	if metrics.RequestsPerSecond.Name == "" {
+		return nil, nil, fmt.Errorf("RequestsPerSecond.name value not specified for metric")
 	}
 
 	average := metrics.Average.DeepCopy()
@@ -300,7 +308,7 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stacksetName string) (*aut
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
 			Metric: autoscaling.MetricIdentifier{
-				Name: fmt.Sprintf("%s-rps", stacksetName),
+				Name: metrics.RequestsPerSecond.Name,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"type": "requests-per-second"},
 				},
@@ -312,17 +320,15 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stacksetName string) (*aut
 		},
 	}
 
-	hosts := ""
-	for _, h := range metrics.Hostnames {
-		hosts += h + ","
-	}
+	hostKey := fmt.Sprintf("metric-config.%s.requests-per-second/hostnames", metrics.RequestsPerSecond.Name)
+	weightKey := fmt.Sprintf("metric-config.%s.requests-per-second/weight", metrics.RequestsPerSecond.Name)
 
 	annotations := map[string]string{
-		fmt.Sprintf("metric-config.%s-rps.requests-per-second/hostnames", stacksetName): hosts[:len(hosts)-1],
+		hostKey: strings.Join(metrics.RequestsPerSecond.Hostnames, ","),
 	}
 
-	if metrics.Weight != "" {
-		annotations[fmt.Sprintf("metric-config.%s-rps.requests-per-second/weight", stacksetName)] = metrics.Weight
+	if metrics.RequestsPerSecond.Weight != "" {
+		annotations[weightKey] = metrics.RequestsPerSecond.Weight
 	}
 
 	return generated, annotations, nil
