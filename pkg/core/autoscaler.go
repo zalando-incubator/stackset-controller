@@ -291,6 +291,10 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stacksetName string) (*aut
 		return nil, nil, fmt.Errorf("average value not specified for metric")
 	}
 
+	if len(metrics.Hostnames) == 0 {
+		return nil, nil, fmt.Errorf("hostnames value not specified for metric")
+	}
+
 	average := metrics.Average.DeepCopy()
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
@@ -307,8 +311,14 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stacksetName string) (*aut
 			},
 		},
 	}
+
+	hosts := ""
+	for _, h := range metrics.Hostnames {
+		hosts += h + ","
+	}
+
 	annotations := map[string]string{
-		fmt.Sprintf("metric-config.%s-rps.requests-per-second/hostnames", stacksetName): metrics.Hostname,
+		fmt.Sprintf("metric-config.%s-rps.requests-per-second/hostnames", stacksetName): hosts[:len(hosts)-1],
 	}
 
 	if metrics.Weight != "" {

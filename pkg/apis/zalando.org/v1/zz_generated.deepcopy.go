@@ -101,6 +101,11 @@ func (in *AutoscalerMetrics) DeepCopyInto(out *AutoscalerMetrics) {
 		*out = new(MetricsClusterScalingSchedule)
 		**out = **in
 	}
+	if in.Hostnames != nil {
+		in, out := &in.Hostnames, &out.Hostnames
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
