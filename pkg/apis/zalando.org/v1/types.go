@@ -272,7 +272,6 @@ type MetricsClusterScalingSchedule struct {
 type MetricsRequestsPerSecond struct {
 	Name      string   `json:"name"`
 	Hostnames []string `json:"hostnames"`
-	Weight    string
 }
 
 // AutoscalerMetricType is the type of the metric used for scaling.
