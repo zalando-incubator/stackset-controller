@@ -303,7 +303,7 @@ type AutoscalerMetrics struct {
 	ZMON                   *MetricsZMON                   `json:"zmon,omitempty"`
 	ScalingSchedule        *MetricsScalingSchedule        `json:"scalingSchedule,omitempty"`
 	ClusterScalingSchedule *MetricsClusterScalingSchedule `json:"clusterScalingSchedule,omitempty"`
-	RequestsPerSecond      *MetricsRequestsPerSecond      `json:"requestsPerSecond"`
+	RequestsPerSecond      *MetricsRequestsPerSecond      `json:"requestsPerSecond,omitempty"`
 	// optional container name that can be used to scale based on CPU or
 	// Memory metrics of a specific container as opposed to an average of
 	// all containers in a pod.
