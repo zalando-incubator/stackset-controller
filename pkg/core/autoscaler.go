@@ -58,7 +58,7 @@ func (l MetricsList) Less(i, j int) bool {
 	return l[i].Type < l[j].Type
 }
 
-func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []zv1.AutoscalerMetrics) ([]autoscaling.MetricSpec, map[string]string, error) {
+func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []zv1.AutoscalerMetrics, trafficWeight float64) ([]autoscaling.MetricSpec, map[string]string, error) {
 	var resultMetrics MetricsList
 	resultAnnotations := make(map[string]string)
 
@@ -88,7 +88,7 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 		case zv1.MemoryAutoscalerMetric:
 			generated, err = memoryMetric(m)
 		case zv1.ExternalRPSMetric:
-			generated, annotations, err = externalRPSMetric(m)
+			generated, annotations, err = externalRPSMetric(m, trafficWeight)
 		default:
 			err = fmt.Errorf("metric type %s not supported", m.Type)
 		}
@@ -286,7 +286,7 @@ func routegroupMetric(metrics zv1.AutoscalerMetrics, rgName, backendName string)
 	return generated, nil
 }
 
-func externalRPSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, map[string]string, error) {
+func externalRPSMetric(metrics zv1.AutoscalerMetrics, weight float64) (*autoscaling.MetricSpec, map[string]string, error) {
 	if metrics.Average == nil {
 		return nil, nil, fmt.Errorf("average value not specified for metric")
 	}
@@ -324,11 +324,8 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, 
 	weightKey := fmt.Sprintf("metric-config.%s.requests-per-second/weight", metrics.RequestsPerSecond.Name)
 
 	annotations := map[string]string{
-		hostKey: strings.Join(metrics.RequestsPerSecond.Hostnames, ","),
-	}
-
-	if metrics.RequestsPerSecond.Weight != "" {
-		annotations[weightKey] = metrics.RequestsPerSecond.Weight
+		hostKey:   strings.Join(metrics.RequestsPerSecond.Hostnames, ","),
+		weightKey: fmt.Sprintf("%d", int(weight)), // weight should be always between 0 and 100 with no decimal points
 	}
 
 	return generated, annotations, nil

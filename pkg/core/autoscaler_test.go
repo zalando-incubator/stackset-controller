@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -26,7 +27,8 @@ func generateAutoscalerStub(minReplicas, maxReplicas int32) StackContainer {
 				},
 			},
 		},
-		stacksetName: "stackset",
+		stacksetName:        "stackset",
+		actualTrafficWeight: 100.0,
 	}
 }
 
@@ -152,15 +154,15 @@ func generateAutoscalerRouteGroup(minReplicas, maxReplicas, utilization int32) S
 	return container
 }
 
-func generateAutoscalerExternalRPS(minReplicas, maxReplicas, utilization int32, hosts []string, weight string) StackContainer {
+func generateAutoscalerExternalRPS(minReplicas, maxReplicas, utilization int32, weight float64, hosts []string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
+	container.actualTrafficWeight = weight
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.ExternalRPSMetric,
 			RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
 				Name:      "a-rps-metric",
 				Hostnames: hosts,
-				Weight:    weight,
 			},
 			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
@@ -337,7 +339,7 @@ func TestStackSetController_ReconcileAutoscalersScalingSchedule(t *testing.T) {
 }
 
 func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
-	validateHpa := func(tt *testing.T, expectedHosts, weight string, average int32, ssc StackContainer) {
+	validateHpa := func(tt *testing.T, expectedHosts string, weight float64, average int32, ssc StackContainer) {
 		hpa, err := ssc.GenerateHPA()
 		require.NoError(tt, err, "failed to create an HPA")
 		require.NotNil(tt, hpa, "hpa not generated")
@@ -351,13 +353,7 @@ func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
 		require.Equal(tt, autoscaling.AverageValueMetricType, externalMetric.External.Target.Type)
 		require.Equal(tt, int64(average), externalMetric.External.Target.AverageValue.Value())
 		require.Equal(tt, expectedHosts, hpa.Annotations["metric-config.a-rps-metric.requests-per-second/hostnames"])
-
-		if weight == "" {
-			_, ok := hpa.Annotations["metric-config.a-rps-metric.requests-per-second/weight"]
-			require.False(tt, ok)
-		} else {
-			require.Equal(tt, weight, hpa.Annotations["metric-config.a-rps-metric.requests-per-second/weight"])
-		}
+		require.Equal(tt, fmt.Sprintf("%d", int(weight)), hpa.Annotations["metric-config.a-rps-metric.requests-per-second/weight"])
 	}
 
 	for _, tc := range []struct {
@@ -365,37 +361,39 @@ func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
 		average       int32
 		hosts         []string
 		expectedHosts string
-		weight        string
+		weight        float64
 	}{
 		{
 			description:   "No weight; single host",
 			average:       80,
 			hosts:         []string{"foo.bar.baz"},
 			expectedHosts: "foo.bar.baz",
+			weight:        0.0,
 		},
 		{
 			description:   "No weight; multiple hosts",
 			average:       80,
 			hosts:         []string{"foo.bar.baz", "foo.bar.bazzy"},
 			expectedHosts: "foo.bar.baz,foo.bar.bazzy",
+			weight:        0.0,
 		},
 		{
 			description:   "With half weight; single host",
 			average:       40,
 			hosts:         []string{"foo.bar.baz"},
 			expectedHosts: "foo.bar.baz",
-			weight:        "50",
+			weight:        50.0,
 		},
 		{
 			description:   "With full weight; single host",
 			average:       80,
 			hosts:         []string{"foo.bar.baz"},
 			expectedHosts: "foo.bar.baz",
-			weight:        "100",
+			weight:        100.0,
 		},
 	} {
 		t.Run(tc.description, func(tt *testing.T) {
-			ssc := generateAutoscalerExternalRPS(1, 10, tc.average, tc.hosts, tc.weight)
+			ssc := generateAutoscalerExternalRPS(1, 10, tc.average, tc.weight, tc.hosts)
 			validateHpa(tt, tc.expectedHosts, tc.weight, tc.average, ssc)
 		})
 	}
@@ -454,7 +452,7 @@ func TestExternalRPSMetricInvalid(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(tt *testing.T) {
-			_, _, err := externalRPSMetric(tc.m)
+			_, _, err := externalRPSMetric(tc.m, 100.0)
 			require.Error(tt, err)
 		})
 	}
