@@ -1,12 +1,13 @@
 package core
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	autoscaling "k8s.io/api/autoscaling/v2"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,7 +27,8 @@ func generateAutoscalerStub(minReplicas, maxReplicas int32) StackContainer {
 				},
 			},
 		},
-		stacksetName: "stackset",
+		stacksetName:        "stackset",
+		actualTrafficWeight: 100.0,
 	}
 }
 
@@ -51,6 +53,7 @@ func generateAutoscalerMemory(minReplicas, maxReplicas, utilization int32, conta
 		})
 	return container
 }
+
 func generateAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueName, queueRegion string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.Stack.Spec.Autoscaler.Metrics = append(
@@ -145,6 +148,21 @@ func generateAutoscalerRouteGroup(minReplicas, maxReplicas, utilization int32) S
 	container.Stack.Spec.Autoscaler.Metrics = append(
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:    zv1.RouteGroupAutoscalerMetric,
+			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
+		},
+	)
+	return container
+}
+
+func generateAutoscalerExternalRPS(minReplicas, maxReplicas, utilization int32, weight float64, hosts []string) StackContainer {
+	container := generateAutoscalerStub(minReplicas, maxReplicas)
+	container.actualTrafficWeight = weight
+	container.Stack.Spec.Autoscaler.Metrics = append(
+		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+			Type: zv1.ExternalRPSMetric,
+			RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
+				Hostnames: hosts,
+			},
 			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
 	)
@@ -319,12 +337,113 @@ func TestStackSetController_ReconcileAutoscalersScalingSchedule(t *testing.T) {
 
 }
 
+func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
+	name := "stackset-v1-rps"
+	validateHpa := func(tt *testing.T, expectedHosts string, weight float64, average int32, ssc StackContainer) {
+		hpa, err := ssc.GenerateHPA()
+		require.NoError(tt, err, "failed to create an HPA")
+		require.NotNil(tt, hpa, "hpa not generated")
+		require.Equal(tt, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
+		require.Equal(tt, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
+		require.Len(tt, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
+		externalMetric := hpa.Spec.Metrics[0]
+		require.Equal(tt, autoscaling.ExternalMetricSourceType, externalMetric.Type)
+		require.Equal(tt, name, externalMetric.External.Metric.Name)
+		require.Equal(tt, "requests-per-second", externalMetric.External.Metric.Selector.MatchLabels["type"])
+		require.Equal(tt, autoscaling.AverageValueMetricType, externalMetric.External.Target.Type)
+		require.Equal(tt, int64(average), externalMetric.External.Target.AverageValue.Value())
+		require.Equal(tt, expectedHosts, hpa.Annotations["metric-config.stackset-v1-rps.requests-per-second/hostnames"])
+		require.Equal(tt, fmt.Sprintf("%d", int(weight)), hpa.Annotations["metric-config.stackset-v1-rps.requests-per-second/weight"])
+	}
+
+	for _, tc := range []struct {
+		description   string
+		average       int32
+		hosts         []string
+		expectedHosts string
+		weight        float64
+	}{
+		{
+			description:   "No weight; single host",
+			average:       80,
+			hosts:         []string{"foo.bar.baz"},
+			expectedHosts: "foo.bar.baz",
+			weight:        0.0,
+		},
+		{
+			description:   "No weight; multiple hosts",
+			average:       80,
+			hosts:         []string{"foo.bar.baz", "foo.bar.bazzy"},
+			expectedHosts: "foo.bar.baz,foo.bar.bazzy",
+			weight:        0.0,
+		},
+		{
+			description:   "With half weight; single host",
+			average:       40,
+			hosts:         []string{"foo.bar.baz"},
+			expectedHosts: "foo.bar.baz",
+			weight:        50.0,
+		},
+		{
+			description:   "With full weight; single host",
+			average:       80,
+			hosts:         []string{"foo.bar.baz"},
+			expectedHosts: "foo.bar.baz",
+			weight:        100.0,
+		},
+	} {
+		t.Run(tc.description, func(tt *testing.T) {
+			ssc := generateAutoscalerExternalRPS(1, 10, tc.average, tc.weight, tc.hosts)
+			validateHpa(tt, tc.expectedHosts, tc.weight, tc.average, ssc)
+		})
+	}
+}
+
 func TestCPUMetricValid(t *testing.T) {
 	var utilization int32 = 80
 	metrics := zv1.AutoscalerMetrics{Type: "cpu", AverageUtilization: &utilization}
 	metric, err := cpuMetric(metrics)
 	require.NoError(t, err, "could not create hpa metric")
 	require.Equal(t, metric.Resource.Name, corev1.ResourceCPU)
+}
+
+func TestExternalRPSMetricInvalid(t *testing.T) {
+	name := "stackset-v1-rps"
+	for _, tc := range []struct {
+		desc string
+		m    zv1.AutoscalerMetrics
+	}{
+		{
+			desc: "No average value",
+			m: zv1.AutoscalerMetrics{
+				Type: "RequestPerSecond",
+				RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
+					Hostnames: []string{"foo.bar.baz"},
+				},
+				Average: nil,
+			},
+		},
+		{
+			desc: "No RequestsPerSecond value",
+			m: zv1.AutoscalerMetrics{
+				Type:    "RequestPerSecond",
+				Average: resource.NewQuantity(80, resource.DecimalSI),
+			},
+		},
+		{
+			desc: "No RequestsPerSecond.Hostnames value",
+			m: zv1.AutoscalerMetrics{
+				Type:              "RequestPerSecond",
+				RequestsPerSecond: &zv1.MetricsRequestsPerSecond{},
+				Average:           resource.NewQuantity(80, resource.DecimalSI),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(tt *testing.T) {
+			_, _, err := externalRPSMetric(tc.m, name, 100.0)
+			require.Error(tt, err)
+		})
+	}
 }
 
 func TestCPUMetricInValid(t *testing.T) {

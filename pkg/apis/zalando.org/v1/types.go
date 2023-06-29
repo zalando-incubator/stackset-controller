@@ -266,6 +266,13 @@ type MetricsClusterScalingSchedule struct {
 	Name string `json:"name"`
 }
 
+// MetricRequestsPerSecond specifies basic information to scale based on
+// on external RPS metric.
+// +k8s:deepcopy-gen=true
+type MetricsRequestsPerSecond struct {
+	Hostnames []string `json:"hostnames"`
+}
+
 // AutoscalerMetricType is the type of the metric used for scaling.
 // +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule
 type AutoscalerMetricType string
@@ -280,6 +287,7 @@ const (
 	ZMONAutoscalerMetric         AutoscalerMetricType = "ZMON"
 	ClusterScalingScheduleMetric AutoscalerMetricType = "ClusterScalingSchedule"
 	ScalingScheduleMetric        AutoscalerMetricType = "ScalingSchedule"
+	ExternalRPSMetric            AutoscalerMetricType = "RequestsPerSecond"
 )
 
 // AutoscalerMetrics is the type of metric to be be used for autoscaling.
@@ -293,6 +301,7 @@ type AutoscalerMetrics struct {
 	ZMON                   *MetricsZMON                   `json:"zmon,omitempty"`
 	ScalingSchedule        *MetricsScalingSchedule        `json:"scalingSchedule,omitempty"`
 	ClusterScalingSchedule *MetricsClusterScalingSchedule `json:"clusterScalingSchedule,omitempty"`
+	RequestsPerSecond      *MetricsRequestsPerSecond      `json:"requestsPerSecond,omitempty"`
 	// optional container name that can be used to scale based on CPU or
 	// Memory metrics of a specific container as opposed to an average of
 	// all containers in a pod.

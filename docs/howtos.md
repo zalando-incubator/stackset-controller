@@ -172,9 +172,10 @@ specify scaling based on the following metrics:
 4. `PodJSON`
 5. `Ingress`
 6. `RouteGroup`
-7. `ZMON`
-8. `ScalingSchedule`
-9. `ClusterScalingSchedule`
+7. `RequestsPerSecond`
+8. `ZMON`
+9. `ScalingSchedule`
+10. `ClusterScalingSchedule`
 
 _Note:_ Based on the metrics type specified you may need to also deploy the [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter)
 in your cluster.
@@ -249,6 +250,27 @@ autoscaler:
   - type: RouteGroup
     average: 30
 ```
+If using an external ingress, in other words using neither `RouteGroup` or `Ingress`, the recommended way to scale your applications using a RPS metric is through `RequestsPerSecond` type, like the following example:
+
+```yaml
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+  - type: RequestsPerSecond
+    average: 30
+    requestsPerSecond:
+      hostnames: 
+        - 'example.com'
+        - 'foo.bar.baz'
+```
+The RPS measured in the specified hostnames are weighted by the ammount of traffic the stack is getting. For example: let's say a traffic switch is happening from `stack-A` to `stack-B`, and in the current state 50% of the traffic is being routed to `stack-B` backends. When calculating the RPS the metric will get the total traffic to `example.com` and `foo.bar.baz` and sum it all up, after this the final value is multiplied by the percentage weight in this case 50%, resulting in something like:
+
+    `sum(traffic('example.com'), traffic('foo.bar.baz')) * 0.5`
+
+This final value will be compared to the value in `average` field, in this example 30. If the final number is bigger than 30 the backend will scale out, otherwise it will stay the same.
+
+Note that the field `hostnames` can accept as many hostnames as you want.
 
 If ZMON based metrics are supported you can enable scaling based on ZMON checks
 as shown in the following metric configuration:

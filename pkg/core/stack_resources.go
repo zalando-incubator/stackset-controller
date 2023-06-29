@@ -214,6 +214,7 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, error) {
 	autoscalerSpec := sc.Stack.Spec.Autoscaler
 	hpaSpec := sc.Stack.Spec.HorizontalPodAutoscaler
+	trafficWeight := sc.actualTrafficWeight
 
 	if autoscalerSpec == nil && hpaSpec == nil {
 		return nil, nil
@@ -238,7 +239,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		result.Spec.MinReplicas = autoscalerSpec.MinReplicas
 		result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
 
-		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerSpec.Metrics)
+		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerSpec.Metrics, trafficWeight)
 		if err != nil {
 			return nil, err
 		}
