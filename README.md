@@ -93,7 +93,7 @@ spec:
         minReplicas: 3
         maxReplicas: 10
         metrics:
-        - type: cpu
+        - type: CPU
           averageUtilization: 50
       # full Pod template.
       podTemplate:
@@ -134,7 +134,7 @@ spec:
     minReplicas: 3
     maxReplicas: 10
     metrics:
-    - type: cpu
+    - type: CPU
       averageUtilization: 50
   podTemplate:
     spec:
