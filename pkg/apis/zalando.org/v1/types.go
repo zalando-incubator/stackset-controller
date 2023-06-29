@@ -270,7 +270,6 @@ type MetricsClusterScalingSchedule struct {
 // on external RPS metric.
 // +k8s:deepcopy-gen=true
 type MetricsRequestsPerSecond struct {
-	Name      string   `json:"name"`
 	Hostnames []string `json:"hostnames"`
 }
 

@@ -161,7 +161,6 @@ func generateAutoscalerExternalRPS(minReplicas, maxReplicas, utilization int32, 
 		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.ExternalRPSMetric,
 			RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
-				Name:      "a-rps-metric",
 				Hostnames: hosts,
 			},
 			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
@@ -339,6 +338,7 @@ func TestStackSetController_ReconcileAutoscalersScalingSchedule(t *testing.T) {
 }
 
 func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
+	name := "stackset-v1"
 	validateHpa := func(tt *testing.T, expectedHosts string, weight float64, average int32, ssc StackContainer) {
 		hpa, err := ssc.GenerateHPA()
 		require.NoError(tt, err, "failed to create an HPA")
@@ -348,12 +348,12 @@ func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
 		require.Len(tt, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
 		externalMetric := hpa.Spec.Metrics[0]
 		require.Equal(tt, autoscaling.ExternalMetricSourceType, externalMetric.Type)
-		require.Equal(tt, "a-rps-metric", externalMetric.External.Metric.Name)
+		require.Equal(tt, name, externalMetric.External.Metric.Name)
 		require.Equal(tt, "requests-per-second", externalMetric.External.Metric.Selector.MatchLabels["type"])
 		require.Equal(tt, autoscaling.AverageValueMetricType, externalMetric.External.Target.Type)
 		require.Equal(tt, int64(average), externalMetric.External.Target.AverageValue.Value())
-		require.Equal(tt, expectedHosts, hpa.Annotations["metric-config.a-rps-metric.requests-per-second/hostnames"])
-		require.Equal(tt, fmt.Sprintf("%d", int(weight)), hpa.Annotations["metric-config.a-rps-metric.requests-per-second/weight"])
+		require.Equal(tt, expectedHosts, hpa.Annotations["metric-config.stackset-v1.requests-per-second/hostnames"])
+		require.Equal(tt, fmt.Sprintf("%d", int(weight)), hpa.Annotations["metric-config.stackset-v1.requests-per-second/weight"])
 	}
 
 	for _, tc := range []struct {
@@ -408,6 +408,7 @@ func TestCPUMetricValid(t *testing.T) {
 }
 
 func TestExternalRPSMetricInvalid(t *testing.T) {
+	name := "stackset-v1"
 	for _, tc := range []struct {
 		desc string
 		m    zv1.AutoscalerMetrics
@@ -417,7 +418,6 @@ func TestExternalRPSMetricInvalid(t *testing.T) {
 			m: zv1.AutoscalerMetrics{
 				Type: "RequestPerSecond",
 				RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
-					Name:      "a-test",
 					Hostnames: []string{"foo.bar.baz"},
 				},
 				Average: nil,
@@ -433,26 +433,14 @@ func TestExternalRPSMetricInvalid(t *testing.T) {
 		{
 			desc: "No RequestsPerSecond.Hostnames value",
 			m: zv1.AutoscalerMetrics{
-				Type: "RequestPerSecond",
-				RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
-					Name: "a-test",
-				},
-				Average: resource.NewQuantity(80, resource.DecimalSI),
-			},
-		},
-		{
-			desc: "No RequestsPerSecond.Name value",
-			m: zv1.AutoscalerMetrics{
-				Type: "RequestPerSecond",
-				RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
-					Hostnames: []string{"foo.bar.baz"},
-				},
-				Average: resource.NewQuantity(80, resource.DecimalSI),
+				Type:              "RequestPerSecond",
+				RequestsPerSecond: &zv1.MetricsRequestsPerSecond{},
+				Average:           resource.NewQuantity(80, resource.DecimalSI),
 			},
 		},
 	} {
 		t.Run(tc.desc, func(tt *testing.T) {
-			_, _, err := externalRPSMetric(tc.m, 100.0)
+			_, _, err := externalRPSMetric(tc.m, name, 100.0)
 			require.Error(tt, err)
 		})
 	}

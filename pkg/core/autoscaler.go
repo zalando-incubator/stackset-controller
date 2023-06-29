@@ -88,7 +88,7 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 		case zv1.MemoryAutoscalerMetric:
 			generated, err = memoryMetric(m)
 		case zv1.ExternalRPSMetric:
-			generated, annotations, err = externalRPSMetric(m, trafficWeight)
+			generated, annotations, err = externalRPSMetric(m, stackName, trafficWeight)
 		default:
 			err = fmt.Errorf("metric type %s not supported", m.Type)
 		}
@@ -286,7 +286,7 @@ func routegroupMetric(metrics zv1.AutoscalerMetrics, rgName, backendName string)
 	return generated, nil
 }
 
-func externalRPSMetric(metrics zv1.AutoscalerMetrics, weight float64) (*autoscaling.MetricSpec, map[string]string, error) {
+func externalRPSMetric(metrics zv1.AutoscalerMetrics, stackname string, weight float64) (*autoscaling.MetricSpec, map[string]string, error) {
 	if metrics.Average == nil {
 		return nil, nil, fmt.Errorf("average value not specified for metric")
 	}
@@ -299,16 +299,12 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, weight float64) (*autoscal
 		return nil, nil, fmt.Errorf("RequestsPerSecond.hostnames value not specified for metric")
 	}
 
-	if metrics.RequestsPerSecond.Name == "" {
-		return nil, nil, fmt.Errorf("RequestsPerSecond.name value not specified for metric")
-	}
-
 	average := metrics.Average.DeepCopy()
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
 			Metric: autoscaling.MetricIdentifier{
-				Name: metrics.RequestsPerSecond.Name,
+				Name: stackname,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"type": "requests-per-second"},
 				},
@@ -320,8 +316,8 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, weight float64) (*autoscal
 		},
 	}
 
-	hostKey := fmt.Sprintf("metric-config.%s.requests-per-second/hostnames", metrics.RequestsPerSecond.Name)
-	weightKey := fmt.Sprintf("metric-config.%s.requests-per-second/weight", metrics.RequestsPerSecond.Name)
+	hostKey := fmt.Sprintf("metric-config.%s.requests-per-second/hostnames", stackname)
+	weightKey := fmt.Sprintf("metric-config.%s.requests-per-second/weight", stackname)
 
 	annotations := map[string]string{
 		hostKey:   strings.Join(metrics.RequestsPerSecond.Hostnames, ","),
