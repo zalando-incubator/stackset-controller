@@ -338,7 +338,7 @@ func TestStackSetController_ReconcileAutoscalersScalingSchedule(t *testing.T) {
 }
 
 func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
-	name := "stackset-v1"
+	name := "stackset-v1-rps"
 	validateHpa := func(tt *testing.T, expectedHosts string, weight float64, average int32, ssc StackContainer) {
 		hpa, err := ssc.GenerateHPA()
 		require.NoError(tt, err, "failed to create an HPA")
@@ -408,7 +408,7 @@ func TestCPUMetricValid(t *testing.T) {
 }
 
 func TestExternalRPSMetricInvalid(t *testing.T) {
-	name := "stackset-v1"
+	name := "stackset-v1-rps"
 	for _, tc := range []struct {
 		desc string
 		m    zv1.AutoscalerMetrics

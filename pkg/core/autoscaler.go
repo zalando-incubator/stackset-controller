@@ -299,12 +299,14 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stackname string, weight f
 		return nil, nil, fmt.Errorf("RequestsPerSecond.hostnames value not specified for metric")
 	}
 
+	name := stackname + "-rps"
+
 	average := metrics.Average.DeepCopy()
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
 			Metric: autoscaling.MetricIdentifier{
-				Name: stackname,
+				Name: name,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"type": "requests-per-second"},
 				},
