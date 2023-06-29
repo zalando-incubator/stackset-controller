@@ -352,8 +352,8 @@ func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {
 		require.Equal(tt, "requests-per-second", externalMetric.External.Metric.Selector.MatchLabels["type"])
 		require.Equal(tt, autoscaling.AverageValueMetricType, externalMetric.External.Target.Type)
 		require.Equal(tt, int64(average), externalMetric.External.Target.AverageValue.Value())
-		require.Equal(tt, expectedHosts, hpa.Annotations["metric-config.stackset-v1.requests-per-second/hostnames"])
-		require.Equal(tt, fmt.Sprintf("%d", int(weight)), hpa.Annotations["metric-config.stackset-v1.requests-per-second/weight"])
+		require.Equal(tt, expectedHosts, hpa.Annotations["metric-config.stackset-v1-rps.requests-per-second/hostnames"])
+		require.Equal(tt, fmt.Sprintf("%d", int(weight)), hpa.Annotations["metric-config.stackset-v1-rps.requests-per-second/weight"])
 	}
 
 	for _, tc := range []struct {
