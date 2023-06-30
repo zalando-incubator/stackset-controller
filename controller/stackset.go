@@ -324,6 +324,12 @@ Items:
 			// stack routegroups
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
+					if strings.HasSuffix(routegroup.ObjectMeta.Name, core.SegmentSuffix) {
+						// Traffic Segment
+						s.Resources.RouteGroupSegment = &routegroup
+					} else {
+						s.Resources.RouteGroup = &routegroup
+					}
 					s.Resources.RouteGroup = &routegroup
 					continue Items
 				}
