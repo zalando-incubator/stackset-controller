@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"regexp"
@@ -133,6 +134,18 @@ type TrafficChange struct {
 	NewTrafficWeight float64
 }
 
+type TrafficSegment struct {
+	id                types.UID
+	lowerLimit        float64
+	upperLimit        float64
+	IngressSegment    *networking.Ingress
+	RouteGroupSegment *rgv1.RouteGroup
+}
+
+func (t *TrafficSegment) size() float64 {
+	return t.upperLimit - t.lowerLimit
+}
+
 func (tc TrafficChange) String() string {
 	return fmt.Sprintf("%s: %.1f%% to %.1f%%", tc.StackName, tc.OldTrafficWeight, tc.NewTrafficWeight)
 }
@@ -149,6 +162,8 @@ func (sc *StackContainer) IsReady() bool {
 	// Calculate minimum required replicas for the Deployment to be considered ready
 	minRequiredReplicas := int32(math.Ceil(float64(sc.deploymentReplicas) * sc.minReadyPercent))
 
+	fmt.Printf("\n\n%s: replicas %d\n", sc.Name(), sc.deploymentReplicas)
+	fmt.Printf("%s: resources updated %t\n", sc.Name(), sc.resourcesUpdated)
 	// Stacks are considered ready when all subresources have been updated
 	// and the minimum ready percentage is hit on and replicas
 	return (sc.resourcesUpdated && sc.deploymentReplicas > 0 &&
@@ -185,78 +200,143 @@ func (sc *StackContainer) Namespace() string {
 	return sc.Stack.Namespace
 }
 
+// GetSegmentLimits returns the lower and upper limits of the Segment assigned
+// to the Stack.
 func (sc *StackContainer) GetSegmentLimits() (float64, float64, error) {
-	if sc.Resources.Ingress == nil && sc.Resources.RouteGroup == nil {
-		fmt.Printf("Nil segment\n")
-		return 0.0, 0.0, nil
+	switch {
+	case sc.Resources.IngressSegment != nil:
+		preds := sc.Resources.IngressSegment.Annotations[IngressPredicateKey]
+		if preds == "" {
+			return -1.0, -1.0, fmt.Errorf("%s: predicates not found", sc.Name())
+		}
+
+		vals := tsRe.FindStringSubmatch(preds)
+		if len(vals) != 3 {
+			return -1.0, -1.0, fmt.Errorf(
+				"%s: invalid TrafficSegment annotation",
+				sc.Name(),
+			)
+		}
+
+		low, err := strconv.ParseFloat(vals[1], 64)
+		if err != nil {
+			return -1.0, -1.0, err
+		}
+
+		high, err := strconv.ParseFloat(vals[2], 64)
+		if err != nil {
+			return -1.0, -1.0, err
+		}
+
+		return low, high, nil
+
+	case sc.Resources.RouteGroupSegment != nil:
+		for _, r := range sc.Resources.RouteGroupSegment.Spec.Routes {
+			for _, p := range r.Predicates {
+				vals := tsRe.FindStringSubmatch(p)
+				if len(vals) == 3 {
+					low, err := strconv.ParseFloat(vals[1], 64)
+					if err != nil {
+						return -1.0, -1.0, err
+					}
+
+					high, err := strconv.ParseFloat(vals[2], 64)
+					if err != nil {
+						return -1.0, -1.0, err
+					}
+
+					return low, high, nil
+				}
+			}
+		}
+
+		return -1.0, -1.0, fmt.Errorf("%s: TrafficSegment not found", sc.Name())
+
+	default:
+		return -1.0, -1.0, nil
 	}
-
-	fmt.Printf("Found segment\n")
-	predicates, err := sc.getSegmentPredicates()
-	if err != nil {
-		return -1.0, -1.0, err		
-	}
-
-	vals := tsRe.FindStringSubmatch(predicates)
-	if len(vals) != 3 {
- 		return -1.0, -1.0, fmt.Errorf("invalid TrafficSegment annotation")
- 	}
-
-	low, err := strconv.ParseFloat(vals[1], 64)
-	if err != nil {
-		return -1.0, -1.0, fmt.Errorf("invalid low limit: %w", err)
-	}
-
-	high, err := strconv.ParseFloat(vals[2], 64)
-	if err != nil {
-		return -1.0, -1.0, fmt.Errorf("invalid high limit: %w", err)
-	}
-
-	return low, high, nil
 }
 
 // SetSegmentLimits assigns the provided limits to the traffic segment of the
 // StackContainer. Returns the updated segment resource.
-//
-// TODO RouteGroup
 func (sc *StackContainer) SetSegmentLimits(low, high float64) (
 	*networking.Ingress,
+	*rgv1.RouteGroup,
 	error,
- ) {
- 	if low > high {
- 		return nil, fmt.Errorf("high limit must be greater than low limit")
- 	}
-
-	fmt.Printf("Before SetSegment\n")
-	predicates, err := sc.getSegmentPredicates()
-	if err != nil {
-		return nil, err
+) {
+	if low > high {
+		return nil, nil, errors.New(
+			"lower limit cannot be greater than lowr limit",
+		)
 	}
 
-	newPredicates := tsRe.ReplaceAllString(
- 		predicates,
- 		fmt.Sprintf("TrafficSegment(%.2f, %.2f)", low, high),
- 	)
+	var ingressRes *networking.Ingress
+	var rgRes *rgv1.RouteGroup
 
-	sc.Resources.IngressSegment.Annotations[IngressPredicateKey] = newPredicates
-	return sc.Resources.IngressSegment, nil
+	switch {
+	case sc.Resources.IngressSegment != nil:
+		preds := sc.Resources.IngressSegment.Annotations[IngressPredicateKey]
+		if preds == "" {
+			return nil, nil, fmt.Errorf(
+				"%s: predicates not found",
+				sc.Name(),
+			)
+		}
+
+		newPreds := tsRe.ReplaceAllString(
+			preds,
+			fmt.Sprintf("TrafficSegment(%.2f, %.2f)", low, high),
+		)
+
+		sc.Resources.IngressSegment.Annotations[IngressPredicateKey] = newPreds
+		ingressRes = sc.Resources.IngressSegment
+
+	case sc.Resources.RouteGroupSegment != nil:
+		for _, r := range sc.Resources.RouteGroupSegment.Spec.Routes {
+			for i, p := range r.Predicates {
+				if tsRe.MatchString(p) {
+					r.Predicates[i] = fmt.Sprintf(
+						"TrafficSegment(%.2f, %.2f)",
+						low,
+						high,
+					)
+					break
+				}
+			}
+		}
+
+		rgRes = sc.Resources.RouteGroupSegment
+	}
+
+	return ingressRes, rgRes, nil
 }
 
 func (sc *StackContainer) getSegmentPredicates() (string, error) {
-	predicates := ""
-	if sc.Resources.IngressSegment != nil {
+	switch {
+	case sc.Resources.IngressSegment != nil:
 		annotations := sc.Resources.IngressSegment.Annotations
-		predicates = annotations[IngressPredicateKey]
-	} else {
-		return "", fmt.Errorf("%s: nil predicates not found", sc.Name())
-	}
+		predicates := annotations[IngressPredicateKey]
 
-	if predicates == "" {
+		if predicates == "" {
+			return "", fmt.Errorf("%s: predicates not found", sc.Name())
+		}
+		return predicates, nil
+
+	case sc.Resources.RouteGroupSegment != nil:
+		routes := sc.Resources.RouteGroupSegment.Spec.Routes
+
+		for _, r := range routes {
+			for _, p := range r.Predicates {
+				if tsRe.MatchString(p) {
+					return p, nil
+				}
+			}
+		}
 		return "", fmt.Errorf("%s: predicates not found", sc.Name())
-	}
-	// TODO RouteGroup
 
-	return predicates, nil
+	default:
+		return "", fmt.Errorf("%s: Ingress/RouteGroup not found", sc.Name())
+	}
 }
 
 // StackResources describes the resources of a stack.
@@ -439,56 +519,76 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 // ComputeTrafficSegments computes the stack segments to fulfill the actual
 // traffic configured in the main StackSet. Returns the updated resources.
 func (ssc *StackSetContainer) ComputeTrafficSegments() (
-	[]*networking.Ingress,
+	[]TrafficSegment,
 	error,
 ) {
-	segments, growing, shrinking := []segment{}, []segment{}, []segment{}
+	segments := []TrafficSegment{}
+	growing := []TrafficSegment{}
+	shrinking := []TrafficSegment{}
 	existingStacks := map[types.UID]bool{}
 	newWeights := map[types.UID]float64{}
 
+	// First gather stacks with updated weights and current active segments.
 	for uid, sc := range ssc.StackContainers {
-		// Active Stacks, as StackSet CRD traffic defines
 		if sc.actualTrafficWeight > 0 {
 			newWeights[uid] = sc.actualTrafficWeight / 100.0
 		}
 
-		// Currently assigend segments
-		low, high, err := sc.GetSegmentLimits()
+		lower, upper, err := sc.GetSegmentLimits()
 		if err != nil {
 			return nil, err
 		}
 
-		if low == high {
-			// unused stack, skip
-			continue
+		// Only consider active segments.
+		if lower != upper {
+			segments = append(
+				segments,
+				TrafficSegment{
+					id:         uid,
+					lowerLimit: lower,
+					upperLimit: upper,
+				},
+			)
 		}
-
-		segments = append(
-			segments,
-			segment{id: uid, lowLimit: low, highLimit: high},
-		)
 	}
 
 	sort.SliceStable(segments, func(i, j int) bool {
-		return segments[i].lowLimit < segments[j].highLimit
+		return segments[i].lowerLimit < segments[j].upperLimit
 	})
 
+	// Construct new traffic segments based on new traffic weights
 	index := 0.0
 	for _, s := range segments {
 		existingStacks[s.id] = true
 		w, ok := newWeights[s.id]
 		if !ok {
-			// Remove traffic
-			s.lowLimit = 0.0
-			s.highLimit = 0.0
+			// Set segment to inactive
+			s.lowerLimit, s.upperLimit = 0.0, 0.0
+			ingSeg, rgSeg, err := ssc.StackContainers[s.id].SetSegmentLimits(
+				s.lowerLimit,
+				s.upperLimit,
+			)
+			if err != nil {
+				return nil, err
+			}
+			s.IngressSegment, s.RouteGroupSegment = ingSeg, rgSeg
 			shrinking = append(shrinking, s)
 			continue
 		}
 
 		beforeSize := s.size()
 
-		s.lowLimit = index
-		s.highLimit = index + w
+		s.lowerLimit = index
+		s.upperLimit = index + w
+		ingSeg, rgSeg, err := ssc.StackContainers[s.id].SetSegmentLimits(
+			s.lowerLimit,
+			s.upperLimit,
+		)
+		if err != nil {
+			return nil, err
+		}
+		s.IngressSegment, s.RouteGroupSegment = ingSeg, rgSeg
+
 		index += w
 
 		if s.size() > beforeSize {
@@ -501,44 +601,34 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 	// Add new stacks
 	for id, w := range newWeights {
 		if !existingStacks[id] {
-			growing = append(growing, segment{id, index, index + w})
+			s := TrafficSegment{
+				id:         id,
+				lowerLimit: index,
+				upperLimit: index + w,
+			}
+			ingSeg, rgSeg, err := ssc.StackContainers[s.id].SetSegmentLimits(
+				s.lowerLimit,
+				s.upperLimit,
+			)
+			if err != nil {
+				return nil, err
+			}
+			s.IngressSegment, s.RouteGroupSegment = ingSeg, rgSeg
+
+			growing = append(growing, s)
 			index += w
 		}
 	}
 
 	fmt.Printf("toUpdate: %v %v\n", growing, shrinking)
-	segmentsToUpdate := []*networking.Ingress{}
-    for _, s := range append(growing, shrinking...) {
-	 	rsc, err := ssc.StackContainers[s.id].SetSegmentLimits(
-	 		s.lowLimit,
-	 		s.highLimit,
-	 	)
-
-		if err != nil {
-			return nil, err
-		}
-
-		segmentsToUpdate = append(segmentsToUpdate, rsc)
-	}
-
-	return segmentsToUpdate, nil
-}
-
-type segment struct {
-	id types.UID
-	lowLimit  float64
-	highLimit float64
-}
-
-func (s *segment) size() float64 {
-	return s.highLimit - s.lowLimit
+	return append(growing, shrinking...), nil
 }
 
 func (sc *StackContainer) updateFromResources() {
 	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.Replicas)
 
 	var deploymentUpdated, serviceUpdated, ingressUpdated, routeGroupUpdated, hpaUpdated bool
-	var ingressSegmentUpdated bool
+	var ingressSegmentUpdated, routeGroupSegmentUpdated bool
 
 	// deployment
 	if sc.Resources.Deployment != nil {
@@ -566,8 +656,10 @@ func (sc *StackContainer) updateFromResources() {
 	// routegroup: ignore if routegroup is not set or check if we are up to date
 	if sc.routeGroupSpec != nil {
 		routeGroupUpdated = sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
+			IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroupSegment.ObjectMeta)
 	} else {
-		// ignore if ingress is not set
+		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
 	}
 
@@ -584,6 +676,7 @@ func (sc *StackContainer) updateFromResources() {
 		ingressUpdated &&
 		ingressSegmentUpdated &&
 		routeGroupUpdated &&
+		routeGroupSegmentUpdated &&
 		hpaUpdated
 
 	status := sc.Stack.Status

@@ -17,11 +17,13 @@ func (SimpleTrafficReconciler) Reconcile(stacks map[string]*StackContainer, curr
 
 	var nonReadyStacks []string
 	for stackName, stack := range stacks {
+		fmt.Printf("\n\nStack %s is ready %t\n\n", stackName, stack.IsReady())
 		if stack.desiredTrafficWeight > stack.actualTrafficWeight && !stack.IsReady() {
 			nonReadyStacks = append(nonReadyStacks, stackName)
 		}
 		actualWeights[stackName] = stack.desiredTrafficWeight
 	}
+
 	if len(nonReadyStacks) > 0 {
 		sort.Strings(nonReadyStacks)
 		return fmt.Errorf("stacks not ready: %s", strings.Join(nonReadyStacks, ", "))

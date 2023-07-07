@@ -1009,6 +1009,16 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
 		}
+
+		err = c.ReconcileStackRouteGroup(
+			ctx,
+			sc.Stack,
+			sc.Resources.RouteGroupSegment,
+			sc.GenerateRouteGroupSegment,
+		)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageRouteGroupSegment", err)
+		}
 	}
 
 	return nil
@@ -1096,30 +1106,57 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 			err,
 		)
 	}
-	for _, r := range res {
-		fmt.Printf("New segments: %s %v\n", r.Name, r.ObjectMeta.Annotations[core.IngressPredicateKey])
-	}
+	fmt.Printf("New segments: %v\n", res)
 
 	if len(res) > 0 {
 		for _, r := range res {
-			_, err = c.client.NetworkingV1().Ingresses(r.Namespace).Update(
-				ctx,
-				r,
-				metav1.UpdateOptions{},
-			)
-			if err != nil {
-				c.stacksetLogger(container).Errorf(
-					"Unable to update stack traffic segment: %v",
-					err,
+			if r.IngressSegment != nil {
+				_, err = c.client.NetworkingV1().Ingresses(
+					r.IngressSegment.Namespace,
+				).Update(
+					ctx,
+					r.IngressSegment,
+					metav1.UpdateOptions{},
 				)
-				continue
+				if err != nil {
+					c.stacksetLogger(container).Errorf(
+						"Unable to update stack traffic segment: %v",
+						err,
+					)
+					continue
+				}
+				c.recorder.Eventf(
+					container.StackSet,
+					v1.EventTypeNormal,
+					"UpdatedIngress",
+					"Updated Ingress %s",
+					r.IngressSegment.Name,
+				)
 			}
-			c.recorder.Eventf(
-				container.StackSet,
-				v1.EventTypeNormal,
-				"UpdatedIngress",
-				"Updated Ingress %s",
-				r.Name)
+
+			if r.RouteGroupSegment != nil {
+				_, err = c.client.RouteGroupV1().RouteGroups(
+					r.RouteGroupSegment.Namespace,
+				).Update(
+					ctx,
+					r.RouteGroupSegment,
+					metav1.UpdateOptions{},
+				)
+				if err != nil {
+					c.stacksetLogger(container).Errorf(
+						"Unable to update stack traffic segment: %v",
+						err,
+					)
+					continue
+				}
+				c.recorder.Eventf(
+					container.StackSet,
+					v1.EventTypeNormal,
+					"UpdatedRouteGroup",
+					"Updated RouteGroup %s",
+					r.RouteGroupSegment.Name,
+				)
+			}
 		}
 	}
 

@@ -24,6 +24,7 @@ const (
 	kindDeployment      = "Deployment"
 
 	SegmentSuffix	    = "-traffic-segment"
+	InitialSegment 		= "TrafficSegment(0.0, 0.0)"
 	IngressPredicateKey = "zalando.org/skipper-predicate"
 )
 
@@ -40,7 +41,7 @@ var (
 	}
 
 	initialIngressSegment = map[string]string{
-		IngressPredicateKey: "TrafficSegment(0.0, 0.0)",
+		IngressPredicateKey: InitialSegment,
 	}
 
 	// PathTypeImplementationSpecific is the used implementation path type
@@ -439,6 +440,20 @@ func (sc *StackContainer) generateIngress(segment bool) (
 }
 
 func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
+	return sc.generateRouteGroup(false)
+}
+
+func (sc *StackContainer) GenerateRouteGroupSegment() (
+	*rgv1.RouteGroup,
+	error,
+) {
+	return sc.generateRouteGroup(true)
+}
+
+func (sc *StackContainer) generateRouteGroup(segment bool) (
+	*rgv1.RouteGroup,
+	error,
+) {
 	if !sc.HasBackendPort() || sc.routeGroupSpec == nil || !sc.Stack.Spec.RouteGroupOverrides.IsEnabled() {
 		return nil, nil
 	}
@@ -446,7 +461,7 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	hostnames, err := sc.stackHostnames(
 		sc.routeGroupSpec,
 		sc.Stack.Spec.RouteGroupOverrides,
-		false,
+		segment,
 	)
 	if err != nil {
 		return nil, err
@@ -456,7 +471,7 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	}
 
 	result := &rgv1.RouteGroup{
-		ObjectMeta: sc.resourceMeta(),
+		ObjectMeta: sc.objectMeta(segment),
 		Spec: rgv1.RouteGroupSpec{
 			Hosts: hostnames,
 			Backends: []rgv1.RouteGroupBackend{
@@ -474,8 +489,18 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 					Weight:      100,
 				},
 			},
-			Routes: sc.routeGroupSpec.Routes,
 		},
+	}
+
+	if !segment {
+		result.Spec.Routes = sc.routeGroupSpec.Routes
+	} else {
+		routesWithSegment := []rgv1.RouteGroupRouteSpec{}
+		for _, r := range sc.routeGroupSpec.Routes {
+			r.Predicates = append(r.Predicates, InitialSegment)
+			routesWithSegment = append(routesWithSegment, r)
+		}
+		result.Spec.Routes = routesWithSegment
 	}
 
 	// validate not overlapping with main backend
