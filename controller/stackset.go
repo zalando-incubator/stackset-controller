@@ -1106,7 +1106,6 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 			err,
 		)
 	}
-	fmt.Printf("New segments: %v\n", res)
 
 	if len(res) > 0 {
 		for _, r := range res {

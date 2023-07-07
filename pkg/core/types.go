@@ -162,8 +162,6 @@ func (sc *StackContainer) IsReady() bool {
 	// Calculate minimum required replicas for the Deployment to be considered ready
 	minRequiredReplicas := int32(math.Ceil(float64(sc.deploymentReplicas) * sc.minReadyPercent))
 
-	fmt.Printf("\n\n%s: replicas %d\n", sc.Name(), sc.deploymentReplicas)
-	fmt.Printf("%s: resources updated %t\n", sc.Name(), sc.resourcesUpdated)
 	// Stacks are considered ready when all subresources have been updated
 	// and the minimum ready percentage is hit on and replicas
 	return (sc.resourcesUpdated && sc.deploymentReplicas > 0 &&
@@ -309,34 +307,6 @@ func (sc *StackContainer) SetSegmentLimits(low, high float64) (
 	}
 
 	return ingressRes, rgRes, nil
-}
-
-func (sc *StackContainer) getSegmentPredicates() (string, error) {
-	switch {
-	case sc.Resources.IngressSegment != nil:
-		annotations := sc.Resources.IngressSegment.Annotations
-		predicates := annotations[IngressPredicateKey]
-
-		if predicates == "" {
-			return "", fmt.Errorf("%s: predicates not found", sc.Name())
-		}
-		return predicates, nil
-
-	case sc.Resources.RouteGroupSegment != nil:
-		routes := sc.Resources.RouteGroupSegment.Spec.Routes
-
-		for _, r := range routes {
-			for _, p := range r.Predicates {
-				if tsRe.MatchString(p) {
-					return p, nil
-				}
-			}
-		}
-		return "", fmt.Errorf("%s: predicates not found", sc.Name())
-
-	default:
-		return "", fmt.Errorf("%s: Ingress/RouteGroup not found", sc.Name())
-	}
 }
 
 // StackResources describes the resources of a stack.
@@ -620,7 +590,6 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		}
 	}
 
-	fmt.Printf("toUpdate: %v %v\n", growing, shrinking)
 	return append(growing, shrinking...), nil
 }
 
@@ -651,6 +620,7 @@ func (sc *StackContainer) updateFromResources() {
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
+		ingressSegmentUpdated = sc.Resources.Ingress == nil
 	}
 
 	// routegroup: ignore if routegroup is not set or check if we are up to date
@@ -661,6 +631,7 @@ func (sc *StackContainer) updateFromResources() {
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
+		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
 	}
 
 	// hpa
