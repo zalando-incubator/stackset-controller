@@ -726,6 +726,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.Ingress = ingress(11)
+		container.Resources.IngressSegment = ingress(11)
 		container.Resources.HPA = hpa(11)
 		container.updateFromResources()
 		require.EqualValues(t, true, container.resourcesUpdated)
