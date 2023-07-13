@@ -274,7 +274,7 @@ type MetricsRequestsPerSecond struct {
 }
 
 // AutoscalerMetricType is the type of the metric used for scaling.
-// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule
+// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule;RequestsPerSecond
 type AutoscalerMetricType string
 
 const (
