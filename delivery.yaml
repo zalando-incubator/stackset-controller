@@ -41,7 +41,7 @@ pipeline:
 - id: e2e
   type: process
   desc: "E2E Tests"
-  target: stups-test
+  target: teapot
   process: microservice_standard_test
   config:
     apply_manifests:
