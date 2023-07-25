@@ -38,7 +38,10 @@ func TestBrokenStacks(t *testing.T) {
 	_, err = waitForStack(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
 
-	_, err = waitForIngress(t, stacksetName)
+	_, err = waitForIngress(t, firstStack + "-traffic-segment")
+	require.NoError(t, err)
+
+	_, err = waitForIngress(t, unhealthyStack + "-traffic-segment")
 	require.NoError(t, err)
 
 	initialWeights := map[string]float64{firstStack: 100}
