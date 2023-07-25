@@ -318,8 +318,8 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stackname string, weight f
 		},
 	}
 
-	hostKey := fmt.Sprintf("metric-config.%s.requests-per-second/hostnames", name)
-	weightKey := fmt.Sprintf("metric-config.%s.requests-per-second/weight", name)
+	hostKey := fmt.Sprintf("metric-config.external.%s.requests-per-second/hostnames", name)
+	weightKey := fmt.Sprintf("metric-config.external.%s.requests-per-second/weight", name)
 
 	annotations := map[string]string{
 		hostKey:   strings.Join(metrics.RequestsPerSecond.Hostnames, ","),
