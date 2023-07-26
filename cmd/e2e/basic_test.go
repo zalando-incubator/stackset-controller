@@ -458,7 +458,10 @@ func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.S
 }
 
 func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
-	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
+	stacksetResourceLabels := map[string]string{
+		stacksetHeritageLabelKey: stacksetName,
+		stackVersionLabelKey: stacksetSpec.StackTemplate.Spec.Version,
+	}
 
 	expectedWeights := make(map[string]float64)
 
@@ -492,22 +495,39 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 		return strings.Compare(expectedBackends[i].Name, expectedBackends[j].Name) < 0
 	})
 
-	globalRouteGroup, err := waitForRouteGroup(t, stacksetName)
+	segmentRouteGroup, err := waitForRouteGroup(
+		t,
+		fmt.Sprintf(
+			"%s-%s-traffic-segment",
+			stacksetName,
+			stacksetResourceLabels[stackVersionLabelKey],
+		),
+	)
 	require.NoError(t, err)
-	require.EqualValues(t, stacksetResourceLabels, globalRouteGroup.Labels)
+	require.EqualValues(t, stacksetResourceLabels, segmentRouteGroup.Labels)
 	for k, v := range annotations {
-		require.Contains(t, globalRouteGroup.Annotations, k)
-		require.Equal(t, v, globalRouteGroup.Annotations[k])
+		require.Contains(t, segmentRouteGroup.Annotations, k)
+		require.Equal(t, v, segmentRouteGroup.Annotations[k])
 	}
 
-	sort.Slice(globalRouteGroup.Spec.DefaultBackends, func(i, j int) bool {
-		return strings.Compare(globalRouteGroup.Spec.DefaultBackends[i].BackendName, globalRouteGroup.Spec.DefaultBackends[j].BackendName) < 0
+	sort.Slice(segmentRouteGroup.Spec.DefaultBackends, func(i, j int) bool {
+		return strings.Compare(
+			segmentRouteGroup.Spec.DefaultBackends[i].BackendName,
+			segmentRouteGroup.Spec.DefaultBackends[j].BackendName,
+		) < 0
 	})
-	sort.Slice(globalRouteGroup.Spec.Backends, func(i, j int) bool {
-		return strings.Compare(globalRouteGroup.Spec.Backends[i].Name, globalRouteGroup.Spec.Backends[j].Name) < 0
+	sort.Slice(segmentRouteGroup.Spec.Backends, func(i, j int) bool {
+		return strings.Compare(
+			segmentRouteGroup.Spec.Backends[i].Name,
+			segmentRouteGroup.Spec.Backends[j].Name,
+		) < 0
 	})
-	require.EqualValues(t, expectedDefaultBackends, globalRouteGroup.Spec.DefaultBackends)
-	require.EqualValues(t, expectedBackends, globalRouteGroup.Spec.Backends)
+	require.EqualValues(
+		t,
+		expectedDefaultBackends,
+		segmentRouteGroup.Spec.DefaultBackends,
+	)
+	require.EqualValues(t, expectedBackends, segmentRouteGroup.Spec.Backends)
 
 	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
 	require.NoError(t, err)
@@ -756,7 +776,20 @@ func TestStacksetUpdateRouteGroup(t *testing.T) {
 }
 
 func TestStacksetUpdateAddRouteGroup(t *testing.T) {
-	testStacksetUpdate(t, "add-rotuegroup", false, false, false, false, false, true, false, false, testAnnotationsCreate, testAnnotationsUpdate)
+	testStacksetUpdate(
+		t,
+		"add-routegroup",
+		false,
+		false,
+		false,
+		false,
+		false,
+		true,
+		false,
+		false,
+		testAnnotationsCreate,
+		testAnnotationsUpdate,
+	)
 }
 
 func TestStacksetUpdateDeleteRouteGroup(t *testing.T) {

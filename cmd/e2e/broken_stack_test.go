@@ -41,9 +41,6 @@ func TestBrokenStacks(t *testing.T) {
 	_, err = waitForIngress(t, firstStack + "-traffic-segment")
 	require.NoError(t, err)
 
-	_, err = waitForIngress(t, unhealthyStack + "-traffic-segment")
-	require.NoError(t, err)
-
 	initialWeights := map[string]float64{firstStack: 100}
 	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, initialWeights, nil).await()
 	require.NoError(t, err)
@@ -63,6 +60,8 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, healthyVersion)
 	require.NoError(t, err)
+	_, err = waitForIngress(t, healthyStack + "-traffic-segment")
+	require.NoError(t, err)
 
 	healthyWeights := map[string]float64{healthyStack: 100}
 	err = setDesiredTrafficWeightsStackset(stacksetName, healthyWeights)
@@ -78,6 +77,8 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, finalVersion)
 	require.NoError(t, err)
+	_, err = waitForIngress(t, finalStack + "-traffic-segment")
+	require.NoError(t, err)
 
 	finalWeights := map[string]float64{finalStack: 100}
 	err = setDesiredTrafficWeightsStackset(stacksetName, finalWeights)
@@ -90,5 +91,4 @@ func TestBrokenStacks(t *testing.T) {
 		err := resourceDeleted(t, "stack", stack, stackInterface()).withTimeout(time.Second * 60).await()
 		require.NoError(t, err)
 	}
-
 }
