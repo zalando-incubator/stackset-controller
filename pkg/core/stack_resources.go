@@ -421,6 +421,25 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	return result, nil
 }
 
+func (sc *StackContainer) GenerateConfigMap(base *v1.ConfigMap) (*v1.ConfigMap, error) {
+	stackSpec := sc.Stack.Spec
+	metaObj := sc.resourceMeta()
+	metaObj.Name = metaObj.Name + "-" + base.Name
+
+	if stackSpec.ConfigResources != nil {
+		metaObj.Annotations = mergeLabels(metaObj.Annotations, base.Annotations)
+	}
+
+	immutable := true
+	result := &v1.ConfigMap{
+		ObjectMeta: metaObj,
+		Data:       base.Data,
+		Immutable:  &immutable,
+	}
+
+	return result, nil
+}
+
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 	prescaling := zv1.PrescalingStatus{}
 	if sc.prescalingActive {

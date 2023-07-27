@@ -145,6 +145,16 @@ func (f *testEnvironment) CreateHPAs(ctx context.Context, hpas []autoscaling.Hor
 	return nil
 }
 
+func (f *testEnvironment) CreateConfigMaps(ctx context.Context, configMaps []v1.ConfigMap) error {
+	for _, configMap := range configMaps{
+		_, err := f.client.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, &configMap, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func testStackset(name, namespace string, uid types.UID) zv1.StackSet {
 	return zv1.StackSet{
 		ObjectMeta: metav1.ObjectMeta{

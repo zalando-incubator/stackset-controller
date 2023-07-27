@@ -347,6 +347,23 @@ spec:
                 - maxReplicas
                 - metrics
                 type: object
+              configResources:
+                description: ConfigResources describes the ConfigMaps that will be
+                  created. Later Secrets and PlatformCredentialSets will also be defined
+                  on ConfigResources
+                properties:
+                  configMapRef:
+                    description: ConfigMap to be versioned for Stack
+                    properties:
+                      name:
+                        description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                          TODO: Add other useful fields. apiVersion, kind, uid?'
+                        type: string
+                      optional:
+                        description: Specify whether the ConfigMap must be defined
+                        type: boolean
+                    type: object
+                type: object
               externalIngress:
                 description: Stack specific ExternalIngress, based on the parent StackSet
                   at creation time.

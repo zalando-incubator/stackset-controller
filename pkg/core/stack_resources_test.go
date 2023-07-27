@@ -1049,3 +1049,58 @@ func TestGenerateStackStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestGenerateConfigMap(t *testing.T) {
+	immutable := true
+	c := &StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: testStackMeta,
+		},
+		stacksetName: "foo",
+	}
+	for _, tc := range []struct {
+		name     string
+		template *v1.ConfigMap
+		result   *v1.ConfigMap
+	}{
+		{
+			name: "ConfigMap name is updated",
+			template: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "configmap",
+					Namespace: testStackMeta.Namespace,
+				},
+				Data: map[string]string{
+					"testK": "testV",
+				},
+				Immutable: nil,
+			},
+			result: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testStackMeta.Name + "-configmap",
+					Namespace: testStackMeta.Namespace,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: APIVersion,
+							Kind:       KindStack,
+							Name:       c.Name(),
+							UID:        c.Stack.UID,
+						},
+					},
+				},
+				Data: map[string]string{
+					"testK": "testV",
+				},
+				Immutable: &immutable,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			configMap, err := c.GenerateConfigMap(tc.template)
+			require.NoError(t, err)
+			require.Equal(t, configMap.Name, tc.result.Name)
+			require.Equal(t, configMap.Immutable, tc.result.Immutable)
+			require.Equal(t, configMap.OwnerReferences, tc.result.OwnerReferences)
+		})
+	}
+}

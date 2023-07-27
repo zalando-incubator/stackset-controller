@@ -428,6 +428,17 @@ type StackSpec struct {
 
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+
+	// ConfigResources describes the ConfigMaps that will be created.
+	// Later Secrets and PlatformCredentialSets will also be defined on ConfigResources
+	ConfigResources *ConfigResourcesSpec `json:"configResources,omitempty"`
+}
+
+// ConfigResourcesSpec makes it possible to defined the config resources to be created
+// +k8s:deepcopy-gen=true
+type ConfigResourcesSpec struct {
+	// ConfigMap to be versioned for Stack
+	ConfigMapRef v1.ConfigMapEnvSource `json:"configMapRef,omitempty"`
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and

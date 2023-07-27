@@ -269,6 +269,11 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		return nil, err
 	}
 
+	err = c.collectConfigMaps(ctx, stacksets)
+	if err != nil {
+		return nil, err
+	}
+
 	return stacksets, nil
 }
 
@@ -421,6 +426,27 @@ Items:
 						stack.Resources.HPA = &hpa
 						continue Items
 					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	configMaps, err := c.client.CoreV1().ConfigMaps(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list ConfigMaps: %v", err)
+	}
+
+Items:
+	for _, cm := range configMaps.Items {
+		configMap := cm
+		if uid, ok := getOwnerUID(configMap.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				if s, ok := stackset.StackContainers[uid]; ok {
+					s.Resources.ConfigMap = &configMap
+					continue Items
 				}
 			}
 		}
@@ -590,7 +616,6 @@ func (c *StackSetController) ReconcileStatuses(ctx context.Context, ssc *core.St
 		}
 		return nil
 	})
-
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedUpdateStackSetStatus", err)
 	}
@@ -661,7 +686,6 @@ func (c *StackSetController) CleanupOldStacks(ctx context.Context, ssc *core.Sta
 
 // AddUpdateStackSetIngress reconciles the Ingress but never deletes it, it returns the existing/new Ingress
 func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stackset *zv1.StackSet, existing *networking.Ingress, routegroup *rgv1.RouteGroup, ingress *networking.Ingress) (*networking.Ingress, error) {
-
 	// Ingress removed, handled outside
 	if ingress == nil {
 		return existing, nil
@@ -967,8 +991,12 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 }
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
+	err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMap, sc.GenerateConfigMap)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
+	}
 
-	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
+	err = c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
@@ -993,7 +1021,6 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
 		}
 	}
-
 	return nil
 }
 

@@ -319,6 +319,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		})
 		require.EqualValues(t, stackIngressRules, stackIngress.Spec.Rules)
 	}
+
 	// Verify the RouteGroup
 	if stacksetSpec.RouteGroup != nil {
 		// Per-stack RouteGroup
@@ -344,6 +345,13 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 
 		require.EqualValues(t, stackRGBackends, stackRG.Spec.Backends)
 		require.EqualValues(t, stackRGHosts, stackRG.Spec.Hosts)
+	}
+
+	// Verify the ConfigMaps
+	if stacksetSpec.StackTemplate.Spec.ConfigResources != nil {
+		configMap, err := waitForConfigMap(t, stack.Name)
+		require.NoError(t, err)
+		require.EqualValues(t, stackResourceLabels, configMap.Labels)
 	}
 }
 
