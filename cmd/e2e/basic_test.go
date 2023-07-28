@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -397,141 +396,167 @@ func verifyStacksetExternalIngress(t *testing.T, stacksetName string, stacksetSp
 	require.NoError(t, err)
 }
 
-func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
-	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
-
+func verifyStacksetIngressSegments(
+	t *testing.T,
+	stacksetName string,
+	stacksetSpec zv1.StackSetSpec,
+	stackWeights map[string]float64,
+	annotations map[string]string,
+) {
 	expectedWeights := make(map[string]float64)
 
-	var expectedPaths []v1.HTTPIngressPath
+	// Check all segments
 	for stack, weight := range stackWeights {
 		serviceName := fmt.Sprintf("%s-%s", stacksetName, stack)
+		segmentName := fmt.Sprintf("%s-traffic-segment", serviceName)
 		expectedWeights[serviceName] = weight
+
+		ingResourceLabels := map[string]string{
+			stacksetHeritageLabelKey: stacksetName,
+			stackVersionLabelKey: stack,
+		}
+
+		segmentIng, err := waitForIngress(t, segmentName)
+		require.NoError(t, err)
+		require.EqualValues(t, ingResourceLabels, segmentIng.Labels)
+
+		// The most recent stack should have the same annotations as the 
+		// StackSet
+		if stack == stacksetSpec.StackTemplate.Spec.Version {
+			for k, v := range annotations {
+				require.Contains(t, segmentIng.Annotations, k)
+				require.Equal(t, v, segmentIng.Annotations[k])
+			}
+		}
 
 		if weight == 0.0 {
 			continue
 		}
 
-		expectedPaths = append(expectedPaths, v1.HTTPIngressPath{
-			PathType: &pathType,
-			Backend: v1.IngressBackend{
-				Service: &v1.IngressServiceBackend{
-					Name: serviceName,
-					Port: v1.ServiceBackendPort{
-						Number: 80,
+		expectedRules := make(
+			[]v1.IngressRule,
+			0,
+			len(stacksetSpec.Ingress.Hosts),
+		)
+
+		for _, host := range stacksetSpec.Ingress.Hosts {
+			expectedRules = append(
+				expectedRules,
+				v1.IngressRule{
+					Host: host,
+					IngressRuleValue: v1.IngressRuleValue{
+						HTTP: &v1.HTTPIngressRuleValue{
+							Paths: []v1.HTTPIngressPath{
+								{
+									PathType: &pathType,
+									Backend: v1.IngressBackend{
+										Service: &v1.IngressServiceBackend{
+											Name: serviceName,
+											Port: v1.ServiceBackendPort{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
-			},
+			)
+		}
+		// sort rules by hostname for a stable order
+		sort.Slice(expectedRules, func(i, j int) bool {
+			return expectedRules[i].Host < expectedRules[j].Host
 		})
-		sort.Slice(expectedPaths, func(i, j int) bool {
-			return strings.Compare(expectedPaths[i].Backend.Service.Name, expectedPaths[j].Backend.Service.Name) < 0
-		})
+
+		require.EqualValues(t, expectedRules, segmentIng.Spec.Rules)
 	}
 
-	globalIngress, err := waitForIngress(t, stacksetName)
-	require.NoError(t, err)
-	require.EqualValues(t, stacksetResourceLabels, globalIngress.Labels)
-	for k, v := range annotations {
-		require.Contains(t, globalIngress.Annotations, k)
-		require.Equal(t, v, globalIngress.Annotations[k])
-	}
-	globalIngressRules := make([]v1.IngressRule, 0, len(stacksetSpec.Ingress.Hosts))
-	for _, host := range stacksetSpec.Ingress.Hosts {
-		globalIngressRules = append(globalIngressRules, v1.IngressRule{
-			Host: host,
-			IngressRuleValue: v1.IngressRuleValue{
-				HTTP: &v1.HTTPIngressRuleValue{
-					Paths: expectedPaths,
-				},
-			},
-		})
-	}
-	// sort rules by hostname for a stable order
-	sort.Slice(globalIngressRules, func(i, j int) bool {
-		return globalIngressRules[i].Host < globalIngressRules[j].Host
-	})
-	require.EqualValues(t, globalIngressRules, globalIngress.Spec.Rules)
-
-	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
+	err := trafficWeightsUpdatedStackset(
+		t,
+		stacksetName,
+		weightKindDesired,
+		expectedWeights,
+		nil,
+	).await()
 	require.NoError(t, err)
 	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, expectedWeights, nil).await()
 	require.NoError(t, err)
 }
 
-func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
-	stacksetResourceLabels := map[string]string{
-		stacksetHeritageLabelKey: stacksetName,
-		stackVersionLabelKey: stacksetSpec.StackTemplate.Spec.Version,
-	}
-
+func verifyStacksetRouteGroupSegments(
+	t *testing.T,
+	stacksetName string,
+	stacksetSpec zv1.StackSetSpec,
+	stackWeights map[string]float64,
+	annotations map[string]string,
+) {
 	expectedWeights := make(map[string]float64)
-
-	var expectedDefaultBackends []rgv1.RouteGroupBackendReference
-	var expectedBackends []rgv1.RouteGroupBackend
+	// Check all segments
 	for stack, weight := range stackWeights {
 		serviceName := fmt.Sprintf("%s-%s", stacksetName, stack)
+		segmentName := fmt.Sprintf("%s-traffic-segment", serviceName)
 		expectedWeights[serviceName] = weight
 
-		expectedBackends = append(expectedBackends, rgv1.RouteGroupBackend{
-			Name:        serviceName,
-			Type:        rgv1.ServiceRouteGroupBackend,
-			ServiceName: serviceName,
-			ServicePort: 80,
-		})
-
-		if weight == 0.0 {
-			continue
+		rgResourceLabels := map[string]string{
+			stacksetHeritageLabelKey: stacksetName,
+			stackVersionLabelKey: stack,
 		}
 
-		expectedDefaultBackends = append(expectedDefaultBackends, rgv1.RouteGroupBackendReference{
-			BackendName: serviceName,
-			Weight:      int(weight),
-		})
+		segmentRG, err := waitForRouteGroup(t, segmentName)
+		require.NoError(t, err)
+		require.EqualValues(t, rgResourceLabels, segmentRG.Labels)
+
+		// The most recent stack should have the same annotations as the 
+		// StackSet
+		if stack == stacksetSpec.StackTemplate.Spec.Version {
+			for k, v := range annotations {
+				require.Contains(t, segmentRG.Annotations, k)
+				require.Equal(t, v, segmentRG.Annotations[k])
+			}
+		}
+
+		require.EqualValues(
+			t,
+			[]rgv1.RouteGroupBackendReference {
+				{
+					BackendName: serviceName,
+					Weight:      100,
+				},
+			},
+			segmentRG.Spec.DefaultBackends,
+		)
+
+		require.EqualValues(
+			t,
+			[]rgv1.RouteGroupBackend{
+				{
+					Type:        rgv1.ServiceRouteGroupBackend,
+					Name:        serviceName,
+					ServiceName: serviceName,
+					ServicePort: 80,
+				},
+			},
+			segmentRG.Spec.Backends,
+		)
 	}
 
-	sort.Slice(expectedDefaultBackends, func(i, j int) bool {
-		return strings.Compare(expectedDefaultBackends[i].BackendName, expectedDefaultBackends[j].BackendName) < 0
-	})
-	sort.Slice(expectedBackends, func(i, j int) bool {
-		return strings.Compare(expectedBackends[i].Name, expectedBackends[j].Name) < 0
-	})
-
-	segmentRouteGroup, err := waitForRouteGroup(
+	err := trafficWeightsUpdatedStackset(
 		t,
-		fmt.Sprintf(
-			"%s-%s-traffic-segment",
-			stacksetName,
-			stacksetResourceLabels[stackVersionLabelKey],
-		),
-	)
+		stacksetName,
+		weightKindDesired,
+		expectedWeights,
+		nil,
+	).await()
 	require.NoError(t, err)
-	require.EqualValues(t, stacksetResourceLabels, segmentRouteGroup.Labels)
-	for k, v := range annotations {
-		require.Contains(t, segmentRouteGroup.Annotations, k)
-		require.Equal(t, v, segmentRouteGroup.Annotations[k])
-	}
 
-	sort.Slice(segmentRouteGroup.Spec.DefaultBackends, func(i, j int) bool {
-		return strings.Compare(
-			segmentRouteGroup.Spec.DefaultBackends[i].BackendName,
-			segmentRouteGroup.Spec.DefaultBackends[j].BackendName,
-		) < 0
-	})
-	sort.Slice(segmentRouteGroup.Spec.Backends, func(i, j int) bool {
-		return strings.Compare(
-			segmentRouteGroup.Spec.Backends[i].Name,
-			segmentRouteGroup.Spec.Backends[j].Name,
-		) < 0
-	})
-	require.EqualValues(
+	err = trafficWeightsUpdatedStackset(
 		t,
-		expectedDefaultBackends,
-		segmentRouteGroup.Spec.DefaultBackends,
-	)
-	require.EqualValues(t, expectedBackends, segmentRouteGroup.Spec.Backends)
-
-	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
-	require.NoError(t, err)
-	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, expectedWeights, nil).await()
+		stacksetName,
+		weightKindActual,
+		expectedWeights,
+		nil,
+	).await()
 	require.NoError(t, err)
 }
 
@@ -566,10 +591,10 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	verifyStack(t, stacksetName, stackVersion, stacksetSpec, subResourceAnnotations)
 
 	if ingress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, subResourceAnnotations)
+		verifyStacksetIngressSegments(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, subResourceAnnotations)
 	}
 	if routegroup {
-		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, subResourceAnnotations)
+		verifyStacksetRouteGroupSegments(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100}, subResourceAnnotations)
 	}
 	if externalIngress {
 		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{stackVersion: 100})
@@ -617,10 +642,10 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	verifyStack(t, stacksetName, initialVersion, stacksetSpec, oldSubResourceAnnotations)
 
 	if oldIngress {
-		verifyStacksetIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, oldSubResourceAnnotations)
+		verifyStacksetIngressSegments(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, oldSubResourceAnnotations)
 	}
 	if oldRouteGroup {
-		verifyStacksetRouteGroup(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, oldSubResourceAnnotations)
+		verifyStacksetRouteGroupSegments(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100}, oldSubResourceAnnotations)
 	}
 	if oldExternalIngress {
 		verifyStacksetExternalIngress(t, stacksetName, stacksetSpec, map[string]float64{initialVersion: 100})
@@ -677,7 +702,7 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 	})
 
 	if newIngress {
-		verifyStacksetIngress(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, newSubResourceAnnotations)
+		verifyStacksetIngressSegments(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, newSubResourceAnnotations)
 		// no traffic switch here
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,
@@ -694,7 +719,8 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 			actualTraffic:        nil,
 		})
 	} else if newRouteGroup {
-		verifyStacksetRouteGroup(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, newSubResourceAnnotations)
+		// verifyStacksetRouteGroup(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, newSubResourceAnnotations)
+		verifyStacksetRouteGroupSegments(t, stacksetName, updatedSpec, map[string]float64{initialVersion: 100, updatedVersion: 0}, newSubResourceAnnotations)
 		// no traffic switch here
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,
