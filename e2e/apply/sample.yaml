@@ -6,6 +6,7 @@ metadata:
     application: "e2e-deploy-sample"
   annotations:
     "stackset-controller.zalando.org/controller": "{{{CONTROLLER_ID}}}"
+    "stackset-controller.zalando.org/use-traffic-segments": "true"
 spec:
   ingress:
     hosts:
