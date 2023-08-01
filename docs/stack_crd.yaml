@@ -832,19 +832,15 @@ spec:
                 - maxReplicas
                 type: object
               ingress:
-                description: Settings for the per-stack ingresses (in case the StackSet
-                  has a configured ingress)
+                description: Stack specific Ingress, based on the StackSet spec at
+                  time of creation.
                 properties:
-                  enabled:
-                    description: Whether to enable per-stack ingresses or routegroups.
-                      Defaults to enabled if unset.
-                    type: boolean
+                  backendPort:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    x-kubernetes-int-or-string: true
                   hosts:
-                    description: Hostnames to use for the per-stack ingresses (or
-                      route groups). These must contain the special $(STACK_NAME)
-                      token, which will be replaced with the stack's name. Would be
-                      automatically generated based on the hosts in the ingress/routegroup
-                      entry if unset.
                     items:
                       type: string
                     type: array
@@ -863,6 +859,11 @@ spec:
                           http://kubernetes.io/docs/user-guide/annotations'
                         type: object
                     type: object
+                  path:
+                    type: string
+                required:
+                - backendPort
+                - hosts
                 type: object
               minReadySeconds:
                 description: Minimum number of seconds for which a newly created pod
@@ -950,10 +951,6 @@ spec:
                                                   selector applies to.
                                                 type: string
                                               operator:
-                                                description: Represents a key's relationship
-                                                  to a set of values. Valid operators
-                                                  are In, NotIn, Exists, DoesNotExist.
-                                                  Gt, and Lt.
                                                 type: string
                                               values:
                                                 items:
@@ -978,10 +975,6 @@ spec:
                                                   selector applies to.
                                                 type: string
                                               operator:
-                                                description: Represents a key's relationship
-                                                  to a set of values. Valid operators
-                                                  are In, NotIn, Exists, DoesNotExist.
-                                                  Gt, and Lt.
                                                 type: string
                                               values:
                                                 items:
@@ -1036,10 +1029,6 @@ spec:
                                                   selector applies to.
                                                 type: string
                                               operator:
-                                                description: Represents a key's relationship
-                                                  to a set of values. Valid operators
-                                                  are In, NotIn, Exists, DoesNotExist.
-                                                  Gt, and Lt.
                                                 type: string
                                               values:
                                                 items:
@@ -1064,10 +1053,6 @@ spec:
                                                   selector applies to.
                                                 type: string
                                               operator:
-                                                description: Represents a key's relationship
-                                                  to a set of values. Valid operators
-                                                  are In, NotIn, Exists, DoesNotExist.
-                                                  Gt, and Lt.
                                                 type: string
                                               values:
                                                 items:
@@ -1121,10 +1106,6 @@ spec:
                                                 of label selector requirements. The
                                                 requirements are ANDed.
                                               items:
-                                                description: A label selector requirement
-                                                  is a selector that contains values,
-                                                  a key, and an operator that relates
-                                                  the key and values.
                                                 properties:
                                                   key:
                                                     type: string
@@ -1170,10 +1151,6 @@ spec:
                                                 of label selector requirements. The
                                                 requirements are ANDed.
                                               items:
-                                                description: A label selector requirement
-                                                  is a selector that contains values,
-                                                  a key, and an operator that relates
-                                                  the key and values.
                                                 properties:
                                                   key:
                                                     type: string
@@ -1277,20 +1254,8 @@ spec:
                                                   that the selector applies to.
                                                 type: string
                                               operator:
-                                                description: operator represents a
-                                                  key's relationship to a set of values.
-                                                  Valid operators are In, NotIn, Exists
-                                                  and DoesNotExist.
                                                 type: string
                                               values:
-                                                description: values is an array of
-                                                  string values. If the operator is
-                                                  In or NotIn, the values array must
-                                                  be non-empty. If the operator is
-                                                  Exists or DoesNotExist, the values
-                                                  array must be empty. This array
-                                                  is replaced during a strategic merge
-                                                  patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -1424,10 +1389,6 @@ spec:
                                                 of label selector requirements. The
                                                 requirements are ANDed.
                                               items:
-                                                description: A label selector requirement
-                                                  is a selector that contains values,
-                                                  a key, and an operator that relates
-                                                  the key and values.
                                                 properties:
                                                   key:
                                                     type: string
@@ -1473,10 +1434,6 @@ spec:
                                                 of label selector requirements. The
                                                 requirements are ANDed.
                                               items:
-                                                description: A label selector requirement
-                                                  is a selector that contains values,
-                                                  a key, and an operator that relates
-                                                  the key and values.
                                                 properties:
                                                   key:
                                                     type: string
@@ -1580,20 +1537,8 @@ spec:
                                                   that the selector applies to.
                                                 type: string
                                               operator:
-                                                description: operator represents a
-                                                  key's relationship to a set of values.
-                                                  Valid operators are In, NotIn, Exists
-                                                  and DoesNotExist.
                                                 type: string
                                               values:
-                                                description: values is an array of
-                                                  string values. If the operator is
-                                                  In or NotIn, the values array must
-                                                  be non-empty. If the operator is
-                                                  Exists or DoesNotExist, the values
-                                                  array must be empty. This array
-                                                  is replaced during a strategic merge
-                                                  patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -1639,20 +1584,8 @@ spec:
                                                   that the selector applies to.
                                                 type: string
                                               operator:
-                                                description: operator represents a
-                                                  key's relationship to a set of values.
-                                                  Valid operators are In, NotIn, Exists
-                                                  and DoesNotExist.
                                                 type: string
                                               values:
-                                                description: values is an array of
-                                                  string values. If the operator is
-                                                  In or NotIn, the values array must
-                                                  be non-empty. If the operator is
-                                                  Exists or DoesNotExist, the values
-                                                  array must be empty. This array
-                                                  is replaced during a strategic merge
-                                                  patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -6816,10 +6749,6 @@ spec:
                                                 of label selector requirements. The
                                                 requirements are ANDed.
                                               items:
-                                                description: A label selector requirement
-                                                  is a selector that contains values,
-                                                  a key, and an operator that relates
-                                                  the key and values.
                                                 properties:
                                                   key:
                                                     type: string
@@ -7724,22 +7653,72 @@ spec:
                 format: int32
                 type: integer
               routegroup:
-                description: Settings for the per-stack route groups (in case the
-                  StackSet has a configured RouteGroup)
+                description: Stack specific RouteGroup, based on the StackSet spec
+                  at time of creation.
                 properties:
-                  enabled:
-                    description: Whether to enable per-stack ingresses or routegroups.
-                      Defaults to enabled if unset.
-                    type: boolean
+                  additionalBackends:
+                    description: AdditionalBackends is the list of additional backends
+                      to use for routing.
+                    items:
+                      properties:
+                        address:
+                          description: Address is required for Type network
+                          type: string
+                        algorithm:
+                          description: Algorithm is required for Type lb
+                          enum:
+                          - roundRobin
+                          - random
+                          - consistentHash
+                          - powerOfRandomNChoices
+                          type: string
+                        endpoints:
+                          description: Endpoints is required for Type lb
+                          items:
+                            type: string
+                          minItems: 1
+                          type: array
+                        name:
+                          description: Name is the BackendName that can be referenced
+                            as RouteGroupBackendReference
+                          type: string
+                        serviceName:
+                          description: ServiceName is required for Type service
+                          type: string
+                        servicePort:
+                          description: ServicePort is required for Type service
+                          type: integer
+                        type:
+                          description: Type is one of "service|shunt|loopback|dynamic|lb|network"
+                          enum:
+                          - service
+                          - shunt
+                          - loopback
+                          - dynamic
+                          - lb
+                          - network
+                          type: string
+                      required:
+                      - name
+                      - type
+                      type: object
+                    type: array
+                  backendPort:
+                    type: integer
                   hosts:
-                    description: Hostnames to use for the per-stack ingresses (or
-                      route groups). These must contain the special $(STACK_NAME)
-                      token, which will be replaced with the stack's name. Would be
-                      automatically generated based on the hosts in the ingress/routegroup
-                      entry if unset.
+                    description: Hosts is the list of hostnames to add to the routegroup.
                     items:
                       type: string
                     type: array
+                  lbAlgorithm:
+                    description: The load balancing algorithm used for the generated
+                      per stack backends.
+                    enum:
+                    - roundRobin
+                    - random
+                    - consistentHash
+                    - powerOfRandomNChoices
+                    type: string
                   metadata:
                     description: EmbeddedObjectMetaWithAnnotations defines the metadata
                       which can be attached to a resource. It's a slimmed down version
@@ -7755,6 +7734,77 @@ spec:
                           http://kubernetes.io/docs/user-guide/annotations'
                         type: object
                     type: object
+                  routes:
+                    description: Routes is the list of routes to be applied to the
+                      routegroup.
+                    items:
+                      properties:
+                        backends:
+                          description: RouteGroupBackendReference specifies the list
+                            of backendReference that should be applied to override
+                            the defaultBackends
+                          items:
+                            properties:
+                              backendName:
+                                description: BackendName references the skipperBackend
+                                  by name
+                                type: string
+                              weight:
+                                description: Weight defines the traffic weight, if
+                                  there are 2 or more default backends
+                                minimum: 0
+                                type: integer
+                            required:
+                            - backendName
+                            type: object
+                          type: array
+                        filters:
+                          description: Filters specifies the list of filters applied
+                            to the routeSpec
+                          items:
+                            type: string
+                          type: array
+                        methods:
+                          description: Methods defines valid HTTP methods for the
+                            specified routeSpec
+                          items:
+                            description: HTTPMethod is a valid HTTP method in uppercase.
+                            enum:
+                            - GET
+                            - HEAD
+                            - POST
+                            - PUT
+                            - PATCH
+                            - DELETE
+                            - CONNECT
+                            - OPTIONS
+                            - TRACE
+                            type: string
+                          type: array
+                        path:
+                          description: Path specifies Path predicate, only one of
+                            Path or PathSubtree is allowed
+                          type: string
+                        pathRegexp:
+                          description: PathRegexp can be added additionally
+                          type: string
+                        pathSubtree:
+                          description: PathSubtree specifies PathSubtree predicate,
+                            only one of Path or PathSubtree is allowed
+                          type: string
+                        predicates:
+                          description: Predicates specifies the list of predicates
+                            applied to the routeSpec
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    minItems: 1
+                    type: array
+                required:
+                - backendPort
+                - hosts
+                - routes
                 type: object
               service:
                 description: Service can be used to configure a custom service, if

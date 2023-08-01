@@ -709,14 +709,14 @@ func (in *StackSpec) DeepCopyInto(out *StackSpec) {
 		*out = new(Autoscaler)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.IngressOverrides != nil {
-		in, out := &in.IngressOverrides, &out.IngressOverrides
-		*out = new(StackIngressRouteGroupOverrides)
+	if in.Ingress != nil {
+		in, out := &in.Ingress, &out.Ingress
+		*out = new(StackSetIngressSpec)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.RouteGroupOverrides != nil {
-		in, out := &in.RouteGroupOverrides, &out.RouteGroupOverrides
-		*out = new(StackIngressRouteGroupOverrides)
+	if in.RouteGroup != nil {
+		in, out := &in.RouteGroup, &out.RouteGroup
+		*out = new(RouteGroupSpec)
 		(*in).DeepCopyInto(*out)
 	}
 	if in.Strategy != nil {

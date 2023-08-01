@@ -476,11 +476,12 @@ type StackSpec struct {
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
 
-	// Settings for the per-stack ingresses (in case the StackSet has a configured ingress)
-	IngressOverrides *StackIngressRouteGroupOverrides `json:"ingress,omitempty"`
+	// Stack specific Ingress, based on the StackSet spec at time of creation.
+	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`
 
-	// Settings for the per-stack route groups (in case the StackSet has a configured RouteGroup)
-	RouteGroupOverrides *StackIngressRouteGroupOverrides `json:"routegroup,omitempty"`
+	// Stack specific RouteGroup, based on the StackSet spec at time of
+	// creation.
+	RouteGroup *RouteGroupSpec `json:"routegroup,omitempty"`
 
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
