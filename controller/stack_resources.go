@@ -2,12 +2,14 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
-	"k8s.io/api/autoscaling/v2"
+	v2 "k8s.io/api/autoscaling/v2"
 	apiv1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +23,32 @@ func pint32Equal(p1, p2 *int32) bool {
 		return *p1 == *p2
 	}
 	return false
+}
+
+func isHPATrafficWeightUpdated(stack *zv1.Stack, hpa *v2.HorizontalPodAutoscaler) (bool, error) {
+	// If resource has external RPS metric we need to check if this reconcile was
+	// triggered by traffic switch, in this case its necessary to update the weight
+	// annotation for the specific metric.
+	for _, metric := range hpa.Spec.Metrics {
+		if metric.Type == v2.ExternalMetricSourceType {
+			t, ok := metric.External.Metric.Selector.MatchLabels["type"]
+			if ok && t == "requests-per-second" {
+				stackWeight := stack.Status.ActualTrafficWeight
+				key := fmt.Sprintf(
+					"metric-config.external.%s.requests-per-second/weight",
+					metric.External.Metric.Name,
+				)
+				hpaWeight, exist := hpa.Annotations[key]
+				w, err := strconv.ParseFloat(hpaWeight, 64)
+				if err != nil {
+					return false, err
+				}
+				return exist && w == stackWeight, nil
+			}
+		}
+	}
+
+	return true, nil
 }
 
 // syncObjectMeta copies metadata elements such as labels or annotations from source to target
@@ -109,7 +137,13 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 	}
 
 	// Check if we need to update the HPA
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) {
+	weightUpdated, err := isHPATrafficWeightUpdated(stack, existing)
+	if err != nil {
+		return err
+	}
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) &&
+		weightUpdated {
 		return nil
 	}
 
