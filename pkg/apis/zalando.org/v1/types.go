@@ -99,27 +99,6 @@ type EmbeddedObjectMeta struct {
 	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
-// +k8s:deepcopy-gen=true
-type StackIngressRouteGroupOverrides struct {
-	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
-
-	// Whether to enable per-stack ingresses or routegroups. Defaults to enabled if unset.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
-
-	// Hostnames to use for the per-stack ingresses (or route groups). These must contain the special $(STACK_NAME)
-	// token, which will be replaced with the stack's name. Would be automatically generated based on the hosts in the
-	// ingress/routegroup entry if unset.
-	Hosts []string `json:"hosts,omitempty"`
-}
-
-func (o *StackIngressRouteGroupOverrides) IsEnabled() bool {
-	if o == nil || o.Enabled == nil {
-		return true
-	}
-	return *o.Enabled
-}
-
 // StackSetIngressSpec is the ingress definition of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
@@ -485,6 +464,20 @@ type StackSpec struct {
 
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+}
+
+// StackSpecInternal is the spec part of the Stack, including `ingress` and
+// `routegroup` specs inherited from the parent StackSet.
+// +k8s:deepcopy-gen=true
+type StackSpecInternal struct {
+	StackSpec `json:",inline"`
+
+	// Stack specific Ingress, based on the parent StackSet at time of creation.
+	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`
+
+	// Stack specific RouteGroup, based on the parent StackSet at time of
+	// creation.
+	RouteGroup *RouteGroupSpec `json:"routegroup,omitempty"`
 }
 
 // StackServiceSpec makes it possible to customize the service generated for

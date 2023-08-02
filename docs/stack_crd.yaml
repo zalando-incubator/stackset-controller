@@ -1029,6 +1029,10 @@ spec:
                                                   selector applies to.
                                                 type: string
                                               operator:
+                                                description: Represents a key's relationship
+                                                  to a set of values. Valid operators
+                                                  are In, NotIn, Exists, DoesNotExist.
+                                                  Gt, and Lt.
                                                 type: string
                                               values:
                                                 items:
@@ -1301,10 +1305,6 @@ spec:
                                                   that the selector applies to.
                                                 type: string
                                               operator:
-                                                description: operator represents a
-                                                  key's relationship to a set of values.
-                                                  Valid operators are In, NotIn, Exists
-                                                  and DoesNotExist.
                                                 type: string
                                               values:
                                                 items:

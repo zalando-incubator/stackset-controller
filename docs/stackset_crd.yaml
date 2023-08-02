@@ -2071,10 +2071,6 @@ spec:
                                                       secret key.
                                                     type: string
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
@@ -3491,6 +3487,10 @@ spec:
                                                     description: The key to select.
                                                     type: string
                                                   name:
+                                                    description: 'Name of the referent.
+                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                                      TODO: Add other useful fields.
+                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
