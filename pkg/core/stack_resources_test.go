@@ -58,29 +58,31 @@ func TestGetServicePorts(tt *testing.T) {
 
 	for _, ti := range []struct {
 		msg           string
-		stackSpec     zv1.StackSpec
+		stackSpec     zv1.StackSpecInternal
 		backendPort   *intstr.IntOrString
 		expectedPorts []v1.ServicePort
 		err           error
 	}{
 		{
 			msg: "test using ports from pod spec",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: &zv1.StackSpec{ 
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: 8080,
+										},
 									},
 								},
-							},
-							{
-								Ports: []v1.ContainerPort{
-									{
-										ContainerPort: 8081,
+								{
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: 8081,
+										},
 									},
 								},
 							},
@@ -106,15 +108,17 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with ingress",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: &zv1.StackSpec {
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -134,16 +138,18 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with named ingress port",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										Name:          "ingress",
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: &zv1.StackSpec {
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											Name:          "ingress",
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -163,16 +169,18 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with invalid named ingress port",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										Name:          "ingress-invalid",
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: &zv1.StackSpec {
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											Name:          "ingress-invalid",
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -193,25 +201,27 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from service definition",
-			stackSpec: zv1.StackSpec{
-				Service: &zv1.StackServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:       "ingress",
-							Protocol:   v1.ProtocolTCP,
-							Port:       8080,
-							TargetPort: backendPort,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: &zv1.StackSpec {
+					Service: &zv1.StackServiceSpec{
+						Ports: []v1.ServicePort{
+							{
+								Name:       "ingress",
+								Protocol:   v1.ProtocolTCP,
+								Port:       8080,
+								TargetPort: backendPort,
+							},
 						},
 					},
-				},
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										Name:          "ingress-invalid",
-										ContainerPort: 8080,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											Name:          "ingress-invalid",
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -486,15 +496,17 @@ func TestStackGenerateService(t *testing.T) {
 			sc: &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						Service: &zv1.StackServiceSpec{
-							EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-								Annotations: svcAnnotations,
-							},
-							Ports: []v1.ServicePort{
-								{
-									Port:       80,
-									TargetPort: intstr.FromInt(8080),
+					Spec: zv1.StackSpecInternal{
+						StackSpec: &zv1.StackSpec{
+							Service: &zv1.StackServiceSpec{
+								EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+									Annotations: svcAnnotations,
+								},
+								Ports: []v1.ServicePort{
+									{
+										Port:       80,
+										TargetPort: intstr.FromInt(8080),
+									},
 								},
 							},
 						},
@@ -533,12 +545,14 @@ func TestStackGenerateService(t *testing.T) {
 			sc: &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						Service: &zv1.StackServiceSpec{
-							Ports: []v1.ServicePort{
-								{
-									Port:       80,
-									TargetPort: intstr.FromInt(8080),
+					Spec: zv1.StackSpecInternal{
+						StackSpec: &zv1.StackSpec{
+							Service: &zv1.StackServiceSpec{
+								Ports: []v1.ServicePort{
+									{
+										Port:       80,
+										TargetPort: intstr.FromInt(8080),
+									},
 								},
 							},
 						},
@@ -571,15 +585,17 @@ func TestStackGenerateService(t *testing.T) {
 			sc: &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						Service: nil,
-						PodTemplate: zv1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Ports: []v1.ContainerPort{
-											{
-												ContainerPort: 8080,
+					Spec: zv1.StackSpecInternal{
+						StackSpec: &zv1.StackSpec{
+							Service: nil,
+							PodTemplate: zv1.PodTemplateSpec{
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Ports: []v1.ContainerPort{
+												{
+													ContainerPort: 8080,
+												},
 											},
 										},
 									},
@@ -787,20 +803,22 @@ func TestStackGenerateDeployment(t *testing.T) {
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						MinReadySeconds: tc.minReadySeconds,
-						Strategy:        strategy,
-						PodTemplate: zv1.PodTemplateSpec{
-							EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
-								Labels: map[string]string{
-									"pod-label": "pod-foo",
+					Spec: zv1.StackSpecInternal{
+						StackSpec: &zv1.StackSpec{
+							MinReadySeconds: tc.minReadySeconds,
+							Strategy:        strategy,
+							PodTemplate: zv1.PodTemplateSpec{
+								EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
+									Labels: map[string]string{
+										"pod-label": "pod-foo",
+									},
 								},
-							},
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Name:  "foo",
-										Image: "ghcr.io/zalando/skipper:latest",
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Name:  "foo",
+											Image: "ghcr.io/zalando/skipper:latest",
+										},
 									},
 								},
 							},
@@ -815,14 +833,14 @@ func TestStackGenerateDeployment(t *testing.T) {
 				scaledownTTL:       time.Minute,
 			}
 			if tc.hpaEnabled {
-				c.Stack.Spec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{}
+				c.Stack.Spec.StackSpec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{}
 			}
 			deployment := c.GenerateDeployment()
 			expected := &apps.Deployment{
 				ObjectMeta: testResourceMeta,
 				Spec: apps.DeploymentSpec{
 					Replicas:        wrapReplicas(tc.expectedReplicas),
-					MinReadySeconds: c.Stack.Spec.MinReadySeconds,
+					MinReadySeconds: c.Stack.Spec.StackSpec.MinReadySeconds,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							StacksetHeritageLabelKey: "foo",
@@ -946,9 +964,11 @@ func TestGenerateHPA(t *testing.T) {
 			autoscalerContainer := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						PodTemplate: podTemplate,
-						Autoscaler:  tc.autoscaler,
+					Spec: zv1.StackSpecInternal{
+						StackSpec: &zv1.StackSpec{
+							PodTemplate: podTemplate,
+							Autoscaler:  tc.autoscaler,
+						},
 					},
 				},
 			}
@@ -963,9 +983,11 @@ func TestGenerateHPA(t *testing.T) {
 			hpaContainer := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						PodTemplate:             podTemplate,
-						HorizontalPodAutoscaler: tc.hpa,
+					Spec: zv1.StackSpecInternal{
+						StackSpec: &zv1.StackSpec{
+							PodTemplate:             podTemplate,
+							HorizontalPodAutoscaler: tc.hpa,
+						},
 					},
 				},
 			}

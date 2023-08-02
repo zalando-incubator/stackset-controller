@@ -415,7 +415,7 @@ type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec StackSpec `json:"spec"`
+	Spec StackSpecInternal `json:"spec"`
 	// +optional
 	Status StackStatus `json:"status"`
 }
@@ -455,13 +455,6 @@ type StackSpec struct {
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
 
-	// Stack specific Ingress, based on the StackSet spec at time of creation.
-	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`
-
-	// Stack specific RouteGroup, based on the StackSet spec at time of
-	// creation.
-	RouteGroup *RouteGroupSpec `json:"routegroup,omitempty"`
-
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 }
@@ -470,13 +463,13 @@ type StackSpec struct {
 // `routegroup` specs inherited from the parent StackSet.
 // +k8s:deepcopy-gen=true
 type StackSpecInternal struct {
-	StackSpec `json:",inline"`
+	// Stack specification, based on the parent StackSet at creation time.
+	StackSpec *StackSpec `json:",inline"`
 
-	// Stack specific Ingress, based on the parent StackSet at time of creation.
+	// Stack specific Ingress, based on the parent StackSet at creation time.
 	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`
 
-	// Stack specific RouteGroup, based on the parent StackSet at time of
-	// creation.
+	// Stack specific RouteGroup, based on the parent StackSet at creation time.
 	RouteGroup *RouteGroupSpec `json:"routegroup,omitempty"`
 }
 

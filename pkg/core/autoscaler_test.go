@@ -19,11 +19,13 @@ func generateAutoscalerStub(minReplicas, maxReplicas int32) StackContainer {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "stackset-v1",
 			},
-			Spec: zv1.StackSpec{
-				Autoscaler: &zv1.Autoscaler{
-					MinReplicas: &minReplicas,
-					MaxReplicas: maxReplicas,
-					Metrics:     []zv1.AutoscalerMetrics{},
+			Spec: zv1.StackSpecInternal{
+				StackSpec: &zv1.StackSpec{
+					Autoscaler: &zv1.Autoscaler{
+						MinReplicas: &minReplicas,
+						MaxReplicas: maxReplicas,
+						Metrics:     []zv1.AutoscalerMetrics{},
+					},
 				},
 			},
 		},
@@ -34,8 +36,8 @@ func generateAutoscalerStub(minReplicas, maxReplicas int32) StackContainer {
 
 func generateAutoscalerCPU(minReplicas, maxReplicas, utilization int32, containerName string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:               zv1.CPUAutoscalerMetric,
 			AverageUtilization: &utilization,
 			Container:          containerName,
@@ -45,8 +47,8 @@ func generateAutoscalerCPU(minReplicas, maxReplicas, utilization int32, containe
 
 func generateAutoscalerMemory(minReplicas, maxReplicas, utilization int32, containerName string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:               zv1.MemoryAutoscalerMetric,
 			AverageUtilization: &utilization,
 			Container:          containerName,
@@ -56,8 +58,8 @@ func generateAutoscalerMemory(minReplicas, maxReplicas, utilization int32, conta
 
 func generateAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueName, queueRegion string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.AmazonSQSAutoscalerMetric,
 			Queue: &zv1.MetricsQueue{
 				Name:   queueName,
@@ -70,8 +72,8 @@ func generateAutoscalerSQS(minReplicas, maxReplicas, utilization int32, queueNam
 }
 func generateAutoscalerZMON(minReplicas, maxReplicas, utilization int32, checkID, key, application, duration string, aggregators []zv1.ZMONMetricAggregatorType) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.ZMONAutoscalerMetric,
 			ZMON: &zv1.MetricsZMON{
 				CheckID:     checkID,
@@ -90,8 +92,8 @@ func generateAutoscalerZMON(minReplicas, maxReplicas, utilization int32, checkID
 
 func generateAutoscalerScalingSchedule(minReplicas, maxReplicas, average int32, name string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.ScalingScheduleMetric,
 			ScalingSchedule: &zv1.MetricsScalingSchedule{
 				Name: name,
@@ -104,8 +106,8 @@ func generateAutoscalerScalingSchedule(minReplicas, maxReplicas, average int32, 
 
 func generateAutoscalerClusterScalingSchedule(minReplicas, maxReplicas, average int32, name string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.ClusterScalingScheduleMetric,
 			ClusterScalingSchedule: &zv1.MetricsClusterScalingSchedule{
 				Name: name,
@@ -118,8 +120,8 @@ func generateAutoscalerClusterScalingSchedule(minReplicas, maxReplicas, average 
 
 func generateAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int32, name, path, key string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.PodJSONAutoscalerMetric,
 			Endpoint: &zv1.MetricsEndpoint{
 				Path: path,
@@ -134,8 +136,8 @@ func generateAutoscalerPodJson(minReplicas, maxReplicas, utilization, port int32
 }
 func generateAutoscalerIngress(minReplicas, maxReplicas, utilization int32) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:    zv1.IngressAutoscalerMetric,
 			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
@@ -145,8 +147,8 @@ func generateAutoscalerIngress(minReplicas, maxReplicas, utilization int32) Stac
 
 func generateAutoscalerRouteGroup(minReplicas, maxReplicas, utilization int32) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type:    zv1.RouteGroupAutoscalerMetric,
 			Average: resource.NewQuantity(int64(utilization), resource.DecimalSI),
 		},
@@ -157,8 +159,8 @@ func generateAutoscalerRouteGroup(minReplicas, maxReplicas, utilization int32) S
 func generateAutoscalerExternalRPS(minReplicas, maxReplicas, utilization int32, weight float64, hosts []string) StackContainer {
 	container := generateAutoscalerStub(minReplicas, maxReplicas)
 	container.actualTrafficWeight = weight
-	container.Stack.Spec.Autoscaler.Metrics = append(
-		container.Stack.Spec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
 			Type: zv1.ExternalRPSMetric,
 			RequestsPerSecond: &zv1.MetricsRequestsPerSecond{
 				Hostnames: hosts,
@@ -581,7 +583,7 @@ func TestSortingMetrics(t *testing.T) {
 		{Type: zv1.PodJSONAutoscalerMetric, Average: resource.NewQuantity(10, resource.DecimalSI), Endpoint: &zv1.MetricsEndpoint{Name: "abc", Path: "/metrics", Port: 1222, Key: "test.abc"}},
 		{Type: zv1.AmazonSQSAutoscalerMetric, Average: resource.NewQuantity(10, resource.DecimalSI), Queue: &zv1.MetricsQueue{Name: "test", Region: "region"}},
 	}
-	container.Stack.Spec.Autoscaler.Metrics = metrics
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = metrics
 	hpa, err := container.GenerateHPA()
 	require.NoError(t, err, "failed to create an HPA")
 	require.NotNil(t, hpa, "hpa not generated")
@@ -602,11 +604,13 @@ func generateHPA(minReplicas, maxReplicas int32) StackContainer {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "stackset-v1",
 			},
-			Spec: zv1.StackSpec{
-				HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
-					MinReplicas: &minReplicas,
-					MaxReplicas: maxReplicas,
-					Metrics:     []autoscalingv2beta1.MetricSpec{},
+			Spec: zv1.StackSpecInternal{
+				StackSpec: &zv1.StackSpec{
+					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+						MinReplicas: &minReplicas,
+						MaxReplicas: maxReplicas,
+						Metrics:     []autoscalingv2beta1.MetricSpec{},
+					},
 				},
 			},
 		},

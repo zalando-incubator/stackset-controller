@@ -64,7 +64,8 @@ spec:
           metadata:
             type: object
           spec:
-            description: StackSpec is the spec part of the Stack.
+            description: StackSpecInternal is the spec part of the Stack, including
+              `ingress` and `routegroup` specs inherited from the parent StackSet.
             properties:
               autoscaler:
                 description: Autoscaler is the autoscaling definition for a stack
@@ -832,8 +833,8 @@ spec:
                 - maxReplicas
                 type: object
               ingress:
-                description: Stack specific Ingress, based on the StackSet spec at
-                  time of creation.
+                description: Stack specific Ingress, based on the parent StackSet
+                  at creation time.
                 properties:
                   backendPort:
                     anyOf:
@@ -1029,10 +1030,6 @@ spec:
                                                   selector applies to.
                                                 type: string
                                               operator:
-                                                description: Represents a key's relationship
-                                                  to a set of values. Valid operators
-                                                  are In, NotIn, Exists, DoesNotExist.
-                                                  Gt, and Lt.
                                                 type: string
                                               values:
                                                 items:
@@ -7653,8 +7650,8 @@ spec:
                 format: int32
                 type: integer
               routegroup:
-                description: Stack specific RouteGroup, based on the StackSet spec
-                  at time of creation.
+                description: Stack specific RouteGroup, based on the parent StackSet
+                  at creation time.
                 properties:
                   additionalBackends:
                     description: AdditionalBackends is the list of additional backends

@@ -151,17 +151,18 @@ func (sc *StackContainer) IsReady() bool {
 }
 
 func (sc *StackContainer) MaxReplicas() int32 {
-	if sc.Stack.Spec.Autoscaler != nil {
-		return sc.Stack.Spec.Autoscaler.MaxReplicas
+	if sc.Stack.Spec.StackSpec.Autoscaler != nil {
+		return sc.Stack.Spec.StackSpec.Autoscaler.MaxReplicas
 	}
-	if sc.Stack.Spec.HorizontalPodAutoscaler != nil {
-		return sc.Stack.Spec.HorizontalPodAutoscaler.MaxReplicas
+	if sc.Stack.Spec.StackSpec.HorizontalPodAutoscaler != nil {
+		return sc.Stack.Spec.StackSpec.HorizontalPodAutoscaler.MaxReplicas
 	}
 	return math.MaxInt32
 }
 
 func (sc *StackContainer) IsAutoscaled() bool {
-	return sc.Stack.Spec.HorizontalPodAutoscaler != nil || sc.Stack.Spec.Autoscaler != nil
+	return sc.Stack.Spec.StackSpec.HorizontalPodAutoscaler != nil ||
+		sc.Stack.Spec.StackSpec.Autoscaler != nil
 }
 
 func (sc *StackContainer) ScaledDown() bool {
@@ -356,7 +357,7 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 }
 
 func (sc *StackContainer) updateFromResources() {
-	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.Replicas)
+	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
 
 	var deploymentUpdated, serviceUpdated, ingressUpdated, routeGroupUpdated, hpaUpdated bool
 

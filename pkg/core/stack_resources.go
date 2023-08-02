@@ -95,12 +95,16 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 }
 
 // getServicePorts gets the service ports to be used for the stack service.
-func getServicePorts(stackSpec zv1.StackSpec, backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
+func getServicePorts(stackSpec zv1.StackSpecInternal, backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
 	var servicePorts []v1.ServicePort
-	if stackSpec.Service == nil || len(stackSpec.Service.Ports) == 0 {
-		servicePorts = servicePortsFromContainers(stackSpec.PodTemplate.Spec.Containers)
+	if stackSpec.StackSpec.Service == nil ||
+		len(stackSpec.StackSpec.Service.Ports) == 0 {
+
+			servicePorts = servicePortsFromContainers(
+				stackSpec.StackSpec.PodTemplate.Spec.Containers,
+			)
 	} else {
-		servicePorts = stackSpec.Service.Ports
+		servicePorts = stackSpec.StackSpec.Service.Ports
 	}
 
 	// validate that one port in the list maps to the backendPort.
@@ -180,11 +184,11 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	}
 
 	var strategy *appsv1.DeploymentStrategy
-	if stack.Spec.Strategy != nil {
-		strategy = stack.Spec.Strategy.DeepCopy()
+	if stack.Spec.StackSpec.Strategy != nil {
+		strategy = stack.Spec.StackSpec.Strategy.DeepCopy()
 	}
 
-	embeddedCopy := stack.Spec.PodTemplate.EmbeddedObjectMeta.DeepCopy()
+	embeddedCopy := stack.Spec.StackSpec.PodTemplate.EmbeddedObjectMeta.DeepCopy()
 
 	templateObjectMeta := metav1.ObjectMeta{
 		Annotations: embeddedCopy.Annotations,
@@ -195,13 +199,13 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
 			Replicas:        updatedReplicas,
-			MinReadySeconds: sc.Stack.Spec.MinReadySeconds,
+			MinReadySeconds: sc.Stack.Spec.StackSpec.MinReadySeconds,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: sc.selector(),
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: objectMetaInjectLabels(templateObjectMeta, stack.Labels),
-				Spec:       *stack.Spec.PodTemplate.Spec.DeepCopy(),
+				Spec:       *stack.Spec.StackSpec.PodTemplate.Spec.DeepCopy(),
 			},
 		},
 	}
@@ -212,8 +216,8 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 }
 
 func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, error) {
-	autoscalerSpec := sc.Stack.Spec.Autoscaler
-	hpaSpec := sc.Stack.Spec.HorizontalPodAutoscaler
+	autoscalerSpec := sc.Stack.Spec.StackSpec.Autoscaler
+	hpaSpec := sc.Stack.Spec.StackSpec.HorizontalPodAutoscaler
 	trafficWeight := sc.actualTrafficWeight
 
 	if autoscalerSpec == nil && hpaSpec == nil {
@@ -287,8 +291,11 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 
 	metaObj := sc.resourceMeta()
 	stackSpec := sc.Stack.Spec
-	if stackSpec.Service != nil {
-		metaObj.Annotations = mergeLabels(metaObj.Annotations, stackSpec.Service.Annotations)
+	if stackSpec.StackSpec.Service != nil {
+		metaObj.Annotations = mergeLabels(
+			metaObj.Annotations,
+			stackSpec.StackSpec.Service.Annotations,
+		)
 	}
 	return &v1.Service{
 		ObjectMeta: metaObj,
