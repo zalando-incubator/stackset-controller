@@ -23,10 +23,14 @@ func pint32Equal(p1, p2 *int32) bool {
 	return false
 }
 
+// There are HPA metrics that depend on annotations to work properly,
+// e.g. External RPS metric, this verification provides a way to verify
+// all relevant annotations are actually up to date.
 func areHPAAnnotationsUpToDate(updated, existing *v2.HorizontalPodAutoscaler) bool {
-    // There are HPA metrics that depend on annotations to work properly,
-    // e.g. External RPS metric, this verification provides a way to verify
-    // all relevant annotations are actually up to date.
+    if len(updated.Annotations) != len(existing.Annotations) {
+        return false
+    }
+
     for k, v := range updated.Annotations {
         if k == "stackset-controller.zalando.org/stack-generation" {
             continue
