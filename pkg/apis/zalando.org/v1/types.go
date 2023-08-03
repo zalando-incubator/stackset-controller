@@ -464,7 +464,7 @@ type StackSpec struct {
 // +k8s:deepcopy-gen=true
 type StackSpecInternal struct {
 	// Stack specification, based on the parent StackSet at creation time.
-	StackSpec *StackSpec `json:",inline"`
+	StackSpec StackSpec `json:",inline"`
 
 	// Stack specific Ingress, based on the parent StackSet at creation time.
 	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`

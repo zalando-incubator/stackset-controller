@@ -63,12 +63,11 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 	// it if it was removed for any reason.
 	if stack == nil && observedStackVersion != stackVersion {
 		internalSpec := &zv1.StackSpecInternal{}
-
 		newSpec := stackset.Spec.StackTemplate.Spec.StackSpec.DeepCopy()
 		if newSpec.Service != nil {
 			newSpec.Service = sanitizeServicePorts(newSpec.Service)
 		}
-		internalSpec.StackSpec = newSpec
+		internalSpec.StackSpec = *newSpec
 
 		if stackset.Spec.Ingress != nil {
 			internalSpec.Ingress = stackset.Spec.Ingress.DeepCopy()

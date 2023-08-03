@@ -20,7 +20,7 @@ func generateAutoscalerStub(minReplicas, maxReplicas int32) StackContainer {
 				Name: "stackset-v1",
 			},
 			Spec: zv1.StackSpecInternal{
-				StackSpec: &zv1.StackSpec{
+				StackSpec: zv1.StackSpec{
 					Autoscaler: &zv1.Autoscaler{
 						MinReplicas: &minReplicas,
 						MaxReplicas: maxReplicas,
@@ -605,7 +605,7 @@ func generateHPA(minReplicas, maxReplicas int32) StackContainer {
 				Name: "stackset-v1",
 			},
 			Spec: zv1.StackSpecInternal{
-				StackSpec: &zv1.StackSpec{
+				StackSpec: zv1.StackSpec{
 					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
 						MinReplicas: &minReplicas,
 						MaxReplicas: maxReplicas,

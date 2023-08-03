@@ -292,6 +292,10 @@ func TestStackSetNewStack(t *testing.T) {
 							},
 						},
 					},
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+						},
+					},
 				},
 			},
 			expectedStackName: "v1",
@@ -347,7 +351,7 @@ func TestStackSetNewStack(t *testing.T) {
 						},
 					},
 					Spec: zv1.StackSpecInternal{
-						StackSpec: &zv1.StackSpec{
+						StackSpec: zv1.StackSpec{
 							Strategy: &apps.DeploymentStrategy{
 								Type: apps.RollingUpdateDeploymentStrategyType,
 								RollingUpdate: &apps.RollingUpdateDeployment{
