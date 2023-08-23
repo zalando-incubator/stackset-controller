@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 )
 
 func TestPrescalingWithoutHPA(t *testing.T) {
@@ -82,7 +83,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 	t.Parallel()
 	stacksetName := "stackset-prescale-hpa"
 	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress().StackGC(3, 15).
-		HPA(1, 10).Replicas(3)
+		Autoscaler(1, 3, []zv1.AutoscalerMetrics{makeCPUAutoscalerMetrics(50)}).Replicas(3)
 
 	// create first stack with 3 replicas
 	firstStack := "v1"

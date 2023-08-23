@@ -11,7 +11,6 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -29,7 +28,6 @@ var (
 
 type TestStacksetSpecFactory struct {
 	stacksetName                  string
-	hpa                           bool
 	hpaBehavior                   bool
 	ingress                       bool
 	routegroup                    bool
@@ -50,7 +48,6 @@ type TestStacksetSpecFactory struct {
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	return &TestStacksetSpecFactory{
 		stacksetName:           stacksetName,
-		hpa:                    false,
 		ingress:                false,
 		externalIngress:        false,
 		limit:                  4,
@@ -60,13 +57,6 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 		hpaMaxReplicas:         3,
 		subResourceAnnotations: map[string]string{},
 	}
-}
-
-func (f *TestStacksetSpecFactory) HPA(minReplicas, maxReplicas int32) *TestStacksetSpecFactory {
-	f.hpa = true
-	f.hpaMinReplicas = minReplicas
-	f.hpaMaxReplicas = maxReplicas
-	return f
 }
 
 func (f *TestStacksetSpecFactory) Behavior(stabilizationWindowSeconds int32) *TestStacksetSpecFactory {
@@ -139,30 +129,6 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 				Version: stackVersion,
 			},
 		},
-	}
-	if f.hpa {
-		result.StackTemplate.Spec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{
-			MaxReplicas: f.hpaMaxReplicas,
-			MinReplicas: pint32(f.hpaMinReplicas),
-			Metrics: []autoscalingv2beta1.MetricSpec{
-				{
-					Type: autoscalingv2beta1.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta1.ResourceMetricSource{
-						Name:                     corev1.ResourceCPU,
-						TargetAverageUtilization: pint32(50),
-					},
-				},
-			},
-		}
-
-		if f.hpaBehavior {
-			result.StackTemplate.Spec.HorizontalPodAutoscaler.Behavior =
-				&autoscalingv2.HorizontalPodAutoscalerBehavior{
-					ScaleDown: &autoscalingv2.HPAScalingRules{
-						StabilizationWindowSeconds: &f.hpaStabilizationWindowSeconds,
-					},
-				}
-		}
 	}
 
 	if f.autoscaler {
@@ -300,13 +266,13 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	require.NoError(t, err)
 
 	// Verify the HPA
-	if stacksetSpec.StackTemplate.Spec.HorizontalPodAutoscaler != nil {
+	if stacksetSpec.StackTemplate.Spec.Autoscaler != nil {
 		hpa, err := waitForHPA(t, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, hpa.Labels)
 		require.EqualValues(t, replicas(stacksetSpec.StackTemplate.Spec.Replicas), replicas(hpa.Spec.MinReplicas))
-		require.EqualValues(t, stacksetSpec.StackTemplate.Spec.HorizontalPodAutoscaler.MaxReplicas, hpa.Spec.MaxReplicas)
-		expectedRef := autoscalingv2beta1.CrossVersionObjectReference{
+		require.EqualValues(t, stacksetSpec.StackTemplate.Spec.Autoscaler.MaxReplicas, hpa.Spec.MaxReplicas)
+		expectedRef := autoscalingv2.CrossVersionObjectReference{
 			Kind:       "Deployment",
 			Name:       deployment.Name,
 			APIVersion: "apps/v1",
@@ -529,7 +495,7 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	stackVersion := "v1"
 	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
 	if hpa {
-		stacksetSpecFactory.HPA(1, 3)
+		stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{makeCPUAutoscalerMetrics(50)})
 	}
 	if ingress {
 		stacksetSpecFactory.Ingress()
@@ -585,7 +551,9 @@ func testStacksetUpdate(
 	initialVersion := "v1"
 	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
 	if oldHpa {
-		stacksetSpecFactory.HPA(1, 3)
+		stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{
+			makeCPUAutoscalerMetrics(50),
+		})
 	}
 	if oldIngress {
 		stacksetSpecFactory.Ingress()
@@ -634,7 +602,9 @@ func testStacksetUpdate(
 	stacksetSpecFactory = NewTestStacksetSpecFactory(stacksetName)
 	updatedVersion := "v2"
 	if newHpa {
-		stacksetSpecFactory.HPA(1, 3)
+		stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{
+			makeCPUAutoscalerMetrics(50),
+		})
 	}
 	if newIngress {
 		stacksetSpecFactory.Ingress()

@@ -160,11 +160,10 @@ HPAs can be used to scale the number of pods based on metrics from different sou
 Specifying an HPA for a deployment allows the stack to scale up during periods of higher
 traffic and then scale back down during off-peak hours to save costs.
 
-HPAs can be specified in 2 different ways for stacksets. The first is to use the `horizontalPodAutoscaler`
-field which is similar in syntax to the original Horizontal Pod Autoscaler. The second way is to use
-the `autoscaler` field. This is then resolved by the _stackset-controller_ which generates an HPA
-with an equivalent spec. Currently, the autoscaler can be used to
-specify scaling based on the following metrics:
+HPAs can be specified via the `autoscaler` field. This is then resolved by the
+_stackset-controller_ which generates an HPA with an equivalent spec.
+Currently, the autoscaler can be used to specify scaling based on the following
+metrics:
 
 1. `CPU`
 2. `Memory`
@@ -260,7 +259,7 @@ autoscaler:
   - type: RequestsPerSecond
     average: 30
     requestsPerSecond:
-      hostnames: 
+      hostnames:
         - 'example.com'
         - 'foo.bar.baz'
 ```
