@@ -325,17 +325,11 @@ func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec) ([]string
 }
 
 func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
-	ingressSpec := sc.Stack.Spec.Ingress
-	if ingressSpec == nil {
-		// fallback to parent StackSet ingress spec, for backward compatibility
-		ingressSpec = sc.ingressSpec
-	}
-
-	if !sc.HasBackendPort() || ingressSpec == nil {
+	if !sc.HasBackendPort() || sc.ingressSpec == nil {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(ingressSpec)
+	hostnames, err := sc.stackHostnames(sc.ingressSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -351,7 +345,7 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 					Paths: []networking.HTTPIngressPath{
 						{
 							PathType: &PathTypeImplementationSpecific,
-							Path:     ingressSpec.Path,
+							Path:     sc.ingressSpec.Path,
 							Backend: networking.IngressBackend{
 								Service: &networking.IngressServiceBackend{
 									Name: sc.Name(),
