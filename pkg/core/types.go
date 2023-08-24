@@ -316,10 +316,6 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		}
 
 		sc.updateFromResources()
-
-		// DEBUG remove
-		fmt.Printf("Stack %s: resources: %v\n", sc.stacksetName, sc.Resources)
-		fmt.Printf("Stack %s: has backend port: %v\n", sc.stacksetName, sc.backendPort)
 	}
 
 	// only populate traffic if traffic management is enabled
