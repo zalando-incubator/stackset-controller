@@ -293,8 +293,7 @@ func TestStackSetNewStack(t *testing.T) {
 						},
 					},
 					Spec: zv1.StackSpecInternal{
-						StackSpec: zv1.StackSpec{
-						},
+						StackSpec: zv1.StackSpec{},
 					},
 				},
 			},
@@ -358,7 +357,7 @@ func TestStackSetNewStack(t *testing.T) {
 									MaxUnavailable: intstrptr("10%"),
 									MaxSurge:       intstrptr("100%"),
 								},
-							},	
+							},
 						},
 					},
 				},

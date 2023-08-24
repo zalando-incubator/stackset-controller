@@ -121,6 +121,7 @@ func (s *StackSetIngressSpec) GetAnnotations() map[string]string {
 
 // StackSetExternalIngressSpec defines the required service
 // backendport for ingress managed outside of stackset.
+// +k8s:deepcopy-gen=true
 type StackSetExternalIngressSpec struct {
 	BackendPort intstr.IntOrString `json:"backendPort"`
 }
@@ -465,6 +466,9 @@ type StackSpec struct {
 type StackSpecInternal struct {
 	// Stack specification, based on the parent StackSet at creation time.
 	StackSpec `json:",inline"`
+
+	// Stack specific ExternalIngress, based on the parent StackSet at creation time.
+	ExternalIngress *StackSetExternalIngressSpec `json:"externalIngress,omitempty"`
 
 	// Stack specific Ingress, based on the parent StackSet at creation time.
 	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`

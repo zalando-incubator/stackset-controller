@@ -100,9 +100,9 @@ func getServicePorts(stackSpec zv1.StackSpecInternal, backendPort *intstr.IntOrS
 	if stackSpec.StackSpec.Service == nil ||
 		len(stackSpec.StackSpec.Service.Ports) == 0 {
 
-			servicePorts = servicePortsFromContainers(
-				stackSpec.StackSpec.PodTemplate.Spec.Containers,
-			)
+		servicePorts = servicePortsFromContainers(
+			stackSpec.StackSpec.PodTemplate.Spec.Containers,
+		)
 	} else {
 		servicePorts = stackSpec.StackSpec.Service.Ports
 	}
@@ -325,11 +325,17 @@ func (sc *StackContainer) stackHostnames(spec ingressOrRouteGroupSpec) ([]string
 }
 
 func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
-	if !sc.HasBackendPort() || sc.ingressSpec == nil {
+	ingressSpec := sc.Stack.Spec.Ingress
+	if ingressSpec == nil {
+		// fallback to parent StackSet ingress spec, for backward compatibility
+		ingressSpec = sc.ingressSpec
+	}
+
+	if !sc.HasBackendPort() || ingressSpec == nil {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(sc.ingressSpec)
+	hostnames, err := sc.stackHostnames(ingressSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -345,7 +351,7 @@ func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 					Paths: []networking.HTTPIngressPath{
 						{
 							PathType: &PathTypeImplementationSpecific,
-							Path:     sc.ingressSpec.Path,
+							Path:     ingressSpec.Path,
 							Backend: networking.IngressBackend{
 								Service: &networking.IngressServiceBackend{
 									Name: sc.Name(),

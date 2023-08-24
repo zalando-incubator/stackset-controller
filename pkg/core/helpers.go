@@ -48,6 +48,11 @@ func getStackGeneration(resource metav1.ObjectMeta) int64 {
 	return decodedGeneration
 }
 
+// findBackendPort 
+func findBackendPort() {
+
+}
+
 func wrapTime(time time.Time) *metav1.Time {
 	if time.IsZero() {
 		return nil

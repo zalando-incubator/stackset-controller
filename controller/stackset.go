@@ -967,11 +967,14 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 }
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
+	// DEBUG remove
+	fmt.Printf("Reconcile Resources, current resources: %v\n", sc.Resources)
+	fmt.Printf("Reconcile Resources, has backend port: %t\n", sc.HasBackendPort())
+
 	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
-
 	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
@@ -993,6 +996,9 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
 		}
 	}
+
+	// DEBUG remove
+	fmt.Printf("After All: Reconcile Resources, current resources: %v\n", sc.Resources)
 
 	return nil
 }

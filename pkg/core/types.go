@@ -82,11 +82,14 @@ type StackContainer struct {
 
 	// Fields from the parent stackset
 	stacksetName   string
+	scaledownTTL   time.Duration
+	clusterDomains []string
+
+	// Fields from the stack itself. If not present in the stack, default to
+	// fields from the parent stackset
 	ingressSpec    *zv1.StackSetIngressSpec
 	routeGroupSpec *zv1.RouteGroupSpec
-	scaledownTTL   time.Duration
 	backendPort    *intstr.IntOrString
-	clusterDomains []string
 
 	// Fields from the stack itself, with some defaults applied
 	stackReplicas int32
@@ -271,7 +274,8 @@ func (ssc *StackSetContainer) updateActualTraffic() error {
 	return nil
 }
 
-// UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
+// UpdateFromResources populates stack state information (e.g. replica counts or
+// traffic) from related resources
 func (ssc *StackSetContainer) UpdateFromResources() error {
 	if len(ssc.StackContainers) == 0 {
 		return nil
@@ -319,6 +323,10 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		sc.scaledownTTL = scaledownTTL
 		sc.clusterDomains = ssc.clusterDomains
 		sc.updateFromResources()
+
+		// DEBUG remove
+		fmt.Printf("Stack %s: resources: %v\n", sc.stacksetName, sc.Resources)
+		fmt.Printf("Stack %s: has backend port: %v\n", sc.stacksetName, sc.backendPort)
 	}
 
 	// only populate traffic if traffic management is enabled

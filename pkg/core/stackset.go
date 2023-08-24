@@ -52,29 +52,32 @@ func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
 
 // NewStack returns an (optional) stack that should be created
 func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
-	stackset := ssc.StackSet
-
-	observedStackVersion := stackset.Status.ObservedStackVersion
-	stackVersion := currentStackVersion(stackset)
-	stackName := generateStackName(stackset, stackVersion)
+	observedStackVersion := ssc.StackSet.Status.ObservedStackVersion
+	stackVersion := currentStackVersion(ssc.StackSet)
+	stackName := generateStackName(ssc.StackSet, stackVersion)
 	stack := ssc.stackByName(stackName)
 
-	// If the current stack doesn't exist, check that we haven't created it before. We shouldn't recreate
-	// it if it was removed for any reason.
+	// If the current stack doesn't exist, check that we haven't created it
+	// before. We shouldn't recreate it if it was removed for any reason.
 	if stack == nil && observedStackVersion != stackVersion {
-		internalSpec := &zv1.StackSpecInternal{}
-		newSpec := stackset.Spec.StackTemplate.Spec.StackSpec.DeepCopy()
-		if newSpec.Service != nil {
-			newSpec.Service = sanitizeServicePorts(newSpec.Service)
-		}
-		internalSpec.StackSpec = *newSpec
+		spec := &zv1.StackSpecInternal{}
 
-		if stackset.Spec.Ingress != nil {
-			internalSpec.Ingress = stackset.Spec.Ingress.DeepCopy()
+		parentSpec := ssc.StackSet.Spec.StackTemplate.Spec.StackSpec.DeepCopy()
+		if parentSpec.Service != nil {
+			parentSpec.Service = sanitizeServicePorts(parentSpec.Service)
+		}
+		spec.StackSpec = *parentSpec
+
+		if ssc.StackSet.Spec.Ingress != nil {
+			spec.Ingress = ssc.StackSet.Spec.Ingress.DeepCopy()
 		}
 
-		if stackset.Spec.RouteGroup != nil {
-			internalSpec.RouteGroup = stackset.Spec.RouteGroup.DeepCopy()
+		if ssc.StackSet.Spec.ExternalIngress != nil {
+			spec.ExternalIngress = ssc.StackSet.Spec.ExternalIngress.DeepCopy()
+		}
+
+		if ssc.StackSet.Spec.RouteGroup != nil {
+			spec.RouteGroup = ssc.StackSet.Spec.RouteGroup.DeepCopy()
 		}
 
 		return &StackContainer{
@@ -84,19 +87,22 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 					Namespace: ssc.StackSet.Namespace,
 					OwnerReferences: []metav1.OwnerReference{
 						{
-							APIVersion: stackset.APIVersion,
-							Kind:       stackset.Kind,
-							Name:       stackset.Name,
-							UID:        stackset.UID,
+							APIVersion: ssc.StackSet.APIVersion,
+							Kind:       ssc.StackSet.Kind,
+							Name:       ssc.StackSet.Name,
+							UID:        ssc.StackSet.UID,
 						},
 					},
 					Labels: mergeLabels(
-						map[string]string{StacksetHeritageLabelKey: stackset.Name},
-						stackset.Labels,
-						map[string]string{StackVersionLabelKey: stackVersion}),
-					Annotations: stackset.Spec.StackTemplate.Annotations,
+						map[string]string{
+							StacksetHeritageLabelKey: ssc.StackSet.Name,
+						},
+						ssc.StackSet.Labels,
+						map[string]string{StackVersionLabelKey: stackVersion},
+					),
+					Annotations: ssc.StackSet.Spec.StackTemplate.Annotations,
 				},
-				Spec: *internalSpec,
+				Spec: *spec,
 			},
 		}, stackVersion
 	}

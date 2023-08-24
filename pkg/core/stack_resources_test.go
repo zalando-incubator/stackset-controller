@@ -9,8 +9,8 @@ import (
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	autoscaling "k8s.io/api/autoscaling/v2"
+	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,7 +66,7 @@ func TestGetServicePorts(tt *testing.T) {
 		{
 			msg: "test using ports from pod spec",
 			stackSpec: zv1.StackSpecInternal{
-				StackSpec: zv1.StackSpec{ 
+				StackSpec: zv1.StackSpec{
 					Service: nil,
 					PodTemplate: zv1.PodTemplateSpec{
 						Spec: v1.PodSpec{
@@ -109,7 +109,7 @@ func TestGetServicePorts(tt *testing.T) {
 		{
 			msg: "test using ports from pod spec with ingress",
 			stackSpec: zv1.StackSpecInternal{
-				StackSpec: zv1.StackSpec {
+				StackSpec: zv1.StackSpec{
 					Service: nil,
 					PodTemplate: zv1.PodTemplateSpec{
 						Spec: v1.PodSpec{
@@ -139,7 +139,7 @@ func TestGetServicePorts(tt *testing.T) {
 		{
 			msg: "test using ports from pod spec with named ingress port",
 			stackSpec: zv1.StackSpecInternal{
-				StackSpec: zv1.StackSpec {
+				StackSpec: zv1.StackSpec{
 					Service: nil,
 					PodTemplate: zv1.PodTemplateSpec{
 						Spec: v1.PodSpec{
@@ -170,7 +170,7 @@ func TestGetServicePorts(tt *testing.T) {
 		{
 			msg: "test using ports from pod spec with invalid named ingress port",
 			stackSpec: zv1.StackSpecInternal{
-				StackSpec: zv1.StackSpec {
+				StackSpec: zv1.StackSpec{
 					Service: nil,
 					PodTemplate: zv1.PodTemplateSpec{
 						Spec: v1.PodSpec{
@@ -202,7 +202,7 @@ func TestGetServicePorts(tt *testing.T) {
 		{
 			msg: "test using ports from service definition",
 			stackSpec: zv1.StackSpecInternal{
-				StackSpec: zv1.StackSpec {
+				StackSpec: zv1.StackSpec{
 					Service: &zv1.StackServiceSpec{
 						Ports: []v1.ServicePort{
 							{
@@ -278,8 +278,8 @@ func TestLimitLabels(t *testing.T) {
 
 func TestStackGenerateIngress(t *testing.T) {
 	for _, tc := range []struct {
-		name             string
-		ingressSpec      *zv1.StackSetIngressSpec
+		name        string
+		ingressSpec *zv1.StackSetIngressSpec
 
 		expectDisabled      bool
 		expectError         bool
@@ -371,8 +371,8 @@ func TestStackGenerateIngress(t *testing.T) {
 
 func TestStackGenerateRouteGroup(t *testing.T) {
 	for _, tc := range []struct {
-		name                string
-		routeGroupSpec      *zv1.RouteGroupSpec
+		name           string
+		routeGroupSpec *zv1.RouteGroupSpec
 
 		expectDisabled      bool
 		expectError         bool
