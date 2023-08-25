@@ -359,7 +359,8 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 // overrideParentResources writes over Ingress and RouteGroup resources from the
 // parent, in case the stack has the corresponding resources in the spec.
 func (sc *StackContainer) overrideParentResources() error {
-	overridePort := false
+	overridePort := sc.Stack.Spec.ExternalIngress != nil
+
 	if sc.Stack.Spec.Ingress != nil {
 		overridePort = true
 		sc.ingressSpec = sc.Stack.Spec.Ingress
