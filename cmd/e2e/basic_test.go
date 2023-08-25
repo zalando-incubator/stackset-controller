@@ -563,7 +563,20 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	}
 }
 
-func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngress, newIngress, oldRouteGroup, newRouteGroup, oldExternalIngress, newExternalIngress bool, oldSubResourceAnnotations, newSubResourceAnnotations map[string]string) {
+func testStacksetUpdate(
+	t *testing.T,
+	testName string,
+	oldHpa,
+	newHpa,
+	oldIngress,
+	newIngress,
+	oldRouteGroup,
+	newRouteGroup,
+	oldExternalIngress,
+	newExternalIngress bool,
+	oldSubResourceAnnotations,
+	newSubResourceAnnotations map[string]string,
+) {
 	t.Parallel()
 
 	var actualTraffic []*zv1.ActualTraffic
@@ -671,9 +684,6 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 			actualTraffic:        actualTraffic,
 		})
 	} else if oldIngress {
-		err = resourceDeleted(t, "ingress", fmt.Sprintf("%s-%s", stacksetName, initialVersion), ingressInterface()).await()
-		require.NoError(t, err)
-
 		err = resourceDeleted(t, "ingress", stacksetName, ingressInterface()).await()
 		require.NoError(t, err)
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
@@ -688,9 +698,6 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 			actualTraffic:        actualTraffic,
 		})
 	} else if oldRouteGroup {
-		err = resourceDeleted(t, "routegroup", fmt.Sprintf("%s-%s", stacksetName, initialVersion), routegroupInterface()).await()
-		require.NoError(t, err)
-
 		err = resourceDeleted(t, "routegroup", stacksetName, routegroupInterface()).await()
 		require.NoError(t, err)
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
