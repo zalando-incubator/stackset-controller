@@ -391,21 +391,6 @@ func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {
 	}
 }
 
-func updateStack(stackName string, spec zv1.StackSpec) error {
-	for {
-		stack, err := stackInterface().Get(context.Background(), stackName, metav1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		stack.Spec = spec
-		_, err = stackInterface().Update(context.Background(), stack, metav1.UpdateOptions{})
-		if apiErrors.IsConflict(err) {
-			continue
-		}
-		return err
-	}
-}
-
 func waitForStack(t *testing.T, stacksetName, stackVersion string) (*zv1.Stack, error) {
 	stackName := fmt.Sprintf("%s-%s", stacksetName, stackVersion)
 	err := resourceCreated(t, "stack", stackName, stackInterface()).await()

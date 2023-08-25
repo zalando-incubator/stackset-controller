@@ -54,7 +54,7 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 
 				// Unable to determine target scale, fallback to stack replicas
 				if stack.prescalingReplicas == 0 {
-					stack.prescalingReplicas = effectiveReplicas(stack.Stack.Spec.Replicas)
+					stack.prescalingReplicas = effectiveReplicas(stack.Stack.Spec.StackSpec.Replicas)
 				}
 
 				// Limit to MaxReplicas

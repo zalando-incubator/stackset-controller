@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"

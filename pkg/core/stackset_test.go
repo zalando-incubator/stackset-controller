@@ -292,6 +292,9 @@ func TestStackSetNewStack(t *testing.T) {
 							},
 						},
 					},
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{},
+					},
 				},
 			},
 			expectedStackName: "v1",
@@ -346,12 +349,14 @@ func TestStackSetNewStack(t *testing.T) {
 							},
 						},
 					},
-					Spec: zv1.StackSpec{
-						Strategy: &apps.DeploymentStrategy{
-							Type: apps.RollingUpdateDeploymentStrategyType,
-							RollingUpdate: &apps.RollingUpdateDeployment{
-								MaxUnavailable: intstrptr("10%"),
-								MaxSurge:       intstrptr("100%"),
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							Strategy: &apps.DeploymentStrategy{
+								Type: apps.RollingUpdateDeploymentStrategyType,
+								RollingUpdate: &apps.RollingUpdateDeployment{
+									MaxUnavailable: intstrptr("10%"),
+									MaxSurge:       intstrptr("100%"),
+								},
 							},
 						},
 					},
@@ -600,12 +605,12 @@ func TestStackUpdateFromResources(t *testing.T) {
 	hourAgo := time.Now().Add(-time.Hour)
 
 	runTest("stackset replicas default to 1", func(t *testing.T, container *StackContainer) {
-		container.Stack.Spec.Replicas = nil
+		container.Stack.Spec.StackSpec.Replicas = nil
 		container.updateFromResources()
 		require.EqualValues(t, 1, container.stackReplicas)
 	})
 	runTest("stackset replicas are parsed from the spec", func(t *testing.T, container *StackContainer) {
-		container.Stack.Spec.Replicas = wrapReplicas(3)
+		container.Stack.Spec.StackSpec.Replicas = wrapReplicas(3)
 		container.updateFromResources()
 		require.EqualValues(t, 3, container.stackReplicas)
 	})
@@ -696,7 +701,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 
 	runTest("hpa isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
-		container.Stack.Spec.Autoscaler = &zv1.Autoscaler{}
+		container.Stack.Spec.StackSpec.Autoscaler = &zv1.Autoscaler{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.HPA = hpa(10)
@@ -722,7 +727,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 	runTest("resources are recognised as updated correctly (all resources)", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
 		container.ingressSpec = &zv1.StackSetIngressSpec{}
-		container.Stack.Spec.Autoscaler = &zv1.Autoscaler{}
+		container.Stack.Spec.StackSpec.Autoscaler = &zv1.Autoscaler{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.Ingress = ingress(11)

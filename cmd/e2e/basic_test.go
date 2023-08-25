@@ -261,14 +261,21 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	// Verify stack
 	stack, err := waitForStack(t, stacksetName, currentVersion)
 	require.NoError(t, err)
-	require.EqualValues(t, stacksetSpec.StackTemplate.Spec.StackSpec, stack.Spec)
+	require.EqualValues(
+		t,
+		stacksetSpec.StackTemplate.Spec.StackSpec,
+		stack.Spec.StackSpec,
+	)
 	require.EqualValues(t, stackResourceLabels, stack.Labels)
 
 	// Verify deployment
 	deployment, err := waitForDeployment(t, stack.Name)
 	require.NoError(t, err)
 	require.EqualValues(t, stackResourceLabels, deployment.Labels)
-	require.EqualValues(t, replicas(deployment.Spec.Replicas), replicas(stack.Spec.Replicas))
+	require.EqualValues(
+		t, replicas(deployment.Spec.Replicas),
+		replicas(stack.Spec.StackSpec.Replicas),
+	)
 	require.EqualValues(t, stackResourceLabels, deployment.Spec.Template.Labels)
 	if stacksetSpec.StackTemplate.Spec.Strategy != nil {
 		require.EqualValues(t, *stacksetSpec.StackTemplate.Spec.Strategy, deployment.Spec.Strategy)
@@ -556,7 +563,20 @@ func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup,
 	}
 }
 
-func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngress, newIngress, oldRouteGroup, newRouteGroup, oldExternalIngress, newExternalIngress bool, oldSubResourceAnnotations, newSubResourceAnnotations map[string]string) {
+func testStacksetUpdate(
+	t *testing.T,
+	testName string,
+	oldHpa,
+	newHpa,
+	oldIngress,
+	newIngress,
+	oldRouteGroup,
+	newRouteGroup,
+	oldExternalIngress,
+	newExternalIngress bool,
+	oldSubResourceAnnotations,
+	newSubResourceAnnotations map[string]string,
+) {
 	t.Parallel()
 
 	var actualTraffic []*zv1.ActualTraffic
@@ -664,9 +684,6 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 			actualTraffic:        actualTraffic,
 		})
 	} else if oldIngress {
-		err = resourceDeleted(t, "ingress", fmt.Sprintf("%s-%s", stacksetName, initialVersion), ingressInterface()).await()
-		require.NoError(t, err)
-
 		err = resourceDeleted(t, "ingress", stacksetName, ingressInterface()).await()
 		require.NoError(t, err)
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
@@ -681,9 +698,6 @@ func testStacksetUpdate(t *testing.T, testName string, oldHpa, newHpa, oldIngres
 			actualTraffic:        actualTraffic,
 		})
 	} else if oldRouteGroup {
-		err = resourceDeleted(t, "routegroup", fmt.Sprintf("%s-%s", stacksetName, initialVersion), routegroupInterface()).await()
-		require.NoError(t, err)
-
 		err = resourceDeleted(t, "routegroup", stacksetName, routegroupInterface()).await()
 		require.NoError(t, err)
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{

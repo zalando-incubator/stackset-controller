@@ -1,11 +1,13 @@
 package core
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 const (
@@ -46,6 +48,39 @@ func getStackGeneration(resource metav1.ObjectMeta) int64 {
 		return 0
 	}
 	return decodedGeneration
+}
+
+// findBackendPort - given an ingress, routegroup and externalIngress, determine
+// which backendPort to use.
+func findBackendPort(
+	ingress *zv1.StackSetIngressSpec,
+	routeGroup *zv1.RouteGroupSpec,
+	externalIngress *zv1.StackSetExternalIngressSpec,
+) (*intstr.IntOrString, error) {
+	var port *intstr.IntOrString
+
+	if ingress != nil {
+		port = &ingress.BackendPort
+	}
+
+	if routeGroup != nil {
+		if port != nil && port.IntValue() != routeGroup.BackendPort {
+			return nil, fmt.Errorf(
+				"backendPort for Ingress and RouteGroup does not match %s!=%d",
+				port.String(),
+				routeGroup.BackendPort,
+			)
+		}
+
+		rgPort := intstr.FromInt(routeGroup.BackendPort)
+		port = &rgPort
+	}
+
+	if port == nil && externalIngress != nil {
+		return &externalIngress.BackendPort, nil
+	}
+
+	return port, nil
 }
 
 func wrapTime(time time.Time) *metav1.Time {
