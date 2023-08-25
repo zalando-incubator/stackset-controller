@@ -261,7 +261,11 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	// Verify stack
 	stack, err := waitForStack(t, stacksetName, currentVersion)
 	require.NoError(t, err)
-	require.EqualValues(t, stacksetSpec.StackTemplate.Spec.StackSpec, stack.Spec)
+	require.EqualValues(
+		t,
+		stacksetSpec.StackTemplate.Spec.StackSpec,
+		stack.Spec.StackSpec,
+	)
 	require.EqualValues(t, stackResourceLabels, stack.Labels)
 
 	// Verify deployment
