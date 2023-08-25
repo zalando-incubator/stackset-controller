@@ -4,7 +4,6 @@ import (
 	rg "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -309,34 +308,6 @@ type Autoscaler struct {
 	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty" protobuf:"bytes,5,opt,name=behavior"`
 }
 
-// HorizontalPodAutoscaler is the Autoscaling configuration of a Stack. If
-// defined an HPA will be created for the Stack.
-// +k8s:deepcopy-gen=true
-type HorizontalPodAutoscaler struct {
-	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
-	// It defaults to 1 pod.
-	// +optional
-	MinReplicas *int32 `json:"minReplicas,omitempty"`
-	// maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
-	// It cannot be less that minReplicas.
-	MaxReplicas int32 `json:"maxReplicas"`
-	// metrics contains the specifications for which to use to calculate the
-	// desired replica count (the maximum replica count across all metrics will
-	// be used).  The desired replica count is calculated multiplying the
-	// ratio between the target value and the current value by the current
-	// number of pods.  Ergo, metrics used must decrease as the pod count is
-	// increased, and vice-versa.  See the individual metric source types for
-	// more information about how each type of metric must respond.
-	// +optional
-	Metrics []autoscaling.MetricSpec `json:"metrics,omitempty"`
-
-	// behavior configures the scaling behavior of the target
-	// in both Up and Down directions (scaleUp and scaleDown fields respectively).
-	// If not set, the default HPAScalingRules for scale up and scale down are used.
-	// +optional
-	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty" protobuf:"bytes,5,opt,name=behavior"`
-}
-
 // StackSetStatus is the status section of the StackSet resource.
 // +k8s:deepcopy-gen=true
 type StackSetStatus struct {
@@ -445,8 +416,7 @@ type StackSpec struct {
 	// without any of its container crashing, for it to be considered available.
 	// Defaults to 0 (pod will be considered available as soon as it is ready)
 	// +optional
-	MinReadySeconds         int32                    `json:"minReadySeconds,omitempty"`
-	HorizontalPodAutoscaler *HorizontalPodAutoscaler `json:"horizontalPodAutoscaler,omitempty"`
+	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
 	// Service can be used to configure a custom service, if not
 	// set stackset-controller will generate a service based on
 	// container port and ingress backendport.

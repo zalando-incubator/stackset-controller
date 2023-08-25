@@ -10,7 +10,6 @@ import (
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -833,7 +832,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 				scaledownTTL:       time.Minute,
 			}
 			if tc.hpaEnabled {
-				c.Stack.Spec.StackSpec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{}
+				c.Stack.Spec.StackSpec.Autoscaler = &zv1.Autoscaler{}
 			}
 			deployment := c.GenerateDeployment()
 			expected := &apps.Deployment{
@@ -894,7 +893,6 @@ func TestGenerateHPA(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		autoscaler          *zv1.Autoscaler
-		hpa                 *zv1.HorizontalPodAutoscaler
 		expectedMinReplicas *int32
 		expectedMaxReplicas int32
 		expectedMetrics     []autoscaling.MetricSpec
@@ -910,20 +908,6 @@ func TestGenerateHPA(t *testing.T) {
 					{
 						Type:               zv1.CPUAutoscalerMetric,
 						AverageUtilization: &utilization,
-					},
-				},
-				Behavior: exampleBehavior,
-			},
-			hpa: &zv1.HorizontalPodAutoscaler{
-				MinReplicas: &min,
-				MaxReplicas: max,
-				Metrics: []autoscalingv2beta1.MetricSpec{
-					{
-						Type: autoscalingv2beta1.ResourceMetricSourceType,
-						Resource: &autoscalingv2beta1.ResourceMetricSource{
-							Name:                     v1.ResourceCPU,
-							TargetAverageUtilization: &utilization,
-						},
 					},
 				},
 				Behavior: exampleBehavior,
@@ -974,25 +958,6 @@ func TestGenerateHPA(t *testing.T) {
 			}
 
 			hpa, err := autoscalerContainer.GenerateHPA()
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
-			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
-			require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
-			require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
-
-			hpaContainer := &StackContainer{
-				Stack: &zv1.Stack{
-					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpecInternal{
-						StackSpec: zv1.StackSpec{
-							PodTemplate:             podTemplate,
-							HorizontalPodAutoscaler: tc.hpa,
-						},
-					},
-				},
-			}
-
-			hpa, err = hpaContainer.GenerateHPA()
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
 			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)

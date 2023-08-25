@@ -157,15 +157,11 @@ func (sc *StackContainer) MaxReplicas() int32 {
 	if sc.Stack.Spec.StackSpec.Autoscaler != nil {
 		return sc.Stack.Spec.StackSpec.Autoscaler.MaxReplicas
 	}
-	if sc.Stack.Spec.StackSpec.HorizontalPodAutoscaler != nil {
-		return sc.Stack.Spec.StackSpec.HorizontalPodAutoscaler.MaxReplicas
-	}
 	return math.MaxInt32
 }
 
 func (sc *StackContainer) IsAutoscaled() bool {
-	return sc.Stack.Spec.StackSpec.HorizontalPodAutoscaler != nil ||
-		sc.Stack.Spec.StackSpec.Autoscaler != nil
+	return sc.Stack.Spec.StackSpec.Autoscaler != nil
 }
 
 func (sc *StackContainer) ScaledDown() bool {
@@ -323,7 +319,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		ssc.StackSet.Spec.RouteGroup != nil ||
 		ssc.StackSet.Spec.ExternalIngress != nil {
 
-			err := ssc.updateDesiredTraffic()
+		err := ssc.updateDesiredTraffic()
 		if err != nil {
 			return err
 		}

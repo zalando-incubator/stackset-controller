@@ -77,7 +77,7 @@ func (f *testStackFactory) currentActualTrafficWeight(weight float64) *testStack
 }
 
 func (f *testStackFactory) maxReplicas(replicas int32) *testStackFactory {
-	f.container.Stack.Spec.StackSpec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{
+	f.container.Stack.Spec.StackSpec.Autoscaler = &zv1.Autoscaler{
 		MaxReplicas: replicas,
 	}
 	return f

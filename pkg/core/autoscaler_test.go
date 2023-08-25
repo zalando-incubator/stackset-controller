@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	autoscaling "k8s.io/api/autoscaling/v2"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -606,10 +605,10 @@ func generateHPA(minReplicas, maxReplicas int32) StackContainer {
 			},
 			Spec: zv1.StackSpecInternal{
 				StackSpec: zv1.StackSpec{
-					HorizontalPodAutoscaler: &zv1.HorizontalPodAutoscaler{
+					Autoscaler: &zv1.Autoscaler{
 						MinReplicas: &minReplicas,
 						MaxReplicas: maxReplicas,
-						Metrics:     []autoscalingv2beta1.MetricSpec{},
+						Metrics:     []zv1.AutoscalerMetrics{},
 					},
 				},
 			},
