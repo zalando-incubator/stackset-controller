@@ -58,7 +58,7 @@ func (l MetricsList) Less(i, j int) bool {
 	return l[i].Type < l[j].Type
 }
 
-func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []zv1.AutoscalerMetrics) ([]autoscaling.MetricSpec, map[string]string, error) {
+func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []zv1.AutoscalerMetrics, trafficWeight float64) ([]autoscaling.MetricSpec, map[string]string, error) {
 	var resultMetrics MetricsList
 	resultAnnotations := make(map[string]string)
 
@@ -87,6 +87,8 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 			generated, err = cpuMetric(m)
 		case zv1.MemoryAutoscalerMetric:
 			generated, err = memoryMetric(m)
+		case zv1.ExternalRPSMetric:
+			generated, annotations, err = externalRPSMetric(m, stackName, trafficWeight)
 		default:
 			err = fmt.Errorf("metric type %s not supported", m.Type)
 		}
@@ -282,6 +284,49 @@ func routegroupMetric(metrics zv1.AutoscalerMetrics, rgName, backendName string)
 		},
 	}
 	return generated, nil
+}
+
+func externalRPSMetric(metrics zv1.AutoscalerMetrics, stackname string, weight float64) (*autoscaling.MetricSpec, map[string]string, error) {
+	if metrics.Average == nil {
+		return nil, nil, fmt.Errorf("average value not specified for metric")
+	}
+
+	if metrics.RequestsPerSecond == nil {
+		return nil, nil, fmt.Errorf("RequestsPerSecond value not specified for metric")
+	}
+
+	if len(metrics.RequestsPerSecond.Hostnames) == 0 {
+		return nil, nil, fmt.Errorf("RequestsPerSecond.hostnames value not specified for metric")
+	}
+
+	name := stackname + "-rps"
+
+	average := metrics.Average.DeepCopy()
+	generated := &autoscaling.MetricSpec{
+		Type: autoscaling.ExternalMetricSourceType,
+		External: &autoscaling.ExternalMetricSource{
+			Metric: autoscaling.MetricIdentifier{
+				Name: name,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"type": "requests-per-second"},
+				},
+			},
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
+		},
+	}
+
+	hostKey := fmt.Sprintf("metric-config.external.%s.requests-per-second/hostnames", name)
+	weightKey := fmt.Sprintf("metric-config.external.%s.requests-per-second/weight", name)
+
+	annotations := map[string]string{
+		hostKey:   strings.Join(metrics.RequestsPerSecond.Hostnames, ","),
+		weightKey: fmt.Sprintf("%d", int(weight)), // weight should be always between 0 and 100 with no decimal points
+	}
+
+	return generated, annotations, nil
 }
 
 func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*autoscaling.MetricSpec, map[string]string, error) {

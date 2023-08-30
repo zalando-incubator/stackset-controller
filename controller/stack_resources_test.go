@@ -33,6 +33,9 @@ var (
 			Generation:      1,
 			OwnerReferences: stacksetOwned(testStackSet).OwnerReferences,
 		},
+		Status: zv1.StackStatus{
+			ActualTrafficWeight: 42.0,
+		},
 	}
 	updatedTestStack = *baseTestStack.DeepCopy()
 
@@ -364,6 +367,7 @@ func TestReconcileStackHPA(t *testing.T) {
 			},
 		},
 	}
+
 	exampleUpdatedResource := resource.MustParse("20m")
 	exampleUpdatedMetrics := []autoscaling.MetricSpec{
 		{
@@ -392,6 +396,43 @@ func TestReconcileStackHPA(t *testing.T) {
 			},
 		},
 	}
+
+	exampleExternalRPSMetric := []autoscaling.MetricSpec{
+		{
+			Type: autoscaling.ExternalMetricSourceType,
+			External: &autoscaling.ExternalMetricSource{
+				Metric: autoscaling.MetricIdentifier{
+					Name: "foo",
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"type": "requests-per-second",
+						},
+					},
+				},
+				Target: autoscaling.MetricTarget{
+					Type:         autoscaling.MetricTargetType("AverageValue"),
+					AverageValue: resource.NewQuantity(10, resource.DecimalSI),
+				},
+			},
+		},
+	}
+
+	externalRPSHPAObjMeta := baseTestStackOwned.DeepCopy()
+	for k, v := range map[string]string{
+		"metric-config.external.foo.requests-per-second/hostnames": "just.testing.com",
+		"metric-config.external.foo.requests-per-second/weight":    "42",
+	} {
+		externalRPSHPAObjMeta.Annotations[k] = v
+	}
+	externalRPSHPAObjMetaUpdated := baseTestStackOwned.DeepCopy()
+	for k, v := range map[string]string{
+		"metric-config.external.foo.requests-per-second/hostnames": "just.testing.com",
+		"metric-config.external.foo.requests-per-second/weight":    "100",
+	} {
+		externalRPSHPAObjMetaUpdated.Annotations[k] = v
+	}
+	externalRPSHPAStack := baseTestStack.DeepCopy()
+	externalRPSHPAStack.Status.ActualTrafficWeight = 100
 
 	for _, tc := range []struct {
 		name     string
@@ -459,6 +500,34 @@ func TestReconcileStackHPA(t *testing.T) {
 					MinReplicas: &exampleMinReplicas,
 					MaxReplicas: 7,
 					Metrics:     exampleUpdatedMetrics,
+				},
+			},
+		},
+		{
+			name:  "HPA is updated if stack weight changes",
+			stack: *externalRPSHPAStack,
+			existing: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: *externalRPSHPAObjMeta,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleExternalRPSMetric,
+				},
+			},
+			updated: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: *externalRPSHPAObjMetaUpdated,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleExternalRPSMetric,
+				},
+			},
+			expected: &autoscaling.HorizontalPodAutoscaler{
+				ObjectMeta: *externalRPSHPAObjMetaUpdated,
+				Spec: autoscaling.HorizontalPodAutoscalerSpec{
+					MinReplicas: &exampleMinReplicas,
+					MaxReplicas: 5,
+					Metrics:     exampleExternalRPSMetric,
 				},
 			},
 		},

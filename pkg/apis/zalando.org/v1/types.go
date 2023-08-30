@@ -4,7 +4,6 @@ import (
 	rg "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	autoscaling "k8s.io/api/autoscaling/v2beta1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,27 +98,6 @@ type EmbeddedObjectMeta struct {
 	Annotations map[string]string `json:"annotations,omitempty" protobuf:"bytes,12,rep,name=annotations"`
 }
 
-// +k8s:deepcopy-gen=true
-type StackIngressRouteGroupOverrides struct {
-	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
-
-	// Whether to enable per-stack ingresses or routegroups. Defaults to enabled if unset.
-	// +optional
-	Enabled *bool `json:"enabled,omitempty"`
-
-	// Hostnames to use for the per-stack ingresses (or route groups). These must contain the special $(STACK_NAME)
-	// token, which will be replaced with the stack's name. Would be automatically generated based on the hosts in the
-	// ingress/routegroup entry if unset.
-	Hosts []string `json:"hosts,omitempty"`
-}
-
-func (o *StackIngressRouteGroupOverrides) IsEnabled() bool {
-	if o == nil || o.Enabled == nil {
-		return true
-	}
-	return *o.Enabled
-}
-
 // StackSetIngressSpec is the ingress definition of an StackSet. This
 // includes ingress annotations and a list of hostnames.
 // +k8s:deepcopy-gen=true
@@ -142,6 +120,7 @@ func (s *StackSetIngressSpec) GetAnnotations() map[string]string {
 
 // StackSetExternalIngressSpec defines the required service
 // backendport for ingress managed outside of stackset.
+// +k8s:deepcopy-gen=true
 type StackSetExternalIngressSpec struct {
 	BackendPort intstr.IntOrString `json:"backendPort"`
 }
@@ -266,8 +245,15 @@ type MetricsClusterScalingSchedule struct {
 	Name string `json:"name"`
 }
 
+// MetricRequestsPerSecond specifies basic information to scale based on
+// on external RPS metric.
+// +k8s:deepcopy-gen=true
+type MetricsRequestsPerSecond struct {
+	Hostnames []string `json:"hostnames"`
+}
+
 // AutoscalerMetricType is the type of the metric used for scaling.
-// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule
+// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule;RequestsPerSecond
 type AutoscalerMetricType string
 
 const (
@@ -280,6 +266,7 @@ const (
 	ZMONAutoscalerMetric         AutoscalerMetricType = "ZMON"
 	ClusterScalingScheduleMetric AutoscalerMetricType = "ClusterScalingSchedule"
 	ScalingScheduleMetric        AutoscalerMetricType = "ScalingSchedule"
+	ExternalRPSMetric            AutoscalerMetricType = "RequestsPerSecond"
 )
 
 // AutoscalerMetrics is the type of metric to be be used for autoscaling.
@@ -293,6 +280,7 @@ type AutoscalerMetrics struct {
 	ZMON                   *MetricsZMON                   `json:"zmon,omitempty"`
 	ScalingSchedule        *MetricsScalingSchedule        `json:"scalingSchedule,omitempty"`
 	ClusterScalingSchedule *MetricsClusterScalingSchedule `json:"clusterScalingSchedule,omitempty"`
+	RequestsPerSecond      *MetricsRequestsPerSecond      `json:"requestsPerSecond,omitempty"`
 	// optional container name that can be used to scale based on CPU or
 	// Memory metrics of a specific container as opposed to an average of
 	// all containers in a pod.
@@ -312,34 +300,6 @@ type Autoscaler struct {
 	MaxReplicas int32 `json:"maxReplicas"`
 
 	Metrics []AutoscalerMetrics `json:"metrics"`
-
-	// behavior configures the scaling behavior of the target
-	// in both Up and Down directions (scaleUp and scaleDown fields respectively).
-	// If not set, the default HPAScalingRules for scale up and scale down are used.
-	// +optional
-	Behavior *autoscalingv2.HorizontalPodAutoscalerBehavior `json:"behavior,omitempty" protobuf:"bytes,5,opt,name=behavior"`
-}
-
-// HorizontalPodAutoscaler is the Autoscaling configuration of a Stack. If
-// defined an HPA will be created for the Stack.
-// +k8s:deepcopy-gen=true
-type HorizontalPodAutoscaler struct {
-	// minReplicas is the lower limit for the number of replicas to which the autoscaler can scale down.
-	// It defaults to 1 pod.
-	// +optional
-	MinReplicas *int32 `json:"minReplicas,omitempty"`
-	// maxReplicas is the upper limit for the number of replicas to which the autoscaler can scale up.
-	// It cannot be less that minReplicas.
-	MaxReplicas int32 `json:"maxReplicas"`
-	// metrics contains the specifications for which to use to calculate the
-	// desired replica count (the maximum replica count across all metrics will
-	// be used).  The desired replica count is calculated multiplying the
-	// ratio between the target value and the current value by the current
-	// number of pods.  Ergo, metrics used must decrease as the pod count is
-	// increased, and vice-versa.  See the individual metric source types for
-	// more information about how each type of metric must respond.
-	// +optional
-	Metrics []autoscaling.MetricSpec `json:"metrics,omitempty"`
 
 	// behavior configures the scaling behavior of the target
 	// in both Up and Down directions (scaleUp and scaleDown fields respectively).
@@ -427,7 +387,7 @@ type Stack struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec StackSpec `json:"spec"`
+	Spec StackSpecInternal `json:"spec"`
 	// +optional
 	Status StackStatus `json:"status"`
 }
@@ -456,8 +416,7 @@ type StackSpec struct {
 	// without any of its container crashing, for it to be considered available.
 	// Defaults to 0 (pod will be considered available as soon as it is ready)
 	// +optional
-	MinReadySeconds         int32                    `json:"minReadySeconds,omitempty"`
-	HorizontalPodAutoscaler *HorizontalPodAutoscaler `json:"horizontalPodAutoscaler,omitempty"`
+	MinReadySeconds int32 `json:"minReadySeconds,omitempty"`
 	// Service can be used to configure a custom service, if not
 	// set stackset-controller will generate a service based on
 	// container port and ingress backendport.
@@ -467,14 +426,25 @@ type StackSpec struct {
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
 
-	// Settings for the per-stack ingresses (in case the StackSet has a configured ingress)
-	IngressOverrides *StackIngressRouteGroupOverrides `json:"ingress,omitempty"`
-
-	// Settings for the per-stack route groups (in case the StackSet has a configured RouteGroup)
-	RouteGroupOverrides *StackIngressRouteGroupOverrides `json:"routegroup,omitempty"`
-
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+}
+
+// StackSpecInternal is the spec part of the Stack, including `ingress` and
+// `routegroup` specs inherited from the parent StackSet.
+// +k8s:deepcopy-gen=true
+type StackSpecInternal struct {
+	// Stack specification, based on the parent StackSet at creation time.
+	StackSpec `json:",inline"`
+
+	// Stack specific ExternalIngress, based on the parent StackSet at creation time.
+	ExternalIngress *StackSetExternalIngressSpec `json:"externalIngress,omitempty"`
+
+	// Stack specific Ingress, based on the parent StackSet at creation time.
+	Ingress *StackSetIngressSpec `json:"ingress,omitempty"`
+
+	// Stack specific RouteGroup, based on the parent StackSet at creation time.
+	RouteGroup *RouteGroupSpec `json:"routegroup,omitempty"`
 }
 
 // StackServiceSpec makes it possible to customize the service generated for

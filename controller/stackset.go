@@ -151,7 +151,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			nextCheck = time.Now().Add(c.interval)
 
-			stackContainers, err := c.collectResources(ctx)
+			stackSetContainers, err := c.collectResources(ctx)
 			if err != nil {
 				c.logger.Errorf("Failed to collect resources: %v", err)
 				continue
@@ -159,7 +159,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			var reconcileGroup errgroup.Group
 			reconcileGroup.SetLimit(c.reconcileWorkers)
-			for stackset, container := range stackContainers {
+			for stackset, container := range stackSetContainers {
 				container := container
 				stackset := stackset
 
@@ -179,7 +179,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			if err != nil {
 				c.logger.Errorf("Failed waiting for reconcilers: %v", err)
 			}
-			err = c.metricsReporter.Report(stackContainers)
+			err = c.metricsReporter.Report(stackSetContainers)
 			if err != nil {
 				c.logger.Errorf("Failed reporting metrics: %v", err)
 			}
@@ -974,11 +974,11 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 }
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
+
 	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
-
 	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)

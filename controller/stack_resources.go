@@ -2,12 +2,11 @@ package controller
 
 import (
 	"context"
-
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
-	"k8s.io/api/autoscaling/v2"
+	v2 "k8s.io/api/autoscaling/v2"
 	apiv1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +20,30 @@ func pint32Equal(p1, p2 *int32) bool {
 		return *p1 == *p2
 	}
 	return false
+}
+
+// There are HPA metrics that depend on annotations to work properly,
+// e.g. External RPS metric, this verification provides a way to verify
+// all relevant annotations are actually up to date.
+func areHPAAnnotationsUpToDate(updated, existing *v2.HorizontalPodAutoscaler) bool {
+	if len(updated.Annotations) != len(existing.Annotations) {
+		return false
+	}
+
+	for k, v := range updated.Annotations {
+		if k == "stackset-controller.zalando.org/stack-generation" {
+			continue
+		}
+
+		existingValue, ok := existing.Annotations[k]
+		if ok && existingValue == v {
+			continue
+		}
+
+		return false
+	}
+
+	return true
 }
 
 // syncObjectMeta copies metadata elements such as labels or annotations from source to target
@@ -109,7 +132,9 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 	}
 
 	// Check if we need to update the HPA
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) &&
+		areHPAAnnotationsUpToDate(hpa, existing) {
 		return nil
 	}
 

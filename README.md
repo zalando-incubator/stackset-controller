@@ -93,7 +93,7 @@ spec:
         minReplicas: 3
         maxReplicas: 10
         metrics:
-        - type: cpu
+        - type: CPU
           averageUtilization: 50
       # full Pod template.
       podTemplate:
@@ -134,7 +134,7 @@ spec:
     minReplicas: 3
     maxReplicas: 10
     metrics:
-    - type: cpu
+    - type: CPU
       averageUtilization: 50
   podTemplate:
     spec:
@@ -160,7 +160,7 @@ spec:
 For each `Stack` a `Service` and `Deployment` resource will be created
 automatically with the right labels. The service will also be attached to the
 "global" Ingress if the stack is configured to get traffic. An optional
-`HorizontalPodAutoscaler` resource can also be created per stack for
+`autoscaler` resource can also be created per stack for
 horizontally scaling the deployment.
 
 For the most part the `Stacks` will be dynamically managed by the

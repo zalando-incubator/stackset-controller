@@ -112,12 +112,16 @@ func (sc *StackContainer) objectMeta(segment bool) metav1.ObjectMeta {
 }
 
 // getServicePorts gets the service ports to be used for the stack service.
-func getServicePorts(stackSpec zv1.StackSpec, backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
+func getServicePorts(stackSpec zv1.StackSpecInternal, backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
 	var servicePorts []v1.ServicePort
-	if stackSpec.Service == nil || len(stackSpec.Service.Ports) == 0 {
-		servicePorts = servicePortsFromContainers(stackSpec.PodTemplate.Spec.Containers)
+	if stackSpec.StackSpec.Service == nil ||
+		len(stackSpec.StackSpec.Service.Ports) == 0 {
+
+		servicePorts = servicePortsFromContainers(
+			stackSpec.StackSpec.PodTemplate.Spec.Containers,
+		)
 	} else {
-		servicePorts = stackSpec.Service.Ports
+		servicePorts = stackSpec.StackSpec.Service.Ports
 	}
 
 	// validate that one port in the list maps to the backendPort.
@@ -197,11 +201,11 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	}
 
 	var strategy *appsv1.DeploymentStrategy
-	if stack.Spec.Strategy != nil {
-		strategy = stack.Spec.Strategy.DeepCopy()
+	if stack.Spec.StackSpec.Strategy != nil {
+		strategy = stack.Spec.StackSpec.Strategy.DeepCopy()
 	}
 
-	embeddedCopy := stack.Spec.PodTemplate.EmbeddedObjectMeta.DeepCopy()
+	embeddedCopy := stack.Spec.StackSpec.PodTemplate.EmbeddedObjectMeta.DeepCopy()
 
 	templateObjectMeta := metav1.ObjectMeta{
 		Annotations: embeddedCopy.Annotations,
@@ -212,13 +216,13 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
 			Replicas:        updatedReplicas,
-			MinReadySeconds: sc.Stack.Spec.MinReadySeconds,
+			MinReadySeconds: sc.Stack.Spec.StackSpec.MinReadySeconds,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: sc.selector(),
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: objectMetaInjectLabels(templateObjectMeta, stack.Labels),
-				Spec:       *stack.Spec.PodTemplate.Spec.DeepCopy(),
+				Spec:       *stack.Spec.StackSpec.PodTemplate.Spec.DeepCopy(),
 			},
 		},
 	}
@@ -229,10 +233,10 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 }
 
 func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, error) {
-	autoscalerSpec := sc.Stack.Spec.Autoscaler
-	hpaSpec := sc.Stack.Spec.HorizontalPodAutoscaler
+	autoscalerSpec := sc.Stack.Spec.StackSpec.Autoscaler
+	trafficWeight := sc.actualTrafficWeight
 
-	if autoscalerSpec == nil && hpaSpec == nil {
+	if autoscalerSpec == nil {
 		return nil, nil
 	}
 
@@ -251,33 +255,16 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		},
 	}
 
-	if autoscalerSpec != nil {
-		result.Spec.MinReplicas = autoscalerSpec.MinReplicas
-		result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
+	result.Spec.MinReplicas = autoscalerSpec.MinReplicas
+	result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
 
-		metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerSpec.Metrics)
-		if err != nil {
-			return nil, err
-		}
-		result.Spec.Metrics = metrics
-		result.Annotations = mergeLabels(result.Annotations, annotations)
-		result.Spec.Behavior = autoscalerSpec.Behavior
-	} else {
-		result.Spec.MinReplicas = hpaSpec.MinReplicas
-		result.Spec.MaxReplicas = hpaSpec.MaxReplicas
-		metrics := make([]autoscaling.MetricSpec, 0, len(hpaSpec.Metrics))
-		for _, m := range hpaSpec.Metrics {
-			m := m
-			metric := autoscaling.MetricSpec{}
-			err := Convert_v2beta1_MetricSpec_To_autoscaling_MetricSpec(&m, &metric, nil)
-			if err != nil {
-				return nil, err
-			}
-			metrics = append(metrics, metric)
-		}
-		result.Spec.Metrics = metrics
-		result.Spec.Behavior = hpaSpec.Behavior
+	metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerSpec.Metrics, trafficWeight)
+	if err != nil {
+		return nil, err
 	}
+	result.Spec.Metrics = metrics
+	result.Annotations = mergeLabels(result.Annotations, annotations)
+	result.Spec.Behavior = autoscalerSpec.Behavior
 
 	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
 	if sc.prescalingActive && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < sc.prescalingReplicas) {
@@ -303,8 +290,11 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 
 	metaObj := sc.resourceMeta()
 	stackSpec := sc.Stack.Spec
-	if stackSpec.Service != nil {
-		metaObj.Annotations = mergeLabels(metaObj.Annotations, stackSpec.Service.Annotations)
+	if stackSpec.StackSpec.Service != nil {
+		metaObj.Annotations = mergeLabels(
+			metaObj.Annotations,
+			stackSpec.StackSpec.Service.Annotations,
+		)
 	}
 	return &v1.Service{
 		ObjectMeta: metaObj,
@@ -318,7 +308,6 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 
 func (sc *StackContainer) stackHostnames(
 	spec ingressOrRouteGroupSpec,
-	overrides *zv1.StackIngressRouteGroupOverrides,
 	segment bool,
 ) ([]string, error) {
 
@@ -329,37 +318,19 @@ func (sc *StackContainer) stackHostnames(
 
 	result := sets.NewString()
 
-	if overrides != nil && len(overrides.Hosts) > 0 {
-		for _, host := range overrides.Hosts {
-			interpolated := strings.ReplaceAll(host, "$(STACK_NAME)", sc.Name())
-			if interpolated == host {
-				return nil, fmt.Errorf("override hostname must contain $(STACK_NAME)")
-			}
-			result.Insert(interpolated)
-		}
-	} else {
-		// Old-style autogenerated hostnames
-		for _, host := range spec.GetHosts() {
-			for _, domain := range sc.clusterDomains {
-				if strings.HasSuffix(host, domain) {
-					result.Insert(fmt.Sprintf("%s.%s", sc.Name(), domain))
-				} else {
-					log.Debugf("Ingress host: %s suffix did not match cluster-domain %s", host, domain)
-				}
+	// Old-style autogenerated hostnames
+	for _, host := range spec.GetHosts() {
+		for _, domain := range sc.clusterDomains {
+			if strings.HasSuffix(host, domain) {
+				result.Insert(fmt.Sprintf("%s.%s", sc.Name(), domain))
+			} else {
+				log.Debugf("Ingress host: %s suffix did not match cluster-domain %s", host, domain)
 			}
 		}
 	}
 
 	return result.List(), nil
 }
-
-func effectiveAnnotations(spec ingressOrRouteGroupSpec, overrides *zv1.StackIngressRouteGroupOverrides) map[string]string {
-	if overrides != nil && len(overrides.Annotations) > 0 {
-		return overrides.Annotations
-	}
-	return spec.GetAnnotations()
-}
-
 
 func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error)  {
 	return sc.generateIngress(false)
@@ -377,15 +348,11 @@ func (sc *StackContainer) generateIngress(segment bool) (
 	error,
 ) {
 
-	if !sc.HasBackendPort() || sc.ingressSpec == nil || !sc.Stack.Spec.IngressOverrides.IsEnabled() {
+	if !sc.HasBackendPort() || sc.ingressSpec == nil {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(
-		sc.ingressSpec,
-		sc.Stack.Spec.IngressOverrides,
-		segment,
-	)
+	hostnames, err := sc.stackHostnames(sc.ingressSpec, segment)
 	if err != nil {
 		return nil, err
 	}
@@ -432,10 +399,7 @@ func (sc *StackContainer) generateIngress(segment bool) (
 	}
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, effectiveAnnotations(sc.ingressSpec, sc.Stack.Spec.IngressOverrides))
-	if segment {
-		result.Annotations = mergeLabels(result.Annotations, initialIngressSegment)
-	}
+	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.GetAnnotations())
 	return result, nil
 }
 
@@ -454,15 +418,11 @@ func (sc *StackContainer) generateRouteGroup(segment bool) (
 	*rgv1.RouteGroup,
 	error,
 ) {
-	if !sc.HasBackendPort() || sc.routeGroupSpec == nil || !sc.Stack.Spec.RouteGroupOverrides.IsEnabled() {
+	if !sc.HasBackendPort() || sc.routeGroupSpec == nil {
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(
-		sc.routeGroupSpec,
-		sc.Stack.Spec.RouteGroupOverrides,
-		segment,
-	)
+	hostnames, err := sc.stackHostnames(sc.routeGroupSpec, segment)
 	if err != nil {
 		return nil, err
 	}
@@ -520,7 +480,7 @@ func (sc *StackContainer) generateRouteGroup(segment bool) (
 	})
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, effectiveAnnotations(sc.routeGroupSpec, sc.Stack.Spec.RouteGroupOverrides))
+	result.Annotations = mergeLabels(result.Annotations, sc.routeGroupSpec.GetAnnotations())
 
 	return result, nil
 }

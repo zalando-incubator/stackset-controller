@@ -89,11 +89,14 @@ type StackContainer struct {
 
 	// Fields from the parent stackset
 	stacksetName   string
+	scaledownTTL   time.Duration
+	clusterDomains []string
+
+	// Fields from the stack itself. If not present in the stack, default to
+	// fields from the parent stackset
 	ingressSpec    *zv1.StackSetIngressSpec
 	routeGroupSpec *zv1.RouteGroupSpec
-	scaledownTTL   time.Duration
 	backendPort    *intstr.IntOrString
-	clusterDomains []string
 
 	// Fields from the stack itself, with some defaults applied
 	stackReplicas int32
@@ -170,17 +173,14 @@ func (sc *StackContainer) IsReady() bool {
 }
 
 func (sc *StackContainer) MaxReplicas() int32 {
-	if sc.Stack.Spec.Autoscaler != nil {
-		return sc.Stack.Spec.Autoscaler.MaxReplicas
-	}
-	if sc.Stack.Spec.HorizontalPodAutoscaler != nil {
-		return sc.Stack.Spec.HorizontalPodAutoscaler.MaxReplicas
+	if sc.Stack.Spec.StackSpec.Autoscaler != nil {
+		return sc.Stack.Spec.StackSpec.Autoscaler.MaxReplicas
 	}
 	return math.MaxInt32
 }
 
 func (sc *StackContainer) IsAutoscaled() bool {
-	return sc.Stack.Spec.HorizontalPodAutoscaler != nil || sc.Stack.Spec.Autoscaler != nil
+	return sc.Stack.Spec.StackSpec.Autoscaler != nil
 }
 
 func (sc *StackContainer) ScaledDown() bool {
@@ -402,36 +402,25 @@ func (ssc *StackSetContainer) updateActualTraffic() error {
 	return nil
 }
 
-// UpdateFromResources populates stack state information (e.g. replica counts or traffic) from related resources
+// UpdateFromResources populates stack state information (e.g. replica counts or
+// traffic) from related resources
 func (ssc *StackSetContainer) UpdateFromResources() error {
 	if len(ssc.StackContainers) == 0 {
 		return nil
 	}
 
-	var ingressSpec *zv1.StackSetIngressSpec
-	var routeGroupSpec *zv1.RouteGroupSpec
-	var externalIngress *zv1.StackSetExternalIngressSpec
-	var backendPort *intstr.IntOrString
-
-	if ssc.StackSet.Spec.Ingress != nil {
-		ingressSpec = ssc.StackSet.Spec.Ingress
-		backendPort = &ingressSpec.BackendPort
-	}
-
-	if ssc.StackSet.Spec.RouteGroup != nil {
-		routeGroupSpec = ssc.StackSet.Spec.RouteGroup
-		if backendPort != nil && backendPort.IntValue() != routeGroupSpec.BackendPort {
-			return fmt.Errorf("backendPort for Ingress and RouteGroup does not match %s!=%d", ssc.StackSet.Spec.Ingress.BackendPort.String(), routeGroupSpec.BackendPort)
-		}
-		rgBackendPort := intstr.FromInt(routeGroupSpec.BackendPort)
-		backendPort = &rgBackendPort
+	backendPort, err := findBackendPort(
+		ssc.StackSet.Spec.Ingress,
+		ssc.StackSet.Spec.RouteGroup,
+		ssc.StackSet.Spec.ExternalIngress,
+	)
+	if err != nil {
+		return err
 	}
 
 	// if backendPort is not defined from Ingress or Routegroup fall back
 	// to externalIngress if defined
-	if backendPort == nil && ssc.StackSet.Spec.ExternalIngress != nil {
-		externalIngress = ssc.StackSet.Spec.ExternalIngress
-		backendPort = &externalIngress.BackendPort
+	if ssc.StackSet.Spec.ExternalIngress != nil {
 		ssc.externalIngressBackendPort = backendPort
 	}
 
@@ -444,16 +433,24 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 
 	for _, sc := range ssc.StackContainers {
 		sc.stacksetName = ssc.StackSet.Name
-		sc.ingressSpec = ingressSpec
+		sc.ingressSpec = ssc.StackSet.Spec.Ingress
 		sc.backendPort = backendPort
-		sc.routeGroupSpec = routeGroupSpec
+		sc.routeGroupSpec = ssc.StackSet.Spec.RouteGroup
 		sc.scaledownTTL = scaledownTTL
 		sc.clusterDomains = ssc.clusterDomains
+		err := sc.overrideParentResources()
+		if err != nil {
+			return err
+		}
+
 		sc.updateFromResources()
 	}
 
 	// only populate traffic if traffic management is enabled
-	if ingressSpec != nil || routeGroupSpec != nil || externalIngress != nil {
+	if ssc.StackSet.Spec.Ingress != nil ||
+		ssc.StackSet.Spec.RouteGroup != nil ||
+		ssc.StackSet.Spec.ExternalIngress != nil {
+
 		err := ssc.updateDesiredTraffic()
 		if err != nil {
 			return err
@@ -484,6 +481,37 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 		return result[i].StackName < result[j].StackName
 	})
 	return result
+}
+
+// overrideParentResources writes over Ingress and RouteGroup resources from the
+// parent, in case the stack has the corresponding resources in the spec.
+func (sc *StackContainer) overrideParentResources() error {
+	overridePort := sc.Stack.Spec.ExternalIngress != nil
+
+	if sc.Stack.Spec.Ingress != nil {
+		overridePort = true
+		sc.ingressSpec = sc.Stack.Spec.Ingress
+	}
+
+	if sc.Stack.Spec.RouteGroup != nil {
+		overridePort = true
+		sc.routeGroupSpec = sc.Stack.Spec.RouteGroup
+	}
+
+	if overridePort {
+		backendPort, err := findBackendPort(
+			sc.ingressSpec,
+			sc.routeGroupSpec,
+			sc.Stack.Spec.ExternalIngress,
+		)
+		if err != nil {
+			return err
+		}
+
+		sc.backendPort = backendPort
+	}
+
+	return nil
 }
 
 // ComputeTrafficSegments computes the stack segments to fulfill the actual
@@ -594,7 +622,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 }
 
 func (sc *StackContainer) updateFromResources() {
-	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.Replicas)
+	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
 
 	var deploymentUpdated, serviceUpdated, ingressUpdated, routeGroupUpdated, hpaUpdated bool
 	var ingressSegmentUpdated, routeGroupSegmentUpdated bool

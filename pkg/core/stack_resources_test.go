@@ -9,7 +9,6 @@ import (
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	apps "k8s.io/api/apps/v1"
-	autoscalingv2beta1 "k8s.io/api/autoscaling/v2beta1"
 	autoscaling "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
@@ -58,29 +57,31 @@ func TestGetServicePorts(tt *testing.T) {
 
 	for _, ti := range []struct {
 		msg           string
-		stackSpec     zv1.StackSpec
+		stackSpec     zv1.StackSpecInternal
 		backendPort   *intstr.IntOrString
 		expectedPorts []v1.ServicePort
 		err           error
 	}{
 		{
 			msg: "test using ports from pod spec",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: zv1.StackSpec{
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: 8080,
+										},
 									},
 								},
-							},
-							{
-								Ports: []v1.ContainerPort{
-									{
-										ContainerPort: 8081,
+								{
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: 8081,
+										},
 									},
 								},
 							},
@@ -106,15 +107,17 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with ingress",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: zv1.StackSpec{
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -134,16 +137,18 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with named ingress port",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										Name:          "ingress",
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: zv1.StackSpec{
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											Name:          "ingress",
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -163,16 +168,18 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from pod spec with invalid named ingress port",
-			stackSpec: zv1.StackSpec{
-				Service: nil,
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										Name:          "ingress-invalid",
-										ContainerPort: 8080,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: zv1.StackSpec{
+					Service: nil,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											Name:          "ingress-invalid",
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -193,25 +200,27 @@ func TestGetServicePorts(tt *testing.T) {
 		},
 		{
 			msg: "test using ports from service definition",
-			stackSpec: zv1.StackSpec{
-				Service: &zv1.StackServiceSpec{
-					Ports: []v1.ServicePort{
-						{
-							Name:       "ingress",
-							Protocol:   v1.ProtocolTCP,
-							Port:       8080,
-							TargetPort: backendPort,
+			stackSpec: zv1.StackSpecInternal{
+				StackSpec: zv1.StackSpec{
+					Service: &zv1.StackServiceSpec{
+						Ports: []v1.ServicePort{
+							{
+								Name:       "ingress",
+								Protocol:   v1.ProtocolTCP,
+								Port:       8080,
+								TargetPort: backendPort,
+							},
 						},
 					},
-				},
-				PodTemplate: zv1.PodTemplateSpec{
-					Spec: v1.PodSpec{
-						Containers: []v1.Container{
-							{
-								Ports: []v1.ContainerPort{
-									{
-										Name:          "ingress-invalid",
-										ContainerPort: 8080,
+					PodTemplate: zv1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Ports: []v1.ContainerPort{
+										{
+											Name:          "ingress-invalid",
+											ContainerPort: 8080,
+										},
 									},
 								},
 							},
@@ -267,12 +276,9 @@ func TestLimitLabels(t *testing.T) {
 }
 
 func TestStackGenerateIngress(t *testing.T) {
-	boolFalse := false
-
 	for _, tc := range []struct {
-		name             string
-		ingressSpec      *zv1.StackSetIngressSpec
-		ingressOverrides *zv1.StackIngressRouteGroupOverrides
+		name        string
+		ingressSpec *zv1.StackSetIngressSpec
 
 		expectDisabled      bool
 		expectError         bool
@@ -285,90 +291,17 @@ func TestStackGenerateIngress(t *testing.T) {
 			expectDisabled: true,
 		},
 		{
-			name: "basic, no overrides",
+			name: "basic",
 			ingressSpec: &zv1.StackSetIngressSpec{
 				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 					Annotations: map[string]string{"ingress": "annotation"},
 				},
 				Hosts: []string{"foo.example.org", "foo.example.com"},
 				Path:  "example",
-			},
-			ingressOverrides: nil,
-			expectedAnnotations: map[string]string{
-				stackGenerationAnnotationKey: "11",
-				"ingress":                    "annotation",
-			},
-			expectedHosts: []string{"foo-v1.example.org"},
-		},
-		{
-			name: "disabled by overrides",
-			ingressSpec: &zv1.StackSetIngressSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"ingress": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Path:  "example",
-			},
-			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
-				Enabled: &boolFalse,
-			},
-			expectDisabled: true,
-		},
-		{
-			name: "custom domains via overrides",
-			ingressSpec: &zv1.StackSetIngressSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"ingress": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Path:  "example",
-			},
-			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
-				Hosts: []string{
-					"test-$(STACK_NAME).internal.foobar",
-					"$(STACK_NAME).internal.test",
-				},
 			},
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
 				"ingress":                    "annotation",
-			},
-			expectedHosts: []string{"foo-v1.internal.test", "test-foo-v1.internal.foobar"},
-		},
-		{
-			name: "custom domains in the overrides must include the stack_name token",
-			ingressSpec: &zv1.StackSetIngressSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"ingress": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Path:  "example",
-			},
-			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
-				Hosts: []string{
-					"test.internal.foobar",
-					"$(STACK_NAME).internal.test",
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "custom annotations via overrides",
-			ingressSpec: &zv1.StackSetIngressSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"ingress": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Path:  "example",
-			},
-			ingressOverrides: &zv1.StackIngressRouteGroupOverrides{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"custom": "override"},
-				},
-			},
-			expectedAnnotations: map[string]string{
-				stackGenerationAnnotationKey: "11",
-				"custom":                     "override",
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
@@ -379,9 +312,6 @@ func TestStackGenerateIngress(t *testing.T) {
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						IngressOverrides: tc.ingressOverrides,
-					},
 				},
 				stacksetName:   "foo",
 				ingressSpec:    tc.ingressSpec,
@@ -439,12 +369,9 @@ func TestStackGenerateIngress(t *testing.T) {
 }
 
 func TestStackGenerateRouteGroup(t *testing.T) {
-	boolFalse := false
-
 	for _, tc := range []struct {
-		name                string
-		routeGroupSpec      *zv1.RouteGroupSpec
-		routeGroupOverrides *zv1.StackIngressRouteGroupOverrides
+		name           string
+		routeGroupSpec *zv1.RouteGroupSpec
 
 		expectDisabled      bool
 		expectError         bool
@@ -457,7 +384,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			expectDisabled: true,
 		},
 		{
-			name: "basic, no overrides",
+			name: "basic",
 			routeGroupSpec: &zv1.RouteGroupSpec{
 				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 					Annotations: map[string]string{"routegroup": "annotation"},
@@ -467,100 +394,11 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 					{
 						PathSubtree: "/example",
 					},
-				},
-			},
-			routeGroupOverrides: nil,
-			expectedAnnotations: map[string]string{
-				stackGenerationAnnotationKey: "11",
-				"routegroup":                 "annotation",
-			},
-			expectedHosts: []string{"foo-v1.example.org"},
-		},
-		{
-			name: "disabled by overrides",
-			routeGroupSpec: &zv1.RouteGroupSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"routegroup": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Routes: []rgv1.RouteGroupRouteSpec{
-					{
-						PathSubtree: "/example",
-					},
-				},
-			},
-			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-				Enabled: &boolFalse,
-			},
-			expectDisabled: true,
-		},
-		{
-			name: "custom domains via overrides",
-			routeGroupSpec: &zv1.RouteGroupSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"routegroup": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Routes: []rgv1.RouteGroupRouteSpec{
-					{
-						PathSubtree: "/example",
-					},
-				},
-			},
-			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-				Hosts: []string{
-					"test-$(STACK_NAME).internal.foobar",
-					"$(STACK_NAME).internal.test",
 				},
 			},
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
 				"routegroup":                 "annotation",
-			},
-			expectedHosts: []string{"foo-v1.internal.test", "test-foo-v1.internal.foobar"},
-		},
-		{
-			name: "custom domains in the overrides must include the stack_name token",
-			routeGroupSpec: &zv1.RouteGroupSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"routegroup": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Routes: []rgv1.RouteGroupRouteSpec{
-					{
-						PathSubtree: "/example",
-					},
-				},
-			},
-			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-				Hosts: []string{
-					"test.internal.foobar",
-					"$(STACK_NAME).internal.test",
-				},
-			},
-			expectError: true,
-		},
-		{
-			name: "custom annotations via overrides",
-			routeGroupSpec: &zv1.RouteGroupSpec{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"routegroup": "annotation"},
-				},
-				Hosts: []string{"foo.example.org", "foo.example.com"},
-				Routes: []rgv1.RouteGroupRouteSpec{
-					{
-						PathSubtree: "/example",
-					},
-				},
-			},
-			routeGroupOverrides: &zv1.StackIngressRouteGroupOverrides{
-				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-					Annotations: map[string]string{"custom": "override"},
-				},
-			},
-			expectedAnnotations: map[string]string{
-				stackGenerationAnnotationKey: "11",
-				"custom":                     "override",
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
@@ -576,7 +414,6 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 					},
 				},
 			},
-			routeGroupOverrides: nil,
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
 			},
@@ -589,9 +426,6 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						RouteGroupOverrides: tc.routeGroupOverrides,
-					},
 				},
 				stacksetName:   "foo",
 				routeGroupSpec: tc.routeGroupSpec,
@@ -661,15 +495,17 @@ func TestStackGenerateService(t *testing.T) {
 			sc: &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						Service: &zv1.StackServiceSpec{
-							EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
-								Annotations: svcAnnotations,
-							},
-							Ports: []v1.ServicePort{
-								{
-									Port:       80,
-									TargetPort: intstr.FromInt(8080),
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							Service: &zv1.StackServiceSpec{
+								EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+									Annotations: svcAnnotations,
+								},
+								Ports: []v1.ServicePort{
+									{
+										Port:       80,
+										TargetPort: intstr.FromInt(8080),
+									},
 								},
 							},
 						},
@@ -708,12 +544,14 @@ func TestStackGenerateService(t *testing.T) {
 			sc: &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						Service: &zv1.StackServiceSpec{
-							Ports: []v1.ServicePort{
-								{
-									Port:       80,
-									TargetPort: intstr.FromInt(8080),
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							Service: &zv1.StackServiceSpec{
+								Ports: []v1.ServicePort{
+									{
+										Port:       80,
+										TargetPort: intstr.FromInt(8080),
+									},
 								},
 							},
 						},
@@ -746,15 +584,17 @@ func TestStackGenerateService(t *testing.T) {
 			sc: &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						Service: nil,
-						PodTemplate: zv1.PodTemplateSpec{
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Ports: []v1.ContainerPort{
-											{
-												ContainerPort: 8080,
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							Service: nil,
+							PodTemplate: zv1.PodTemplateSpec{
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Ports: []v1.ContainerPort{
+												{
+													ContainerPort: 8080,
+												},
 											},
 										},
 									},
@@ -962,20 +802,22 @@ func TestStackGenerateDeployment(t *testing.T) {
 			c := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						MinReadySeconds: tc.minReadySeconds,
-						Strategy:        strategy,
-						PodTemplate: zv1.PodTemplateSpec{
-							EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
-								Labels: map[string]string{
-									"pod-label": "pod-foo",
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							MinReadySeconds: tc.minReadySeconds,
+							Strategy:        strategy,
+							PodTemplate: zv1.PodTemplateSpec{
+								EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
+									Labels: map[string]string{
+										"pod-label": "pod-foo",
+									},
 								},
-							},
-							Spec: v1.PodSpec{
-								Containers: []v1.Container{
-									{
-										Name:  "foo",
-										Image: "ghcr.io/zalando/skipper:latest",
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Name:  "foo",
+											Image: "ghcr.io/zalando/skipper:latest",
+										},
 									},
 								},
 							},
@@ -990,14 +832,14 @@ func TestStackGenerateDeployment(t *testing.T) {
 				scaledownTTL:       time.Minute,
 			}
 			if tc.hpaEnabled {
-				c.Stack.Spec.HorizontalPodAutoscaler = &zv1.HorizontalPodAutoscaler{}
+				c.Stack.Spec.StackSpec.Autoscaler = &zv1.Autoscaler{}
 			}
 			deployment := c.GenerateDeployment()
 			expected := &apps.Deployment{
 				ObjectMeta: testResourceMeta,
 				Spec: apps.DeploymentSpec{
 					Replicas:        wrapReplicas(tc.expectedReplicas),
-					MinReadySeconds: c.Stack.Spec.MinReadySeconds,
+					MinReadySeconds: c.Stack.Spec.StackSpec.MinReadySeconds,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							StacksetHeritageLabelKey: "foo",
@@ -1051,7 +893,6 @@ func TestGenerateHPA(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		autoscaler          *zv1.Autoscaler
-		hpa                 *zv1.HorizontalPodAutoscaler
 		expectedMinReplicas *int32
 		expectedMaxReplicas int32
 		expectedMetrics     []autoscaling.MetricSpec
@@ -1067,20 +908,6 @@ func TestGenerateHPA(t *testing.T) {
 					{
 						Type:               zv1.CPUAutoscalerMetric,
 						AverageUtilization: &utilization,
-					},
-				},
-				Behavior: exampleBehavior,
-			},
-			hpa: &zv1.HorizontalPodAutoscaler{
-				MinReplicas: &min,
-				MaxReplicas: max,
-				Metrics: []autoscalingv2beta1.MetricSpec{
-					{
-						Type: autoscalingv2beta1.ResourceMetricSourceType,
-						Resource: &autoscalingv2beta1.ResourceMetricSource{
-							Name:                     v1.ResourceCPU,
-							TargetAverageUtilization: &utilization,
-						},
 					},
 				},
 				Behavior: exampleBehavior,
@@ -1121,31 +948,16 @@ func TestGenerateHPA(t *testing.T) {
 			autoscalerContainer := &StackContainer{
 				Stack: &zv1.Stack{
 					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						PodTemplate: podTemplate,
-						Autoscaler:  tc.autoscaler,
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							PodTemplate: podTemplate,
+							Autoscaler:  tc.autoscaler,
+						},
 					},
 				},
 			}
 
 			hpa, err := autoscalerContainer.GenerateHPA()
-			require.NoError(t, err)
-			require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
-			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
-			require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
-			require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
-
-			hpaContainer := &StackContainer{
-				Stack: &zv1.Stack{
-					ObjectMeta: testStackMeta,
-					Spec: zv1.StackSpec{
-						PodTemplate:             podTemplate,
-						HorizontalPodAutoscaler: tc.hpa,
-					},
-				},
-			}
-
-			hpa, err = hpaContainer.GenerateHPA()
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
 			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
