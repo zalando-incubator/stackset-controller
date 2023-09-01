@@ -420,6 +420,47 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	return result, nil
 }
 
+func (sc *StackContainer) GenerateResourceTemplates() ([]zv1.ResourceTemplate, error) {
+	for _, rt := range sc.Resources.ResourceTemplates {
+		// TODO
+		if rt.ConfigMap != nil {
+			// inline configmap
+			for k, v := range rt.ConfigMap {
+				fmt.Println(k, v)
+			}
+
+			continue
+		}
+
+		// TODO
+		if rt.ConfigMapRef.Name != "" {
+			// reference configmap
+			fmt.Println(rt.ConfigMapRef.Name)
+
+			continue
+		}
+
+		// TODO
+		if rt.SecretRef.Name != "" {
+			// reference secret
+			fmt.Println(rt.SecretRef.Name)
+
+			continue
+		}
+
+		// TODO
+		if rt.PlatformCredentialsSetRef.Name != "" {
+			// reference platformCredentialsSet
+			fmt.Println(rt.PlatformCredentialsSetRef.Name)
+
+			continue
+		}
+	}
+
+	// TODO
+	return nil, nil
+}
+
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 	prescaling := zv1.PrescalingStatus{}
 	if sc.prescalingActive {

@@ -318,3 +318,15 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 		routegroup.Name)
 	return nil
 }
+
+func (c *StackSetController) ReconcileStackResourceTemplates(ctx context.Context, stack *zv1.Stack, existing []zv1.ResourceTemplate, generateUpdated func() ([]zv1.ResourceTemplate, error)) error {
+	resourceTemplates, err := generateUpdated()
+	if err != nil {
+		return err
+	}
+
+	// TODO
+	_ = resourceTemplates
+
+	return nil
+}

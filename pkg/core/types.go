@@ -186,6 +186,8 @@ type StackResources struct {
 	Service    *v1.Service
 	Ingress    *networking.Ingress
 	RouteGroup *rgv1.RouteGroup
+
+	ResourceTemplates []zv1.ResourceTemplate
 }
 
 func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {
@@ -385,6 +387,38 @@ func (sc *StackContainer) overrideParentResources() error {
 
 func (sc *StackContainer) updateFromResources() {
 	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
+
+	// Example usage
+	for _, rt := range sc.Stack.Spec.ResourceTemplates {
+		if rt.ConfigMap != nil {
+			// inline configmap
+			for k, v := range rt.ConfigMap {
+				fmt.Println(k, v)
+			}
+
+			continue
+		}
+		if rt.ConfigMapRef.Name != "" {
+			// reference configmap
+			fmt.Println(rt.ConfigMapRef.Name)
+
+			continue
+		}
+
+		if rt.SecretRef.Name != "" {
+			// reference secret
+			fmt.Println(rt.SecretRef.Name)
+
+			continue
+		}
+
+		if rt.PlatformCredentialsSetRef.Name != "" {
+			// reference platformCredentialsSet
+			fmt.Println(rt.PlatformCredentialsSetRef.Name)
+
+			continue
+		}
+	}
 
 	var deploymentUpdated, serviceUpdated, ingressUpdated, routeGroupUpdated, hpaUpdated bool
 

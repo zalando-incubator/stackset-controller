@@ -60,6 +60,7 @@ type StackSetController struct {
 	metricsReporter             *core.MetricsReporter
 	HealthReporter              healthcheck.Handler
 	routeGroupSupportEnabled    bool
+	resourceTemplatesEnabled    bool
 	ingressSourceSwitchTTL      time.Duration
 	now                         func() string
 	reconcileWorkers            int
@@ -85,7 +86,7 @@ func now() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID string, parallelWork int, backendWeightsAnnotationKey string, clusterDomains []string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
+func NewStackSetController(client clientset.Interface, controllerID string, parallelWork int, backendWeightsAnnotationKey string, clusterDomains []string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, resourceTemplatesEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -104,6 +105,7 @@ func NewStackSetController(client clientset.Interface, controllerID string, para
 		metricsReporter:             metricsReporter,
 		HealthReporter:              healthcheck.NewHandler(),
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
+		resourceTemplatesEnabled:    resourceTemplatesEnabled,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		now:                         now,
 		reconcileWorkers:            parallelWork,
@@ -991,6 +993,13 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		err = c.ReconcileStackRouteGroup(ctx, sc.Stack, sc.Resources.RouteGroup, sc.GenerateRouteGroup)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
+		}
+	}
+
+	if c.resourceTemplatesEnabled {
+		err = c.ReconcileStackResourceTemplates(ctx, sc.Stack, sc.Resources.ResourceTemplates, sc.GenerateResourceTemplates)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageResourceTemplates", err)
 		}
 	}
 
