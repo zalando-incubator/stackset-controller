@@ -428,6 +428,36 @@ type StackSpec struct {
 
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
+
+	// ResourceTemplates describes the ConfigMaps that will be created.
+	// Later Secrets and PlatformCredentialsSet will also be defined on ConfigResources
+	ResourceTemplates []ResourceTemplate `json:"resourceTemplates,omitempty" patchStrategy:"merge,retainKeys" patchMergeKey:"name" protobuf:"bytes,1,rep,name=resourceTemplates"`
+}
+
+// ResourceTemplate makes it possible to defined the config resources to be created
+// +k8s:deepcopy-gen=true
+type ResourceTemplate struct {
+	// Name todo
+	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
+	// ResourceTemplateSource todo
+	ResourceTemplateSource `json:",inline" protobuf:"bytes,2,opt,name=resourceTemplateSource"`
+}
+
+// ResourceTemplateSource todo
+// +k8s:deepcopy-gen=true
+type ResourceTemplateSource struct {
+	// ConfigMap todo
+	// +optional
+	ConfigMap map[string]string `json:"configMap,omitempty" protobuf:"bytes,2,rep,name=configMap"`
+	// ConfigMapRef todo
+	// +optional
+	ConfigMapRef v1.LocalObjectReference `json:"configMapRef,omitempty" protobuf:"bytes,1,opt,name=configMapRef"`
+	// SecretRef todo
+	// +optional
+	SecretRef v1.LocalObjectReference `json:"secretRef,omitempty" protobuf:"bytes,1,opt,name=secretRef"`
+	// PlatformCredentialsSetRef todo
+	// +optional
+	PlatformCredentialsSetRef v1.LocalObjectReference `json:"platformCredentialsSetRef,omitempty" protobuf:"bytes,1,opt,name=platformCredentialsSetRef"`
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and

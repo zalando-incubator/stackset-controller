@@ -8546,6 +8546,53 @@ spec:
                           to 1.
                         format: int32
                         type: integer
+                      resourceTemplates:
+                        description: ResourceTemplates describes the ConfigMaps that
+                          will be created. Later Secrets and PlatformCredentialsSet
+                          will also be defined on ConfigResources
+                        items:
+                          description: ResourceTemplate makes it possible to defined
+                            the config resources to be created
+                          properties:
+                            configMap:
+                              additionalProperties:
+                                type: string
+                              description: ConfigMap todo
+                              type: object
+                            configMapRef:
+                              description: ConfigMapRef todo
+                              properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                              type: object
+                            name:
+                              description: Name todo
+                              type: string
+                            platformCredentialsSetRef:
+                              description: PlatformCredentialsSetRef todo
+                              properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                              type: object
+                            secretRef:
+                              description: SecretRef todo
+                              properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                              type: object
+                          required:
+                          - name
+                          type: object
+                        type: array
                       service:
                         description: Service can be used to configure a custom service,
                           if not set stackset-controller will generate a service based
