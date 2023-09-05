@@ -931,6 +931,7 @@ func (c *StackSetController) ReconcileStackSetIngressSources(
 	return nil
 }
 
+// TODO remove 
 func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
 	trafficChanges := ssc.TrafficChanges()
 	if len(trafficChanges) != 0 {

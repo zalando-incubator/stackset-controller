@@ -41,7 +41,7 @@ pipeline:
 - id: e2e
   type: process
   desc: "E2E Tests"
-  target: teapot
+  target: stups-test
   process: microservice_standard_test
   config:
     apply_manifests:
@@ -55,7 +55,7 @@ pipeline:
       - name: CONTROLLER_ID
         value: "#{CDP_BUILD_VERSION}"
       - name: CLUSTER_DOMAIN
-        value: teapot.zalan.do
+        value: stups-test.zalan.do
       - name: CLUSTER_DOMAIN_INTERNAL
         value: ingress.cluster.local
     end2end_tests:

@@ -40,10 +40,6 @@ var (
 		StackVersionLabelKey:     {},
 	}
 
-	initialIngressSegment = map[string]string{
-		IngressPredicateKey: InitialSegment,
-	}
-
 	// PathTypeImplementationSpecific is the used implementation path type
 	// for k8s.io/api/networking/v1.HTTPIngressPath resources.
 	PathTypeImplementationSpecific = networking.PathTypeImplementationSpecific
