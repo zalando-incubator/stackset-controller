@@ -272,13 +272,19 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 	return stacksets, nil
 }
 
-func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	ingresses, err := c.client.NetworkingV1().Ingresses(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+func (c *StackSetController) collectIngresses(
+	ctx context.Context,
+	stacksets map[types.UID]*core.StackSetContainer,
+) error {
+	ingresses, err := c.client.NetworkingV1().Ingresses(v1.NamespaceAll).List(
+		ctx,
+		metav1.ListOptions{},
+	)
+
 	if err != nil {
 		return fmt.Errorf("failed to list Ingresses: %v", err)
 	}
 
-Items:
 	for _, i := range ingresses.Items {
 		ingress := i
 		if uid, ok := getOwnerUID(ingress.ObjectMeta); ok {
@@ -291,13 +297,16 @@ Items:
 			// stack ingress
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
-					if strings.HasSuffix(ingress.ObjectMeta.Name, core.SegmentSuffix) {
+					if strings.HasSuffix(
+						ingress.ObjectMeta.Name,
+						core.SegmentSuffix,
+					) {
 						// Traffic Segment
 						s.Resources.IngressSegment = &ingress
 					} else {
 						s.Resources.Ingress = &ingress
 					}
-					continue Items
+					break
 				}
 			}
 		}
@@ -305,14 +314,19 @@ Items:
 	return nil
 }
 
-func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	routegroups, err := c.client.RouteGroupV1().RouteGroups(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+func (c *StackSetController) collectRouteGroups(
+	ctx context.Context,
+	stacksets map[types.UID]*core.StackSetContainer,
+) error {
+	rgs, err := c.client.RouteGroupV1().RouteGroups(v1.NamespaceAll).List(
+		ctx,
+		metav1.ListOptions{},
+	)
 	if err != nil {
 		return fmt.Errorf("failed to list RouteGroups: %v", err)
 	}
 
-Items:
-	for _, rg := range routegroups.Items {
+	for _, rg := range rgs.Items {
 		routegroup := rg
 		if uid, ok := getOwnerUID(routegroup.ObjectMeta); ok {
 			// stackset routegroups
@@ -324,14 +338,16 @@ Items:
 			// stack routegroups
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
-					if strings.HasSuffix(routegroup.ObjectMeta.Name, core.SegmentSuffix) {
+					if strings.HasSuffix(
+						routegroup.ObjectMeta.Name,
+						core.SegmentSuffix,
+					) {
 						// Traffic Segment
 						s.Resources.RouteGroupSegment = &routegroup
 					} else {
 						s.Resources.RouteGroup = &routegroup
 					}
-					s.Resources.RouteGroup = &routegroup
-					continue Items
+					break
 				}
 			}
 		}

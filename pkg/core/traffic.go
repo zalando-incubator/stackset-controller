@@ -1,14 +1,146 @@
 package core
 
 import (
+	"errors"
+	"fmt"
 	"math"
+	"regexp"
 	"sort"
+	"strconv"
 	"time"
+
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
+	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
-type TrafficReconciler interface {
-	// Handle the traffic switching and/or scaling logic.
-	Reconcile(stacks map[string]*StackContainer, currentTimestamp time.Time) error
+type (
+	TrafficReconciler interface {
+		// Handle the traffic switching and/or scaling logic.
+		Reconcile(
+			stacks map[string]*StackContainer,
+			currentTimestamp time.Time,
+		) error
+	}
+
+	// TrafficSegment holds segment information for a stack, specified by its UID.
+	TrafficSegment struct {
+		id                types.UID
+		lowerLimit        float64
+		upperLimit        float64
+		IngressSegment    *networking.Ingress
+		RouteGroupSegment *rgv1.RouteGroup
+	}
+
+	// segmentList holds a sortable set of TrafficSegments.
+	segmentList []TrafficSegment
+)
+
+var (
+	segmentRe = regexp.MustCompile(
+		`TrafficSegment\((?P<Low>.*?), (?P<High>.*?)\)`,
+	)
+)
+
+// NewTrafficSegment returns a new TrafficSegment based on the specified stack
+// container.
+func NewTrafficSegment(id types.UID, sc *StackContainer) (
+	*TrafficSegment,
+	error,
+) {
+	res := &TrafficSegment{id: id}
+
+	if sc.Resources.IngressSegment != nil {
+		res.IngressSegment = sc.Resources.IngressSegment
+		predicates := res.IngressSegment.Annotations[IngressPredicateKey]
+		lowerLimit, upperLimit, err := getSegmentParams(predicates)
+		if err != nil {
+			return nil, err
+		}
+		res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
+	}
+
+	if sc.Resources.RouteGroupSegment != nil {
+		res.RouteGroupSegment = sc.Resources.RouteGroupSegment
+
+		lowerLimit, upperLimit, err := getSegmentParams(
+			res.RouteGroupSegment.Spec.Routes[0].Predicates...,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if res.IngressSegment != nil &&
+			(res.lowerLimit != lowerLimit || res.upperLimit != upperLimit) {
+
+			return nil, errors.New(
+				"mismatch in routegroup and ingress segment values",
+			)
+		}
+		res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
+	}
+
+	return res, nil
+}
+
+// size returns the corresponding weight of the segment, in a decimal fraction.
+func (t *TrafficSegment) weight() float64 {
+	return t.upperLimit - t.lowerLimit
+}
+
+// Len returns the slice length, as required by the sort Interface.
+func (l segmentList) Len() int {
+	return len(l)
+}
+
+// Less reports wheter segment i comes before segment j
+func (l segmentList) Less(i, j int) bool {
+	switch {
+	case l[i].lowerLimit != l[j].lowerLimit:
+		return l[i].lowerLimit < l[j].lowerLimit
+	case l[i].upperLimit != l[j].upperLimit:
+		return l[i].upperLimit < l[j].upperLimit
+	default:
+		return false
+	}
+}
+
+// Swap swaps the segments with indexes i and j
+func (l segmentList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+// getSegmentLimits returns the lower and upper limit of the TrafficSegment
+// predicate.
+//
+// Returns an error if it fails to parse.
+func getSegmentParams(predicates ...string) (float64, float64, error) {
+	for _, p := range predicates {
+		segmentParams := segmentRe.FindStringSubmatch(p)
+		if len(segmentParams) != 3 {
+			continue
+		}
+
+		lowerLimit, err := strconv.ParseFloat(segmentParams[1], 64)
+		if err != nil || lowerLimit < 0.0 {
+			return -1.0, -1.0, fmt.Errorf(
+				"error parsing TrafficSegment %q",
+				p,
+			)
+		}
+
+		upperLimit, err := strconv.ParseFloat(segmentParams[2], 64)
+		if err != nil || upperLimit < lowerLimit {
+			return -1.0, -1.0, fmt.Errorf(
+				"error parsing TrafficSegment %q",
+				p,
+			)
+		}
+
+		return lowerLimit, upperLimit, nil
+	}
+
+	return -1.0, -1.0, fmt.Errorf("TrafficSegment not found")
 }
 
 // allZero returns true if all weights defined in the map are 0.

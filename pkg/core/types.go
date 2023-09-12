@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"regexp"
 	"sort"
 	"strconv"
 	"time"
@@ -23,10 +22,6 @@ const (
 	defaultVersion             = "default"
 	defaultStackLifecycleLimit = 10
 	defaultScaledownTTL        = 300 * time.Second
-)
-
-var (
-	tsRe = regexp.MustCompile(`TrafficSegment\((?P<Low>.*?), (?P<High>.*?)\)`)
 )
 
 // StackSetContainer is a container for storing the full state of a StackSet
@@ -137,18 +132,6 @@ type TrafficChange struct {
 	NewTrafficWeight float64
 }
 
-type TrafficSegment struct {
-	id                types.UID
-	lowerLimit        float64
-	upperLimit        float64
-	IngressSegment    *networking.Ingress
-	RouteGroupSegment *rgv1.RouteGroup
-}
-
-func (t *TrafficSegment) size() float64 {
-	return t.upperLimit - t.lowerLimit
-}
-
 func (tc TrafficChange) String() string {
 	return fmt.Sprintf("%s: %.1f%% to %.1f%%", tc.StackName, tc.OldTrafficWeight, tc.NewTrafficWeight)
 }
@@ -208,7 +191,7 @@ func (sc *StackContainer) GetSegmentLimits() (float64, float64, error) {
 			return -1.0, -1.0, fmt.Errorf("%s: predicates not found", sc.Name())
 		}
 
-		vals := tsRe.FindStringSubmatch(preds)
+		vals := segmentRe.FindStringSubmatch(preds)
 		if len(vals) != 3 {
 			return -1.0, -1.0, fmt.Errorf(
 				"%s: invalid TrafficSegment annotation",
@@ -231,7 +214,7 @@ func (sc *StackContainer) GetSegmentLimits() (float64, float64, error) {
 	case sc.Resources.RouteGroupSegment != nil:
 		for _, r := range sc.Resources.RouteGroupSegment.Spec.Routes {
 			for _, p := range r.Predicates {
-				vals := tsRe.FindStringSubmatch(p)
+				vals := segmentRe.FindStringSubmatch(p)
 				if len(vals) == 3 {
 					low, err := strconv.ParseFloat(vals[1], 64)
 					if err != nil {
@@ -281,7 +264,7 @@ func (sc *StackContainer) SetSegmentLimits(low, high float64) (
 			)
 		}
 
-		newPreds := tsRe.ReplaceAllString(
+		newPreds := segmentRe.ReplaceAllString(
 			preds,
 			fmt.Sprintf("TrafficSegment(%.2f, %.2f)", low, high),
 		)
@@ -292,7 +275,7 @@ func (sc *StackContainer) SetSegmentLimits(low, high float64) (
 	case sc.Resources.RouteGroupSegment != nil:
 		for _, r := range sc.Resources.RouteGroupSegment.Spec.Routes {
 			for i, p := range r.Predicates {
-				if tsRe.MatchString(p) {
+				if segmentRe.MatchString(p) {
 					r.Predicates[i] = fmt.Sprintf(
 						"TrafficSegment(%.2f, %.2f)",
 						low,
@@ -520,25 +503,21 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 	[]TrafficSegment,
 	error,
 ) {
-	segments := []TrafficSegment{}
+	var segments segmentList
 	growing := []TrafficSegment{}
 	shrinking := []TrafficSegment{}
 	existingStacks := map[types.UID]bool{}
 	newWeights := map[types.UID]float64{}
 
-	// First gather stacks with updated weights and current active segments.
+	// Gather stacks with updated weights and current active segments.
 	for uid, sc := range ssc.StackContainers {
 		if sc.actualTrafficWeight > 0 {
 			newWeights[uid] = sc.actualTrafficWeight / 100.0
-		}
+			lower, upper, err := sc.GetSegmentLimits()
+			if err != nil {
+				return nil, err
+			}
 
-		lower, upper, err := sc.GetSegmentLimits()
-		if err != nil {
-			return nil, err
-		}
-
-		// Only consider active segments.
-		if lower != upper {
 			segments = append(
 				segments,
 				TrafficSegment{
@@ -550,9 +529,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		}
 	}
 
-	sort.SliceStable(segments, func(i, j int) bool {
-		return segments[i].lowerLimit < segments[j].upperLimit
-	})
+	sort.Sort(segments)
 
 	// Construct new traffic segments based on new traffic weights
 	index := 0.0
@@ -574,7 +551,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 			continue
 		}
 
-		beforeSize := s.size()
+		beforeSize := s.weight()
 
 		s.lowerLimit = index
 		s.upperLimit = index + w
@@ -589,7 +566,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 
 		index += w
 
-		if s.size() > beforeSize {
+		if s.weight() > beforeSize {
 			growing = append(growing, s)
 		} else {
 			shrinking = append(shrinking, s)

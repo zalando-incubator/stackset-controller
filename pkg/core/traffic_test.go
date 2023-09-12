@@ -1,17 +1,23 @@
 package core
 
 import (
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	v1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
 	hourAgo        = time.Now().Add(-time.Hour)
 	fiveMinutesAgo = time.Now().Add(-5 * time.Minute)
+
+	yesNo = map[bool]string{true: "yes", false: "no"}
 )
 
 func TestTrafficSwitchNoIngress(t *testing.T) {
@@ -956,6 +962,437 @@ func TestTrafficSwitchNoTrafficSince(t *testing.T) {
 			require.Equal(t, switchTimestamp, c.StackContainers["foo-v4"].noTrafficSince, "stacks with no traffic must have the value noTrafficSince preserved")
 			require.Equal(t, fiveMinutesAgo, c.StackContainers["foo-v5"].noTrafficSince, "stacks with no traffic and empty noTrafficSince should have it populated")
 		})
+	}
+}
+
+func TestNewTrafficSegment(t *testing.T) {
+	for _, tc := range []struct {
+		stackContainer     *StackContainer
+		expectedLowerLimit float64
+		expectedUpperLimit float64
+		expectIngress      bool
+		expectRouteGroup   bool
+		expectErr          bool
+	}{
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "TrafficSegment(0.0, 0.1)",
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.1,
+			expectIngress:      true,
+			expectRouteGroup:   false,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{IngressSegment: &v1.Ingress{}},
+			},
+			expectedLowerLimit: -1.0,
+			expectedUpperLimit: -1.0,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "TraficSegment(0.0, 0.1)",
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: -1.0,
+			expectedUpperLimit: -1.0,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "TrafficSegment(0.1, 0.0)",
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: -1.0,
+			expectedUpperLimit: -1.0,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "TrafficSegment(-0.8, -0.6)",
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: -1.0,
+			expectedUpperLimit: -1.0,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "TrafficSegment(0.0, 0.1) && Method(\"GET\")",
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.1,
+			expectIngress:      true,
+			expectRouteGroup:   false,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "Method(\"GET\") && TrafficSegment(0.0, 0.1)",
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.1,
+			expectIngress:      true,
+			expectRouteGroup:   false,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					RouteGroupSegment: &rgv1.RouteGroup{
+						Spec: rgv1.RouteGroupSpec{
+							Routes: []rgv1.RouteGroupRouteSpec{
+								{
+									Predicates: []string{
+										"TrafficSegment(0.0, 0.1)",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.1,
+			expectIngress:      false,
+			expectRouteGroup:   true,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					RouteGroupSegment: &rgv1.RouteGroup{
+						Spec: rgv1.RouteGroupSpec{
+							Routes: []rgv1.RouteGroupRouteSpec{
+								{Predicates: []string{}},
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: -1.0,
+			expectedUpperLimit: -1.0,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					RouteGroupSegment: &rgv1.RouteGroup{
+						Spec: rgv1.RouteGroupSpec{
+							Routes: []rgv1.RouteGroupRouteSpec{
+								{
+									Predicates: []string{
+										"TrafficSegment(0.0, 0.1)",
+										"Method(\"GET\")",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.1,
+			expectIngress:      false,
+			expectRouteGroup:   true,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					RouteGroupSegment: &rgv1.RouteGroup{
+						Spec: rgv1.RouteGroupSpec{
+							Routes: []rgv1.RouteGroupRouteSpec{
+								{
+									Predicates: []string{
+										"Method(\"GET\")",
+										"TrafficSegment(0.0, 0.1)",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.1,
+			expectIngress:      false,
+			expectRouteGroup:   true,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					RouteGroupSegment: &rgv1.RouteGroup{
+						Spec: rgv1.RouteGroupSpec{
+							Routes: []rgv1.RouteGroupRouteSpec{
+								{
+									Predicates: []string{
+										"Method(\"GET\")",
+										"Path(\"/hello\")",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: -1.0,
+			expectedUpperLimit: -1.10,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "TrafficSegment(0.0, 0.1) && Method(\"GET\")",
+							},
+						},
+					},
+					RouteGroupSegment: &rgv1.RouteGroup{
+						Spec: rgv1.RouteGroupSpec{
+							Routes: []rgv1.RouteGroupRouteSpec{
+								{
+									Predicates: []string{
+										"TrafficSegment(0.0, 0.1)",
+										"Method(\"GET\")",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.1,
+			expectIngress:      true,
+			expectRouteGroup:   true,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Resources: StackResources{
+					IngressSegment: &v1.Ingress{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								IngressPredicateKey: "TrafficSegment(0.0, 0.2) && Method(\"GET\")",
+							},
+						},
+					},
+					RouteGroupSegment: &rgv1.RouteGroup{
+						Spec: rgv1.RouteGroupSpec{
+							Routes: []rgv1.RouteGroupRouteSpec{
+								{
+									Predicates: []string{
+										"TrafficSegment(0.0, 0.1)",
+										"Method(\"GET\")",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectedLowerLimit: -1.0,
+			expectedUpperLimit: -1.0,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+	} {
+		res, err := NewTrafficSegment("id", tc.stackContainer)
+		if (err != nil) != tc.expectErr {
+			t.Errorf(
+				"expected error: %s. got error: %s",
+				yesNo[tc.expectErr],
+				yesNo[err != nil],
+			)
+			continue
+		}
+
+		if tc.expectErr {
+			continue
+		}
+
+		if res.lowerLimit != tc.expectedLowerLimit ||
+			res.upperLimit != tc.expectedUpperLimit {
+
+			t.Errorf(
+				"expected (%f,%f), got (%f,%f)",
+				tc.expectedLowerLimit,
+				tc.expectedUpperLimit,
+				res.lowerLimit,
+				res.upperLimit,
+			)
+			continue
+		}
+
+		if (res.IngressSegment != nil) != tc.expectIngress {
+			t.Errorf(
+				"expected Ingress segment: %s. got Ingress segment: %s",
+				yesNo[tc.expectIngress],
+				yesNo[res.IngressSegment != nil],
+			)
+			continue
+		}
+
+		if (res.RouteGroupSegment != nil) != tc.expectRouteGroup {
+			t.Errorf(
+				"expected RouteGroup Segment: %s. got RouteGroup: %s",
+				yesNo[tc.expectRouteGroup],
+				yesNo[res.RouteGroupSegment != nil],
+			)
+		}
+	}
+}
+
+func TestSegmentSorting(t *testing.T) {
+	for _, tc := range []struct {
+		input    segmentList
+		expected segmentList
+	}{
+		{
+			input: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+			},
+			expected: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+			},
+		},
+		{
+			input: segmentList{
+				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+			},
+			expected: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+			},
+		},
+		{
+			input: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+			},
+			expected: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+			},
+		},
+		{
+			input: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+			},
+			expected: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+			},
+		},
+		{
+			input: segmentList{
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.2},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+			},
+			expected: segmentList{
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.2},
+				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+			},
+		},
+	} {
+		sort.Sort(tc.input)
+
+		for i, v := range tc.input {
+			if v.lowerLimit != tc.expected[i].lowerLimit {
+				t.Errorf(
+					"lowerLimit %f, expected %f",
+					v.lowerLimit,
+					tc.expected[i].lowerLimit,
+				)
+				break
+			}
+
+			if v.upperLimit != tc.expected[i].upperLimit {
+				t.Errorf(
+					"upperLimit %f, expected %f",
+					v.upperLimit,
+					tc.expected[i].upperLimit,
+				)
+				break
+			}
+		}
 	}
 }
 

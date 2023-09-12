@@ -14,6 +14,7 @@ import (
 	ssfake "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	zi "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
 	ssunified "github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
@@ -175,6 +176,13 @@ func testStack(name, namespace string, uid types.UID, ownerStack zv1.StackSet) z
 			},
 		},
 	}
+}
+
+func segmentStackOwned(owner zv1.Stack) metav1.ObjectMeta{
+	meta := stackOwned(owner)
+	meta.Name += core.SegmentSuffix
+
+	return meta
 }
 
 func stackOwned(owner zv1.Stack) metav1.ObjectMeta {
