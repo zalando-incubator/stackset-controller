@@ -14,6 +14,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	segmentString = "TrafficSegment(%.2f, %.2f)"
+)
+
 type (
 	TrafficReconciler interface {
 		// Handle the traffic switching and/or scaling logic.
@@ -86,6 +90,60 @@ func NewTrafficSegment(id types.UID, sc *StackContainer) (
 // size returns the corresponding weight of the segment, in a decimal fraction.
 func (t *TrafficSegment) weight() float64 {
 	return t.upperLimit - t.lowerLimit
+}
+
+// setLimits sets the lower and upper limit of the traffic segment to the
+// specified values.
+//
+// Returns an error if any of the limits is a negative value, or if the upper
+// limit's value lower than the lower limit.
+func (t *TrafficSegment) setLimits(lower, upper float64) error {
+	if lower < 0.0 || upper < 0.0 {
+		return fmt.Errorf(
+			"limits cannot have a negative value (%f, %f)",
+			lower,
+			upper,
+		)
+	}
+
+	if upper < lower {
+		return fmt.Errorf(
+			"upper limit must be >= than lower limit (%f, %f)",
+			lower,
+			upper,
+		)
+	}
+
+	t.lowerLimit, t.upperLimit = lower, upper
+	newSegment := fmt.Sprintf(segmentString, t.lowerLimit, t.upperLimit)
+
+	if t.IngressSegment != nil {
+		newPreds := segmentRe.ReplaceAllString(
+			t.IngressSegment.Annotations[IngressPredicateKey],
+			newSegment,
+		)
+
+		t.IngressSegment.Annotations[IngressPredicateKey] = newPreds
+	}
+
+	if t.RouteGroupSegment != nil {
+		for _, r := range t.RouteGroupSegment.Spec.Routes {
+			for i, p := range r.Predicates {
+				if segmentRe.MatchString(p) {
+					r.Predicates[i] = newSegment
+				}
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
+// setInactive sets the lower and upper limits of the traffic segment to 0.0,
+// meaning the segment will not receive traffic.
+func (t *TrafficSegment) setInactive() {
+	t.setLimits(0.0, 0.0)
 }
 
 // Len returns the slice length, as required by the sort Interface.

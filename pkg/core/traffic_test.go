@@ -1308,6 +1308,58 @@ func TestNewTrafficSegment(t *testing.T) {
 	}
 }
 
+func TestSetInactive(t *testing.T) {
+	for _, tc := range []struct {
+		ingressSegment    string
+		routeGroupSegment string
+		expected          map[string]string
+	}{
+		{
+			ingressSegment:    "TrafficSegment(0.4, 0.6)",
+			routeGroupSegment: "",
+			expected: map[string]string{
+				"ingress": "TrafficSegment(0.00, 0.00)",
+			},
+		},
+		{
+			ingressSegment:    "",
+			routeGroupSegment: "TrafficSegment(0.4, 0.6)",
+			expected: map[string]string{
+				"routegroup": "TrafficSegment(0.00, 0.00)",
+			},
+		},
+		{
+			ingressSegment:    "TrafficSegment(0.4, 0.6)",
+			routeGroupSegment: "TrafficSegment(0.4, 0.6)",
+			expected: map[string]string{
+				"ingress":    "TrafficSegment(0.00, 0.00)",
+				"routegroup": "TrafficSegment(0.00, 0.00)",
+			},
+		},
+	} {
+		container := &StackContainer{}
+		if tc.ingressSegment != "" {
+			container.Resources.IngressSegment = &v1.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						IngressPredicateKey: tc.ingressSegment,
+					},
+				},
+			}
+		}
+
+		if tc.routeGroupSegment != "" {
+			container.Resources.RouteGroupSegment = &rgv1.RouteGroup{
+				Spec: rgv1.RouteGroupSpec{
+					Routes: []rgv1.RouteGroupRouteSpec{
+						{Predicates: []string{tc.routeGroupSegment}},
+					},
+				},
+			}
+		}
+	}
+}
+
 func TestSegmentSorting(t *testing.T) {
 	for _, tc := range []struct {
 		input    segmentList

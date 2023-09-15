@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strconv"
 	"time"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
@@ -179,63 +178,6 @@ func (sc *StackContainer) Name() string {
 
 func (sc *StackContainer) Namespace() string {
 	return sc.Stack.Namespace
-}
-
-// GetSegmentLimits returns the lower and upper limits of the Segment assigned
-// to the Stack.
-func (sc *StackContainer) GetSegmentLimits() (float64, float64, error) {
-	switch {
-	case sc.Resources.IngressSegment != nil:
-		preds := sc.Resources.IngressSegment.Annotations[IngressPredicateKey]
-		if preds == "" {
-			return -1.0, -1.0, fmt.Errorf("%s: predicates not found", sc.Name())
-		}
-
-		vals := segmentRe.FindStringSubmatch(preds)
-		if len(vals) != 3 {
-			return -1.0, -1.0, fmt.Errorf(
-				"%s: invalid TrafficSegment annotation",
-				sc.Name(),
-			)
-		}
-
-		low, err := strconv.ParseFloat(vals[1], 64)
-		if err != nil {
-			return -1.0, -1.0, err
-		}
-
-		high, err := strconv.ParseFloat(vals[2], 64)
-		if err != nil {
-			return -1.0, -1.0, err
-		}
-
-		return low, high, nil
-
-	case sc.Resources.RouteGroupSegment != nil:
-		for _, r := range sc.Resources.RouteGroupSegment.Spec.Routes {
-			for _, p := range r.Predicates {
-				vals := segmentRe.FindStringSubmatch(p)
-				if len(vals) == 3 {
-					low, err := strconv.ParseFloat(vals[1], 64)
-					if err != nil {
-						return -1.0, -1.0, err
-					}
-
-					high, err := strconv.ParseFloat(vals[2], 64)
-					if err != nil {
-						return -1.0, -1.0, err
-					}
-
-					return low, high, nil
-				}
-			}
-		}
-
-		return -1.0, -1.0, fmt.Errorf("%s: TrafficSegment not found", sc.Name())
-
-	default:
-		return -1.0, -1.0, nil
-	}
 }
 
 // SetSegmentLimits assigns the provided limits to the traffic segment of the
@@ -509,23 +451,21 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 	existingStacks := map[types.UID]bool{}
 	newWeights := map[types.UID]float64{}
 
-	// Gather stacks with updated weights and current active segments.
+	// Gather: stacks with updated weights; currently active segments.
 	for uid, sc := range ssc.StackContainers {
+		// stacks needing segment updates
 		if sc.actualTrafficWeight > 0 {
 			newWeights[uid] = sc.actualTrafficWeight / 100.0
-			lower, upper, err := sc.GetSegmentLimits()
-			if err != nil {
-				return nil, err
-			}
+		}
 
-			segments = append(
-				segments,
-				TrafficSegment{
-					id:         uid,
-					lowerLimit: lower,
-					upperLimit: upper,
-				},
-			)
+		trafficSegment, err := NewTrafficSegment(uid, sc)
+		if err != nil {
+			return nil, err
+		}
+
+		// Consider only active segments
+		if trafficSegment.weight() != 0 {
+			segments = append(segments, *trafficSegment)
 		}
 	}
 
@@ -537,7 +477,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		existingStacks[s.id] = true
 		w, ok := newWeights[s.id]
 		if !ok {
-			// Set segment to inactive
+			// No weight, set segment to inactive
 			s.lowerLimit, s.upperLimit = 0.0, 0.0
 			ingSeg, rgSeg, err := ssc.StackContainers[s.id].SetSegmentLimits(
 				s.lowerLimit,
