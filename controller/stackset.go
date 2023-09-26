@@ -624,6 +624,76 @@ func (c *StackSetController) ReconcileStatuses(ctx context.Context, ssc *core.St
 	return nil
 }
 
+// ReconcileTrafficSegments updates the traffic segments according to the actual
+// traffic weight for each of the stacks.
+func (c * StackSetController) ReconcileTrafficSegments(
+	ctx context.Context,
+	ssc *core.StackSetContainer,
+) error {
+	// Compute segments
+	toUpdate, err := ssc.ComputeTrafficSegments()
+	if err != nil {
+		err = c.errorEventf(ssc.StackSet, "FailedManageSegments", err)
+		c.stacksetLogger(ssc).Errorf(
+			"Unable to compute stack traffic segments: %v",
+			err,
+		)
+	}
+
+	// Update segments
+	for _, s := range toUpdate {
+		if s.IngressSegment != nil {
+			_, err = c.client.NetworkingV1().Ingresses(
+				s.IngressSegment.Namespace,
+			).Update(
+				ctx,
+				s.IngressSegment,
+				metav1.UpdateOptions{},
+			)
+			if err != nil {
+				c.stacksetLogger(ssc).Errorf(
+					"Unable to update stack traffic segment: %v",
+					err,
+				)
+				return err
+			}
+			c.recorder.Eventf(
+				ssc.StackSet,
+				v1.EventTypeNormal,
+				"UpdatedIngress",
+				"Updated Ingress %s",
+				s.IngressSegment.Name,
+			)
+		}
+
+		if s.RouteGroupSegment != nil {
+			_, err = c.client.RouteGroupV1().RouteGroups(
+				s.RouteGroupSegment.Namespace,
+			).Update(
+				ctx,
+				s.RouteGroupSegment,
+				metav1.UpdateOptions{},
+			)
+			if err != nil {
+				c.stacksetLogger(ssc).Errorf(
+					"Unable to update stack traffic segment: %v",
+					err,
+				)
+				return err
+			}
+			c.recorder.Eventf(
+				ssc.StackSet,
+				v1.EventTypeNormal,
+				"UpdatedRouteGroup",
+				"Updated RouteGroup %s",
+				s.RouteGroupSegment.Name,
+			)
+		}
+	}
+
+	return nil
+}
+
 // CreateCurrentStack creates a new Stack object for the current stack, if needed
 func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.StackSetContainer) error {
 	newStack, newStackVersion := ssc.NewStack()
@@ -947,8 +1017,27 @@ func (c *StackSetController) ReconcileStackSetIngressSources(
 	return nil
 }
 
-// TODO remove 
+// ReconcileStackSetResources reconciles the central Ingress and/or RouteGroup
+// of the specified StackSet.
+//
+// If the StackSet supports traffic segments, the controller won't reconcile the
+// central ingress resources. This method is deprecated and will be removed in
+// the future.
 func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
+	if !ssc.SupportsSegmentTraffic() {
+		err := c.ReconcileStackSetIngressSources(
+			ctx,
+			ssc.StackSet,
+			ssc.Ingress,
+			ssc.RouteGroup,
+			ssc.GenerateIngress,
+			ssc.GenerateRouteGroup,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	trafficChanges := ssc.TrafficChanges()
 	if len(trafficChanges) != 0 {
 		var changeMessages []string
@@ -1011,30 +1100,40 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		return c.errorEventf(sc.Stack, "FailedManageIngress", err)
 	}
 
-	err = c.ReconcileStackIngress(
-		ctx,
-		sc.Stack,
-		sc.Resources.IngressSegment,
-		sc.GenerateIngressSegment,
-	)
-	if err != nil {
-		return c.errorEventf(sc.Stack, "FailedManageIngressSegment", err)
+	// This is to support both central and segment-based traffic.
+	if ssc.SupportsSegmentTraffic() {
+		err = c.ReconcileStackIngress(
+			ctx,
+			sc.Stack,
+			sc.Resources.IngressSegment,
+			sc.GenerateIngressSegment,
+		)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageIngressSegment", err)
+		}
 	}
- 
+
 	if c.routeGroupSupportEnabled {
 		err = c.ReconcileStackRouteGroup(ctx, sc.Stack, sc.Resources.RouteGroup, sc.GenerateRouteGroup)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
 		}
 
-		err = c.ReconcileStackRouteGroup(
-			ctx,
-			sc.Stack,
-			sc.Resources.RouteGroupSegment,
-			sc.GenerateRouteGroupSegment,
-		)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageRouteGroupSegment", err)
+		// This is to support both central and segment-based traffic.
+		if ssc.SupportsSegmentTraffic() {
+			err = c.ReconcileStackRouteGroup(
+				ctx,
+				sc.Stack,
+				sc.Resources.RouteGroupSegment,
+				sc.GenerateRouteGroupSegment,
+			)
+			if err != nil {
+				return c.errorEventf(
+					sc.Stack,
+					"FailedManageRouteGroupSegment",
+					err,
+				)
+			}
 		}
 	}
 
@@ -1101,6 +1200,19 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 		c.stacksetLogger(container).Errorf("Unable to reconcile stackset traffic: %v", err)
 	}
 
+	// This is to support both central and segment-based traffic.
+	if container.SupportsSegmentTraffic() {
+		// Update traffic segments. Proceed on errors.
+		err = c.ReconcileTrafficSegments(ctx, container)
+		if err != nil {
+			err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
+			c.stacksetLogger(container).Errorf(
+				"Unable to reconcile traffic segments: %v",
+				err,
+			)
+		}
+	}
+
 	// Delete old stacks. Proceed on errors.
 	err = c.CleanupOldStacks(ctx, container)
 	if err != nil {
@@ -1112,68 +1224,6 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 	err = c.ReconcileStatuses(ctx, container)
 	if err != nil {
 		return err
-	}
-
-	// Compute segments
-	res, err := container.ComputeTrafficSegments()
-	if err != nil {
-		err = c.errorEventf(container.StackSet, "FailedManageSegments", err)
-		c.stacksetLogger(container).Errorf(
-			"Unable to compute stack traffic segments: %v",
-			err,
-		)
-	}
-
-	if len(res) > 0 {
-		for _, r := range res {
-			if r.IngressSegment != nil {
-				_, err = c.client.NetworkingV1().Ingresses(
-					r.IngressSegment.Namespace,
-				).Update(
-					ctx,
-					r.IngressSegment,
-					metav1.UpdateOptions{},
-				)
-				if err != nil {
-					c.stacksetLogger(container).Errorf(
-						"Unable to update stack traffic segment: %v",
-						err,
-					)
-					continue
-				}
-				c.recorder.Eventf(
-					container.StackSet,
-					v1.EventTypeNormal,
-					"UpdatedIngress",
-					"Updated Ingress %s",
-					r.IngressSegment.Name,
-				)
-			}
-
-			if r.RouteGroupSegment != nil {
-				_, err = c.client.RouteGroupV1().RouteGroups(
-					r.RouteGroupSegment.Namespace,
-				).Update(
-					ctx,
-					r.RouteGroupSegment,
-					metav1.UpdateOptions{},
-				)
-				if err != nil {
-					c.stacksetLogger(container).Errorf(
-						"Unable to update stack traffic segment: %v",
-						err,
-					)
-					continue
-				}
-				c.recorder.Eventf(
-					container.StackSet,
-					v1.EventTypeNormal,
-					"UpdatedRouteGroup",
-					"Updated RouteGroup %s",
-					r.RouteGroupSegment.Name,
-				)
-			}
-		}
 	}
 
 	return nil

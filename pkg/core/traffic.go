@@ -57,7 +57,7 @@ func NewTrafficSegment(id types.UID, sc *StackContainer) (
 	if sc.Resources.IngressSegment != nil {
 		res.IngressSegment = sc.Resources.IngressSegment
 		predicates := res.IngressSegment.Annotations[IngressPredicateKey]
-		lowerLimit, upperLimit, err := getSegmentParams(predicates)
+		lowerLimit, upperLimit, err := getSegmentLimits(predicates)
 		if err != nil {
 			return nil, err
 		}
@@ -67,7 +67,7 @@ func NewTrafficSegment(id types.UID, sc *StackContainer) (
 	if sc.Resources.RouteGroupSegment != nil {
 		res.RouteGroupSegment = sc.Resources.RouteGroupSegment
 
-		lowerLimit, upperLimit, err := getSegmentParams(
+		lowerLimit, upperLimit, err := getSegmentLimits(
 			res.RouteGroupSegment.Spec.Routes[0].Predicates...,
 		)
 		if err != nil {
@@ -98,23 +98,28 @@ func (t *TrafficSegment) weight() float64 {
 // Returns an error if any of the limits is a negative value, or if the upper
 // limit's value lower than the lower limit.
 func (t *TrafficSegment) setLimits(lower, upper float64) error {
-	if lower < 0.0 || upper < 0.0 {
+	switch {
+	case lower < 0.0 || upper < 0.0:
 		return fmt.Errorf(
 			"limits cannot have a negative value (%f, %f)",
 			lower,
 			upper,
 		)
-	}
 
-	if upper < lower {
+	case upper < lower:
 		return fmt.Errorf(
 			"upper limit must be >= than lower limit (%f, %f)",
 			lower,
 			upper,
 		)
+
+	case upper == lower:
+		t.lowerLimit, t.upperLimit = 0.0, 0.0
+
+	default:
+		t.lowerLimit, t.upperLimit = lower, upper
 	}
 
-	t.lowerLimit, t.upperLimit = lower, upper
 	newSegment := fmt.Sprintf(segmentString, t.lowerLimit, t.upperLimit)
 
 	if t.IngressSegment != nil {
@@ -131,19 +136,13 @@ func (t *TrafficSegment) setLimits(lower, upper float64) error {
 			for i, p := range r.Predicates {
 				if segmentRe.MatchString(p) {
 					r.Predicates[i] = newSegment
+					break
 				}
-				break
 			}
 		}
 	}
 
 	return nil
-}
-
-// setInactive sets the lower and upper limits of the traffic segment to 0.0,
-// meaning the segment will not receive traffic.
-func (t *TrafficSegment) setInactive() {
-	t.setLimits(0.0, 0.0)
 }
 
 // Len returns the slice length, as required by the sort Interface.
@@ -172,7 +171,7 @@ func (l segmentList) Swap(i, j int) {
 // predicate.
 //
 // Returns an error if it fails to parse.
-func getSegmentParams(predicates ...string) (float64, float64, error) {
+func getSegmentLimits(predicates ...string) (float64, float64, error) {
 	for _, p := range predicates {
 		segmentParams := segmentRe.FindStringSubmatch(p)
 		if len(segmentParams) != 3 {

@@ -34,6 +34,10 @@ type ingressOrRouteGroupSpec interface {
 }
 
 var (
+	initialIngressSegment = map[string]string{
+		IngressPredicateKey: InitialSegment,
+	}
+
 	// set implementation with 0 Byte value
 	selectorLabels = map[string]struct{}{
 		StacksetHeritageLabelKey: {},
@@ -395,7 +399,18 @@ func (sc *StackContainer) generateIngress(segment bool) (
 	}
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.GetAnnotations())
+	result.Annotations = mergeLabels(
+		result.Annotations,
+		sc.ingressSpec.GetAnnotations(),
+	)
+
+	if segment {
+		result.Annotations = mergeLabels(
+			result.Annotations,
+			initialIngressSegment,
+		)
+	}
+
 	return result, nil
 }
 

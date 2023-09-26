@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"sort"
 	"testing"
 	"time"
@@ -1308,36 +1309,93 @@ func TestNewTrafficSegment(t *testing.T) {
 	}
 }
 
-func TestSetInactive(t *testing.T) {
+func TestSetLimits(t * testing.T) {
 	for _, tc := range []struct {
 		ingressSegment    string
 		routeGroupSegment string
+		lower			  float64
+		upper			  float64
 		expected          map[string]string
+		expectErr         bool
 	}{
 		{
 			ingressSegment:    "TrafficSegment(0.4, 0.6)",
 			routeGroupSegment: "",
+			lower:			   0.2,
+			upper: 			   0.8,
+			expected: map[string]string{
+				"ingress": "TrafficSegment(0.20, 0.80)",
+			},
+			expectErr: false,
+		},
+		{
+			ingressSegment:    "TrafficSegment(0.4, 0.6)",
+			routeGroupSegment: "",
+			lower:			   0.2,
+			upper: 			   0.2,
 			expected: map[string]string{
 				"ingress": "TrafficSegment(0.00, 0.00)",
 			},
+			expectErr: false,
+		},
+		{
+			ingressSegment:    "TrafficSegment(0.1, 0.2) && Method(\"GET\")",
+			routeGroupSegment: "",
+			lower:			   0.2,
+			upper: 			   0.8,
+			expected: map[string]string{
+				"ingress": "TrafficSegment(0.20, 0.80) && Method(\"GET\")",
+			},
+			expectErr: false,
 		},
 		{
 			ingressSegment:    "",
 			routeGroupSegment: "TrafficSegment(0.4, 0.6)",
+			lower:			   0.2,
+			upper: 			   0.8,
 			expected: map[string]string{
-				"routegroup": "TrafficSegment(0.00, 0.00)",
+				"routegroup": "TrafficSegment(0.20, 0.80)",
 			},
+			expectErr: false,
 		},
 		{
 			ingressSegment:    "TrafficSegment(0.4, 0.6)",
 			routeGroupSegment: "TrafficSegment(0.4, 0.6)",
+			lower:			   0.2,
+			upper: 			   0.8,
 			expected: map[string]string{
-				"ingress":    "TrafficSegment(0.00, 0.00)",
-				"routegroup": "TrafficSegment(0.00, 0.00)",
+				"ingress":    "TrafficSegment(0.20, 0.80)",
+				"routegroup": "TrafficSegment(0.20, 0.80)",
 			},
+			expectErr: false,
 		},
-	} {
+		{
+			ingressSegment:    "TrafficSegment(0.4, 0.6)",
+			routeGroupSegment: "",
+			lower:			   0.3,
+			upper: 			   0.2,
+			expectErr: true,
+		},
+		{
+			ingressSegment:    "TrafficSegment(0.4, 0.6)",
+			routeGroupSegment: "",
+			lower:			   -0.3,
+			upper: 			   0.2,
+			expectErr: true,
+		},
+		{
+			ingressSegment:    "TrafficSegment(0.4, 0.6)",
+			routeGroupSegment: "",
+			lower:			   -0.3,
+			upper: 			   -0.2,
+			expectErr: true,
+		},
+	}{
+		expectedJSON, _ := json.MarshalIndent(tc.expected, "", "  ")
+		expectedPretty := string(expectedJSON)
+
 		container := &StackContainer{}
+
 		if tc.ingressSegment != "" {
 			container.Resources.IngressSegment = &v1.Ingress{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1357,8 +1415,104 @@ func TestSetInactive(t *testing.T) {
 				},
 			}
 		}
+
+		segment, _ := NewTrafficSegment("v1", container)
+		err := segment.setLimits(tc.lower, tc.upper)
+
+		if (err != nil) != tc.expectErr {
+			t.Errorf(
+				"expected error: %s. got error: %s",
+				yesNo[tc.expectErr],
+				yesNo[err != nil],
+			)
+			continue
+		}
+
+		if tc.expectErr {
+			continue
+		}
+
+		if tc.lower != tc.upper {
+			if segment.lowerLimit != tc.lower || segment.upperLimit != tc.upper {
+				t.Errorf(
+					"Limits mismatch (%f,%f), expected\n%s",
+					segment.lowerLimit,
+					segment.upperLimit,
+					expectedPretty,
+				)
+				break
+			}
+		} else {
+			if segment.lowerLimit != 0.0 || segment.upperLimit != 0.0 {
+				t.Errorf(
+					"Active segment (%f,%f), expected\n%s",
+					segment.lowerLimit,
+					segment.upperLimit,
+					expectedPretty,
+				)
+				break
+			}			
+		}
+
+		if tc.ingressSegment == "" {
+			if segment.IngressSegment != nil {
+				t.Errorf(
+					"non nil IngressSegment, expected\n%s",
+					expectedPretty,
+				)
+				break
+			}
+
+		} else {
+			if segment.IngressSegment == nil {
+				t.Errorf(
+					"nil IngressSegment, expected\n%s",
+					expectedPretty,
+				)
+				break
+			}
+
+			if segment.IngressSegment.Annotations[IngressPredicateKey] !=
+				tc.expected["ingress"] {
+
+				t.Errorf(
+					"IngressSegment mismatch %q, expected\n%s",
+					segment.IngressSegment.Annotations[IngressPredicateKey],
+					expectedPretty,
+				)
+				break				
+			}
+		}
+
+		if tc.routeGroupSegment == "" {
+			if segment.RouteGroupSegment != nil {
+				t.Errorf(
+					"non nil RouteGroupSegment, expected\n%s",
+					expectedPretty,
+				)
+				break
+			}
+
+		} else {
+			found := false
+			for _, pred := range segment.RouteGroupSegment.Spec.Routes[0].Predicates {
+				if pred == tc.expected["routegroup"] {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				t.Errorf(
+					"RouteGroupSegment not found in %v, expected\n%s",
+					segment.RouteGroupSegment.Spec.Routes[0].Predicates,
+					expectedPretty,
+				)
+			}
+		}
 	}
 }
+
 
 func TestSegmentSorting(t *testing.T) {
 	for _, tc := range []struct {

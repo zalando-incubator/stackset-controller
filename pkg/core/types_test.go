@@ -19,14 +19,14 @@ func TestComputeTrafficSegments(t *testing.T) {
 		expectErr            bool
 	}{
 		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 100.0,
+			},
 			ingressSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.0)",
 			},
 			routeGroupSegments: map[types.UID]string{
 				"v1": "",
-			},
-			actualTrafficWeights: map[types.UID]float64{
-				"v1": 100.0,
 			},
 			expected: []map[types.UID]map[string]string{
 				{"v1": {"ingress": "TrafficSegment(0.00, 1.00)"}},
@@ -34,14 +34,46 @@ func TestComputeTrafficSegments(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 100.0,
+			},
+			ingressSegments: map[types.UID]string{
+				"v1": "TrafficSegment(0.0, 1.0)",
+			},
+			routeGroupSegments: map[types.UID]string{
+				"v1": "",
+			},
+			expected: []map[types.UID]map[string]string{},
+			expectErr: false,
+		},
+		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 20.0,
+				"v2": 30.0,
+				"v3": 50.0,
+			},
+			ingressSegments: map[types.UID]string{
+				"v1": "TrafficSegment(0.0, 0.2)",
+				"v2": "TrafficSegment(0.2, 0.5)",
+				"v3": "TrafficSegment(0.5, 1.0)",
+			},
+			routeGroupSegments: map[types.UID]string{
+				"v1": "",
+				"v2": "",
+				"v3": "",
+			},
+			expected: []map[types.UID]map[string]string{},
+			expectErr: false,
+		},
+		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 100.0,
+			},
 			ingressSegments: map[types.UID]string{
 				"v1": "",
 			},
 			routeGroupSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.0)",
-			},
-			actualTrafficWeights: map[types.UID]float64{
-				"v1": 100.0,
 			},
 			expected: []map[types.UID]map[string]string{
 				{"v1": {"routegroup": "TrafficSegment(0.00, 1.00)"}},
@@ -49,14 +81,14 @@ func TestComputeTrafficSegments(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 100.0,
+			},
 			ingressSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.0)",
 			},
 			routeGroupSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.0)",
-			},
-			actualTrafficWeights: map[types.UID]float64{
-				"v1": 100.0,
 			},
 			expected: []map[types.UID]map[string]string{
 				{
@@ -69,16 +101,17 @@ func TestComputeTrafficSegments(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 0.0,
+				"v2": 100.0,
+			},
 			ingressSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 1.0)",
 				"v2": "TrafficSegment(0.0, 0.0)",
 			},
 			routeGroupSegments: map[types.UID]string{
 				"v1": "",
-			},
-			actualTrafficWeights: map[types.UID]float64{
-				"v1": 0.0,
-				"v2": 100.0,
+				"v2": "",
 			},
 			expected: []map[types.UID]map[string]string{
 				{"v2": {"ingress": "TrafficSegment(0.00, 1.00)"}},
@@ -87,6 +120,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 0.0,
+				"v2": 100.0,
+			},
 			ingressSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 1.0)",
 				"v2": "",
@@ -95,10 +132,6 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v1": "",
 				"v2": "TrafficSegment(0.0, 0.0)",
 			},
-			actualTrafficWeights: map[types.UID]float64{
-				"v1": 0.0,
-				"v2": 100.0,
-			},
 			expected: []map[types.UID]map[string]string{
 				{"v2": {"routegroup": "TrafficSegment(0.00, 1.00)"}},
 				{"v1": {"ingress": "TrafficSegment(0.00, 0.00)"}},
@@ -106,6 +139,11 @@ func TestComputeTrafficSegments(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 30.0,
+				"v2": 40.0,
+				"v3": 30.0,
+			},
 			ingressSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.4)",
 				"v2": "TrafficSegment(0.4, 0.6)",
@@ -116,19 +154,19 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v2": "",
 				"v3": "",
 			},
-			actualTrafficWeights: map[types.UID]float64{
-				"v1": 30.0,
-				"v2": 40.0,
-				"v3": 30.0,
-			},
 			expected: []map[types.UID]map[string]string{
 				{"v2": {"ingress": "TrafficSegment(0.30, 0.70)"}},
-				{"v1": {"ingress": "TrafficSegment(0.00, 0.30)"}},
 				{"v3": {"ingress": "TrafficSegment(0.70, 1.00)"}},
+				{"v1": {"ingress": "TrafficSegment(0.00, 0.30)"}},
 			},
 			expectErr: false,
 		},
 		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 40.0,
+				"v2": 20.0,
+				"v3": 40.0,
+			},
 			ingressSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.3)",
 				"v2": "TrafficSegment(0.3, 0.7)",
@@ -139,15 +177,33 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v2": "",
 				"v3": "",
 			},
+			expected: []map[types.UID]map[string]string{
+				{"v1": {"ingress": "TrafficSegment(0.00, 0.40)"}},
+				{"v3": {"ingress": "TrafficSegment(0.60, 1.00)"}},
+				{"v2": {"ingress": "TrafficSegment(0.40, 0.60)"}},
+			},
+			expectErr: false,
+		},
+		{
 			actualTrafficWeights: map[types.UID]float64{
 				"v1": 40.0,
 				"v2": 20.0,
 				"v3": 40.0,
 			},
+			ingressSegments: map[types.UID]string{
+				"v1": "TrafficSegment(0.0, 0.5)",
+				"v2": "TrafficSegment(0.5, 0.7)",
+				"v3": "TrafficSegment(0.7, 1.0)",
+			},
+			routeGroupSegments: map[types.UID]string{
+				"v1": "",
+				"v2": "",
+				"v3": "",
+			},
 			expected: []map[types.UID]map[string]string{
-				{"v1": {"ingress": "TrafficSegment(0.00, 0.40)"}},
 				{"v3": {"ingress": "TrafficSegment(0.60, 1.00)"}},
 				{"v2": {"ingress": "TrafficSegment(0.40, 0.60)"}},
+				{"v1": {"ingress": "TrafficSegment(0.00, 0.40)"}},
 			},
 			expectErr: false,
 		},
@@ -280,17 +336,21 @@ func TestComputeTrafficSegments(t *testing.T) {
 					break
 				}
 
+				found := false
 				for _, pred := range v.RouteGroupSegment.Spec.Routes[0].Predicates {
 					if pred == rgSegment {
-						continue
+						found = true
+						break
 					}
 				}
 
-				t.Errorf(
-					"RouteGroupSegment not found at index %d, expected\n%s",
-					i,
-					expectedPretty,
-				)
+				if !found {
+					t.Errorf(
+						"RouteGroupSegment not found at index %d, expected\n%s",
+						i,
+						expectedPretty,
+					)
+				}
 			}
 		}
 	}

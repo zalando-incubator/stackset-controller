@@ -1,7 +1,6 @@
 package core
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -66,6 +65,11 @@ type StackSetContainer struct {
 	// clusterDomains stores the main domain names of the cluster;
 	// per-stack ingress hostnames are not generated for names outside of them
 	clusterDomains []string
+
+	// segmentTraffic controls support of managing traffic weight by using
+	// dedicated Ingress and RouteGroup resources with Skipper's TrafficSegment
+	// predicate.
+	segmentTraffic bool
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -180,60 +184,6 @@ func (sc *StackContainer) Namespace() string {
 	return sc.Stack.Namespace
 }
 
-// SetSegmentLimits assigns the provided limits to the traffic segment of the
-// StackContainer. Returns the updated segment resource.
-func (sc *StackContainer) SetSegmentLimits(low, high float64) (
-	*networking.Ingress,
-	*rgv1.RouteGroup,
-	error,
-) {
-	if low > high {
-		return nil, nil, errors.New(
-			"lower limit cannot be greater than lowr limit",
-		)
-	}
-
-	var ingressRes *networking.Ingress
-	var rgRes *rgv1.RouteGroup
-
-	switch {
-	case sc.Resources.IngressSegment != nil:
-		preds := sc.Resources.IngressSegment.Annotations[IngressPredicateKey]
-		if preds == "" {
-			return nil, nil, fmt.Errorf(
-				"%s: predicates not found",
-				sc.Name(),
-			)
-		}
-
-		newPreds := segmentRe.ReplaceAllString(
-			preds,
-			fmt.Sprintf("TrafficSegment(%.2f, %.2f)", low, high),
-		)
-
-		sc.Resources.IngressSegment.Annotations[IngressPredicateKey] = newPreds
-		ingressRes = sc.Resources.IngressSegment
-
-	case sc.Resources.RouteGroupSegment != nil:
-		for _, r := range sc.Resources.RouteGroupSegment.Spec.Routes {
-			for i, p := range r.Predicates {
-				if segmentRe.MatchString(p) {
-					r.Predicates[i] = fmt.Sprintf(
-						"TrafficSegment(%.2f, %.2f)",
-						low,
-						high,
-					)
-					break
-				}
-			}
-		}
-
-		rgRes = sc.Resources.RouteGroupSegment
-	}
-
-	return ingressRes, rgRes, nil
-}
-
 // StackResources describes the resources of a stack.
 type StackResources struct {
 	Deployment        *appsv1.Deployment
@@ -253,6 +203,17 @@ func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendW
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
 		clusterDomains:              clusterDomains,
 	}
+}
+
+// EnableSegmentTraffic enables managing traffic weight by using dedicated
+// Ingress and RouteGroup resources with Skipper's TrafficSegment predicate.
+func (ssc *StackSetContainer) EnableSegmentTraffic() {
+	ssc.segmentTraffic = true
+}
+
+// SupportsSegmentTraffic returns if the StackSet has segmented traffic enabled.
+func (ssc *StackSetContainer) SupportsSegmentTraffic() bool {
+	return ssc.segmentTraffic
 }
 
 func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
@@ -439,21 +400,24 @@ func (sc *StackContainer) overrideParentResources() error {
 	return nil
 }
 
-// ComputeTrafficSegments computes the stack segments to fulfill the actual
-// traffic configured in the main StackSet. Returns the updated resources.
+// ComputeTrafficSegments returns the stack segments necessary to fulfill the
+// actual traffic configured in the main StackSet.
+//
+// Returns an ordered list of traffic segments, to ensure no gaps in traffic
+// assignment.
 func (ssc *StackSetContainer) ComputeTrafficSegments() (
 	[]TrafficSegment,
 	error,
 ) {
 	var segments segmentList
-	growing := []TrafficSegment{}
-	shrinking := []TrafficSegment{}
+	weightDiffs := map[types.UID]float64{}
+	res := []TrafficSegment{}
 	existingStacks := map[types.UID]bool{}
 	newWeights := map[types.UID]float64{}
 
-	// Gather: stacks with updated weights; currently active segments.
+	// Gather actual active weights and currently active segments.
 	for uid, sc := range ssc.StackContainers {
-		// stacks needing segment updates
+		// active stacks
 		if sc.actualTrafficWeight > 0 {
 			newWeights[uid] = sc.actualTrafficWeight / 100.0
 		}
@@ -466,76 +430,59 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		// Consider only active segments
 		if trafficSegment.weight() != 0 {
 			segments = append(segments, *trafficSegment)
+			existingStacks[trafficSegment.id] = true
 		}
 	}
 
 	sort.Sort(segments)
 
-	// Construct new traffic segments based on new traffic weights
+	// Construct new traffic segments based on actual traffic weights
 	index := 0.0
 	for _, s := range segments {
-		existingStacks[s.id] = true
-		w, ok := newWeights[s.id]
-		if !ok {
-			// No weight, set segment to inactive
-			s.lowerLimit, s.upperLimit = 0.0, 0.0
-			ingSeg, rgSeg, err := ssc.StackContainers[s.id].SetSegmentLimits(
-				s.lowerLimit,
-				s.upperLimit,
-			)
-			if err != nil {
-				return nil, err
-			}
-			s.IngressSegment, s.RouteGroupSegment = ingSeg, rgSeg
-			shrinking = append(shrinking, s)
-			continue
-		}
-
-		beforeSize := s.weight()
-
-		s.lowerLimit = index
-		s.upperLimit = index + w
-		ingSeg, rgSeg, err := ssc.StackContainers[s.id].SetSegmentLimits(
-			s.lowerLimit,
-			s.upperLimit,
-		)
+		w := newWeights[s.id]
+		wBefore, lBefore, uBefore := s.weight(), s.lowerLimit, s.upperLimit
+		err := s.setLimits(index, index+w)
 		if err != nil {
-			return nil, err
+			return nil, err		
 		}
-		s.IngressSegment, s.RouteGroupSegment = ingSeg, rgSeg
 
+		weightDiffs[s.id] = s.weight() - wBefore
+		// Don't add segments that didn't change
+		if lBefore != s.lowerLimit || uBefore != s.upperLimit {
+			res = append(res, s)
+		}
 		index += w
-
-		if s.weight() > beforeSize {
-			growing = append(growing, s)
-		} else {
-			shrinking = append(shrinking, s)
-		}
 	}
 
-	// Add new stacks
+	// Add new stacks, previously with no traffic
 	for id, w := range newWeights {
 		if !existingStacks[id] {
-			s := TrafficSegment{
-				id:         id,
-				lowerLimit: index,
-				upperLimit: index + w,
-			}
-			ingSeg, rgSeg, err := ssc.StackContainers[s.id].SetSegmentLimits(
-				s.lowerLimit,
-				s.upperLimit,
-			)
+			s, err := NewTrafficSegment(id, ssc.StackContainers[id])
 			if err != nil {
 				return nil, err
 			}
-			s.IngressSegment, s.RouteGroupSegment = ingSeg, rgSeg
+			err = s.setLimits(index, index+w)
+			if err != nil {
+				return nil, err
+			}
 
-			growing = append(growing, s)
+			weightDiffs[id] = s.weight()
+			res = append(res, *s)
 			index += w
 		}
 	}
 
-	return append(growing, shrinking...), nil
+	// Sorts descending by weight diff, to make sure we apply growing segments
+	// first.
+	sort.SliceStable(res, func(i, j int) bool{
+		if weightDiffs[res[i].id] >  weightDiffs[res[j].id] {
+			return true
+		}
+
+		return res[i].id < res[j].id
+	})
+
+	return res, nil
 }
 
 func (sc *StackContainer) updateFromResources() {
