@@ -38,6 +38,7 @@ const (
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 	ControllerLastUpdatedAnnotationKey        = "stackset-controller.zalando.org/updated-timestamp"
+	TrafficSegmentsAnnotationKey			  = "stackset-controller.zalando.org/use-traffic-segments"
 
 	reasonFailedManageStackSet = "FailedManageStackSet"
 
@@ -234,6 +235,9 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 
 		stacksetContainer := core.NewContainer(&stackset, reconciler, c.backendWeightsAnnotationKey, c.clusterDomains)
+		if stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
+			stacksetContainer.EnableSegmentTraffic()
+		}
 		stacksets[uid] = stacksetContainer
 	}
 

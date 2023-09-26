@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -26,28 +25,23 @@ func TestIngressSourceSwitch(t *testing.T) {
 	spec := factory.Create(firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
-	_, err = waitForIngress(
-		t,
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, firstVersion),
-	)
+	ingress, err := waitForIngress(t, stacksetName)
 	require.NoError(t, err)
+	require.Contains(t, ingress.Annotations, controller.ControllerLastUpdatedAnnotationKey)
+	require.NotEqual(t, "", ingress.Annotations[controller.ControllerLastUpdatedAnnotationKey])
 
 	// update stackset adding a routegroup
 	updatedVersion := "v2"
 	spec = factory.RouteGroup().Create(updatedVersion)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
-	
-	rg, err := waitForRouteGroup(
-		t,
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, updatedVersion),
-	)
+	rg, err := waitForRouteGroup(t, stacksetName)
 	require.NoError(t, err)
-
-	_, err = waitForIngress(
-		t,
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, updatedVersion),
-	)
+	firstRgUpdatedTimestamp := ingress.Annotations[controller.ControllerLastUpdatedAnnotationKey]
+	require.Contains(t, rg.Annotations, controller.ControllerLastUpdatedAnnotationKey)
+	require.NotEqual(t, "", firstRgUpdatedTimestamp)
+	secondIngress, err := waitForIngress(t, stacksetName)
+	require.Equal(t, secondIngress.Annotations[controller.ControllerLastUpdatedAnnotationKey], ingress.Annotations[controller.ControllerLastUpdatedAnnotationKey])
 	require.NoError(t, err)
 
 	// update the routegroup and delete the ingress
@@ -58,29 +52,16 @@ func TestIngressSourceSwitch(t *testing.T) {
 	lastSpec.Ingress = nil
 	err = updateStackset(stacksetName, lastSpec)
 	require.NoError(t, err)
-	_, err = waitForUpdatedRouteGroup(
-		t,
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, lastVersion),
-		rg.Annotations[controller.ControllerLastUpdatedAnnotationKey],
-	)
+	lastRg, err := waitForUpdatedRouteGroup(t, rg.Name, rg.Annotations[controller.ControllerLastUpdatedAnnotationKey])
 	require.NoError(t, err)
+	require.NotEqual(t, lastRg.Annotations[controller.ControllerLastUpdatedAnnotationKey], firstRgUpdatedTimestamp)
 	// If the ingress is not deleted right away, then, it respects the
 	// TTL.
-	err = resourceDeleted(
-		t,
-		"ingress",
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, lastVersion),
-		ingressInterface(),
-	).await()
+	err = resourceDeleted(t, "ingress", stacksetName, ingressInterface()).await()
 	require.Error(t, err)
 
 	// make sure the ingress is finally deleted after twice the TTL
-	a := resourceDeleted(
-		t,
-		"ingress",
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, lastVersion),
-		ingressInterface(),
-	)
+	a := resourceDeleted(t, "ingress", stacksetName, ingressInterface())
 	a.timeout += IngressSourceSwitchTTL * 2
 	err = a.await()
 	require.NoError(t, err)
@@ -97,10 +78,7 @@ func TestIngressToRouteGroupSwitch(t *testing.T) {
 	spec := factory.Create(firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
-	rg, err := waitForRouteGroup(
-		t,
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, firstVersion),
-	)
+	rg, err := waitForRouteGroup(t, stacksetName)
 	require.NoError(t, err)
 
 	// Wait the IngressSourceSwitchTTL to make sure the ingress is
@@ -113,19 +91,13 @@ func TestIngressToRouteGroupSwitch(t *testing.T) {
 	lastSpec.StackTemplate.Spec.Version = lastVersion
 	lastSpec.RouteGroup.AdditionalBackends = []v1.RouteGroupBackend{{Name: "shunt", Type: v1.ShuntRouteGroupBackend}}
 	lastSpec.Ingress = nil
-
 	err = updateStackset(stacksetName, lastSpec)
 	require.NoError(t, err)
-	_, err = waitForUpdatedRouteGroup(
-		t,
-		fmt.Sprintf("%s-%s-traffic-segment", stacksetName, lastVersion),
-		rg.Annotations[controller.ControllerLastUpdatedAnnotationKey],
-	)
+	_, err = waitForUpdatedRouteGroup(t, rg.Name, rg.Annotations[controller.ControllerLastUpdatedAnnotationKey])
 	require.NoError(t, err)
 
 	// make sure ingress is not deleted before IngressSourceSwitchTTL
-	err = resourceDeleted(
-		t, "ingress", stacksetName, ingressInterface()).await()
+	err = resourceDeleted(t, "ingress", stacksetName, ingressInterface()).await()
 	require.Error(t, err)
 }
 
