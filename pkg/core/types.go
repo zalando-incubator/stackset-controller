@@ -330,6 +330,10 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		}
 
 		sc.updateFromResources()
+		// This is to support both central and segment-based traffic.
+		if ssc.SupportsSegmentTraffic() {
+			sc.updateFromSegmentResources()
+		}
 	}
 
 	// only populate traffic if traffic management is enabled
@@ -489,7 +493,6 @@ func (sc *StackContainer) updateFromResources() {
 	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
 
 	var deploymentUpdated, serviceUpdated, ingressUpdated, routeGroupUpdated, hpaUpdated bool
-	var ingressSegmentUpdated, routeGroupSegmentUpdated bool
 
 	// deployment
 	if sc.Resources.Deployment != nil {
@@ -507,23 +510,17 @@ func (sc *StackContainer) updateFromResources() {
 	// ingress: ignore if ingress is not set or check if we are up to date
 	if sc.ingressSpec != nil {
 		ingressUpdated = sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
-		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
-			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
-		ingressSegmentUpdated = sc.Resources.Ingress == nil
 	}
 
 	// routegroup: ignore if routegroup is not set or check if we are up to date
 	if sc.routeGroupSpec != nil {
 		routeGroupUpdated = sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
-		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
-			IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroupSegment.ObjectMeta)
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
-		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
 	}
 
 	// hpa
@@ -537,9 +534,7 @@ func (sc *StackContainer) updateFromResources() {
 	sc.resourcesUpdated = deploymentUpdated &&
 		serviceUpdated &&
 		ingressUpdated &&
-		ingressSegmentUpdated &&
 		routeGroupUpdated &&
-		routeGroupSegmentUpdated &&
 		hpaUpdated
 
 	status := sc.Stack.Status
@@ -550,4 +545,30 @@ func (sc *StackContainer) updateFromResources() {
 		sc.prescalingDesiredTrafficWeight = status.Prescaling.DesiredTrafficWeight
 		sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
 	}
+}
+
+func (sc *StackContainer) updateFromSegmentResources() {
+	var ingressSegmentUpdated, routeGroupSegmentUpdated bool
+
+	// ingress: ignore if ingress is not set or check if we are up to date
+	if sc.ingressSpec != nil {
+		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
+			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
+	} else {
+		// ignore if ingress is not set
+		ingressSegmentUpdated = sc.Resources.Ingress == nil
+	}
+
+	// routegroup: ignore if routegroup is not set or check if we are up to date
+	if sc.routeGroupSpec != nil {
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
+			IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroupSegment.ObjectMeta)
+	} else {
+		// ignore if route group is not set
+		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
+	}
+
+	sc.resourcesUpdated = sc.resourcesUpdated &&
+		ingressSegmentUpdated &&
+		routeGroupSegmentUpdated
 }
