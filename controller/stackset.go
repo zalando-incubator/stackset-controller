@@ -38,7 +38,7 @@ const (
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 	ControllerLastUpdatedAnnotationKey        = "stackset-controller.zalando.org/updated-timestamp"
-	TrafficSegmentsAnnotationKey			  = "stackset-controller.zalando.org/use-traffic-segments"
+	TrafficSegmentsAnnotationKey              = "stackset-controller.zalando.org/use-traffic-segments"
 
 	reasonFailedManageStackSet = "FailedManageStackSet"
 
@@ -276,14 +276,8 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 	return stacksets, nil
 }
 
-func (c *StackSetController) collectIngresses(
-	ctx context.Context,
-	stacksets map[types.UID]*core.StackSetContainer,
-) error {
-	ingresses, err := c.client.NetworkingV1().Ingresses(v1.NamespaceAll).List(
-		ctx,
-		metav1.ListOptions{},
-	)
+func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	ingresses, err := c.client.NetworkingV1().Ingresses(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		return fmt.Errorf("failed to list Ingresses: %v", err)
@@ -318,10 +312,7 @@ func (c *StackSetController) collectIngresses(
 	return nil
 }
 
-func (c *StackSetController) collectRouteGroups(
-	ctx context.Context,
-	stacksets map[types.UID]*core.StackSetContainer,
-) error {
+func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
 	rgs, err := c.client.RouteGroupV1().RouteGroups(v1.NamespaceAll).List(
 		ctx,
 		metav1.ListOptions{},
@@ -629,8 +620,8 @@ func (c *StackSetController) ReconcileStatuses(ctx context.Context, ssc *core.St
 }
 
 // ReconcileTrafficSegments updates the traffic segments according to the actual
-// traffic weight for each of the stacks.
-func (c * StackSetController) ReconcileTrafficSegments(
+// traffic weight of each stack.
+func (c *StackSetController) ReconcileTrafficSegments(
 	ctx context.Context,
 	ssc *core.StackSetContainer,
 ) error {
@@ -768,7 +759,6 @@ func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stack
 	if ingress == nil {
 		return existing, nil
 	}
-
 
 	if existing == nil {
 		if ingress.Annotations == nil {
@@ -1284,7 +1274,11 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 		// Update traffic segments. Proceed on errors.
 		err = c.ReconcileTrafficSegments(ctx, container)
 		if err != nil {
-			err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
+			err = c.errorEventf(
+				container.StackSet,
+				reasonFailedManageStackSet,
+				err,
+			)
 			c.stacksetLogger(container).Errorf(
 				"Unable to reconcile traffic segments: %v",
 				err,

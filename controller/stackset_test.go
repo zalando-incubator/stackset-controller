@@ -125,14 +125,14 @@ func TestCollectResources(t *testing.T) {
 			},
 		},
 		{
-			name: "controller collects Ingress segment",
+			name:      "controller collects Ingress segment",
 			stacksets: []zv1.StackSet{testStacksetA},
-			stacks: []zv1.Stack{testStackA1},
+			stacks:    []zv1.Stack{testStackA1},
 			ingresses: []networking.Ingress{
 				{ObjectMeta: segmentStackOwned(testStackA1)},
 			},
 			expected: map[types.UID]*core.StackSetContainer{
-				testStacksetA.UID : {
+				testStacksetA.UID: {
 					StackSet: &testStacksetA,
 					StackContainers: map[types.UID]*core.StackContainer{
 						testStackA1.UID: {
@@ -149,14 +149,14 @@ func TestCollectResources(t *testing.T) {
 			},
 		},
 		{
-			name: "controller collects RouteGroup segment",
+			name:      "controller collects RouteGroup segment",
 			stacksets: []zv1.StackSet{testStacksetA},
-			stacks: []zv1.Stack{testStackA1},
+			stacks:    []zv1.Stack{testStackA1},
 			routegroups: []rgv1.RouteGroup{
 				{ObjectMeta: segmentStackOwned(testStackA1)},
 			},
 			expected: map[types.UID]*core.StackSetContainer{
-				testStacksetA.UID : {
+				testStacksetA.UID: {
 					StackSet: &testStacksetA,
 					StackContainers: map[types.UID]*core.StackContainer{
 						testStackA1.UID: {

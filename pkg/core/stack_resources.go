@@ -81,10 +81,6 @@ func objectMetaInjectLabels(objectMeta metav1.ObjectMeta, labels map[string]stri
 	return objectMeta
 }
 
-func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
-	return sc.objectMeta(false)
-}
-
 func (sc *StackContainer) objectMeta(segment bool) metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 
@@ -109,6 +105,10 @@ func (sc *StackContainer) objectMeta(segment bool) metav1.ObjectMeta {
 			},
 		},
 	}
+}
+
+func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
+	return sc.objectMeta(false)
 }
 
 // getServicePorts gets the service ports to be used for the stack service.
@@ -400,10 +400,7 @@ func (sc *StackContainer) generateIngress(segment bool) (
 	}
 
 	// insert annotations
-	result.Annotations = mergeLabels(
-		result.Annotations,
-		sc.ingressSpec.GetAnnotations(),
-	)
+	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.GetAnnotations())
 
 	if segment {
 		result.Annotations = mergeLabels(

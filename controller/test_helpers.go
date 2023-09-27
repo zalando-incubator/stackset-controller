@@ -178,13 +178,6 @@ func testStack(name, namespace string, uid types.UID, ownerStack zv1.StackSet) z
 	}
 }
 
-func segmentStackOwned(owner zv1.Stack) metav1.ObjectMeta{
-	meta := stackOwned(owner)
-	meta.Name += core.SegmentSuffix
-
-	return meta
-}
-
 func stackOwned(owner zv1.Stack) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
 		Name:      owner.Name,
@@ -198,6 +191,13 @@ func stackOwned(owner zv1.Stack) metav1.ObjectMeta {
 			},
 		},
 	}
+}
+
+func segmentStackOwned(owner zv1.Stack) metav1.ObjectMeta {
+	meta := stackOwned(owner)
+	meta.Name += core.SegmentSuffix
+
+	return meta
 }
 
 func deploymentOwned(owner apps.Deployment) metav1.ObjectMeta {

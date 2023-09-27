@@ -308,6 +308,17 @@ func roundWeights(weights map[string]float64) {
 	}
 }
 
+// EnableSegmentTraffic enables managing traffic weight by using dedicated
+// Ingress and RouteGroup resources with Skipper's TrafficSegment predicate.
+func (ssc *StackSetContainer) EnableSegmentTraffic() {
+	ssc.segmentTraffic = true
+}
+
+// SupportsSegmentTraffic returns if the StackSet has segmented traffic enabled.
+func (ssc *StackSetContainer) SupportsSegmentTraffic() bool {
+	return ssc.segmentTraffic
+}
+
 // ManageTraffic handles the traffic reconciler logic
 func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 	// No ingress -> no traffic management required
@@ -390,6 +401,91 @@ func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 		}
 	}
 	return err
+}
+
+// ComputeTrafficSegments returns the stack segments necessary to fulfill the
+// actual traffic configured in the main StackSet.
+//
+// Returns an ordered list of traffic segments, to ensure no gaps in traffic
+// assignment.
+func (ssc *StackSetContainer) ComputeTrafficSegments() (
+	[]TrafficSegment,
+	error,
+) {
+	var segments segmentList
+	weightDiffs := map[types.UID]float64{}
+	res := []TrafficSegment{}
+	existingStacks := map[types.UID]bool{}
+	newWeights := map[types.UID]float64{}
+
+	// Gather actual active weights and currently active segments.
+	for uid, sc := range ssc.StackContainers {
+		// active stacks
+		if sc.actualTrafficWeight > 0 {
+			newWeights[uid] = sc.actualTrafficWeight / 100.0
+		}
+
+		trafficSegment, err := NewTrafficSegment(uid, sc)
+		if err != nil {
+			return nil, err
+		}
+
+		// Consider only active segments
+		if trafficSegment.weight() != 0 {
+			segments = append(segments, *trafficSegment)
+			existingStacks[trafficSegment.id] = true
+		}
+	}
+
+	sort.Sort(segments)
+
+	// Construct new traffic segments based on actual traffic weights
+	index := 0.0
+	for _, s := range segments {
+		w := newWeights[s.id]
+		wBefore, lBefore, uBefore := s.weight(), s.lowerLimit, s.upperLimit
+		err := s.setLimits(index, index+w)
+		if err != nil {
+			return nil, err
+		}
+
+		weightDiffs[s.id] = s.weight() - wBefore
+		// Don't add segments that didn't change
+		if lBefore != s.lowerLimit || uBefore != s.upperLimit {
+			res = append(res, s)
+		}
+		index += w
+	}
+
+	// Add new stacks, previously with no traffic
+	for id, w := range newWeights {
+		if !existingStacks[id] {
+			s, err := NewTrafficSegment(id, ssc.StackContainers[id])
+			if err != nil {
+				return nil, err
+			}
+			err = s.setLimits(index, index+w)
+			if err != nil {
+				return nil, err
+			}
+
+			weightDiffs[id] = s.weight()
+			res = append(res, *s)
+			index += w
+		}
+	}
+
+	// Sorts descending by weight diff, to make sure we apply growing segments
+	// first.
+	sort.SliceStable(res, func(i, j int) bool {
+		if weightDiffs[res[i].id] > weightDiffs[res[j].id] {
+			return true
+		}
+
+		return res[i].id < res[j].id
+	})
+
+	return res, nil
 }
 
 // fallbackStack returns a stack that should be the target of traffic if none of the existing stacks get anything
