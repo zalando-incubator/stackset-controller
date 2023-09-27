@@ -17,21 +17,24 @@ import (
 )
 
 const (
-	requestsPerSecondName        = "requests-per-second"
-	metricConfigJSONPath         = "metric-config.pods.%s.json-path/path"
-	metricConfigJSONKey          = "metric-config.pods.%s.json-path/json-key"
-	metricConfigJSONPort         = "metric-config.pods.%s.json-path/port"
-	sqsQueueLengthTag            = "sqs-queue-length"
-	zmonCheckMetricName          = "zmon-check"
-	zmonCheckCheckIDTag          = "check-id"
-	zmonCheckAggregatorsTag      = "aggregators"
-	zmonCheckDurationTag         = "duration"
-	zmonCheckStackTag            = "stack"
-	zmonCheckKeyAnnotation       = "metric-config.external.zmon-check.zmon/key"
-	zmonCheckTagAnnotationPrefix = "metric-config.external.zmon-check.zmon/tag-"
-	sqsQueueNameTag              = "queue-name"
-	sqsQueueRegionTag            = "region"
-	scalingScheduleAPIVersion    = "zalando.org/v1"
+	metricsTypeLabel                   = "type"
+	requestsPerSecondName              = "requests-per-second"
+	metricConfigJSONPath               = "metric-config.pods.%s.json-path/path"
+	metricConfigJSONKey                = "metric-config.pods.%s.json-path/json-key"
+	metricConfigJSONPort               = "metric-config.pods.%s.json-path/port"
+	zmonCheckMetricName                = "zmon-check"
+	zmonCheckMetricType                = "zmon"
+	zmonCheckCheckIDTag                = "check-id"
+	zmonCheckAggregatorsTag            = "aggregators"
+	zmonCheckDurationTag               = "duration"
+	zmonCheckStackTag                  = "stack"
+	zmonCheckKeyAnnotationFormat       = "metric-config.external.%s.zmon/key"
+	zmonCheckTagAnnotationPrefixFormat = "metric-config.external.%s.zmon/tag-"
+	sqsMetricType                      = "sqs-queue-length"
+	sqsMetricName                      = "sqs-queue-len"
+	sqsQueueNameTag                    = "queue-name"
+	sqsQueueRegionTag                  = "region"
+	scalingScheduleAPIVersion          = "zalando.org/v1"
 )
 
 var (
@@ -42,27 +45,90 @@ var (
 	errMissingClusterScalingScheduleName       = errors.New("missing ClusterScalingSchedule metric object name")
 )
 
-type MetricsList []autoscaling.MetricSpec
+type autoscalerMetricsList []zv1.AutoscalerMetrics
 
-func (l MetricsList) Len() int {
+func (l autoscalerMetricsList) Len() int {
 	return len(l)
 }
 
-func (l MetricsList) Swap(i, j int) {
+func (l autoscalerMetricsList) Swap(i, j int) {
 	temp := l[i]
 	l[i] = l[j]
 	l[j] = temp
 }
 
-func (l MetricsList) Less(i, j int) bool {
-	return l[i].Type < l[j].Type
+func (l autoscalerMetricsList) Less(i, j int) bool {
+	if l[i].Type != l[j].Type {
+		return l[i].Type < l[j].Type
+	}
+
+	if l[i].Average != nil && l[j].Average != nil {
+		iAverage, ok := l[i].Average.AsInt64()
+		if !ok {
+			iAverage = l[i].Average.AsDec().UnscaledBig().Int64()
+		}
+
+		jAverage, ok := l[j].Average.AsInt64()
+		if !ok {
+			jAverage = l[j].Average.AsDec().UnscaledBig().Int64()
+		}
+
+		if iAverage != jAverage {
+			return iAverage < jAverage
+		}
+	}
+
+	if l[i].AverageUtilization != nil && l[j].AverageUtilization != nil {
+		if *l[i].AverageUtilization != *l[j].AverageUtilization {
+			return *l[i].AverageUtilization < *l[j].AverageUtilization
+		}
+	}
+
+	// CPUAutoscalerMetric, MemoryAutoscalerMetric
+	if l[i].Container != "" && l[j].Container != "" {
+		return l[i].Container < l[j].Container
+	}
+
+	// AmazonSQSAutoscalerMetric
+	if l[i].Queue != nil && l[j].Queue != nil {
+		return l[i].Queue.Name < l[j].Queue.Name
+	}
+
+	// PodJSONAutoscalerMetric
+	if l[i].Endpoint != nil && l[j].Endpoint != nil {
+		return l[i].Endpoint.Name < l[j].Endpoint.Name
+	}
+	// ZMONAutoscalerMetric
+	if l[i].ZMON != nil && l[j].ZMON != nil {
+		return l[i].ZMON.CheckID < l[j].ZMON.CheckID
+	}
+	// ExternalRPSMetric
+	if l[i].RequestsPerSecond != nil && l[j].RequestsPerSecond != nil {
+		return strings.Join(l[i].RequestsPerSecond.Hostnames, ",") < strings.Join(l[j].RequestsPerSecond.Hostnames, ",")
+	}
+	// ClusterScalingScheduleMetric
+	if l[i].ClusterScalingSchedule != nil && l[j].ClusterScalingSchedule != nil {
+		return l[i].ClusterScalingSchedule.Name < l[j].ClusterScalingSchedule.Name
+	}
+
+	// ScalingScheduleMetric
+	if l[i].ScalingSchedule != nil && l[j].ScalingSchedule != nil {
+		return l[i].ScalingSchedule.Name < l[j].ScalingSchedule.Name
+	}
+
+	// IngressAutoscalerMetric, RouteGroupAutoscalerMetric are both
+	// checked just by the Average value.
+
+	return false
 }
 
-func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []zv1.AutoscalerMetrics, trafficWeight float64) ([]autoscaling.MetricSpec, map[string]string, error) {
-	var resultMetrics MetricsList
+func convertCustomMetrics(stacksetName, stackName, namespace string, metrics autoscalerMetricsList, trafficWeight float64) ([]autoscaling.MetricSpec, map[string]string, error) {
+	var resultMetrics []autoscaling.MetricSpec
 	resultAnnotations := make(map[string]string)
 
-	for _, m := range metrics {
+	sort.Sort(metrics)
+
+	for i, m := range metrics {
 		var (
 			generated   *autoscaling.MetricSpec
 			annotations map[string]string
@@ -70,7 +136,7 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 		)
 		switch m.Type {
 		case zv1.AmazonSQSAutoscalerMetric:
-			generated, err = sqsMetric(m)
+			generated, err = sqsMetric(m, i)
 		case zv1.PodJSONAutoscalerMetric:
 			generated, annotations, err = podJsonMetric(m)
 		case zv1.IngressAutoscalerMetric:
@@ -78,7 +144,7 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 		case zv1.RouteGroupAutoscalerMetric:
 			generated, err = routegroupMetric(m, stacksetName, stackName)
 		case zv1.ZMONAutoscalerMetric:
-			generated, annotations, err = zmonMetric(m, stackName, namespace)
+			generated, annotations, err = zmonMetric(m, i, stackName, namespace)
 		case zv1.ScalingScheduleMetric:
 			generated, err = scalingScheduleMetric(m, stackName, namespace)
 		case zv1.ClusterScalingScheduleMetric:
@@ -102,7 +168,6 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics []z
 		}
 	}
 
-	sort.Sort(resultMetrics)
 	return resultMetrics, resultAnnotations, nil
 }
 
@@ -167,7 +232,7 @@ func cpuMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 	}, nil
 }
 
-func sqsMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
+func sqsMetric(metrics zv1.AutoscalerMetrics, position int) (*autoscaling.MetricSpec, error) {
 	if metrics.Average == nil {
 		return nil, fmt.Errorf("average not specified")
 	}
@@ -179,9 +244,13 @@ func sqsMetric(metrics zv1.AutoscalerMetrics) (*autoscaling.MetricSpec, error) {
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
 			Metric: autoscaling.MetricIdentifier{
-				Name: sqsQueueLengthTag,
+				Name: fmt.Sprintf("%s-%d", sqsMetricName, position),
 				Selector: &metav1.LabelSelector{
-					MatchLabels: map[string]string{sqsQueueNameTag: metrics.Queue.Name, sqsQueueRegionTag: metrics.Queue.Region},
+					MatchLabels: map[string]string{
+						metricsTypeLabel:  sqsMetricType,
+						sqsQueueNameTag:   metrics.Queue.Name,
+						sqsQueueRegionTag: metrics.Queue.Region,
+					},
 				},
 			},
 			Target: autoscaling.MetricTarget{
@@ -329,7 +398,7 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stackname string, weight f
 	return generated, annotations, nil
 }
 
-func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*autoscaling.MetricSpec, map[string]string, error) {
+func zmonMetric(metrics zv1.AutoscalerMetrics, position int, stackName, namespace string) (*autoscaling.MetricSpec, map[string]string, error) {
 	if metrics.Average == nil {
 		return nil, nil, fmt.Errorf("average not specified")
 	}
@@ -351,13 +420,16 @@ func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*au
 		return nil, nil, fmt.Errorf("could not hash metric name")
 	}
 
+	metricName := fmt.Sprintf("%s-%d", zmonCheckMetricName, position)
+
 	generated := &autoscaling.MetricSpec{
 		Type: autoscaling.ExternalMetricSourceType,
 		External: &autoscaling.ExternalMetricSource{
 			Metric: autoscaling.MetricIdentifier{
-				Name: zmonCheckMetricName,
+				Name: metricName,
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{
+						metricsTypeLabel:     zmonCheckMetricType,
 						zmonCheckCheckIDTag:  metrics.ZMON.CheckID,
 						zmonCheckDurationTag: metrics.ZMON.Duration,
 						// uniquely identifies the metric to this
@@ -378,10 +450,10 @@ func zmonMetric(metrics zv1.AutoscalerMetrics, stackName, namespace string) (*au
 	}
 
 	annotations := map[string]string{
-		zmonCheckKeyAnnotation: metrics.ZMON.Key,
+		fmt.Sprintf(zmonCheckKeyAnnotationFormat, metricName): metrics.ZMON.Key,
 	}
 	for k, v := range metrics.ZMON.Tags {
-		annotations[zmonCheckTagAnnotationPrefix+k] = v
+		annotations[fmt.Sprintf(zmonCheckTagAnnotationPrefixFormat, metricName)+k] = v
 	}
 	return generated, annotations, nil
 }
