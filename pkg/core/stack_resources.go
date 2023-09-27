@@ -20,11 +20,11 @@ import (
 )
 
 const (
-	apiVersionAppsV1    = "apps/v1"
-	kindDeployment      = "Deployment"
+	apiVersionAppsV1 = "apps/v1"
+	kindDeployment   = "Deployment"
 
-	SegmentSuffix	    = "-traffic-segment"
-	InitialSegment 		= "TrafficSegment(0.0, 0.0)"
+	SegmentSuffix       = "-traffic-segment"
+	InitialSegment      = "TrafficSegment(0.0, 0.0)"
 	IngressPredicateKey = "zalando.org/skipper-predicate"
 )
 
@@ -333,7 +333,7 @@ func (sc *StackContainer) stackHostnames(
 	return result.List(), nil
 }
 
-func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error)  {
+func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
 	return sc.generateIngress(false)
 }
 
