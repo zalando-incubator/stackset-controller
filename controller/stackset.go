@@ -1021,6 +1021,75 @@ func (c *StackSetController) ReconcileStackSetIngressSources(
 	return nil
 }
 
+// convertToTrafficSegments removes the central ingress component of the
+// StackSet, if and only if the StackSet already has traffic segments.
+func (c *StackSetController) convertToTrafficSegments(
+	ctx context.Context,
+	ssc *core.StackSetContainer,
+) error {
+	if ssc.Ingress == nil && ssc.RouteGroup == nil {
+		return nil
+	}
+
+	for _, sc := range ssc.StackContainers {
+		// If we find at least one stack with a segment, we can delete the
+		// central ingress resources.
+		if sc.Resources.IngressSegment != nil ||
+			sc.Resources.RouteGroupSegment != nil {
+
+			break
+		}
+
+		return nil
+	}
+
+	if ssc.Ingress != nil {
+		err := c.client.NetworkingV1().Ingresses(ssc.Ingress.Namespace).Delete(
+			ctx,
+			ssc.Ingress.Name,
+			metav1.DeleteOptions{},
+		)
+		if err != nil {
+			return err
+		}
+
+		c.recorder.Eventf(
+			ssc.StackSet,
+			v1.EventTypeNormal,
+			"DeletedIngress",
+			"Deleted Ingress %s",
+			ssc.Ingress.Namespace,
+		)
+
+		ssc.Ingress = nil
+	}
+
+	if ssc.RouteGroup != nil {
+		err := c.client.RouteGroupV1().RouteGroups(
+			ssc.RouteGroup.Namespace,
+		).Delete(
+			ctx,
+			ssc.RouteGroup.Name,
+			metav1.DeleteOptions{},
+		)
+		if err != nil {
+			return err
+		}
+
+		c.recorder.Eventf(
+			ssc.RouteGroup,
+			v1.EventTypeNormal,
+			"DeletedRouteGroup",
+			"Deleted RouteGroup %s",
+			ssc.RouteGroup.Namespace,
+		)
+
+		ssc.RouteGroup = nil
+	}
+
+	return nil
+}
+
 // ReconcileStackSetResources reconciles the central Ingress and/or RouteGroup
 // of the specified StackSet.
 //
@@ -1037,6 +1106,12 @@ func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc
 			ssc.GenerateIngress,
 			ssc.GenerateRouteGroup,
 		)
+		if err != nil {
+			return err
+		}
+	} else {
+		// Convert StackSet to traffic segments, if needed
+		err := c.convertToTrafficSegments(ctx, ssc)
 		if err != nil {
 			return err
 		}
