@@ -178,7 +178,7 @@ func TestCollectResources(t *testing.T) {
 								Service:    &v1.Service{ObjectMeta: stackOwned(testStackA2)},
 								Ingress:    &networking.Ingress{ObjectMeta: stackOwned(testStackA2)},
 								RouteGroup: &rgv1.RouteGroup{ObjectMeta: stackOwned(testStackA2)},
-								ConfigMap:  &v1.ConfigMap{ObjectMeta: stackOwned(testStackA2)},
+								ConfigMaps: []*v1.ConfigMap{{ObjectMeta: stackOwned(testStackA2)}},
 							},
 						},
 					},

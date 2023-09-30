@@ -186,7 +186,7 @@ type StackResources struct {
 	Service    *v1.Service
 	Ingress    *networking.Ingress
 	RouteGroup *rgv1.RouteGroup
-	ConfigMap  *v1.ConfigMap
+	ConfigMaps []*v1.ConfigMap
 }
 
 func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {

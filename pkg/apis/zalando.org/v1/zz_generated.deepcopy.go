@@ -684,8 +684,14 @@ func (in *StackSpec) DeepCopyInto(out *StackSpec) {
 	}
 	if in.ConfigResources != nil {
 		in, out := &in.ConfigResources, &out.ConfigResources
-		*out = new(ConfigResourcesSpec)
-		(*in).DeepCopyInto(*out)
+		*out = new([]ConfigResourcesSpec)
+		if **in != nil {
+			in, out := *in, *out
+			*out = make([]ConfigResourcesSpec, len(*in))
+			for i := range *in {
+				(*in)[i].DeepCopyInto(&(*out)[i])
+			}
+		}
 	}
 	return
 }

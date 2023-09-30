@@ -729,7 +729,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 	runTest("configMap isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
 		container.Resources.Deployment = deployment(11, 5, 5)
-		container.Resources.ConfigMap = configMap(10)
+		container.Resources.ConfigMaps = append(container.Resources.ConfigMaps, configMap(10))
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})

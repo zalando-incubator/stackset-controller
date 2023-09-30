@@ -431,7 +431,7 @@ type StackSpec struct {
 
 	// ConfigResources describes the ConfigMaps that will be created.
 	// Later Secrets and PlatformCredentialSets will also be defined on ConfigResources
-	ConfigResources *ConfigResourcesSpec `json:"configResources,omitempty"`
+	ConfigResources *[]ConfigResourcesSpec `json:"configResources,omitempty"`
 }
 
 // ConfigResourcesSpec makes it possible to defined the config resources to be created

@@ -598,21 +598,25 @@ spec:
                         description: ConfigResources describes the ConfigMaps that
                           will be created. Later Secrets and PlatformCredentialSets
                           will also be defined on ConfigResources
-                        properties:
-                          configMapRef:
-                            description: ConfigMap to be versioned for Stack
-                            properties:
-                              name:
-                                description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind,
-                                  uid?'
-                                type: string
-                              optional:
-                                description: Specify whether the ConfigMap must be
-                                  defined
-                                type: boolean
-                            type: object
-                        type: object
+                        items:
+                          description: ConfigResourcesSpec makes it possible to defined
+                            the config resources to be created
+                          properties:
+                            configMapRef:
+                              description: ConfigMap to be versioned for Stack
+                              properties:
+                                name:
+                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind,
+                                    uid?'
+                                  type: string
+                                optional:
+                                  description: Specify whether the ConfigMap must
+                                    be defined
+                                  type: boolean
+                              type: object
+                          type: object
+                        type: array
                       minReadySeconds:
                         description: Minimum number of seconds for which a newly created
                           pod should be ready without any of its container crashing,

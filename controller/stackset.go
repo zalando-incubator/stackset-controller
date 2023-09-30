@@ -445,7 +445,7 @@ Items:
 		if uid, ok := getOwnerUID(configMap.ObjectMeta); ok {
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
-					s.Resources.ConfigMap = &configMap
+					s.Resources.ConfigMaps = append(s.Resources.ConfigMaps, &configMap)
 					continue Items
 				}
 			}
@@ -991,7 +991,7 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 }
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
-	err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMap, sc.GenerateConfigMap)
+	err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.GenerateConfigMap)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
 	}
