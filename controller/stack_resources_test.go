@@ -961,7 +961,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 	singleConfigMapStack := baseTestStack
 	singleConfigMapStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
-			ConfigResources: &[]zv1.ConfigResourcesSpec{
+			ConfigurationResources: &[]zv1.ConfigurationResourcesSpec{
 				{
 					ConfigMapRef: v1.ConfigMapEnvSource{
 						LocalObjectReference: v1.LocalObjectReference{
@@ -1009,7 +1009,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 	multipleConfigMapsStack := baseTestStack
 	multipleConfigMapsStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
-			ConfigResources: &[]zv1.ConfigResourcesSpec{
+			ConfigurationResources: &[]zv1.ConfigurationResourcesSpec{
 				{
 					ConfigMapRef: v1.ConfigMapEnvSource{
 						LocalObjectReference: v1.LocalObjectReference{

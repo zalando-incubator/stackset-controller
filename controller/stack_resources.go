@@ -344,13 +344,13 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	existing []*apiv1.ConfigMap,
 	generateUpdated func(*apiv1.ConfigMap) (*apiv1.ConfigMap, error),
 ) error {
-	if stack.Spec.ConfigResources == nil {
+	if stack.Spec.ConfigurationResources == nil {
 		return nil
 	}
 
 	// Get template names
 	var configMaps []string
-	for _, configMap := range *stack.Spec.ConfigResources {
+	for _, configMap := range *stack.Spec.ConfigurationResources {
 		configMaps = append(configMaps, configMap.ConfigMapRef.Name)
 	}
 

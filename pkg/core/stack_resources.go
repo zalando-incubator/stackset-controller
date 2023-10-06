@@ -426,7 +426,7 @@ func (sc *StackContainer) GenerateConfigMap(base *v1.ConfigMap) (*v1.ConfigMap, 
 	metaObj := sc.resourceMeta()
 	metaObj.Name = metaObj.Name + "-" + base.Name
 
-	if stackSpec.ConfigResources != nil {
+	if stackSpec.ConfigurationResources != nil {
 		metaObj.Annotations = mergeLabels(metaObj.Annotations, base.Annotations)
 	}
 
