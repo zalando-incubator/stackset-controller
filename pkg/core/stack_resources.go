@@ -421,10 +421,10 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	return result, nil
 }
 
-func (sc *StackContainer) GenerateConfigMap(base *v1.ConfigMap) (*v1.ConfigMap, error) {
+func (sc *StackContainer) GenerateConfigMap(base *v1.ConfigMap, name string) (*v1.ConfigMap, error) {
 	stackSpec := sc.Stack.Spec
 	metaObj := sc.resourceMeta()
-	metaObj.Name = metaObj.Name + "-" + base.Name
+	metaObj.Name = name
 
 	if stackSpec.ConfigurationResources != nil {
 		metaObj.Annotations = mergeLabels(metaObj.Annotations, base.Annotations)

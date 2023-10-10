@@ -1224,7 +1224,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			}
 
 			err = env.controller.ReconcileStackConfigMap(
-				context.Background(), &tc.stack, tc.existing, func(tmp *v1.ConfigMap) (*v1.ConfigMap, error) {
+				context.Background(), &tc.stack, tc.existing, func(tmp *v1.ConfigMap, vName string) (*v1.ConfigMap, error) {
 					if tmp.Name == tc.template[0].Name {
 						return tc.expected[0], nil
 					}

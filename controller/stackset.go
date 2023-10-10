@@ -439,14 +439,13 @@ func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets ma
 		return fmt.Errorf("failed to list ConfigMaps: %v", err)
 	}
 
-Items:
 	for _, cm := range configMaps.Items {
 		configMap := cm
 		if uid, ok := getOwnerUID(configMap.ObjectMeta); ok {
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					s.Resources.ConfigMaps = append(s.Resources.ConfigMaps, &configMap)
-					continue Items
+					break
 				}
 			}
 		}

@@ -53,6 +53,10 @@ func syncObjectMeta(target, source metav1.Object) {
 	target.SetAnnotations(source.GetAnnotations())
 }
 
+func generateConfigMapName(stack *zv1.Stack, templateName string) string {
+	return stack.Name + "-" + templateName
+}
+
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
 	deployment := generateUpdated()
 
@@ -320,20 +324,57 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	return nil
 }
 
-func (c *StackSetController) deleteConfigMapTemplate(ctx context.Context, stack *zv1.Stack, configMaps []string) error {
-	for _, configmap := range configMaps {
-		err := c.client.CoreV1().ConfigMaps(stack.Namespace).Delete(ctx, configmap, metav1.DeleteOptions{})
-		if err != nil {
-			return err
-		}
-		c.recorder.Eventf(
-			stack,
-			apiv1.EventTypeNormal,
-			"DeleteConfigMaps",
-			"Delete ConfigMaps %s",
-			configMaps,
-		)
+func (c *StackSetController) deleteConfigMapTemplate(ctx context.Context, stack *zv1.Stack, configmap string) error {
+	err := c.client.CoreV1().ConfigMaps(stack.Namespace).Delete(ctx, configmap, metav1.DeleteOptions{})
+	if err != nil {
+		return err
 	}
+	c.recorder.Eventf(
+		stack,
+		apiv1.EventTypeNormal,
+		"DeleteConfigMap",
+		"Delete ConfigMap %s",
+		configmap,
+	)
+
+	return nil
+}
+
+func (c *StackSetController) updateStackConfigMap(
+	ctx context.Context,
+	stack *zv1.Stack,
+	configMapNames map[string]string,
+) error {
+	for templateName, versionedName := range configMapNames {
+		// Change ConfigMap reference on Stack's EnvFrom
+		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
+			for _, envFrom := range container.EnvFrom {
+				if envFrom.ConfigMapRef.Name == templateName {
+					envFrom.ConfigMapRef.Name = versionedName
+				}
+			}
+		}
+
+		// Change ConfigMap reference on Stack's Volumes
+		for _, volume := range stack.Spec.PodTemplate.Spec.Volumes {
+			if volume.ConfigMap.Name == templateName {
+				volume.ConfigMap.Name = versionedName
+			}
+		}
+	}
+
+	// Update Stack
+	_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(ctx, stack, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	c.recorder.Eventf(
+		stack,
+		apiv1.EventTypeNormal,
+		"UpdatedStack",
+		"Updated Stack %s",
+		stack.Name,
+	)
 
 	return nil
 }
@@ -342,35 +383,44 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
 	existing []*apiv1.ConfigMap,
-	generateUpdated func(*apiv1.ConfigMap) (*apiv1.ConfigMap, error),
+	generateUpdated func(*apiv1.ConfigMap, string) (*apiv1.ConfigMap, error),
 ) error {
 	if stack.Spec.ConfigurationResources == nil {
 		return nil
 	}
 
-	// Get template names
-	var configMaps []string
+	// Get configMaps names
+	configMaps := make(map[string]string)
 	for _, configMap := range *stack.Spec.ConfigurationResources {
-		configMaps = append(configMaps, configMap.ConfigMapRef.Name)
+		templateName := configMap.ConfigMapRef.Name
+		configMaps[templateName] = generateConfigMapName(stack, templateName)
 	}
 
-	// Delete templates if version already exists
-	if existing != nil {
-		err := c.deleteConfigMapTemplate(ctx, stack, configMaps)
-		if err != nil {
-			return err
+	if len(existing) >= len(configMaps) {
+		for templateName := range configMaps {
+			err := c.deleteConfigMapTemplate(ctx, stack, templateName)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}
 
-	for _, templateName := range configMaps {
+	// Set versioned references on Stack
+	err := c.updateStackConfigMap(ctx, stack, configMaps)
+	if err != nil {
+		return err
+	}
+
+	for templateName, versionedName := range configMaps {
 		// Generate versioned ConfigMap object based on referenced template
 		template, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, templateName, metav1.GetOptions{})
 		if err != nil {
-			return err
+			c.logger.Error(err)
+			continue
 		}
 
-		configMap, err := generateUpdated(template)
+		configMap, err := generateUpdated(template, versionedName)
 		if err != nil {
 			return err
 		}
@@ -388,40 +438,11 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			configMap.Name,
 		)
 
-		// Change ConfigMap reference on Stack's EnvFrom
-		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
-			for _, envFrom := range container.EnvFrom {
-				if envFrom.ConfigMapRef.Name == templateName {
-					envFrom.ConfigMapRef.Name = configMap.Name
-				}
-			}
-		}
-
-		// Change ConfigMap reference on Stack's Volumes
-		for _, volume := range stack.Spec.PodTemplate.Spec.Volumes {
-			if volume.ConfigMap.Name == templateName {
-				volume.ConfigMap.Name = configMap.Name
-			}
-		}
-
-		// Update Stack
-		_, err = c.client.ZalandoV1().Stacks(stack.Namespace).Update(ctx, stack, metav1.UpdateOptions{})
+		// Delete template
+		err = c.deleteConfigMapTemplate(ctx, stack, templateName)
 		if err != nil {
 			return err
 		}
-		c.recorder.Eventf(
-			stack,
-			apiv1.EventTypeNormal,
-			"UpdatedStack",
-			"Updated Stack %s",
-			stack.Name,
-		)
-	}
-
-	// Delete template
-	err := c.deleteConfigMapTemplate(ctx, stack, configMaps)
-	if err != nil {
-		return err
 	}
 
 	return nil
