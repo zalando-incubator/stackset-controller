@@ -57,7 +57,7 @@ func NewTestEnvironment() *testEnvironment {
 		rgClient:  rgfake.NewSimpleClientset(),
 	}
 
-	controller, err := NewStackSetController(client, "", 10, "", nil, prometheus.NewPedanticRegistry(), time.Minute, true, time.Minute)
+	controller, err := NewStackSetController(client, "", 10, "", nil, prometheus.NewPedanticRegistry(), time.Minute, true, time.Minute, true)
 	if err != nil {
 		panic(err)
 	}
@@ -146,7 +146,7 @@ func (f *testEnvironment) CreateHPAs(ctx context.Context, hpas []autoscaling.Hor
 }
 
 func (f *testEnvironment) CreateConfigMaps(ctx context.Context, configMaps []v1.ConfigMap) error {
-	for _, configMap := range configMaps{
+	for _, configMap := range configMaps {
 		_, err := f.client.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, &configMap, metav1.CreateOptions{})
 		if err != nil {
 			return err

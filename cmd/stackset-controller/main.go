@@ -42,6 +42,7 @@ var (
 		RouteGroupSupportEnabled    bool
 		IngressSourceSwitchTTL      time.Duration
 		ReconcileWorkers            int
+		ConfigMapSupportEnabled     bool
 	}
 )
 
@@ -59,6 +60,7 @@ func main() {
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
 	kingpin.Flag("ingress-source-switch-ttl", "The ttl before an ingress source is deleted when replaced with another one e.g. switching from RouteGroup to Ingress or vice versa.").
 		Default(defaultIngressSourceSwitchTTL).DurationVar(&config.IngressSourceSwitchTTL)
+	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -86,6 +88,7 @@ func main() {
 		config.Interval,
 		config.RouteGroupSupportEnabled,
 		config.IngressSourceSwitchTTL,
+		config.ConfigMapSupportEnabled,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create Stackset controller: %v", err)

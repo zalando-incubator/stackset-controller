@@ -63,6 +63,7 @@ type StackSetController struct {
 	ingressSourceSwitchTTL      time.Duration
 	now                         func() string
 	reconcileWorkers            int
+	configMapSupportEnabled     bool
 	sync.Mutex
 }
 
@@ -85,7 +86,18 @@ func now() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID string, parallelWork int, backendWeightsAnnotationKey string, clusterDomains []string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
+func NewStackSetController(
+	client clientset.Interface,
+	controllerID string,
+	parallelWork int,
+	backendWeightsAnnotationKey string,
+	clusterDomains []string,
+	registry prometheus.Registerer,
+	interval time.Duration,
+	routeGroupSupportEnabled bool,
+	ingressSourceSwitchTTL time.Duration,
+	configMapSupportEnabled bool,
+) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -105,6 +117,7 @@ func NewStackSetController(client clientset.Interface, controllerID string, para
 		HealthReporter:              healthcheck.NewHandler(),
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
+		configMapSupportEnabled:     configMapSupportEnabled,
 		now:                         now,
 		reconcileWorkers:            parallelWork,
 	}, nil
@@ -990,12 +1003,14 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 }
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
-	err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.GenerateConfigMap)
-	if err != nil {
-		return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
+	if c.configMapSupportEnabled {
+		err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.GenerateConfigMap)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
+		}
 	}
 
-	err = c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
+	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}

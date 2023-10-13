@@ -379,6 +379,23 @@ func (c *StackSetController) updateStackConfigMap(
 	return nil
 }
 
+// Given the definition of ConfigurationResources on the StackTemplate, the Stack has
+// its mentions of ConfigMap names updated for the expected versioned ConfigMap names,
+// ensuring it always points to the expected resources, even if they don't exist yet.
+//
+// Then the Stackset Controller will search the referenced ConfigMap templates and
+// create their versions owned by the Stack, deleting the template used after each
+// version creation.
+//
+// If the Stack already has the same amount of versioned ConfigMaps as defined in the
+// StackTemplate, the templates are deleted and the Reconcile method is exited before
+// the version creation loop.
+//
+// Update of the versioned ConfigMaps is not allowed, any change to the resource must
+// implicate the deployment of a new Stack.
+//
+// The deletion of the templates intends to keep a clean environment with no unused
+// resouces, while ensuring that it'll will be used only for its intended Stack.
 func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
@@ -389,7 +406,6 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		return nil
 	}
 
-	// Get configMaps names
 	configMaps := make(map[string]string)
 	for _, configMap := range *stack.Spec.ConfigurationResources {
 		templateName := configMap.ConfigMapRef.Name
@@ -406,14 +422,12 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		return nil
 	}
 
-	// Set versioned references on Stack
 	err := c.updateStackConfigMap(ctx, stack, configMaps)
 	if err != nil {
 		return err
 	}
 
 	for templateName, versionedName := range configMaps {
-		// Generate versioned ConfigMap object based on referenced template
 		template, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, templateName, metav1.GetOptions{})
 		if err != nil {
 			c.logger.Error(err)
@@ -425,7 +439,6 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			return err
 		}
 
-		// Create versioned ConfigMap
 		_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		if err != nil {
 			return err
@@ -438,7 +451,6 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			configMap.Name,
 		)
 
-		// Delete template
 		err = c.deleteConfigMapTemplate(ctx, stack, templateName)
 		if err != nil {
 			return err
