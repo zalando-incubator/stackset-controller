@@ -422,13 +422,9 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 }
 
 func (sc *StackContainer) GenerateConfigMap(base *v1.ConfigMap, name string) (*v1.ConfigMap, error) {
-	stackSpec := sc.Stack.Spec
 	metaObj := sc.resourceMeta()
 	metaObj.Name = name
-
-	if stackSpec.ConfigurationResources != nil {
-		metaObj.Annotations = mergeLabels(metaObj.Annotations, base.Annotations)
-	}
+	metaObj.Annotations = mergeLabels(metaObj.Annotations, base.Annotations)
 
 	immutable := true
 	result := &v1.ConfigMap{
