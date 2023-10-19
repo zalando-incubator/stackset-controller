@@ -414,9 +414,14 @@ func (c *StackSetController) ReconcileStackConfigMap(
 
 	if len(existing) >= len(configMaps) {
 		for templateName := range configMaps {
-			err := c.deleteConfigMapTemplate(ctx, stack, templateName)
+			_, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, templateName, metav1.GetOptions{})
 			if err != nil {
-				return err
+				continue
+			}
+			err = c.deleteConfigMapTemplate(ctx, stack, templateName)
+			if err != nil {
+				c.logger.Error(err)
+				continue
 			}
 		}
 		return nil
