@@ -340,30 +340,43 @@ func (c *StackSetController) deleteConfigMapTemplate(ctx context.Context, stack 
 	return nil
 }
 
+// Update referencings of the ConfigMap on the PodTemplate
+// The ConfigMap name is updated to the expected versioned name in the Stack.PodTemplate
+// to ensure Pods rely on the Stack owned resource.
 func (c *StackSetController) updateStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
 	configMapNames map[string]string,
 ) error {
 	for templateName, versionedName := range configMapNames {
+		// Change ConfigMap reference on Stack's Volumes
+		for _, volume := range stack.Spec.PodTemplate.Spec.Volumes {
+			if volume.ConfigMap != nil && volume.ConfigMap.Name == templateName {
+				volume.ConfigMap.Name = versionedName
+			}
+		}
+
 		// Change ConfigMap reference on Stack's EnvFrom
 		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
 			for _, envFrom := range container.EnvFrom {
-				if envFrom.ConfigMapRef.Name == templateName {
+				if envFrom.ConfigMapRef != nil && envFrom.ConfigMapRef.Name == templateName {
 					envFrom.ConfigMapRef.Name = versionedName
 				}
 			}
 		}
 
-		// Change ConfigMap reference on Stack's Volumes
-		for _, volume := range stack.Spec.PodTemplate.Spec.Volumes {
-			if volume.ConfigMap.Name == templateName {
-				volume.ConfigMap.Name = versionedName
+		// Change ConfigMap reference on Stack's EnvValue
+		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
+			for _, env := range container.Env {
+				if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil {
+					if env.ValueFrom.ConfigMapKeyRef.Name == templateName {
+						env.ValueFrom.ConfigMapKeyRef.Name = versionedName
+					}
+				}
 			}
 		}
 	}
 
-	// Update Stack
 	_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(ctx, stack, metav1.UpdateOptions{})
 	if err != nil {
 		return err

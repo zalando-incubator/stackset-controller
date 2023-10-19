@@ -1006,6 +1006,25 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		},
 	}
 
+	singleEnvValueConfigMapStack := singleConfigMapStack
+	singleEnvValueConfigMapStack.Spec.PodTemplate.Spec = v1.PodSpec{
+		Containers: []v1.Container{
+			{
+				Env: []v1.EnvVar{
+					{
+						ValueFrom: &v1.EnvVarSource{
+							ConfigMapKeyRef: &v1.ConfigMapKeySelector{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "single-configmap",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	multipleConfigMapsStack := baseTestStack
 	multipleConfigMapsStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
@@ -1107,6 +1126,32 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		{
 			name:     "configmap version is created, set as envFrom",
 			stack:    singleEnvFromConfigMapStack,
+			existing: nil,
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "single-configmap",
+						Namespace: singleConfigMapStack.Namespace,
+					},
+					Data: map[string]string{
+						"testK": "testV",
+					},
+					Immutable: nil,
+				},
+			},
+			expected: []*v1.ConfigMap{
+				{
+					ObjectMeta: singleConfigMapMetaObj,
+					Data: map[string]string{
+						"testK": "testV",
+					},
+					Immutable: &immutable,
+				},
+			},
+		},
+		{
+			name:     "configmap version is created, set as envValue",
+			stack:    singleEnvValueConfigMapStack,
 			existing: nil,
 			template: []*v1.ConfigMap{
 				{
