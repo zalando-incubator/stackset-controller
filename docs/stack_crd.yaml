@@ -347,7 +347,7 @@ spec:
                 - maxReplicas
                 - metrics
                 type: object
-              configResources:
+              configurationResources:
                 description: ConfigurationResources describes the ConfigMaps that
                   will be created. Later Secrets and PlatformCredentialSets will also
                   be defined on ConfigurationResources
