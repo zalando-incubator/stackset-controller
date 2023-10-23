@@ -1021,19 +1021,33 @@ func (c *StackSetController) convertToTrafficSegments(
 		return nil
 	}
 
+	var ingTimestamp, rgTimestamp *metav1.Time
 	for _, sc := range ssc.StackContainers {
 		// If we find at least one stack with a segment, we can delete the
 		// central ingress resources.
-		if sc.Resources.IngressSegment != nil ||
-			sc.Resources.RouteGroupSegment != nil {
-
-			break
+		if ingTimestamp == nil && sc.Resources.IngressSegment != nil {
+			ingTimestamp = &sc.Resources.IngressSegment.CreationTimestamp
 		}
 
-		return nil
+		if rgTimestamp == nil  && sc.Resources.RouteGroupSegment != nil {
+			rgTimestamp = &sc.Resources.RouteGroupSegment.CreationTimestamp
+		}
+
+		if ingTimestamp != nil && rgTimestamp != nil {
+			break
+		}
 	}
 
-	if ssc.Ingress != nil {
+	if ingTimestamp != nil && ssc.Ingress != nil {
+		if !resourceReadyTime(ingTimestamp.Time, c.ingressSourceSwitchTTL) {
+			c.logger.Infof(
+				"Not deleting Ingress %s yet, segments created less than %s ago",
+				ssc.Ingress.Name,
+				c.ingressSourceSwitchTTL,
+			)
+			return nil
+		}
+
 		err := c.client.NetworkingV1().Ingresses(ssc.Ingress.Namespace).Delete(
 			ctx,
 			ssc.Ingress.Name,
@@ -1047,14 +1061,23 @@ func (c *StackSetController) convertToTrafficSegments(
 			ssc.StackSet,
 			v1.EventTypeNormal,
 			"DeletedIngress",
-			"Deleted Ingress %s",
+			"Deleted Ingress %s, StackSet conversion complete",
 			ssc.Ingress.Namespace,
 		)
 
 		ssc.Ingress = nil
 	}
 
-	if ssc.RouteGroup != nil {
+	if rgTimestamp != nil && ssc.RouteGroup != nil {
+		if !resourceReadyTime(rgTimestamp.Time, c.ingressSourceSwitchTTL) {
+			c.logger.Infof(
+				"Not deleting RouteGroup %s yet, segments created less than %s ago",
+				ssc.RouteGroup.Name,
+				c.ingressSourceSwitchTTL,
+			)
+			return nil
+		}
+
 		err := c.client.RouteGroupV1().RouteGroups(
 			ssc.RouteGroup.Namespace,
 		).Delete(
@@ -1070,7 +1093,7 @@ func (c *StackSetController) convertToTrafficSegments(
 			ssc.RouteGroup,
 			v1.EventTypeNormal,
 			"DeletedRouteGroup",
-			"Deleted RouteGroup %s",
+			"Deleted RouteGroup %s, StackSet conversion complete",
 			ssc.RouteGroup.Namespace,
 		)
 
@@ -1337,9 +1360,13 @@ func resourceReady(timestamp string, ttl time.Duration) (bool, error) {
 		return false, err
 	}
 
-	if !resourceLastUpdated.IsZero() && time.Since(resourceLastUpdated) > ttl {
-		return true, nil
+	return resourceReadyTime(resourceLastUpdated, ttl), nil
+}
+
+func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
+	if !timestamp.IsZero() && time.Since(timestamp) > ttl {
+		return true
 	}
 
-	return false, nil
+	return false
 }

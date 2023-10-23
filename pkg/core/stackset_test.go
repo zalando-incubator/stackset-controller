@@ -409,7 +409,7 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		expectedIngress *zv1.StackSetIngressSpec
 	}{
 		{
-			name:            "no ingress",
+			name: "no ingress",
 			expectedIngress: nil,
 		},
 		{
