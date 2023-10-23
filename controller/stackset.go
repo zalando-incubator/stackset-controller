@@ -282,9 +282,11 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		return nil, err
 	}
 
-	err = c.collectConfigMaps(ctx, stacksets)
-	if err != nil {
-		return nil, err
+	if c.configMapSupportEnabled {
+		err = c.collectConfigMaps(ctx, stacksets)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return stacksets, nil
