@@ -961,12 +961,10 @@ func TestReconcileStackConfigMap(t *testing.T) {
 	singleConfigMapStack := baseTestStack
 	singleConfigMapStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
-			ConfigurationResources: &[]zv1.ConfigurationResourcesSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: v1.ConfigMapEnvSource{
-						LocalObjectReference: v1.LocalObjectReference{
-							Name: "single-configmap",
-						},
+					ConfigMapRef: v1.LocalObjectReference{
+						Name: "single-configmap",
 					},
 				},
 			},
@@ -1028,19 +1026,15 @@ func TestReconcileStackConfigMap(t *testing.T) {
 	multipleConfigMapsStack := baseTestStack
 	multipleConfigMapsStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
-			ConfigurationResources: &[]zv1.ConfigurationResourcesSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: v1.ConfigMapEnvSource{
-						LocalObjectReference: v1.LocalObjectReference{
-							Name: "first-configmap",
-						},
+					ConfigMapRef: v1.LocalObjectReference{
+						Name: "first-configmap",
 					},
 				},
 				{
-					ConfigMapRef: v1.ConfigMapEnvSource{
-						LocalObjectReference: v1.LocalObjectReference{
-							Name: "scnd-configmap",
-						},
+					ConfigMapRef: v1.LocalObjectReference{
+						Name: "scnd-configmap",
 					},
 				},
 			},
@@ -1116,15 +1110,13 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "single-configmap",
 						Namespace: singleConfigMapStack.Namespace,
 					},
-					Data:      baseData,
-					Immutable: &immutable,
+					Data: baseData,
 				},
 			},
 			expected: []*v1.ConfigMap{
 				{
 					ObjectMeta: singleConfigMapMetaObj,
 					Data:       baseData,
-					Immutable:  &immutable,
 				},
 			},
 		},
@@ -1237,13 +1229,15 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "scnd-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
-					Data: differentData,
+					Data:      differentData,
+					Immutable: &notImmutable,
 				},
 			},
 			expected: []*v1.ConfigMap{
 				{
 					ObjectMeta: firstConfigMapMetaObj,
 					Data:       baseData,
+					Immutable:  &immutable,
 				},
 				{
 					ObjectMeta: scndConfigMapMetaObj,

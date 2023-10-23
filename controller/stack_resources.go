@@ -420,7 +420,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	}
 
 	configMaps := make(map[string]string)
-	for _, configMap := range *stack.Spec.ConfigurationResources {
+	for _, configMap := range stack.Spec.ConfigurationResources {
 		templateName := configMap.ConfigMapRef.Name
 		configMaps[templateName] = generateConfigMapName(stack, templateName)
 	}

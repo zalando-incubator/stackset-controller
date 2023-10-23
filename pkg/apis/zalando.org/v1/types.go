@@ -431,14 +431,14 @@ type StackSpec struct {
 
 	// ConfigurationResources describes the ConfigMaps that will be created.
 	// Later Secrets and PlatformCredentialSets will also be defined on ConfigurationResources
-	ConfigurationResources *[]ConfigurationResourcesSpec `json:"configurationResources,omitempty"`
+	ConfigurationResources []ConfigurationResourcesSpec `json:"configurationResources,omitempty"`
 }
 
 // ConfigurationResourcesSpec makes it possible to defined the config resources to be created
 // +k8s:deepcopy-gen=true
 type ConfigurationResourcesSpec struct {
 	// ConfigMap to be versioned for Stack
-	ConfigMapRef v1.ConfigMapEnvSource `json:"configMapRef,omitempty"`
+	ConfigMapRef v1.LocalObjectReference `json:"configMapRef,omitempty"`
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and
