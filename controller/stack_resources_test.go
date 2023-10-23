@@ -1088,7 +1088,16 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		Namespace: baseTestStack.Namespace,
 	}
 
+	baseData := map[string]string{
+		"testK": "testV",
+	}
+
+	differentData := map[string]string{
+		"testK-00": "testV-00",
+	}
+
 	immutable := true
+	notImmutable := false
 
 	for _, tc := range []struct {
 		name     string
@@ -1107,19 +1116,15 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "single-configmap",
 						Namespace: singleConfigMapStack.Namespace,
 					},
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: nil,
+					Data:      baseData,
+					Immutable: &immutable,
 				},
 			},
 			expected: []*v1.ConfigMap{
 				{
 					ObjectMeta: singleConfigMapMetaObj,
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: &immutable,
+					Data:       baseData,
+					Immutable:  &immutable,
 				},
 			},
 		},
@@ -1133,19 +1138,13 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "single-configmap",
 						Namespace: singleConfigMapStack.Namespace,
 					},
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: nil,
+					Data: baseData,
 				},
 			},
 			expected: []*v1.ConfigMap{
 				{
 					ObjectMeta: singleConfigMapMetaObj,
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: &immutable,
+					Data:       baseData,
 				},
 			},
 		},
@@ -1159,32 +1158,23 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "single-configmap",
 						Namespace: singleConfigMapStack.Namespace,
 					},
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: nil,
+					Data: baseData,
 				},
 			},
 			expected: []*v1.ConfigMap{
 				{
 					ObjectMeta: singleConfigMapMetaObj,
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: &immutable,
+					Data:       baseData,
 				},
 			},
 		},
 		{
-			name:  "stack already has a configmap version",
+			name:  "stack already has configmap version",
 			stack: singleConfigMapStack,
 			existing: []*v1.ConfigMap{
 				{
 					ObjectMeta: singleConfigMapMetaObj,
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: &immutable,
+					Data:       baseData,
 				},
 			},
 			template: []*v1.ConfigMap{
@@ -1193,10 +1183,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "single-configmap",
 						Namespace: singleConfigMapStack.Namespace,
 					},
-					Data: map[string]string{
-						"testK": "testV",
-					},
-					Immutable: nil,
+					Data: baseData,
 				},
 			},
 			expected: nil,
@@ -1211,36 +1198,57 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "first-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
-					Data: map[string]string{
-						"testK-00": "testV-00",
-					},
-					Immutable: nil,
+					Data: baseData,
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "scnd-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
-					Data: map[string]string{
-						"testK-01": "testV-01",
-					},
-					Immutable: nil,
+					Data: differentData,
 				},
 			},
 			expected: []*v1.ConfigMap{
 				{
 					ObjectMeta: firstConfigMapMetaObj,
-					Data: map[string]string{
-						"testK-00": "testV-00",
-					},
-					Immutable: &immutable,
+					Data:       baseData,
 				},
 				{
 					ObjectMeta: scndConfigMapMetaObj,
-					Data: map[string]string{
-						"testK-01": "testV-01",
+					Data:       differentData,
+				},
+			},
+		},
+		{
+			name:     "configmap version doesnt have immutability changed",
+			stack:    multipleConfigMapsStack,
+			existing: nil,
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "first-configmap",
+						Namespace: multipleConfigMapsStack.Namespace,
 					},
+					Data:      baseData,
 					Immutable: &immutable,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "scnd-configmap",
+						Namespace: multipleConfigMapsStack.Namespace,
+					},
+					Data: differentData,
+				},
+			},
+			expected: []*v1.ConfigMap{
+				{
+					ObjectMeta: firstConfigMapMetaObj,
+					Data:       baseData,
+				},
+				{
+					ObjectMeta: scndConfigMapMetaObj,
+					Data:       differentData,
+					Immutable:  &notImmutable,
 				},
 			},
 		},
@@ -1305,27 +1313,50 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			}
 
 			if stack.Spec.PodTemplate.Spec.Containers != nil {
-				var envFromConfigMaps []string
 				for c, container := range stack.Spec.PodTemplate.Spec.Containers {
 					for e, envFrom := range container.EnvFrom {
+						var envFromConfigMaps []string
 						if envFrom.ConfigMapRef != nil {
 							envFromConfigMaps = append(envFromConfigMaps, stack.Spec.PodTemplate.Spec.Containers[c].EnvFrom[e].ConfigMapRef.Name)
+							for _, expected := range tc.expected {
+								require.NoError(t, err)
+								if tc.expected != nil {
+									require.Contains(t, envFromConfigMaps, expected.Name)
+								}
+							}
 						}
 					}
 				}
-				for _, expected := range tc.expected {
-					require.NoError(t, err)
-					if tc.expected != nil {
-						require.Contains(t, envFromConfigMaps, expected.Name)
+			}
+
+			if stack.Spec.PodTemplate.Spec.Containers != nil {
+				var envValueConfigMaps []string
+				for c, container := range stack.Spec.PodTemplate.Spec.Containers {
+					for e, env := range container.Env {
+						if env.ValueFrom != nil {
+							envValueConfigMaps = append(envValueConfigMaps, stack.Spec.PodTemplate.Spec.Containers[c].Env[e].ValueFrom.ConfigMapKeyRef.Name)
+							for _, expected := range tc.expected {
+								require.NoError(t, err)
+								if tc.expected != nil {
+									require.Contains(t, envValueConfigMaps, expected.Name)
+								}
+							}
+						}
 					}
 				}
 			}
 
 			// Templates are deleted
 			for _, template := range tc.template {
-				_, err = env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
-					context.Background(), template.Name, metav1.GetOptions{})
-				require.Error(t, err)
+				for _, expected := range tc.expected {
+					_, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
+						context.Background(), expected.Name, metav1.GetOptions{})
+					if err == nil {
+						_, err = env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
+							context.Background(), template.Name, metav1.GetOptions{})
+						require.Error(t, err)
+					}
+				}
 			}
 		})
 	}
