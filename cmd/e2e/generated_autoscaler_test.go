@@ -100,4 +100,7 @@ func TestAutoscalerWithoutTraffic(t *testing.T) {
 
 	err = resourceDeleted(t, "hpa", fullSecondStack, hpaInterface()).withTimeout(time.Minute * 1).await()
 	require.NoError(t, err)
+
+	_, err = waitForHPA(t, fullFirstStack)
+	require.NoError(t, err)
 }
