@@ -355,8 +355,8 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	}
 
 	// Verify ConfigMaps
-	if stacksetSpec.StackTemplate.Spec.ConfigurationResources != nil {
-		configMap, err := waitForConfigMap(t, stack.Name)
+	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
+		configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name, stack.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, configMap.Labels)
 		require.Contains(t, configMap.Name, stack.Name)
