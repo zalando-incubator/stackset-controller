@@ -1041,7 +1041,7 @@ func (c *StackSetController) convertToTrafficSegments(
 	if ingTimestamp != nil && ssc.Ingress != nil {
 		if !resourceReadyTime(ingTimestamp.Time, c.ingressSourceSwitchTTL) {
 			c.logger.Infof(
-				"Not deleting Ingress %s yet, segments created less than %s ago",
+				"Not deleting Ingress %s, segments created less than %s ago",
 				ssc.Ingress.Name,
 				c.ingressSourceSwitchTTL,
 			)
@@ -1071,7 +1071,7 @@ func (c *StackSetController) convertToTrafficSegments(
 	if rgTimestamp != nil && ssc.RouteGroup != nil {
 		if !resourceReadyTime(rgTimestamp.Time, c.ingressSourceSwitchTTL) {
 			c.logger.Infof(
-				"Not deleting RouteGroup %s yet, segments created less than %s ago",
+				"Not deleting RouteGroup %s, segments created less than %s ago",
 				ssc.RouteGroup.Name,
 				c.ingressSourceSwitchTTL,
 			)

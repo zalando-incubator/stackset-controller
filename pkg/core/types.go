@@ -90,8 +90,7 @@ type StackContainer struct {
 	scaledownTTL   time.Duration
 	clusterDomains []string
 
-	// Fields from the stack itself. If not present in the stack, default to
-	// fields from the parent stackset
+	// Fields from the stack itself.
 	ingressSpec    *zv1.StackSetIngressSpec
 	routeGroupSpec *zv1.RouteGroupSpec
 	backendPort    *intstr.IntOrString
@@ -293,7 +292,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		return err
 	}
 
-	// if backendPort is not defined from Ingress or Routegroup fall back
+	// if backendPort is not defined from Ingress or Routegroup fallback
 	// to externalIngress if defined
 	if ssc.StackSet.Spec.ExternalIngress != nil {
 		ssc.externalIngressBackendPort = backendPort
@@ -308,12 +307,10 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 
 	for _, sc := range ssc.StackContainers {
 		sc.stacksetName = ssc.StackSet.Name
-		sc.ingressSpec = ssc.StackSet.Spec.Ingress
 		sc.backendPort = backendPort
-		sc.routeGroupSpec = ssc.StackSet.Spec.RouteGroup
 		sc.scaledownTTL = scaledownTTL
 		sc.clusterDomains = ssc.clusterDomains
-		err := sc.overrideParentResources()
+		err := sc.updateStackResources()
 		if err != nil {
 			return err
 		}
@@ -362,32 +359,20 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 	return result
 }
 
-// overrideParentResources writes over Ingress and RouteGroup resources from the
-// parent, in case the stack has the corresponding resources in the spec.
-func (sc *StackContainer) overrideParentResources() error {
-	overridePort := sc.Stack.Spec.ExternalIngress != nil
+// updateStackResources writes sets the Ingress and RouteGroup
+// resources, based on this container's Spec.
+func (sc *StackContainer) updateStackResources() error {
+	sc.ingressSpec = sc.Stack.Spec.Ingress
+	sc.routeGroupSpec = sc.Stack.Spec.RouteGroup
 
-	if sc.Stack.Spec.Ingress != nil {
-		overridePort = true
-		sc.ingressSpec = sc.Stack.Spec.Ingress
-	}
-
-	if sc.Stack.Spec.RouteGroup != nil {
-		overridePort = true
-		sc.routeGroupSpec = sc.Stack.Spec.RouteGroup
-	}
-
-	if overridePort {
-		backendPort, err := findBackendPort(
-			sc.ingressSpec,
-			sc.routeGroupSpec,
-			sc.Stack.Spec.ExternalIngress,
-		)
-		if err != nil {
-			return err
-		}
-
-		sc.backendPort = backendPort
+	var err error
+	sc.backendPort, err = findBackendPort(
+		sc.ingressSpec,
+		sc.routeGroupSpec,
+		sc.Stack.Spec.ExternalIngress,
+	)
+	if err != nil {
+		return err
 	}
 
 	return nil
