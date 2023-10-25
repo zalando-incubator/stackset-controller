@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -63,4 +64,64 @@ func TestGenerateAutoscaler(t *testing.T) {
 	metric3 := hpa.Spec.Metrics[2]
 	require.EqualValues(t, v2beta1.ResourceMetricSourceType, metric3.Type)
 	require.EqualValues(t, 50, *metric3.Resource.Target.AverageUtilization)
+}
+
+func TestAutoscalerWithoutTraffic(t *testing.T) {
+	t.Parallel()
+	stacksetName := "autoscaler-without-traffic"
+	metrics := []zv1.AutoscalerMetrics{
+		makeCPUAutoscalerMetrics(50),
+	}
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().Autoscaler(1, 3, metrics).StackGC(1, 30)
+	firstStack := "v1"
+	fullFirstStack := fmt.Sprintf("%s-%s", stacksetName, firstStack)
+	spec := factory.Create(firstStack)
+	err := createStackSet(stacksetName, 0, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, firstStack)
+	require.NoError(t, err)
+	_, err = waitForHPA(t, fullFirstStack)
+	require.NoError(t, err)
+
+	secondStack := "v2"
+	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, secondStack)
+	spec = factory.Create(secondStack)
+	err = updateStackset(stacksetName, spec)
+	require.NoError(t, err)
+	_, err = waitForStack(t, stacksetName, secondStack)
+	require.NoError(t, err)
+	_, err = waitForHPA(t, fullSecondStack)
+	require.NoError(t, err)
+
+	desiredTraffic := map[string]float64{
+		fullFirstStack:  100,
+		fullSecondStack: 0,
+	}
+
+	err = setDesiredTrafficWeightsStackset(stacksetName, desiredTraffic)
+	require.NoError(t, err)
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 1).await()
+	require.NoError(t, err)
+
+	err = resourceDeleted(t, "hpa", fullSecondStack, hpaInterface()).withTimeout(time.Minute * 1).await()
+	require.NoError(t, err)
+
+	_, err = waitForHPA(t, fullFirstStack)
+	require.NoError(t, err)
+
+	// Switch traffic to 50 - 50
+	desiredTraffic = map[string]float64{
+		fullFirstStack:  50,
+		fullSecondStack: 50,
+	}
+
+	err = setDesiredTrafficWeightsStackset(stacksetName, desiredTraffic)
+	require.NoError(t, err)
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 1).await()
+	require.NoError(t, err)
+	_, err = waitForHPA(t, fullFirstStack)
+	require.NoError(t, err)
+
+	_, err = waitForHPA(t, fullSecondStack)
+	require.NoError(t, err)
 }
