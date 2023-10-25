@@ -121,6 +121,9 @@ type StackContainer struct {
 	prescalingDesiredTrafficWeight float64
 	prescalingLastTrafficIncrease  time.Time
 	minReadyPercent                float64
+
+	// feature flag
+	DeleteHPAsOfScaledDownStacks bool
 }
 
 // TrafficChange contains information about a traffic change event

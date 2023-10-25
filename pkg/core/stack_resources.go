@@ -223,7 +223,7 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		return nil, nil
 	}
 
-	if sc.ScaledDown() {
+	if sc.DeleteHPAsOfScaledDownStacks && sc.ScaledDown() {
 		return nil, nil
 	}
 

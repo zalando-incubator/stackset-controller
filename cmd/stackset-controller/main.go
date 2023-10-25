@@ -31,17 +31,18 @@ const (
 
 var (
 	config struct {
-		Debug                       bool
-		Interval                    time.Duration
-		APIServer                   *url.URL
-		MetricsAddress              string
-		ClusterDomains              []string
-		NoTrafficScaledownTTL       time.Duration
-		ControllerID                string
-		BackendWeightsAnnotationKey string
-		RouteGroupSupportEnabled    bool
-		IngressSourceSwitchTTL      time.Duration
-		ReconcileWorkers            int
+		Debug                        bool
+		Interval                     time.Duration
+		APIServer                    *url.URL
+		MetricsAddress               string
+		ClusterDomains               []string
+		NoTrafficScaledownTTL        time.Duration
+		ControllerID                 string
+		BackendWeightsAnnotationKey  string
+		RouteGroupSupportEnabled     bool
+		IngressSourceSwitchTTL       time.Duration
+		ReconcileWorkers             int
+		DeleteHPAsOfScaledDownStacks bool
 	}
 )
 
@@ -59,6 +60,7 @@ func main() {
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
 	kingpin.Flag("ingress-source-switch-ttl", "The ttl before an ingress source is deleted when replaced with another one e.g. switching from RouteGroup to Ingress or vice versa.").
 		Default(defaultIngressSourceSwitchTTL).DurationVar(&config.IngressSourceSwitchTTL)
+	kingpin.Flag("delete-hpas-of-scaled-down-stacks", "Delete HPAs of scaled down stacks.").Default("false").BoolVar(&config.DeleteHPAsOfScaledDownStacks)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -86,6 +88,7 @@ func main() {
 		config.Interval,
 		config.RouteGroupSupportEnabled,
 		config.IngressSourceSwitchTTL,
+		config.DeleteHPAsOfScaledDownStacks,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create Stackset controller: %v", err)
