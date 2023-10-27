@@ -895,7 +895,6 @@ func TestGenerateHPA(t *testing.T) {
 		autoscaler          *zv1.Autoscaler
 		expectedMinReplicas *int32
 		expectedMaxReplicas int32
-		noTrafficSince      time.Time
 		expectedMetrics     []autoscaling.MetricSpec
 		expectedBehavior    *autoscaling.HorizontalPodAutoscalerBehavior
 	}{
@@ -929,24 +928,6 @@ func TestGenerateHPA(t *testing.T) {
 			},
 			expectedBehavior: exampleBehavior,
 		},
-		{
-			name: "HPA when stack scaled down",
-			autoscaler: &zv1.Autoscaler{
-				MinReplicas: &min,
-				MaxReplicas: max,
-
-				Metrics: []zv1.AutoscalerMetrics{
-					{
-						Type:               zv1.CPUAutoscalerMetric,
-						AverageUtilization: &utilization,
-					},
-				},
-				Behavior: exampleBehavior,
-			},
-			noTrafficSince:   time.Now().Add(-time.Hour),
-			expectedMetrics:  nil,
-			expectedBehavior: nil,
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			podTemplate := zv1.PodTemplateSpec{
@@ -974,20 +955,14 @@ func TestGenerateHPA(t *testing.T) {
 						},
 					},
 				},
-				noTrafficSince: tc.noTrafficSince,
-				scaledownTTL:   time.Minute,
 			}
 
 			hpa, err := autoscalerContainer.GenerateHPA()
 			require.NoError(t, err)
-			if tc.expectedBehavior == nil {
-				require.Nil(t, hpa)
-			} else {
-				require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
-				require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
-				require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
-				require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
-			}
+			require.Equal(t, tc.expectedMinReplicas, hpa.Spec.MinReplicas)
+			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
+			require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
+			require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
 		})
 	}
 }
