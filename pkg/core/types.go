@@ -365,14 +365,17 @@ func (sc *StackContainer) updateStackResources() error {
 	sc.ingressSpec = sc.Stack.Spec.Ingress
 	sc.routeGroupSpec = sc.Stack.Spec.RouteGroup
 
-	var err error
-	sc.backendPort, err = findBackendPort(
+	backendPort, err := findBackendPort(
 		sc.ingressSpec,
 		sc.routeGroupSpec,
 		sc.Stack.Spec.ExternalIngress,
 	)
 	if err != nil {
 		return err
+	}
+
+	if backendPort != nil {
+		sc.backendPort = backendPort
 	}
 
 	return nil
@@ -451,7 +454,10 @@ func (sc *StackContainer) updateFromSegmentResources() {
 	// routegroup: ignore if routegroup is not set or check if we are up to date
 	if sc.routeGroupSpec != nil {
 		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
-			IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroupSegment.ObjectMeta)
+			IsResourceUpToDate(
+				sc.Stack,
+				sc.Resources.RouteGroupSegment.ObjectMeta,
+			)
 	} else {
 		// ignore if route group is not set
 		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
