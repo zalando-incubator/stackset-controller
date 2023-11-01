@@ -11,7 +11,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.8.4
 	github.com/szuecs/routegroup-client v0.21.1
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.4.0
 	k8s.io/api v0.24.17
 	k8s.io/apimachinery v0.24.17
 	k8s.io/client-go v0.24.17
