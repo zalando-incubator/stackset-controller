@@ -958,12 +958,40 @@ func TestReconcileStackRouteGroup(t *testing.T) {
 }
 
 func TestReconcileStackConfigMap(t *testing.T) {
+	singleNamedConfigMapStack := baseTestStack
+	singleNamedConfigMapStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					Name: "foo-v1-single-configmap",
+				},
+			},
+			PodTemplate: zv1.PodTemplateSpec{
+				Spec: v1.PodSpec{
+					Volumes: []v1.Volume{
+						{
+							Name: "configmap",
+							VolumeSource: v1.VolumeSource{
+								ConfigMap: &v1.ConfigMapVolumeSource{
+									LocalObjectReference: v1.LocalObjectReference{
+										Name: "foo-v1-single-configmap",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	singleConfigMapStack := baseTestStack
 	singleConfigMapStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
 			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: v1.LocalObjectReference{
+					Name: "single-configmap",
+					ConfigMapRef: &v1.LocalObjectReference{
 						Name: "single-configmap",
 					},
 				},
@@ -1028,12 +1056,14 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		StackSpec: zv1.StackSpec{
 			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: v1.LocalObjectReference{
+					Name: "first-configmap",
+					ConfigMapRef: &v1.LocalObjectReference{
 						Name: "first-configmap",
 					},
 				},
 				{
-					ConfigMapRef: v1.LocalObjectReference{
+					Name: "scnd-configmap",
+					ConfigMapRef: &v1.LocalObjectReference{
 						Name: "scnd-configmap",
 					},
 				},
@@ -1103,6 +1133,26 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		template []*v1.ConfigMap
 		expected []*v1.ConfigMap
 	}{
+		{
+			name:     "configmap ownerReference is added to already named deployed configmap",
+			stack:    singleNamedConfigMapStack,
+			existing: nil,
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-single-configmap",
+						Namespace: singleNamedConfigMapStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: []*v1.ConfigMap{
+				{
+					ObjectMeta: singleConfigMapMetaObj,
+					Data:       baseData,
+				},
+			},
+		},
 		{
 			name:     "configmap version is created, mounted as volume",
 			stack:    singleConfigMapStack,

@@ -363,6 +363,10 @@ spec:
                             TODO: Add other useful fields. apiVersion, kind, uid?'
                           type: string
                       type: object
+                    name:
+                      type: string
+                  required:
+                  - name
                   type: object
                 type: array
               externalIngress:

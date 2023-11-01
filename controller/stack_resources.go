@@ -384,15 +384,16 @@ func (c *StackSetController) updateStackConfigMap(
 // create their versions owned by the Stack, deleting the template used after each
 // version creation.
 //
+// If configMapRef is not defined, the Stackset Controller expects the
+// ConfigurationResources.Name to be the somehow else created ConfigMap to be attached
+// to the Stack and just updates it with the ownerReferences.
+//
 // If the Stack already has the same amount of versioned ConfigMaps as defined in the
-// StackTemplate, the templates are deleted and the Reconcile method is exited before
-// the version creation loop.
+// StackTemplate, the Reconcile method is exited before the resource update/creation
+// loop.
 //
-// Update of the versioned ConfigMaps is not allowed, any change to the resource must
-// implicate the deployment of a new Stack.
-//
-// The deletion of the templates intends to keep a clean environment with no unused
-// resouces, while ensuring that it'll will be used only for its intended Stack.
+// Update of versioned ConfigMaps is not encouraged, but is allowed considering
+// emergency needs.
 func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
@@ -405,6 +406,10 @@ func (c *StackSetController) ReconcileStackConfigMap(
 
 	configMaps := make(map[string]string)
 	for _, configMap := range stack.Spec.ConfigurationResources {
+		if configMap.ConfigMapRef == nil {
+			configMaps[configMap.Name] = configMap.Name
+			continue
+		}
 		templateName := configMap.ConfigMapRef.Name
 		configMaps[templateName] = generateConfigMapName(stack, templateName)
 	}
@@ -430,6 +435,21 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			return err
 		}
 
+		existingConfigMap, _ := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, configMap.Name, metav1.GetOptions{})
+		if existingConfigMap != nil {
+			_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+			c.recorder.Eventf(
+				stack,
+				apiv1.EventTypeNormal,
+				"UpdatedConfigMap",
+				"Updated ConfigMap %s",
+				configMap.Name,
+			)
+			continue
+		}
 		_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		if err != nil {
 			return err
