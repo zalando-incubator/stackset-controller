@@ -53,8 +53,8 @@ func syncObjectMeta(target, source metav1.Object) {
 	target.SetAnnotations(source.GetAnnotations())
 }
 
-func generateConfigMapName(stack *zv1.Stack, templateName string) string {
-	return stack.Name + "-" + templateName
+func generateConfigMapName(stack *zv1.Stack, targetName string) string {
+	return stack.Name + "-" + targetName
 }
 
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
@@ -332,10 +332,10 @@ func (c *StackSetController) updateStackConfigMap(
 	stack *zv1.Stack,
 	configMapNames map[string]string,
 ) error {
-	for templateName, versionedName := range configMapNames {
+	for targetName, versionedName := range configMapNames {
 		// Change ConfigMap reference on Stack's Volumes
 		for _, volume := range stack.Spec.PodTemplate.Spec.Volumes {
-			if volume.ConfigMap != nil && volume.ConfigMap.Name == templateName {
+			if volume.ConfigMap != nil && volume.ConfigMap.Name == targetName {
 				volume.ConfigMap.Name = versionedName
 			}
 		}
@@ -343,7 +343,7 @@ func (c *StackSetController) updateStackConfigMap(
 		// Change ConfigMap reference on Stack's EnvFrom
 		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
 			for _, envFrom := range container.EnvFrom {
-				if envFrom.ConfigMapRef != nil && envFrom.ConfigMapRef.Name == templateName {
+				if envFrom.ConfigMapRef != nil && envFrom.ConfigMapRef.Name == targetName {
 					envFrom.ConfigMapRef.Name = versionedName
 				}
 			}
@@ -353,7 +353,7 @@ func (c *StackSetController) updateStackConfigMap(
 		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
 			for _, env := range container.Env {
 				if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil {
-					if env.ValueFrom.ConfigMapKeyRef.Name == templateName {
+					if env.ValueFrom.ConfigMapKeyRef.Name == targetName {
 						env.ValueFrom.ConfigMapKeyRef.Name = versionedName
 					}
 				}
@@ -376,24 +376,19 @@ func (c *StackSetController) updateStackConfigMap(
 	return nil
 }
 
-// Given the definition of ConfigurationResources on the StackTemplate, the Stack has
-// its mentions of ConfigMap names updated for the expected versioned ConfigMap names,
-// ensuring it always points to the expected resources, even if they don't exist yet.
+// Given the definition of ConfigurationResources on the StackTemplate, the Stackset
+// Controller will look for a referenced ConfigMap.
 //
-// Then the Stackset Controller will search the referenced ConfigMap templates and
-// create their versions owned by the Stack, deleting the template used after each
-// version creation.
+// If there's only a name and no reference is defined, the Stackset Controller updates
+// the named user-provided ConfigMap to be attached to the Stack by ownerReferences.
 //
-// If configMapRef is not defined, the Stackset Controller expects the
-// ConfigurationResources.Name to be the somehow else created ConfigMap to be attached
-// to the Stack and just updates it with the ownerReferences.
+// If a reference is provided, the Stack has its mentions of ConfigMap names updated
+// for the expected versioned ConfigMap names, ensuring it always points to the expected
+// resources, even if they don't exist yet. Then the Stackset Controller will create
+// their versions owned by the Stack.
 //
-// If the Stack already has the same amount of versioned ConfigMaps as defined in the
-// StackTemplate, the Reconcile method is exited before the resource update/creation
-// loop.
-//
-// Update of versioned ConfigMaps is not encouraged, but is allowed considering
-// emergency needs.
+// User update of versioned ConfigMaps is not encouraged but is allowed for consideration
+// of emergency needs.
 func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
@@ -404,18 +399,18 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		return nil
 	}
 
+	if len(existing) >= len(stack.Spec.ConfigurationResources) {
+		return nil
+	}
+
 	configMaps := make(map[string]string)
 	for _, configMap := range stack.Spec.ConfigurationResources {
 		if configMap.ConfigMapRef == nil {
 			configMaps[configMap.Name] = configMap.Name
 			continue
 		}
-		templateName := configMap.ConfigMapRef.Name
-		configMaps[templateName] = generateConfigMapName(stack, templateName)
-	}
-
-	if len(existing) >= len(configMaps) {
-		return nil
+		targetName := configMap.ConfigMapRef.Name
+		configMaps[targetName] = generateConfigMapName(stack, targetName)
 	}
 
 	err := c.updateStackConfigMap(ctx, stack, configMaps)
@@ -423,20 +418,19 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		return err
 	}
 
-	for templateName, versionedName := range configMaps {
-		template, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, templateName, metav1.GetOptions{})
+	for targetName, versionedName := range configMaps {
+		target, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, targetName, metav1.GetOptions{})
 		if err != nil {
 			c.logger.Error(err)
 			continue
 		}
 
-		configMap, err := generateUpdated(template, versionedName)
+		configMap, err := generateUpdated(target, versionedName)
 		if err != nil {
 			return err
 		}
 
-		existingConfigMap, _ := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, configMap.Name, metav1.GetOptions{})
-		if existingConfigMap != nil {
+		if targetName == versionedName {
 			_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).Update(ctx, configMap, metav1.UpdateOptions{})
 			if err != nil {
 				return err
@@ -450,6 +444,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			)
 			continue
 		}
+
 		_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
 		if err != nil {
 			return err
