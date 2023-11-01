@@ -1051,8 +1051,6 @@ func TestGenerateStackStatus(t *testing.T) {
 }
 
 func TestGenerateConfigMap(t *testing.T) {
-	expectedName := testStackMeta.Name + "-configmap"
-	immutable := true
 	c := &StackContainer{
 		Stack: &zv1.Stack{
 			ObjectMeta: testStackMeta,
@@ -1068,7 +1066,7 @@ func TestGenerateConfigMap(t *testing.T) {
 			name: "ConfigMap name is updated",
 			template: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "configmap",
+					Name:      "foo-v1-configmap",
 					Namespace: testStackMeta.Namespace,
 				},
 				Data: map[string]string{
@@ -1078,7 +1076,7 @@ func TestGenerateConfigMap(t *testing.T) {
 			},
 			result: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      expectedName,
+					Name:      "foo-v1-configmap",
 					Namespace: testStackMeta.Namespace,
 					OwnerReferences: []metav1.OwnerReference{
 						{
@@ -1092,12 +1090,12 @@ func TestGenerateConfigMap(t *testing.T) {
 				Data: map[string]string{
 					"testK": "testV",
 				},
-				Immutable: &immutable,
+				Immutable: nil,
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			configMap, err := c.GenerateConfigMap(tc.template, expectedName)
+			configMap, err := c.GenerateConfigMap(tc.template)
 			require.NoError(t, err)
 			require.Equal(t, configMap.Name, tc.result.Name)
 			require.Equal(t, configMap.Immutable, tc.result.Immutable)

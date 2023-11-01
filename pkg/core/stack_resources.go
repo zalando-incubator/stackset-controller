@@ -421,19 +421,13 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	return result, nil
 }
 
-func (sc *StackContainer) GenerateConfigMap(base *v1.ConfigMap, name string) (*v1.ConfigMap, error) {
+func (sc *StackContainer) GenerateConfigMap(configMap *v1.ConfigMap) (*v1.ConfigMap, error) {
 	metaObj := sc.resourceMeta()
-	metaObj.Name = name
-	metaObj.Annotations = mergeLabels(metaObj.Annotations, base.Annotations)
+	configMap.OwnerReferences = metaObj.OwnerReferences
+	configMap.Labels = metaObj.Labels
+	configMap.Annotations = mergeLabels(metaObj.Annotations, configMap.Annotations)
 
-	immutable := true
-	result := &v1.ConfigMap{
-		ObjectMeta: metaObj,
-		Data:       base.Data,
-		Immutable:  &immutable,
-	}
-
-	return result, nil
+	return configMap, nil
 }
 
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
