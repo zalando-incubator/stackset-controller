@@ -1342,19 +1342,6 @@ func TestReconcileStackConfigMap(t *testing.T) {
 					}
 				}
 			}
-
-			// Templates are deleted
-			for _, template := range tc.template {
-				for _, expected := range tc.expected {
-					_, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
-						context.Background(), expected.Name, metav1.GetOptions{})
-					if err == nil {
-						_, err = env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
-							context.Background(), template.Name, metav1.GetOptions{})
-						require.Error(t, err)
-					}
-				}
-			}
 		})
 	}
 }

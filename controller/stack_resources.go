@@ -324,22 +324,6 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	return nil
 }
 
-func (c *StackSetController) deleteConfigMapTemplate(ctx context.Context, stack *zv1.Stack, configmap string) error {
-	err := c.client.CoreV1().ConfigMaps(stack.Namespace).Delete(ctx, configmap, metav1.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-	c.recorder.Eventf(
-		stack,
-		apiv1.EventTypeNormal,
-		"DeleteConfigMap",
-		"Delete ConfigMap %s",
-		configmap,
-	)
-
-	return nil
-}
-
 // Update referencings of the ConfigMap on the PodTemplate
 // The ConfigMap name is updated to the expected versioned name in the Stack.PodTemplate
 // to ensure Pods rely on the Stack owned resource.
@@ -457,11 +441,6 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			"Created ConfigMap %s",
 			configMap.Name,
 		)
-
-		err = c.deleteConfigMapTemplate(ctx, stack, templateName)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
