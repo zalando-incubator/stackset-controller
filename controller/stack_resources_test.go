@@ -1068,18 +1068,21 @@ func TestReconcileStackConfigMap(t *testing.T) {
 	}
 
 	singleConfigMapMetaObj := metav1.ObjectMeta{
-		Name:      "foo-v1-single-configmap",
-		Namespace: baseTestStack.Namespace,
+		Name:            "foo-v1-single-configmap",
+		Namespace:       baseTestStackOwned.Namespace,
+		OwnerReferences: baseTestStackOwned.OwnerReferences,
 	}
 
 	firstConfigMapMetaObj := metav1.ObjectMeta{
-		Name:      "foo-v1-first-configmap",
-		Namespace: baseTestStack.Namespace,
+		Name:            "foo-v1-first-configmap",
+		Namespace:       baseTestStackOwned.Namespace,
+		OwnerReferences: baseTestStackOwned.OwnerReferences,
 	}
 
 	scndConfigMapMetaObj := metav1.ObjectMeta{
-		Name:      "foo-v1-scnd-configmap",
-		Namespace: baseTestStack.Namespace,
+		Name:            "foo-v1-scnd-configmap",
+		Namespace:       baseTestStackOwned.Namespace,
+		OwnerReferences: baseTestStackOwned.OwnerReferences,
 	}
 
 	baseData := map[string]string{
