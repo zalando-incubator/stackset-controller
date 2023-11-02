@@ -134,3 +134,36 @@ func TestRouteGroupToIngressSwitch(t *testing.T) {
 	err = resourceDeleted(t, "routegroup", stacksetName, routegroupInterface()).await()
 	require.Error(t, err)
 }
+
+// func TestStackTTLConvertToSegmentIngress(t *testing.T) {
+// 	t.Parallel()
+// 	stacksetName := "stackset-ttl-convert-segment"
+// 	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress()
+
+// 	// create stackset with central ingress
+// 	spec := specFactory.Create("v1")
+// 	err := createStackSet(stacksetName, 1, spec)
+// 	require.NoError(t, err)
+// 	_, err = waitForIngress(t, stacksetName)
+// 	require.NoError(t, err)
+
+// 	time.Sleep(IngressSourceSwitchTTL)
+
+// 	// Add the annotation to convert to segment ingresses
+// 	spec.StackTemplate.Spec.Version = "v2"
+// 	err = updateStackSetAndAnnotations(
+// 		stacksetName,
+// 		spec,
+// 		map[string]string{controller.TrafficSegmentsAnnotationKey: "true"},
+// 	)
+// 	require.NoError(t, err)
+
+// 	// make sure ingress is not deleted before IngressSourceSwitchTTL
+// 	err = resourceDeleted(
+// 		t,
+// 		"ingress",
+// 		stacksetName,
+// 		ingressInterface(),
+// 	).await()
+// 	require.Error(t, err)
+// }

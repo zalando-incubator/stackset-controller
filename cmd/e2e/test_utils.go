@@ -355,10 +355,29 @@ func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 }
 
 func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSetSpec) error {
+	return createStackSetWithAnnotations(
+		stacksetName,
+		prescalingTimeout, 
+		spec,
+		nil,
+	)
+}
+
+func createStackSetWithAnnotations(
+	stacksetName string,
+	prescalingTimeout int, 
+	spec zv1.StackSetSpec,
+	annotations map[string]string,
+) error {
 	stackSet := &zv1.StackSet{
 		ObjectMeta: stackObjectMeta(stacksetName, prescalingTimeout),
 		Spec:       spec,
 	}
+
+	for k, v := range annotations {
+		stackSet.Annotations[k] = v
+	}
+
 	_, err := stacksetInterface().Create(context.Background(), stackSet, metav1.CreateOptions{})
 	return err
 }

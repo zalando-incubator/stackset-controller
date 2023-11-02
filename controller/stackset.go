@@ -1029,7 +1029,7 @@ func (c *StackSetController) convertToTrafficSegments(
 			ingTimestamp = &sc.Resources.IngressSegment.CreationTimestamp
 		}
 
-		if rgTimestamp == nil  && sc.Resources.RouteGroupSegment != nil {
+		if rgTimestamp == nil && sc.Resources.RouteGroupSegment != nil {
 			rgTimestamp = &sc.Resources.RouteGroupSegment.CreationTimestamp
 		}
 
