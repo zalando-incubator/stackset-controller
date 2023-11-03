@@ -53,10 +53,6 @@ func syncObjectMeta(target, source metav1.Object) {
 	target.SetAnnotations(source.GetAnnotations())
 }
 
-func generateConfigMapName(stack *zv1.Stack, templateName string) string {
-	return stack.Name + "-" + templateName
-}
-
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
 	deployment := generateUpdated()
 
@@ -324,144 +320,53 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	return nil
 }
 
-func (c *StackSetController) deleteConfigMapTemplate(ctx context.Context, stack *zv1.Stack, configmap string) error {
-	err := c.client.CoreV1().ConfigMaps(stack.Namespace).Delete(ctx, configmap, metav1.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-	c.recorder.Eventf(
-		stack,
-		apiv1.EventTypeNormal,
-		"DeleteConfigMap",
-		"Delete ConfigMap %s",
-		configmap,
-	)
-
-	return nil
-}
-
-// Update referencings of the ConfigMap on the PodTemplate
-// The ConfigMap name is updated to the expected versioned name in the Stack.PodTemplate
-// to ensure Pods rely on the Stack owned resource.
-func (c *StackSetController) updateStackConfigMap(
-	ctx context.Context,
-	stack *zv1.Stack,
-	configMapNames map[string]string,
-) error {
-	for templateName, versionedName := range configMapNames {
-		// Change ConfigMap reference on Stack's Volumes
-		for _, volume := range stack.Spec.PodTemplate.Spec.Volumes {
-			if volume.ConfigMap != nil && volume.ConfigMap.Name == templateName {
-				volume.ConfigMap.Name = versionedName
-			}
-		}
-
-		// Change ConfigMap reference on Stack's EnvFrom
-		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
-			for _, envFrom := range container.EnvFrom {
-				if envFrom.ConfigMapRef != nil && envFrom.ConfigMapRef.Name == templateName {
-					envFrom.ConfigMapRef.Name = versionedName
-				}
-			}
-		}
-
-		// Change ConfigMap reference on Stack's EnvValue
-		for _, container := range stack.Spec.PodTemplate.Spec.Containers {
-			for _, env := range container.Env {
-				if env.ValueFrom != nil && env.ValueFrom.ConfigMapKeyRef != nil {
-					if env.ValueFrom.ConfigMapKeyRef.Name == templateName {
-						env.ValueFrom.ConfigMapKeyRef.Name = versionedName
-					}
-				}
-			}
-		}
-	}
-
-	_, err := c.client.ZalandoV1().Stacks(stack.Namespace).Update(ctx, stack, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-	c.recorder.Eventf(
-		stack,
-		apiv1.EventTypeNormal,
-		"UpdatedStack",
-		"Updated Stack %s",
-		stack.Name,
-	)
-
-	return nil
-}
-
-// Given the definition of ConfigurationResources on the StackTemplate, the Stack has
-// its mentions of ConfigMap names updated for the expected versioned ConfigMap names,
-// ensuring it always points to the expected resources, even if they don't exist yet.
+// Given the definition of ConfigurationResources on the StackTemplate, the
+// Stackset Controller will update the named user-provided ConfigMap to be
+// attached to the Stack by ownerReferences.
 //
-// Then the Stackset Controller will search the referenced ConfigMap templates and
-// create their versions owned by the Stack, deleting the template used after each
-// version creation.
-//
-// If the Stack already has the same amount of versioned ConfigMaps as defined in the
-// StackTemplate, the templates are deleted and the Reconcile method is exited before
-// the version creation loop.
-//
-// Update of the versioned ConfigMaps is not allowed, any change to the resource must
-// implicate the deployment of a new Stack.
-//
-// The deletion of the templates intends to keep a clean environment with no unused
-// resouces, while ensuring that it'll will be used only for its intended Stack.
+// User update of versioned ConfigMaps is not encouraged but is allowed for
+// consideration of emergency needs.
 func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
 	existing []*apiv1.ConfigMap,
-	generateUpdated func(*apiv1.ConfigMap, string) (*apiv1.ConfigMap, error),
+	generateUpdated func(*apiv1.ConfigMap) (*apiv1.ConfigMap, error),
 ) error {
 	if stack.Spec.ConfigurationResources == nil {
 		return nil
 	}
 
-	configMaps := make(map[string]string)
-	for _, configMap := range stack.Spec.ConfigurationResources {
-		templateName := configMap.ConfigMapRef.Name
-		configMaps[templateName] = generateConfigMapName(stack, templateName)
-	}
-
-	if len(existing) >= len(configMaps) {
+	if len(existing) >= len(stack.Spec.ConfigurationResources) {
 		return nil
 	}
 
-	err := c.updateStackConfigMap(ctx, stack, configMaps)
-	if err != nil {
-		return err
-	}
-
-	for templateName, versionedName := range configMaps {
-		template, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, templateName, metav1.GetOptions{})
+	for _, rsc := range stack.Spec.ConfigurationResources {
+		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, rsc.ConfigMapRef.Name, metav1.GetOptions{})
 		if err != nil {
 			c.logger.Error(err)
 			continue
 		}
 
-		configMap, err := generateUpdated(template, versionedName)
+		if configMap.OwnerReferences != nil {
+			continue
+		}
+
+		updatedConfigMap, err := generateUpdated(configMap)
 		if err != nil {
 			return err
 		}
 
-		_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, configMap, metav1.CreateOptions{})
+		_, err = c.client.CoreV1().ConfigMaps(updatedConfigMap.Namespace).Update(ctx, updatedConfigMap, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
 		c.recorder.Eventf(
 			stack,
 			apiv1.EventTypeNormal,
-			"CreatedConfigMap",
-			"Created ConfigMap %s",
+			"UpdatedConfigMap",
+			"Updated ConfigMap %s",
 			configMap.Name,
 		)
-
-		err = c.deleteConfigMapTemplate(ctx, stack, templateName)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil

@@ -958,65 +958,13 @@ func TestReconcileStackRouteGroup(t *testing.T) {
 }
 
 func TestReconcileStackConfigMap(t *testing.T) {
-	singleConfigMapStack := baseTestStack
-	singleConfigMapStack.Spec = zv1.StackSpecInternal{
+	testConfigMapStack := baseTestStack
+	testConfigMapStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
 			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: v1.LocalObjectReference{
-						Name: "single-configmap",
-					},
-				},
-			},
-			PodTemplate: zv1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
-						{
-							Name: "configmap",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: "single-configmap",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	singleEnvFromConfigMapStack := singleConfigMapStack
-	singleEnvFromConfigMapStack.Spec.PodTemplate.Spec = v1.PodSpec{
-		Containers: []v1.Container{
-			{
-				EnvFrom: []v1.EnvFromSource{
-					{
-						ConfigMapRef: &v1.ConfigMapEnvSource{
-							LocalObjectReference: v1.LocalObjectReference{
-								Name: "single-configmap",
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	singleEnvValueConfigMapStack := singleConfigMapStack
-	singleEnvValueConfigMapStack.Spec.PodTemplate.Spec = v1.PodSpec{
-		Containers: []v1.Container{
-			{
-				Env: []v1.EnvVar{
-					{
-						ValueFrom: &v1.EnvVarSource{
-							ConfigMapKeyRef: &v1.ConfigMapKeySelector{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: "single-configmap",
-								},
-							},
-						},
+					ConfigMapRef: &v1.LocalObjectReference{
+						Name: "foo-v1-test-configmap",
 					},
 				},
 			},
@@ -1028,61 +976,17 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		StackSpec: zv1.StackSpec{
 			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: v1.LocalObjectReference{
-						Name: "first-configmap",
+					ConfigMapRef: &v1.LocalObjectReference{
+						Name: "foo-v1-first-configmap",
 					},
 				},
 				{
-					ConfigMapRef: v1.LocalObjectReference{
-						Name: "scnd-configmap",
-					},
-				},
-			},
-			PodTemplate: zv1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Volumes: []v1.Volume{
-						{
-							Name: "configmap00",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: "first-configmap",
-									},
-								},
-							},
-						},
-						{
-							Name: "configmap01",
-							VolumeSource: v1.VolumeSource{
-								ConfigMap: &v1.ConfigMapVolumeSource{
-									LocalObjectReference: v1.LocalObjectReference{
-										Name: "scnd-configmap",
-									},
-								},
-							},
-						},
+					ConfigMapRef: &v1.LocalObjectReference{
+						Name: "foo-v1-scnd-configmap",
 					},
 				},
 			},
 		},
-	}
-
-	singleConfigMapMetaObj := metav1.ObjectMeta{
-		Name:            "foo-v1-single-configmap",
-		Namespace:       baseTestStackOwned.Namespace,
-		OwnerReferences: baseTestStackOwned.OwnerReferences,
-	}
-
-	firstConfigMapMetaObj := metav1.ObjectMeta{
-		Name:            "foo-v1-first-configmap",
-		Namespace:       baseTestStackOwned.Namespace,
-		OwnerReferences: baseTestStackOwned.OwnerReferences,
-	}
-
-	scndConfigMapMetaObj := metav1.ObjectMeta{
-		Name:            "foo-v1-scnd-configmap",
-		Namespace:       baseTestStackOwned.Namespace,
-		OwnerReferences: baseTestStackOwned.OwnerReferences,
 	}
 
 	baseData := map[string]string{
@@ -1091,6 +995,33 @@ func TestReconcileStackConfigMap(t *testing.T) {
 
 	differentData := map[string]string{
 		"testK-00": "testV-00",
+	}
+
+	testConfigMap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-test-configmap",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: baseData,
+	}
+
+	firstConfigMap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-first-configmap",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: baseData,
+	}
+
+	scndConfigMap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-scnd-configmap",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: differentData,
 	}
 
 	immutable := true
@@ -1104,79 +1035,33 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		expected []*v1.ConfigMap
 	}{
 		{
-			name:     "configmap version is created, mounted as volume",
-			stack:    singleConfigMapStack,
+			name:     "configmap ownerReference is added to referenced configmap",
+			stack:    testConfigMapStack,
 			existing: nil,
 			template: []*v1.ConfigMap{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "single-configmap",
-						Namespace: singleConfigMapStack.Namespace,
+						Name:      "foo-v1-test-configmap",
+						Namespace: testConfigMapStack.Namespace,
 					},
 					Data: baseData,
 				},
 			},
 			expected: []*v1.ConfigMap{
-				{
-					ObjectMeta: singleConfigMapMetaObj,
-					Data:       baseData,
-				},
-			},
-		},
-		{
-			name:     "configmap version is created, set as envFrom",
-			stack:    singleEnvFromConfigMapStack,
-			existing: nil,
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "single-configmap",
-						Namespace: singleConfigMapStack.Namespace,
-					},
-					Data: baseData,
-				},
-			},
-			expected: []*v1.ConfigMap{
-				{
-					ObjectMeta: singleConfigMapMetaObj,
-					Data:       baseData,
-				},
-			},
-		},
-		{
-			name:     "configmap version is created, set as envValue",
-			stack:    singleEnvValueConfigMapStack,
-			existing: nil,
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "single-configmap",
-						Namespace: singleConfigMapStack.Namespace,
-					},
-					Data: baseData,
-				},
-			},
-			expected: []*v1.ConfigMap{
-				{
-					ObjectMeta: singleConfigMapMetaObj,
-					Data:       baseData,
-				},
+				&testConfigMap,
 			},
 		},
 		{
 			name:  "stack already has configmap version",
-			stack: singleConfigMapStack,
+			stack: testConfigMapStack,
 			existing: []*v1.ConfigMap{
-				{
-					ObjectMeta: singleConfigMapMetaObj,
-					Data:       baseData,
-				},
+				&testConfigMap,
 			},
 			template: []*v1.ConfigMap{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "single-configmap",
-						Namespace: singleConfigMapStack.Namespace,
+						Name:      "foo-v1-test-configmap",
+						Namespace: testConfigMapStack.Namespace,
 					},
 					Data: baseData,
 				},
@@ -1190,28 +1075,22 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			template: []*v1.ConfigMap{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "first-configmap",
+						Name:      "foo-v1-first-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
 					Data: baseData,
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "scnd-configmap",
+						Name:      "foo-v1-scnd-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
 					Data: differentData,
 				},
 			},
 			expected: []*v1.ConfigMap{
-				{
-					ObjectMeta: firstConfigMapMetaObj,
-					Data:       baseData,
-				},
-				{
-					ObjectMeta: scndConfigMapMetaObj,
-					Data:       differentData,
-				},
+				&firstConfigMap,
+				&scndConfigMap,
 			},
 		},
 		{
@@ -1221,7 +1100,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			template: []*v1.ConfigMap{
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "first-configmap",
+						Name:      "foo-v1-first-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
 					Data:      baseData,
@@ -1229,7 +1108,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "scnd-configmap",
+						Name:      "foo-v1-scnd-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
 					Data:      differentData,
@@ -1238,12 +1117,12 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			},
 			expected: []*v1.ConfigMap{
 				{
-					ObjectMeta: firstConfigMapMetaObj,
+					ObjectMeta: firstConfigMap.ObjectMeta,
 					Data:       baseData,
 					Immutable:  &immutable,
 				},
 				{
-					ObjectMeta: scndConfigMapMetaObj,
+					ObjectMeta: scndConfigMap.ObjectMeta,
 					Data:       differentData,
 					Immutable:  &notImmutable,
 				},
@@ -1267,14 +1146,20 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			}
 
 			if tc.existing != nil {
-				for _, i := range tc.existing {
-					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*i})
-					require.NoError(t, err)
+				for _, existing := range tc.existing {
+					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
+					for _, template := range tc.template {
+						if existing.Name == template.Name {
+							require.Error(t, err)
+						} else {
+							require.NoError(t, err)
+						}
+					}
 				}
 			}
 
 			err = env.controller.ReconcileStackConfigMap(
-				context.Background(), &tc.stack, tc.existing, func(tmp *v1.ConfigMap, vName string) (*v1.ConfigMap, error) {
+				context.Background(), &tc.stack, tc.existing, func(tmp *v1.ConfigMap) (*v1.ConfigMap, error) {
 					if tmp.Name == tc.template[0].Name {
 						return tc.expected[0], nil
 					}
@@ -1288,72 +1173,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 					context.Background(), expected.Name, metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, expected, versioned)
-			}
-
-			// Stack is updated with Versioned ConfigMap
-			stack, err := env.client.ZalandoV1().Stacks(tc.stack.Namespace).Get(
-				context.Background(), tc.stack.Name, metav1.GetOptions{})
-
-			if tc.stack.Spec.PodTemplate.Spec.Volumes != nil {
-				var volConfigMaps []string
-				for v, volume := range stack.Spec.PodTemplate.Spec.Volumes {
-					if volume.ConfigMap != nil {
-						volConfigMaps = append(volConfigMaps, stack.Spec.PodTemplate.Spec.Volumes[v].ConfigMap.Name)
-					}
-				}
-				for _, expected := range tc.expected {
-					require.NoError(t, err)
-					if expected != nil {
-						require.Contains(t, volConfigMaps, expected.Name)
-					}
-				}
-			}
-
-			if stack.Spec.PodTemplate.Spec.Containers != nil {
-				for c, container := range stack.Spec.PodTemplate.Spec.Containers {
-					for e, envFrom := range container.EnvFrom {
-						var envFromConfigMaps []string
-						if envFrom.ConfigMapRef != nil {
-							envFromConfigMaps = append(envFromConfigMaps, stack.Spec.PodTemplate.Spec.Containers[c].EnvFrom[e].ConfigMapRef.Name)
-							for _, expected := range tc.expected {
-								require.NoError(t, err)
-								if tc.expected != nil {
-									require.Contains(t, envFromConfigMaps, expected.Name)
-								}
-							}
-						}
-					}
-				}
-			}
-
-			if stack.Spec.PodTemplate.Spec.Containers != nil {
-				var envValueConfigMaps []string
-				for c, container := range stack.Spec.PodTemplate.Spec.Containers {
-					for e, env := range container.Env {
-						if env.ValueFrom != nil {
-							envValueConfigMaps = append(envValueConfigMaps, stack.Spec.PodTemplate.Spec.Containers[c].Env[e].ValueFrom.ConfigMapKeyRef.Name)
-							for _, expected := range tc.expected {
-								require.NoError(t, err)
-								if tc.expected != nil {
-									require.Contains(t, envValueConfigMaps, expected.Name)
-								}
-							}
-						}
-					}
-				}
-			}
-
-			// Templates are deleted
-			for _, template := range tc.template {
-				for _, expected := range tc.expected {
-					_, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
-						context.Background(), expected.Name, metav1.GetOptions{})
-					if err == nil {
-						_, err = env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
-							context.Background(), template.Name, metav1.GetOptions{})
-						require.Error(t, err)
-					}
-				}
+				require.Equal(t, versioned.OwnerReferences, baseTestStackOwned.OwnerReferences)
 			}
 		})
 	}
