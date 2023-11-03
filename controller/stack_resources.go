@@ -341,9 +341,13 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	}
 
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, rsc.Name, metav1.GetOptions{})
+		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, rsc.ConfigMapRef.Name, metav1.GetOptions{})
 		if err != nil {
 			c.logger.Error(err)
+			continue
+		}
+
+		if configMap.OwnerReferences != nil {
 			continue
 		}
 
