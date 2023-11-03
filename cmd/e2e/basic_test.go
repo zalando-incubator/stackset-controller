@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -299,7 +300,7 @@ func verifyStackSegments(
 ) {
 	stackResourceLabels := map[string]string{
 		stacksetHeritageLabelKey: stacksetName,
-		stackVersionLabelKey: currentVersion,
+		stackVersionLabelKey:     currentVersion,
 	}
 
 	stack, err := waitForStack(t, stacksetName, currentVersion)
@@ -322,11 +323,22 @@ func verifyStackIngressSources(
 	segment bool,
 ) {
 	resourceName := stack.Name
+	domains := []string{}
 	if segment {
 		resourceName += core.SegmentSuffix
 	}
 
 	if stack.Spec.Ingress != nil {
+		for _, domain := range clusterDomains {
+			domains = append(
+				domains,
+				fmt.Sprintf("%s.%s", resourceName, domain),
+			)
+		}
+		if segment {
+			domains = stack.Spec.Ingress.Hosts
+		}
+
 		stackIngress, err := waitForIngress(t, resourceName)
 		require.NoError(t, err)
 		require.EqualValues(t, resourceLabels, stackIngress.Labels)
@@ -335,9 +347,9 @@ func verifyStackIngressSources(
 			require.Equal(t, v, stackIngress.Annotations[k])
 		}
 		stackIngressRules := make([]v1.IngressRule, 0, len(clusterDomains))
-		for _, domain := range clusterDomains {
+		for _, domain := range domains {
 			stackIngressRules = append(stackIngressRules, v1.IngressRule{
-				Host: fmt.Sprintf("%s.%s", stack.Name, domain),
+				Host: domain,
 				IngressRuleValue: v1.IngressRuleValue{
 					HTTP: &v1.HTTPIngressRuleValue{
 						Paths: []v1.HTTPIngressPath{
@@ -362,6 +374,13 @@ func verifyStackIngressSources(
 			return stackIngressRules[i].Host < stackIngressRules[j].Host
 		})
 		require.EqualValues(t, stackIngressRules, stackIngress.Spec.Rules)
+		if segment {
+			require.Contains(
+				t,
+				stackIngress.Annotations["zalando.org/skipper-predicate"],
+				"TrafficSegment(0.00, 1.00)",
+			)
+		}
 	}
 
 	if stack.Spec.RouteGroup != nil {
@@ -372,27 +391,34 @@ func verifyStackIngressSources(
 			require.Contains(t, stackRG.Annotations, k)
 			require.Equal(t, v, stackRG.Annotations[k])
 		}
-		stackRGHosts := make([]string, 0, len(clusterDomains))
+		for _, domain := range clusterDomains {
+			domains = append(
+				domains,
+				fmt.Sprintf("%s.%s", stack.Name, domain),
+			)
+		}
+		if segment {
+			domains = stack.Spec.RouteGroup.Hosts
+		}
 		stackRGBackends := []rgv1.RouteGroupBackend{{
 			Name:        stack.Name,
 			Type:        rgv1.ServiceRouteGroupBackend,
 			ServiceName: stack.Name,
 			ServicePort: 80,
 		}}
-		for _, domain := range clusterDomains {
-			stackRGHosts = append(
-				stackRGHosts,
-				fmt.Sprintf("%s.%s", stack.Name, domain),
-			)
-		}
 		// sort hosts for a stable order
-		sort.Strings(stackRGHosts)
+		slices.Sort(domains)
+		slices.Sort(stackRG.Spec.Hosts)
 
 		require.EqualValues(t, stackRGBackends, stackRG.Spec.Backends)
-		require.EqualValues(t, stackRGHosts, stackRG.Spec.Hosts)
+		require.EqualValues(t, domains, stackRG.Spec.Hosts)
+		if segment {
+			for _, r := range stackRG.Spec.Routes {
+				require.Contains(t, r.Predicates, "TrafficSegment(0.00, 1.00)")
+			}
+		}
 	}
 }
-
 
 func verifyStackSetStatus(t *testing.T, stacksetName string, expected expectedStackSetStatus) {
 	// Verify that the stack status is updated successfully
