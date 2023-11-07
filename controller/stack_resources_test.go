@@ -963,7 +963,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		StackSpec: zv1.StackSpec{
 			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: &v1.LocalObjectReference{
+					ConfigMapRef: v1.LocalObjectReference{
 						Name: "foo-v1-test-configmap",
 					},
 				},
@@ -976,12 +976,12 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		StackSpec: zv1.StackSpec{
 			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
 				{
-					ConfigMapRef: &v1.LocalObjectReference{
+					ConfigMapRef: v1.LocalObjectReference{
 						Name: "foo-v1-first-configmap",
 					},
 				},
 				{
-					ConfigMapRef: &v1.LocalObjectReference{
+					ConfigMapRef: v1.LocalObjectReference{
 						Name: "foo-v1-scnd-configmap",
 					},
 				},
