@@ -424,7 +424,7 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 func (sc *StackContainer) GenerateConfigMap(configMap *v1.ConfigMap) (*v1.ConfigMap, error) {
 	metaObj := sc.resourceMeta()
 	configMap.OwnerReferences = metaObj.OwnerReferences
-	configMap.Labels = metaObj.Labels
+	configMap.Labels = mergeLabels(metaObj.Labels, configMap.Labels)
 	configMap.Annotations = mergeLabels(metaObj.Annotations, configMap.Annotations)
 
 	return configMap, nil

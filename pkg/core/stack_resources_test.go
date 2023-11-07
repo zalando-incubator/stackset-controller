@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1057,27 +1058,49 @@ func TestGenerateConfigMap(t *testing.T) {
 		},
 		stacksetName: "foo",
 	}
+	c.Stack.Annotations = map[string]string{
+		"stack-annotation": "stack-foo",
+	}
+
+	cmLabels := map[string]string{
+		"configmap-label": "config-lbl",
+	}
+	cmAnnotations := map[string]string{
+		"configmap-annotations": "config-ann",
+	}
+
+	updatedLabels := c.Stack.Labels
+	updatedLabels["configmap-label"] = cmLabels["configmap-label"]
+
+	updatedAnnotations := map[string]string{
+		stackGenerationAnnotationKey: strconv.FormatInt(c.Stack.Generation, 10),
+		"configmap-annotations":      cmAnnotations["configmap-annotations"],
+	}
+
 	for _, tc := range []struct {
 		name     string
 		template *v1.ConfigMap
 		result   *v1.ConfigMap
 	}{
 		{
-			name: "ConfigMap name is updated",
+			name: "ConfigMap is updated with Stack data",
 			template: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-v1-configmap",
-					Namespace: testStackMeta.Namespace,
+					Name:        "foo-v1-configmap",
+					Namespace:   testStackMeta.Namespace,
+					Labels:      cmLabels,
+					Annotations: cmAnnotations,
 				},
 				Data: map[string]string{
 					"testK": "testV",
 				},
-				Immutable: nil,
 			},
 			result: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "foo-v1-configmap",
-					Namespace: testStackMeta.Namespace,
+					Name:        "foo-v1-configmap",
+					Namespace:   testStackMeta.Namespace,
+					Labels:      updatedLabels,
+					Annotations: updatedAnnotations,
 					OwnerReferences: []metav1.OwnerReference{
 						{
 							APIVersion: APIVersion,
@@ -1090,7 +1113,6 @@ func TestGenerateConfigMap(t *testing.T) {
 				Data: map[string]string{
 					"testK": "testV",
 				},
-				Immutable: nil,
 			},
 		},
 	} {
@@ -1098,6 +1120,8 @@ func TestGenerateConfigMap(t *testing.T) {
 			configMap, err := c.GenerateConfigMap(tc.template)
 			require.NoError(t, err)
 			require.Equal(t, configMap.Name, tc.result.Name)
+			require.Equal(t, configMap.Labels, tc.result.Labels)
+			require.Equal(t, configMap.Annotations, tc.result.Annotations)
 			require.Equal(t, configMap.Immutable, tc.result.Immutable)
 			require.Equal(t, configMap.OwnerReferences, tc.result.OwnerReferences)
 		})
