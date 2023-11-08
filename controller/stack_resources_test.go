@@ -1175,14 +1175,13 @@ func TestReconcileStackConfigMap(t *testing.T) {
 				}
 			}
 
-			err = env.controller.ReconcileStackConfigMap(
+			env.controller.ReconcileStackConfigMap(
 				context.Background(), &tc.stack, tc.existing, func(tmp *v1.ConfigMap) *v1.ConfigMap {
 					if tmp.Name == tc.template[0].Name {
 						return tc.expected[0]
 					}
 					return tc.expected[1]
 				})
-			require.NoError(t, err)
 
 			// Versioned ConfigMap exists as expected
 			for _, expected := range tc.expected {

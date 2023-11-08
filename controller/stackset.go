@@ -1006,10 +1006,7 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
 	if c.configMapSupportEnabled {
-		err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateConfigMapObjMeta)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
-		}
+		c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateConfigMapObjMeta)
 	}
 
 	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)

@@ -335,13 +335,13 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	stack *zv1.Stack,
 	existing []*apiv1.ConfigMap,
 	generateUpdated func(*apiv1.ConfigMap) *apiv1.ConfigMap,
-) error {
+) {
 	if stack.Spec.ConfigurationResources == nil {
-		return nil
+		return
 	}
 
 	if len(existing) >= len(stack.Spec.ConfigurationResources) {
-		return nil
+		return
 	}
 
 	for _, rsc := range stack.Spec.ConfigurationResources {
@@ -355,11 +355,13 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
 			Get(ctx, rscName, metav1.GetOptions{})
 		if err != nil {
+			err = c.errorEventf(stack, "FailedGetConfigMap", err)
 			c.logger.Error(err)
 			continue
 		}
 
 		if configMap.OwnerReferences != nil {
+			c.logger.Errorf("ConfigMap %s already has owner", configMap.Name)
 			continue
 		}
 
@@ -368,7 +370,9 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		_, err = c.client.CoreV1().ConfigMaps(updatedConfigMap.Namespace).
 			Update(ctx, updatedConfigMap, metav1.UpdateOptions{})
 		if err != nil {
-			return err
+			err = c.errorEventf(stack, "FailedUpdateConfigMap", err)
+			c.logger.Error(err)
+			continue
 		}
 		c.recorder.Eventf(
 			stack,
@@ -378,6 +382,4 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			configMap.Name,
 		)
 	}
-
-	return nil
 }
