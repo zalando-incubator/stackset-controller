@@ -1069,6 +1069,23 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			expected: nil,
 		},
 		{
+			name:  "configmap name does not follow expected pattern",
+			stack: testConfigMapStack,
+			existing: []*v1.ConfigMap{
+				&testConfigMap,
+			},
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-configmap",
+						Namespace: testConfigMapStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: nil,
+		},
+		{
 			name:     "stack with multiple configmap resources",
 			stack:    multipleConfigMapsStack,
 			existing: nil,

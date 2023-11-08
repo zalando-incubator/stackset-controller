@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -324,6 +325,9 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 // Stackset Controller will update the named user-provided ConfigMap to be
 // attached to the Stack by ownerReferences.
 //
+// The provided ConfigMap name must be prefixed by the Stack name.
+// eg: Stack: myapp-v1 ConfigMap: myapp-v1-my-config
+//
 // User update of versioned ConfigMaps is not encouraged but is allowed for
 // consideration of emergency needs.
 func (c *StackSetController) ReconcileStackConfigMap(
@@ -341,7 +345,15 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	}
 
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).Get(ctx, rsc.ConfigMapRef.Name, metav1.GetOptions{})
+		rscName := rsc.ConfigMapRef.Name
+		if !strings.HasPrefix(rscName, stack.Name) {
+			c.logger.Errorf(`ConfigMap name must be prefixed by Stack name.
+							ConfigMap: %s Stack: %s`, rscName, stack.Name)
+			continue
+		}
+
+		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
+			Get(ctx, rscName, metav1.GetOptions{})
 		if err != nil {
 			c.logger.Error(err)
 			continue
@@ -353,7 +365,8 @@ func (c *StackSetController) ReconcileStackConfigMap(
 
 		updatedConfigMap := generateUpdated(configMap)
 
-		_, err = c.client.CoreV1().ConfigMaps(updatedConfigMap.Namespace).Update(ctx, updatedConfigMap, metav1.UpdateOptions{})
+		_, err = c.client.CoreV1().ConfigMaps(updatedConfigMap.Namespace).
+			Update(ctx, updatedConfigMap, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}
