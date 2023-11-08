@@ -330,7 +330,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
 	existing []*apiv1.ConfigMap,
-	generateUpdated func(*apiv1.ConfigMap) (*apiv1.ConfigMap, error),
+	generateUpdated func(*apiv1.ConfigMap) *apiv1.ConfigMap,
 ) error {
 	if stack.Spec.ConfigurationResources == nil {
 		return nil
@@ -351,10 +351,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			continue
 		}
 
-		updatedConfigMap, err := generateUpdated(configMap)
-		if err != nil {
-			return err
-		}
+		updatedConfigMap := generateUpdated(configMap)
 
 		_, err = c.client.CoreV1().ConfigMaps(updatedConfigMap.Namespace).Update(ctx, updatedConfigMap, metav1.UpdateOptions{})
 		if err != nil {

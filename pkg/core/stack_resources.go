@@ -421,13 +421,13 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	return result, nil
 }
 
-func (sc *StackContainer) GenerateConfigMap(configMap *v1.ConfigMap) (*v1.ConfigMap, error) {
+func (sc *StackContainer) UpdateConfigMapObjMeta(configMap *v1.ConfigMap) *v1.ConfigMap {
 	metaObj := sc.resourceMeta()
 	configMap.OwnerReferences = metaObj.OwnerReferences
 	configMap.Labels = mergeLabels(metaObj.Labels, configMap.Labels)
 	configMap.Annotations = mergeLabels(metaObj.Annotations, configMap.Annotations)
 
-	return configMap, nil
+	return configMap
 }
 
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {

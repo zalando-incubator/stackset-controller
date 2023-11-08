@@ -1117,8 +1117,7 @@ func TestGenerateConfigMap(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			configMap, err := c.GenerateConfigMap(tc.template)
-			require.NoError(t, err)
+			configMap := c.UpdateConfigMapObjMeta(tc.template)
 			require.Equal(t, configMap.Name, tc.result.Name)
 			require.Equal(t, configMap.Labels, tc.result.Labels)
 			require.Equal(t, configMap.Annotations, tc.result.Annotations)
