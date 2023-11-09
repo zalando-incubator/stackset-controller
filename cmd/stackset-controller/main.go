@@ -40,6 +40,7 @@ var (
 		ControllerID                string
 		BackendWeightsAnnotationKey string
 		RouteGroupSupportEnabled    bool
+		TrafficSegmentsEnabled      bool
 		IngressSourceSwitchTTL      time.Duration
 		ReconcileWorkers            int
 	}
@@ -57,6 +58,10 @@ func main() {
 	kingpin.Flag("backend-weights-key", "Backend weights annotation key the controller will use to set current traffic values").Default(traffic.DefaultBackendWeightsAnnotationKey).StringVar(&config.BackendWeightsAnnotationKey)
 	kingpin.Flag("cluster-domain", "Main domains of the cluster, used for generating Stack Ingress hostnames").Envar("CLUSTER_DOMAIN").Required().StringsVar(&config.ClusterDomains)
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
+	kingpin.Flag(
+		"enable-traffic-segments",
+		"Enable support for traffic segments.",
+	).Default("false").BoolVar(&config.TrafficSegmentsEnabled)
 	kingpin.Flag("ingress-source-switch-ttl", "The ttl before an ingress source is deleted when replaced with another one e.g. switching from RouteGroup to Ingress or vice versa.").
 		Default(defaultIngressSourceSwitchTTL).DurationVar(&config.IngressSourceSwitchTTL)
 	kingpin.Parse()
@@ -85,6 +90,7 @@ func main() {
 		prometheus.DefaultRegisterer,
 		config.Interval,
 		config.RouteGroupSupportEnabled,
+		config.TrafficSegmentsEnabled,
 		config.IngressSourceSwitchTTL,
 	)
 	if err != nil {

@@ -61,6 +61,7 @@ type StackSetController struct {
 	metricsReporter             *core.MetricsReporter
 	HealthReporter              healthcheck.Handler
 	routeGroupSupportEnabled    bool
+	trafficSegmentsEnabled      bool
 	ingressSourceSwitchTTL      time.Duration
 	now                         func() string
 	reconcileWorkers            int
@@ -86,7 +87,18 @@ func now() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID string, parallelWork int, backendWeightsAnnotationKey string, clusterDomains []string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
+func NewStackSetController(
+	client clientset.Interface,
+	controllerID string,
+	parallelWork int,
+	backendWeightsAnnotationKey string,
+	clusterDomains []string,
+	registry prometheus.Registerer,
+	interval time.Duration,
+	routeGroupSupportEnabled bool,
+	trafficSegmentsEnabled bool,
+	ingressSourceSwitchTTL time.Duration,
+) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -232,6 +244,27 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 			reconciler = &core.PrescalingTrafficReconciler{
 				ResetHPAMinReplicasTimeout: resetDelay,
 			}
+		}
+
+		if c.trafficSegmentsEnabled &&
+			stackset.Annotations[TrafficSegmentsAnnotationKey] != "true" {
+
+			stackset.Annotations[TrafficSegmentsAnnotationKey] = "true"
+			_, err := c.client.ZalandoV1().StackSets(stackset.Namespace).Update(
+				ctx,
+				&stackset,
+				metav1.UpdateOptions{},
+			)
+			if err != nil {
+				return nil, err
+			}
+			c.recorder.Eventf(
+				&stackset,
+				v1.EventTypeNormal,
+				"UpdatedStackSet",
+				"Updated StackSet %s",
+				stackset.Name,
+			)
 		}
 
 		stacksetContainer := core.NewContainer(&stackset, reconciler, c.backendWeightsAnnotationKey, c.clusterDomains)

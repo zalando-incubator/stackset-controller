@@ -357,7 +357,7 @@ func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSetSpec) error {
 	return createStackSetWithAnnotations(
 		stacksetName,
-		prescalingTimeout, 
+		prescalingTimeout,
 		spec,
 		nil,
 	)
@@ -365,7 +365,7 @@ func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSe
 
 func createStackSetWithAnnotations(
 	stacksetName string,
-	prescalingTimeout int, 
+	prescalingTimeout int,
 	spec zv1.StackSetSpec,
 	annotations map[string]string,
 ) error {
@@ -394,15 +394,36 @@ func stackExists(stacksetName, stackVersion string) bool {
 }
 
 func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {
+	return updateStackSetWithAnnotations(stacksetName, spec, nil)
+}
+
+func updateStackSetWithAnnotations(
+	stacksetName string,
+	spec zv1.StackSetSpec,
+	annotations map[string]string,
+) error {
 	for {
-		ss, err := stacksetInterface().Get(context.Background(), stacksetName, metav1.GetOptions{})
+		stackSet, err := stacksetInterface().Get(
+			context.Background(),
+			stacksetName,
+			metav1.GetOptions{},
+		)
 		if err != nil {
 			return err
 		}
 		// Keep the desired traffic
-		spec.Traffic = ss.Spec.Traffic
-		ss.Spec = spec
-		_, err = stacksetInterface().Update(context.Background(), ss, metav1.UpdateOptions{})
+		spec.Traffic = stackSet.Spec.Traffic
+		stackSet.Spec = spec
+		for k, v := range annotations {
+			stackSet.Annotations[k] = v
+		}
+
+		_, err = stacksetInterface().Update(
+			context.Background(),
+			stackSet,
+			metav1.UpdateOptions{},
+		)
+
 		if apiErrors.IsConflict(err) {
 			continue
 		}
