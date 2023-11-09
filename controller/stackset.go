@@ -117,6 +117,7 @@ func NewStackSetController(
 		metricsReporter:             metricsReporter,
 		HealthReporter:              healthcheck.NewHandler(),
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
+		trafficSegmentsEnabled:      trafficSegmentsEnabled,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		now:                         now,
 		reconcileWorkers:            parallelWork,
@@ -207,6 +208,11 @@ func (c *StackSetController) Run(ctx context.Context) {
 					continue
 				}
 
+				if c.injectSegmentAnnotation(ctx, &stackset) {
+					// Reconciler updates StackSet in the next loop
+					continue
+				}
+
 				// update stackset entry
 				c.stacksetStore[stackset.UID] = stackset
 				continue
@@ -217,6 +223,11 @@ func (c *StackSetController) Run(ctx context.Context) {
 				continue
 			}
 
+			if c.injectSegmentAnnotation(ctx, &stackset) {
+				// Reconciler adds StackSet in the next loop
+				continue
+			}
+
 			c.logger.Infof("Adding entry for StackSet %s/%s", stackset.Namespace, stackset.Name)
 			c.stacksetStore[stackset.UID] = stackset
 		case <-ctx.Done():
@@ -224,6 +235,50 @@ func (c *StackSetController) Run(ctx context.Context) {
 			return
 		}
 	}
+}
+
+// injectSegmentAnnotation injects the traffic segment annotation if it's not
+// already present.
+//
+// Only inject the traffic segment annotation if the controller has traffic
+// segments enabled.
+func (c *StackSetController) injectSegmentAnnotation(
+	ctx context.Context,
+	stackSet *zv1.StackSet,
+) bool {
+	if !c.trafficSegmentsEnabled {
+		return false
+	}
+
+	if stackSet.Annotations[TrafficSegmentsAnnotationKey] == "true" {
+		return false
+	}
+
+	stackSet.Annotations[TrafficSegmentsAnnotationKey] = "true"
+
+	_, err := c.client.ZalandoV1().StackSets(
+		stackSet.Namespace,
+	).Update(
+		ctx,
+		stackSet,
+		metav1.UpdateOptions{},
+	)
+	if err != nil {
+		c.logger.Errorf(
+			"Failed injecting segment annotation: %v",
+			err,
+		)
+		return false
+	}
+	c.recorder.Eventf(
+		stackSet,
+		v1.EventTypeNormal,
+		"UpdatedStackSet",
+		"Updated StackSet %s",
+		stackSet.Name,
+	)
+
+	return true
 }
 
 // collectResources collects resources for all stacksets at once and stores them per StackSet/Stack so that we don't
@@ -244,27 +299,6 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 			reconciler = &core.PrescalingTrafficReconciler{
 				ResetHPAMinReplicasTimeout: resetDelay,
 			}
-		}
-
-		if c.trafficSegmentsEnabled &&
-			stackset.Annotations[TrafficSegmentsAnnotationKey] != "true" {
-
-			stackset.Annotations[TrafficSegmentsAnnotationKey] = "true"
-			_, err := c.client.ZalandoV1().StackSets(stackset.Namespace).Update(
-				ctx,
-				&stackset,
-				metav1.UpdateOptions{},
-			)
-			if err != nil {
-				return nil, err
-			}
-			c.recorder.Eventf(
-				&stackset,
-				v1.EventTypeNormal,
-				"UpdatedStackSet",
-				"Updated StackSet %s",
-				stackset.Name,
-			)
 		}
 
 		stacksetContainer := core.NewContainer(&stackset, reconciler, c.backendWeightsAnnotationKey, c.clusterDomains)
