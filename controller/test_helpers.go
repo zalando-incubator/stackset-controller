@@ -67,7 +67,7 @@ func NewTestEnvironment() *testEnvironment {
 		prometheus.NewPedanticRegistry(),
 		time.Minute,
 		true,
-		false,
+		true,
 		time.Minute,
 	)
 
