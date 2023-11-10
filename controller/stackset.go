@@ -208,11 +208,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 					continue
 				}
 
-				if c.injectSegmentAnnotation(ctx, &stackset) {
-					// Reconciler updates StackSet in the next loop
-					continue
-				}
-
 				// update stackset entry
 				c.stacksetStore[stackset.UID] = stackset
 				continue
@@ -220,11 +215,6 @@ func (c *StackSetController) Run(ctx context.Context) {
 
 			// check if stackset should be managed by the controller
 			if !c.hasOwnership(&stackset) {
-				continue
-			}
-
-			if c.injectSegmentAnnotation(ctx, &stackset) {
-				// Reconciler adds StackSet in the next loop
 				continue
 			}
 
@@ -1308,6 +1298,11 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
+
+	if c.injectSegmentAnnotation(ctx, container.StackSet) {
+		// Reconciler handles StackSet in the next loop
+		return nil
+	}
 
 	// Create current stack, if needed. Proceed on errors.
 	err = c.CreateCurrentStack(ctx, container)
