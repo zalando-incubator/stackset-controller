@@ -159,12 +159,6 @@ func TestStackTTLConvertToSegmentIngress(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// make sure controller creates ingress segments
-	_, err = waitForIngress(t, stacksetName+"-v1"+core.SegmentSuffix)
-	require.NoError(t, err)
-	_, err = waitForIngress(t, stacksetName+"-v2"+core.SegmentSuffix)
-	require.NoError(t, err)
-
 	// make sure controller does not delete ingress IngressSourceSwitchTTL
 	err = resourceDeleted(
 		t,
@@ -173,6 +167,12 @@ func TestStackTTLConvertToSegmentIngress(t *testing.T) {
 		ingressInterface(),
 	).await()
 	require.Error(t, err)
+
+	// make sure controller creates ingress segments
+	_, err = waitForIngress(t, stacksetName+"-v1"+core.SegmentSuffix)
+	require.NoError(t, err)
+	_, err = waitForIngress(t, stacksetName+"-v2"+core.SegmentSuffix)
+	require.NoError(t, err)
 
 	// make sure controller deletes ingress is after IngressSourceSwitchTTL
 	err = resourceDeleted(
