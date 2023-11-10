@@ -415,7 +415,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 ) {
 	var segments segmentList
 	weightDiffs := map[types.UID]float64{}
-	res := []TrafficSegment{}
+	changes := []TrafficSegment{}
 	existingStacks := map[types.UID]bool{}
 	newWeights := map[types.UID]float64{}
 
@@ -453,7 +453,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		weightDiffs[s.id] = s.weight() - wBefore
 		// Don't add segments that didn't change
 		if lBefore != s.lowerLimit || uBefore != s.upperLimit {
-			res = append(res, s)
+			changes = append(changes, s)
 		}
 		index += w
 	}
@@ -471,22 +471,22 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 			}
 
 			weightDiffs[id] = s.weight()
-			res = append(res, *s)
+			changes = append(changes, *s)
 			index += w
 		}
 	}
 
 	// Sorts descending by weight diff, to make sure we apply growing segments
 	// first.
-	sort.SliceStable(res, func(i, j int) bool {
-		if weightDiffs[res[i].id] > weightDiffs[res[j].id] {
+	sort.SliceStable(changes, func(i, j int) bool {
+		if weightDiffs[changes[i].id] > weightDiffs[changes[j].id] {
 			return true
 		}
 
-		return res[i].id < res[j].id
+		return changes[i].id < changes[j].id
 	})
 
-	return res, nil
+	return changes, nil
 }
 
 // fallbackStack returns a stack that should be the target of traffic if none of the existing stacks get anything
