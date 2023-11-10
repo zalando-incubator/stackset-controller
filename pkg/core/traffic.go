@@ -87,7 +87,8 @@ func NewTrafficSegment(id types.UID, sc *StackContainer) (
 	return res, nil
 }
 
-// size returns the corresponding weight of the segment, in a decimal fraction.
+// weight returns the corresponding weight of the segment, in a decimal
+// fraction.
 func (t *TrafficSegment) weight() float64 {
 	return t.upperLimit - t.lowerLimit
 }
