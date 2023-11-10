@@ -109,7 +109,7 @@ func (t *TrafficSegment) setLimits(lower, upper float64) error {
 
 	case upper < lower:
 		return fmt.Errorf(
-			"upper limit must be >= than lower limit (%f, %f)",
+			"lower must be smaller or equal to upper (%f, %f)",
 			lower,
 			upper,
 		)
