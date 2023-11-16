@@ -1117,12 +1117,11 @@ func TestGenerateConfigMap(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			configMap := c.UpdateConfigMapObjMeta(tc.template)
-			require.Equal(t, configMap.Name, tc.result.Name)
-			require.Equal(t, configMap.Labels, tc.result.Labels)
-			require.Equal(t, configMap.Annotations, tc.result.Annotations)
-			require.Equal(t, configMap.Immutable, tc.result.Immutable)
-			require.Equal(t, configMap.OwnerReferences, tc.result.OwnerReferences)
+			objMeta := c.UpdateObjectMeta(&tc.template.ObjectMeta)
+			require.Equal(t, objMeta.Name, tc.result.Name)
+			require.Equal(t, objMeta.Labels, tc.result.Labels)
+			require.Equal(t, objMeta.Annotations, tc.result.Annotations)
+			require.Equal(t, objMeta.OwnerReferences, tc.result.OwnerReferences)
 		})
 	}
 }

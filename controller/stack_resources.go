@@ -392,10 +392,11 @@ func (c *StackSetController) ReconcileStackConfigMap(
                               ConfigMap: %s Stack: %s`, rscName, stack.Name)
 		}
 
-		updatedConfigMap := generateUpdated(configMap)
+		objectMeta := updateObjMeta(&configMap.ObjectMeta)
+		configMap.ObjectMeta = *objectMeta
 
-		_, err = c.client.CoreV1().ConfigMaps(updatedConfigMap.Namespace).
-			Update(ctx, updatedConfigMap, metav1.UpdateOptions{})
+		_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).
+			Update(ctx, configMap, metav1.UpdateOptions{})
 		if err != nil {
 			return err
 		}

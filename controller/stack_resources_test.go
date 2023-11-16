@@ -1176,11 +1176,11 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			}
 
 			env.controller.ReconcileStackConfigMap(
-				context.Background(), &tc.stack, tc.existing, func(tmp *v1.ConfigMap) *v1.ConfigMap {
+				context.Background(), &tc.stack, tc.existing, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
 					if tmp.Name == tc.template[0].Name {
-						return tc.expected[0]
+						return &tc.expected[0].ObjectMeta
 					}
-					return tc.expected[1]
+					return &tc.expected[1].ObjectMeta
 				})
 
 			// Versioned ConfigMap exists as expected
