@@ -2,6 +2,9 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
@@ -52,6 +55,27 @@ func areHPAAnnotationsUpToDate(updated, existing *v2.HorizontalPodAutoscaler) bo
 func syncObjectMeta(target, source metav1.Object) {
 	target.SetLabels(source.GetLabels())
 	target.SetAnnotations(source.GetAnnotations())
+}
+
+// equalResourceList compares existing Resources with list of
+// ConfigurationResources to be created for Stack
+func equalResourceList(
+	existing []*apiv1.ConfigMap,
+	toBeCreated []zv1.ConfigurationResourcesSpec,
+) bool {
+	var existingName []string
+	for _, e := range existing {
+		existingName = append(existingName, e.Name)
+	}
+	var crName []string
+	for _, cr := range toBeCreated {
+		crName = append(crName, cr.ConfigMapRef.Name)
+	}
+
+	sort.Strings(existingName)
+	sort.Strings(crName)
+
+	return reflect.DeepEqual(existingName, crName)
 }
 
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
@@ -334,35 +358,38 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
 	existing []*apiv1.ConfigMap,
-	generateUpdated func(*apiv1.ConfigMap) *apiv1.ConfigMap,
-) {
+	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
+) error {
 	if stack.Spec.ConfigurationResources == nil {
-		return
+		return nil
 	}
 
-	if len(existing) >= len(stack.Spec.ConfigurationResources) {
-		return
+	if equalResourceList(existing, stack.Spec.ConfigurationResources) {
+		return nil
 	}
 
 	for _, rsc := range stack.Spec.ConfigurationResources {
 		rscName := rsc.ConfigMapRef.Name
 		if !strings.HasPrefix(rscName, stack.Name) {
-			c.logger.Errorf(`ConfigMap name must be prefixed by Stack name.
-							ConfigMap: %s Stack: %s`, rscName, stack.Name)
-			continue
+			return fmt.Errorf(`ConfigMap name must be prefixed by Stack name.
+                              ConfigMap: %s Stack: %s`, rscName, stack.Name)
 		}
 
 		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
 			Get(ctx, rscName, metav1.GetOptions{})
 		if err != nil {
-			err = c.errorEventf(stack, "FailedGetConfigMap", err)
-			c.logger.Error(err)
-			continue
+			return err
 		}
 
 		if configMap.OwnerReferences != nil {
-			c.logger.Errorf("ConfigMap %s already has owner", configMap.Name)
-			continue
+			for _, owner := range configMap.OwnerReferences {
+				if owner.UID == stack.UID {
+					return fmt.Errorf(`ConfigMap is already owned by this Stack.
+									  ConfigMap: %s Stack: %s`, rscName, stack.Name)
+				}
+			}
+			return fmt.Errorf(`ConfigMap already owned by other resource.
+                              ConfigMap: %s Stack: %s`, rscName, stack.Name)
 		}
 
 		updatedConfigMap := generateUpdated(configMap)
@@ -370,9 +397,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		_, err = c.client.CoreV1().ConfigMaps(updatedConfigMap.Namespace).
 			Update(ctx, updatedConfigMap, metav1.UpdateOptions{})
 		if err != nil {
-			err = c.errorEventf(stack, "FailedUpdateConfigMap", err)
-			c.logger.Error(err)
-			continue
+			return err
 		}
 		c.recorder.Eventf(
 			stack,
@@ -382,4 +407,5 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			configMap.Name,
 		)
 	}
+	return nil
 }
