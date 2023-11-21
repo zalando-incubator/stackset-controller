@@ -61,14 +61,14 @@ func syncObjectMeta(target, source metav1.Object) {
 // ConfigurationResources to be created for Stack
 func equalResourceList(
 	existing []*apiv1.ConfigMap,
-	toBeCreated []zv1.ConfigurationResourcesSpec,
+	defined []zv1.ConfigurationResourcesSpec,
 ) bool {
 	var existingName []string
 	for _, e := range existing {
 		existingName = append(existingName, e.Name)
 	}
 	var crName []string
-	for _, cr := range toBeCreated {
+	for _, cr := range defined {
 		crName = append(crName, cr.ConfigMapRef.Name)
 	}
 
@@ -345,15 +345,18 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	return nil
 }
 
-// Given the definition of ConfigurationResources on the StackTemplate, the
-// Stackset Controller will update the named user-provided ConfigMap to be
-// attached to the Stack by ownerReferences.
+// ReconcileStackConfigMap will update the named user-provided ConfigMap to be
+// attached to the Stack by ownerReferences, when a list of Configuration
+// Resources are defined on the Stack template.
 //
 // The provided ConfigMap name must be prefixed by the Stack name.
 // eg: Stack: myapp-v1 ConfigMap: myapp-v1-my-config
 //
-// User update of versioned ConfigMaps is not encouraged but is allowed for
-// consideration of emergency needs.
+// User update of running versioned ConfigMaps is not encouraged but is allowed
+// on consideration of emergency needs. Similarly, addition of ConfigMaps to
+// running resources is also allowed, so the method checks for changes on the
+// ConfigurationResources to ensure all listed ConfigMaps are properly linked
+// to the Stack.
 func (c *StackSetController) ReconcileStackConfigMap(
 	ctx context.Context,
 	stack *zv1.Stack,
@@ -372,7 +375,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		rscName := rsc.ConfigMapRef.Name
 		if !strings.HasPrefix(rscName, stack.Name) {
 			return fmt.Errorf(`ConfigMap name must be prefixed by Stack name.
-                              ConfigMap: %s Stack: %s`, rscName, stack.Name)
+                               ConfigMap: %s, Stack: %s`, rscName, stack.Name)
 		}
 
 		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
@@ -383,13 +386,12 @@ func (c *StackSetController) ReconcileStackConfigMap(
 
 		if configMap.OwnerReferences != nil {
 			for _, owner := range configMap.OwnerReferences {
-				if owner.UID == stack.UID {
-					return fmt.Errorf(`ConfigMap is already owned by this Stack.
-									  ConfigMap: %s Stack: %s`, rscName, stack.Name)
+				if owner.UID != stack.UID {
+					return fmt.Errorf(`ConfigMap already owned by other resource.
+                                       ConfigMap: %s, Stack: %s`, rscName, stack.Name)
 				}
 			}
-			return fmt.Errorf(`ConfigMap already owned by other resource.
-                              ConfigMap: %s Stack: %s`, rscName, stack.Name)
+			continue
 		}
 
 		objectMeta := updateObjMeta(&configMap.ObjectMeta)
