@@ -1008,7 +1008,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	if c.configMapSupportEnabled {
 		err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
 		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
+			return c.errorEventf(sc.Stack, "FailedManageStack", err)
 		}
 	}
 
