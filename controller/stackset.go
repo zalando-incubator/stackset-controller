@@ -1083,7 +1083,6 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 		if err != nil {
 			err = c.errorEventf(sc.Stack, "FailedManageStack", err)
 			c.stackLogger(container, sc).Errorf("Unable to reconcile stack resources: %v", err)
-			return err
 		}
 	}
 
