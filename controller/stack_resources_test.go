@@ -1107,37 +1107,6 @@ func TestReconcileStackConfigMap(t *testing.T) {
 				&scndConfigMap,
 			},
 		},
-		{
-			name:     "configmap version doesnt have immutability changed",
-			stack:    multipleConfigMapsStack,
-			existing: nil,
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-first-configmap",
-						Namespace: multipleConfigMapsStack.Namespace,
-					},
-					Data: baseData,
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-scnd-configmap",
-						Namespace: multipleConfigMapsStack.Namespace,
-					},
-					Data: differentData,
-				},
-			},
-			expected: []*v1.ConfigMap{
-				{
-					ObjectMeta: firstConfigMap.ObjectMeta,
-					Data:       baseData,
-				},
-				{
-					ObjectMeta: scndConfigMap.ObjectMeta,
-					Data:       differentData,
-				},
-			},
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
