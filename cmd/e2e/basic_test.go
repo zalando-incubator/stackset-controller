@@ -138,6 +138,16 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 		},
 	}
 
+	if f.configMap {
+		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
+			{
+				ConfigMapRef: corev1.LocalObjectReference{
+					Name: "foo-v1-test-configmap",
+				},
+			},
+		}
+	}
+
 	if f.autoscaler {
 		result.StackTemplate.Spec.Autoscaler = &zv1.Autoscaler{
 			MaxReplicas: f.hpaMaxReplicas,
@@ -164,6 +174,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			BackendPort: intstr.FromInt(80),
 		}
 	}
+
 	if f.routegroup {
 		result.RouteGroup = &zv1.RouteGroupSpec{
 			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
@@ -178,11 +189,13 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			},
 		}
 	}
+
 	if f.externalIngress {
 		result.ExternalIngress = &zv1.StackSetExternalIngressSpec{
 			BackendPort: intstr.FromInt(80),
 		}
 	}
+
 	if f.maxSurge != 0 || f.maxUnavailable != 0 {
 		strategy := &apps.DeploymentStrategy{
 			Type:          apps.RollingUpdateDeploymentStrategyType,
@@ -195,6 +208,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			strategy.RollingUpdate.MaxUnavailable = intstrptr(f.maxUnavailable)
 		}
 	}
+
 	return result
 }
 
@@ -356,7 +370,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 
 	// Verify ConfigMaps
 	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
-		configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name, stack.Name)
+		configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name)
 		require.NoError(t, err)
 		require.EqualValues(t, stackResourceLabels, configMap.Labels)
 		require.Contains(t, configMap.Name, stack.Name)

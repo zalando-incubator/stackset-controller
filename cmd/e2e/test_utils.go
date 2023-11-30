@@ -440,13 +440,12 @@ func waitForRouteGroup(t *testing.T, name string) (*rgv1.RouteGroup, error) {
 	return routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
-func waitForConfigMap(t *testing.T, configMapName string, stackName string) (*corev1.ConfigMap, error) {
-	name := stackName + "-" + configMapName
-	err := resourceCreated(t, "configmap", name, configMapInterface()).await()
+func waitForConfigMap(t *testing.T, configMapName string) (*corev1.ConfigMap, error) {
+	err := resourceCreated(t, "configmap", configMapName, configMapInterface()).await()
 	if err != nil {
 		return nil, err
 	}
-	return configMapInterface().Get(context.Background(), name, metav1.GetOptions{})
+	return configMapInterface().Get(context.Background(), configMapName, metav1.GetOptions{})
 }
 
 func waitForUpdatedRouteGroup(t *testing.T, name string, oldTimestamp string) (*rgv1.RouteGroup, error) {
