@@ -35,6 +35,7 @@ type TestStacksetSpecFactory struct {
 	ingress                       bool
 	routegroup                    bool
 	externalIngress               bool
+	configMap                     bool
 	limit                         int32
 	scaleDownTTL                  int64
 	replicas                      int32
@@ -132,6 +133,16 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 				Version: stackVersion,
 			},
 		},
+	}
+
+	if f.configMap {
+		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
+			{
+				ConfigMapRef: corev1.LocalObjectReference{
+					Name: "foo-v1-test-configmap",
+				},
+			},
+		}
 	}
 
 	if f.autoscaler {
@@ -285,6 +296,15 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 			APIVersion: "apps/v1",
 		}
 		require.EqualValues(t, expectedRef, hpa.Spec.ScaleTargetRef)
+	}
+
+	// Verify ConfigMaps
+	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
+		configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name)
+		require.NoError(t, err)
+		require.EqualValues(t, stackResourceLabels, configMap.Labels)
+		require.Contains(t, configMap.Name, stack.Name)
+		require.NotEmpty(t, configMap.Data)
 	}
 
 	verifyStackIngressSources(
