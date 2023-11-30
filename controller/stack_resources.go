@@ -387,8 +387,8 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		if configMap.OwnerReferences != nil {
 			for _, owner := range configMap.OwnerReferences {
 				if owner.UID != stack.UID {
-					return fmt.Errorf(`ConfigMap already owned by other resource.
-                                       ConfigMap: %s, Stack: %s`, rscName, stack.Name)
+					return fmt.Errorf("ConfigMap already owned by other resource. "+
+						"ConfigMap: %s, Stack: %s", rscName, stack.Name)
 				}
 			}
 			continue
