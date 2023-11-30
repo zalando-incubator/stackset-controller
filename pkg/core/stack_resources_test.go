@@ -1122,6 +1122,7 @@ func TestGenerateConfigMap(t *testing.T) {
 			require.Equal(t, objMeta.Labels, tc.result.Labels)
 			require.Equal(t, objMeta.Annotations, tc.result.Annotations)
 			require.Equal(t, objMeta.OwnerReferences, tc.result.OwnerReferences)
+			require.Equal(t, tc.template.Data, tc.result.Data)
 		})
 	}
 }
