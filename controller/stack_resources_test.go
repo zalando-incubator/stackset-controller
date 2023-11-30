@@ -1024,9 +1024,6 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		Data: differentData,
 	}
 
-	immutable := true
-	notImmutable := false
-
 	for _, tc := range []struct {
 		name     string
 		stack    zv1.Stack
@@ -1120,28 +1117,24 @@ func TestReconcileStackConfigMap(t *testing.T) {
 						Name:      "foo-v1-first-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
-					Data:      baseData,
-					Immutable: &immutable,
+					Data: baseData,
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "foo-v1-scnd-configmap",
 						Namespace: multipleConfigMapsStack.Namespace,
 					},
-					Data:      differentData,
-					Immutable: &notImmutable,
+					Data: differentData,
 				},
 			},
 			expected: []*v1.ConfigMap{
 				{
 					ObjectMeta: firstConfigMap.ObjectMeta,
 					Data:       baseData,
-					Immutable:  &immutable,
 				},
 				{
 					ObjectMeta: scndConfigMap.ObjectMeta,
 					Data:       differentData,
-					Immutable:  &notImmutable,
 				},
 			},
 		},
