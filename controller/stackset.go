@@ -643,6 +643,11 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 		return nil
 	}
 
+	// ensure that ConfigurationResources are prefixed by Stack name.
+	if err := validateConfigurationResourceNames(newStack.Stack); err != nil {
+		return err
+	}
+
 	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(ctx, newStack.Stack, metav1.CreateOptions{})
 	if err != nil {
 		return err
@@ -1156,4 +1161,17 @@ func resourceReady(timestamp string, ttl time.Duration) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// validateConfigurationResourceNames returns an error if any ConfigurationResource name is not prefixed by Stack name.
+func validateConfigurationResourceNames(stack *zv1.Stack) error {
+	for _, rsc := range stack.Spec.ConfigurationResources {
+		rscName := rsc.ConfigMapRef.Name
+		if !strings.HasPrefix(rscName, stack.Name) {
+			return fmt.Errorf("ConfigurationResource name must be prefixed by Stack name. "+
+				"ConfigurationResource: %s, Stack: %s", rscName, stack.Name)
+		}
+	}
+
+	return nil
 }

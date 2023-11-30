@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"strings"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -373,9 +372,10 @@ func (c *StackSetController) ReconcileStackConfigMap(
 
 	for _, rsc := range stack.Spec.ConfigurationResources {
 		rscName := rsc.ConfigMapRef.Name
-		if !strings.HasPrefix(rscName, stack.Name) {
-			return fmt.Errorf(`ConfigMap name must be prefixed by Stack name.
-                               ConfigMap: %s, Stack: %s`, rscName, stack.Name)
+
+		// ensure that ConfigurationResources are prefixed by Stack name.
+		if err := validateConfigurationResourceNames(stack); err != nil {
+			return err
 		}
 
 		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
