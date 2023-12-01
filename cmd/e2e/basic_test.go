@@ -28,7 +28,6 @@ var (
 
 type TestStacksetSpecFactory struct {
 	stacksetName                  string
-	configMap                     bool
 	hpaBehavior                   bool
 	ingress                       bool
 	routegroup                    bool
@@ -49,7 +48,6 @@ type TestStacksetSpecFactory struct {
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	return &TestStacksetSpecFactory{
 		stacksetName:           stacksetName,
-		configMap:              false,
 		ingress:                false,
 		externalIngress:        false,
 		limit:                  4,
@@ -59,11 +57,6 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 		hpaMaxReplicas:         3,
 		subResourceAnnotations: map[string]string{},
 	}
-}
-
-func (f *TestStacksetSpecFactory) ConfigMap() *TestStacksetSpecFactory {
-	f.configMap = true
-	return f
 }
 
 func (f *TestStacksetSpecFactory) Behavior(stabilizationWindowSeconds int32) *TestStacksetSpecFactory {
@@ -136,16 +129,6 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 				Version: stackVersion,
 			},
 		},
-	}
-
-	if f.configMap {
-		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
-			{
-				ConfigMapRef: corev1.LocalObjectReference{
-					Name: "foo-v1-test-configmap",
-				},
-			},
-		}
 	}
 
 	if f.autoscaler {
@@ -367,15 +350,6 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		require.EqualValues(t, stackRGBackends, stackRG.Spec.Backends)
 		require.EqualValues(t, stackRGHosts, stackRG.Spec.Hosts)
 	}
-
-	// Verify ConfigMaps
-	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
-		configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name)
-		require.NoError(t, err)
-		require.EqualValues(t, stackResourceLabels, configMap.Labels)
-		require.Contains(t, configMap.Name, stack.Name)
-		require.NotEmpty(t, configMap.Data)
-	}
 }
 
 func verifyStackSetStatus(t *testing.T, stacksetName string, expected expectedStackSetStatus) {
@@ -522,7 +496,6 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 func testStacksetCreate(
 	t *testing.T,
 	testName string,
-	configmap bool,
 	hpa,
 	ingress,
 	routegroup,
@@ -535,9 +508,6 @@ func testStacksetCreate(
 	stacksetName := fmt.Sprintf("stackset-create-%s", testName)
 	stackVersion := "v1"
 	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
-	if configmap {
-		stacksetSpecFactory.ConfigMap()
-	}
 	if hpa {
 		stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{makeCPUAutoscalerMetrics(50)})
 	}
@@ -732,31 +702,27 @@ func testStacksetUpdate(
 }
 
 func TestStacksetCreateBasic(t *testing.T) {
-	testStacksetCreate(t, "basic", false, false, false, false, false, false, testAnnotationsCreate)
-}
-
-func TestStacksetCreateConfigMap(t *testing.T) {
-	testStacksetCreate(t, "configmap", true, false, false, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "basic", false, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateHPA(t *testing.T) {
-	testStacksetCreate(t, "hpa", false, true, false, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "hpa", true, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateIngress(t *testing.T) {
-	testStacksetCreate(t, "ingress", false, false, true, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "ingress", false, true, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateRouteGroup(t *testing.T) {
-	testStacksetCreate(t, "routegroup", false, false, false, true, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "routegroup", false, false, true, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateExternalIngress(t *testing.T) {
-	testStacksetCreate(t, "externalingress", false, false, false, false, true, false, testAnnotationsCreate)
+	testStacksetCreate(t, "externalingress", false, false, false, true, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateUpdateStrategy(t *testing.T) {
-	testStacksetCreate(t, "updatestrategy", false, false, false, false, false, true, testAnnotationsCreate)
+	testStacksetCreate(t, "updatestrategy", false, false, false, false, true, testAnnotationsCreate)
 }
 
 func TestStacksetUpdateBasic(t *testing.T) {
