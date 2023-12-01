@@ -63,6 +63,7 @@ type StackSetController struct {
 	ingressSourceSwitchTTL      time.Duration
 	now                         func() string
 	reconcileWorkers            int
+	configMapSupportEnabled     bool
 	sync.Mutex
 }
 
@@ -85,7 +86,18 @@ func now() string {
 }
 
 // NewStackSetController initializes a new StackSetController.
-func NewStackSetController(client clientset.Interface, controllerID string, parallelWork int, backendWeightsAnnotationKey string, clusterDomains []string, registry prometheus.Registerer, interval time.Duration, routeGroupSupportEnabled bool, ingressSourceSwitchTTL time.Duration) (*StackSetController, error) {
+func NewStackSetController(
+	client clientset.Interface,
+	controllerID string,
+	parallelWork int,
+	backendWeightsAnnotationKey string,
+	clusterDomains []string,
+	registry prometheus.Registerer,
+	interval time.Duration,
+	routeGroupSupportEnabled bool,
+	ingressSourceSwitchTTL time.Duration,
+	configMapSupportEnabled bool,
+) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
 		return nil, err
@@ -105,6 +117,7 @@ func NewStackSetController(client clientset.Interface, controllerID string, para
 		HealthReporter:              healthcheck.NewHandler(),
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
+		configMapSupportEnabled:     configMapSupportEnabled,
 		now:                         now,
 		reconcileWorkers:            parallelWork,
 	}, nil
@@ -269,6 +282,13 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		return nil, err
 	}
 
+	if c.configMapSupportEnabled {
+		err = c.collectConfigMaps(ctx, stacksets)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return stacksets, nil
 }
 
@@ -421,6 +441,26 @@ Items:
 						stack.Resources.HPA = &hpa
 						continue Items
 					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	configMaps, err := c.client.CoreV1().ConfigMaps(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list ConfigMaps: %v", err)
+	}
+
+	for _, cm := range configMaps.Items {
+		configMap := cm
+		if uid, ok := getOwnerUID(configMap.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				if s, ok := stackset.StackContainers[uid]; ok {
+					s.Resources.ConfigMaps = append(s.Resources.ConfigMaps, &configMap)
+					break
 				}
 			}
 		}
@@ -590,7 +630,6 @@ func (c *StackSetController) ReconcileStatuses(ctx context.Context, ssc *core.St
 		}
 		return nil
 	})
-
 	if err != nil {
 		return c.errorEventf(ssc.StackSet, "FailedUpdateStackSetStatus", err)
 	}
@@ -602,6 +641,13 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 	newStack, newStackVersion := ssc.NewStack()
 	if newStack == nil {
 		return nil
+	}
+
+	if c.configMapSupportEnabled {
+		// ensure that ConfigurationResources are prefixed by Stack name.
+		if err := validateConfigurationResourceNames(newStack.Stack); err != nil {
+			return err
+		}
 	}
 
 	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(ctx, newStack.Stack, metav1.CreateOptions{})
@@ -661,7 +707,6 @@ func (c *StackSetController) CleanupOldStacks(ctx context.Context, ssc *core.Sta
 
 // AddUpdateStackSetIngress reconciles the Ingress but never deletes it, it returns the existing/new Ingress
 func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stackset *zv1.StackSet, existing *networking.Ingress, routegroup *rgv1.RouteGroup, ingress *networking.Ingress) (*networking.Ingress, error) {
-
 	// Ingress removed, handled outside
 	if ingress == nil {
 		return existing, nil
@@ -967,6 +1012,12 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 }
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
+	if c.configMapSupportEnabled {
+		err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
+		}
+	}
 
 	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
@@ -993,7 +1044,6 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
 		}
 	}
-
 	return nil
 }
 
@@ -1113,4 +1163,17 @@ func resourceReady(timestamp string, ttl time.Duration) (bool, error) {
 	}
 
 	return false, nil
+}
+
+// validateConfigurationResourceNames returns an error if any ConfigurationResource name is not prefixed by Stack name.
+func validateConfigurationResourceNames(stack *zv1.Stack) error {
+	for _, rsc := range stack.Spec.ConfigurationResources {
+		rscName := rsc.ConfigMapRef.Name
+		if !strings.HasPrefix(rscName, stack.Name) {
+			return fmt.Errorf("ConfigurationResource name must be prefixed by Stack name. "+
+				"ConfigurationResource: %s, Stack: %s", rscName, stack.Name)
+		}
+	}
+
+	return nil
 }

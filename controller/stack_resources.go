@@ -2,6 +2,10 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"reflect"
+	"sort"
+
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
@@ -50,6 +54,27 @@ func areHPAAnnotationsUpToDate(updated, existing *v2.HorizontalPodAutoscaler) bo
 func syncObjectMeta(target, source metav1.Object) {
 	target.SetLabels(source.GetLabels())
 	target.SetAnnotations(source.GetAnnotations())
+}
+
+// equalResourceList compares existing Resources with list of
+// ConfigurationResources to be created for Stack
+func equalResourceList(
+	existing []*apiv1.ConfigMap,
+	defined []zv1.ConfigurationResourcesSpec,
+) bool {
+	var existingName []string
+	for _, e := range existing {
+		existingName = append(existingName, e.Name)
+	}
+	var crName []string
+	for _, cr := range defined {
+		crName = append(crName, cr.ConfigMapRef.Name)
+	}
+
+	sort.Strings(existingName)
+	sort.Strings(crName)
+
+	return reflect.DeepEqual(existingName, crName)
 }
 
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
@@ -316,5 +341,74 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 		"UpdatedRouteGroup",
 		"Updated RouteGroup %s",
 		routegroup.Name)
+	return nil
+}
+
+// ReconcileStackConfigMap will update the named user-provided ConfigMap to be
+// attached to the Stack by ownerReferences, when a list of Configuration
+// Resources are defined on the Stack template.
+//
+// The provided ConfigMap name must be prefixed by the Stack name.
+// eg: Stack: myapp-v1 ConfigMap: myapp-v1-my-config
+//
+// User update of running versioned ConfigMaps is not encouraged but is allowed
+// on consideration of emergency needs. Similarly, addition of ConfigMaps to
+// running resources is also allowed, so the method checks for changes on the
+// ConfigurationResources to ensure all listed ConfigMaps are properly linked
+// to the Stack.
+func (c *StackSetController) ReconcileStackConfigMap(
+	ctx context.Context,
+	stack *zv1.Stack,
+	existing []*apiv1.ConfigMap,
+	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
+) error {
+	if stack.Spec.ConfigurationResources == nil {
+		return nil
+	}
+
+	if equalResourceList(existing, stack.Spec.ConfigurationResources) {
+		return nil
+	}
+
+	for _, rsc := range stack.Spec.ConfigurationResources {
+		rscName := rsc.ConfigMapRef.Name
+
+		// ensure that ConfigurationResources are prefixed by Stack name.
+		if err := validateConfigurationResourceNames(stack); err != nil {
+			return err
+		}
+
+		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
+			Get(ctx, rscName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if configMap.OwnerReferences != nil {
+			for _, owner := range configMap.OwnerReferences {
+				if owner.UID != stack.UID {
+					return fmt.Errorf("ConfigMap already owned by other resource. "+
+						"ConfigMap: %s, Stack: %s", rscName, stack.Name)
+				}
+			}
+			continue
+		}
+
+		objectMeta := updateObjMeta(&configMap.ObjectMeta)
+		configMap.ObjectMeta = *objectMeta
+
+		_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).
+			Update(ctx, configMap, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"UpdatedConfigMap",
+			"Updated ConfigMap %s",
+			configMap.Name,
+		)
+	}
 	return nil
 }

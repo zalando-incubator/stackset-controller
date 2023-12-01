@@ -157,6 +157,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			BackendPort: intstr.FromInt(80),
 		}
 	}
+
 	if f.routegroup {
 		result.RouteGroup = &zv1.RouteGroupSpec{
 			EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
@@ -171,11 +172,13 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			},
 		}
 	}
+
 	if f.externalIngress {
 		result.ExternalIngress = &zv1.StackSetExternalIngressSpec{
 			BackendPort: intstr.FromInt(80),
 		}
 	}
+
 	if f.maxSurge != 0 || f.maxUnavailable != 0 {
 		strategy := &apps.DeploymentStrategy{
 			Type:          apps.RollingUpdateDeploymentStrategyType,
@@ -188,6 +191,7 @@ func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
 			strategy.RollingUpdate.MaxUnavailable = intstrptr(f.maxUnavailable)
 		}
 	}
+
 	return result
 }
 
@@ -319,6 +323,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		})
 		require.EqualValues(t, stackIngressRules, stackIngress.Spec.Rules)
 	}
+
 	// Verify the RouteGroup
 	if stacksetSpec.RouteGroup != nil {
 		// Per-stack RouteGroup
@@ -488,7 +493,16 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 	require.NoError(t, err)
 }
 
-func testStacksetCreate(t *testing.T, testName string, hpa, ingress, routegroup, externalIngress bool, updateStrategy bool, subResourceAnnotations map[string]string) {
+func testStacksetCreate(
+	t *testing.T,
+	testName string,
+	hpa,
+	ingress,
+	routegroup,
+	externalIngress bool,
+	updateStrategy bool,
+	subResourceAnnotations map[string]string,
+) {
 	t.Parallel()
 
 	stacksetName := fmt.Sprintf("stackset-create-%s", testName)

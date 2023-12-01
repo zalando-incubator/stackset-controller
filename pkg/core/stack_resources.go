@@ -421,6 +421,15 @@ func (sc *StackContainer) GenerateRouteGroup() (*rgv1.RouteGroup, error) {
 	return result, nil
 }
 
+func (sc *StackContainer) UpdateObjectMeta(objMeta *metav1.ObjectMeta) *metav1.ObjectMeta {
+	metaObj := sc.resourceMeta()
+	objMeta.OwnerReferences = metaObj.OwnerReferences
+	objMeta.Labels = mergeLabels(metaObj.Labels, objMeta.Labels)
+	objMeta.Annotations = mergeLabels(metaObj.Annotations, objMeta.Annotations)
+
+	return objMeta
+}
+
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 	prescaling := zv1.PrescalingStatus{}
 	if sc.prescalingActive {

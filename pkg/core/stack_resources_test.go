@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -1046,6 +1047,82 @@ func TestGenerateStackStatus(t *testing.T) {
 				},
 			}
 			require.Equal(t, expected, status)
+		})
+	}
+}
+
+func TestGenerateConfigMap(t *testing.T) {
+	c := &StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: testStackMeta,
+		},
+		stacksetName: "foo",
+	}
+	c.Stack.Annotations = map[string]string{
+		"stack-annotation": "stack-foo",
+	}
+
+	cmLabels := map[string]string{
+		"configmap-label": "config-lbl",
+	}
+	cmAnnotations := map[string]string{
+		"configmap-annotations": "config-ann",
+	}
+
+	updatedLabels := c.Stack.Labels
+	updatedLabels["configmap-label"] = cmLabels["configmap-label"]
+
+	updatedAnnotations := map[string]string{
+		stackGenerationAnnotationKey: strconv.FormatInt(c.Stack.Generation, 10),
+		"configmap-annotations":      cmAnnotations["configmap-annotations"],
+	}
+
+	for _, tc := range []struct {
+		name     string
+		template *v1.ConfigMap
+		result   *v1.ConfigMap
+	}{
+		{
+			name: "ConfigMap is updated with Stack data",
+			template: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo-v1-configmap",
+					Namespace:   testStackMeta.Namespace,
+					Labels:      cmLabels,
+					Annotations: cmAnnotations,
+				},
+				Data: map[string]string{
+					"testK": "testV",
+				},
+			},
+			result: &v1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo-v1-configmap",
+					Namespace:   testStackMeta.Namespace,
+					Labels:      updatedLabels,
+					Annotations: updatedAnnotations,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: APIVersion,
+							Kind:       KindStack,
+							Name:       c.Name(),
+							UID:        c.Stack.UID,
+						},
+					},
+				},
+				Data: map[string]string{
+					"testK": "testV",
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			objMeta := c.UpdateObjectMeta(&tc.template.ObjectMeta)
+			require.Equal(t, objMeta.Name, tc.result.Name)
+			require.Equal(t, objMeta.Labels, tc.result.Labels)
+			require.Equal(t, objMeta.Annotations, tc.result.Annotations)
+			require.Equal(t, objMeta.OwnerReferences, tc.result.OwnerReferences)
+			require.Equal(t, tc.template.Data, tc.result.Data)
 		})
 	}
 }
