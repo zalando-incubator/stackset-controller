@@ -643,9 +643,11 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 		return nil
 	}
 
-	// ensure that ConfigurationResources are prefixed by Stack name.
-	if err := validateConfigurationResourceNames(newStack.Stack); err != nil {
-		return err
+	if c.configMapSupportEnabled {
+		// ensure that ConfigurationResources are prefixed by Stack name.
+		if err := validateConfigurationResourceNames(newStack.Stack); err != nil {
+			return err
+		}
 	}
 
 	created, err := c.client.ZalandoV1().Stacks(newStack.Namespace()).Create(ctx, newStack.Stack, metav1.CreateOptions{})
