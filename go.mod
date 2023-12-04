@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
-	github.com/alecthomas/kingpin/v2 v2.3.2
+	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/google/go-cmp v0.6.0
 	github.com/heptiolabs/healthcheck v0.0.0-20211123025425-613501dd5deb
 	github.com/prometheus/client_golang v1.17.0
