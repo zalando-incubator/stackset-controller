@@ -39,6 +39,29 @@ func IsResourceUpToDate(stack *zv1.Stack, resourceMeta metav1.ObjectMeta) bool {
 	return actualGeneration == stack.Generation
 }
 
+// AreAnnotationsUpToDate checks whether the annotations of the existing and
+// updated resource are up to date.
+func AreAnnotationsUpToDate(updated, existing metav1.ObjectMeta) bool {
+	if len(updated.Annotations) != len(existing.Annotations) {
+		return false
+	}
+
+	for k, v := range updated.Annotations {
+		if k == stackGenerationAnnotationKey {
+			continue
+		}
+
+		existingValue, ok := existing.GetAnnotations()[k]
+		if ok && existingValue == v {
+			continue
+		}
+
+		return false
+	}
+
+	return true
+}
+
 // getStackGeneration returns the generation of the stack associated to this resource.
 // This value is stored in an annotation of the resource object.
 func getStackGeneration(resource metav1.ObjectMeta) int64 {

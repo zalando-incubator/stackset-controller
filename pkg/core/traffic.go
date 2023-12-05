@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	segmentString      = "TrafficSegment(%.2f, %.2f)"
-	ToUpdateAnnotation = "stackset-controller.zalando.org/to-update"
+	segmentString = "TrafficSegment(%.2f, %.2f)"
 )
 
 type (
@@ -526,27 +525,6 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 
 		return changes[i].id < changes[j].id
 	})
-
-	// Annotate segments for update
-	for _, s := range changes {
-		if s.IngressSegment != nil {
-			if s.IngressSegment.ObjectMeta.Annotations == nil {
-				s.IngressSegment.ObjectMeta.Annotations = make(
-					map[string]string,
-				)
-			}
-			s.IngressSegment.ObjectMeta.Annotations[ToUpdateAnnotation] = "true"
-		}
-
-		if s.RouteGroupSegment != nil {
-			if s.RouteGroupSegment.ObjectMeta.Annotations == nil {
-				s.RouteGroupSegment.ObjectMeta.Annotations = make(
-					map[string]string,
-				)
-			}
-			s.RouteGroupSegment.ObjectMeta.Annotations[ToUpdateAnnotation] = "true"
-		}
-	}
 
 	return changes, nil
 }
