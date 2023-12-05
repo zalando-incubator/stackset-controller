@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	segmentString = "TrafficSegment(%.2f, %.2f)"
+	segmentString      = "TrafficSegment(%.2f, %.2f)"
+	ToUpdateAnnotation = "stackset-controller.zalando.org/to-update"
 )
 
 type (
@@ -52,39 +53,79 @@ func NewTrafficSegment(id types.UID, sc *StackContainer) (
 	*TrafficSegment,
 	error,
 ) {
-	res := &TrafficSegment{id: id}
-
-	if sc.Resources.IngressSegment != nil {
-		res.IngressSegment = sc.Resources.IngressSegment
-		predicates := res.IngressSegment.Annotations[IngressPredicateKey]
-		lowerLimit, upperLimit, err := getSegmentLimits(predicates)
-		if err != nil {
-			return nil, err
-		}
-		res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
+	var err error
+	res := &TrafficSegment{
+		id:         id,
+		lowerLimit: 0.0,
+		upperLimit: 0.0,
 	}
 
-	if sc.Resources.RouteGroupSegment != nil {
-		res.RouteGroupSegment = sc.Resources.RouteGroupSegment
+	if sc.ingressSpec != nil {
+		if sc.Resources.IngressSegment != nil {
+			res.IngressSegment = sc.Resources.IngressSegment.DeepCopy()
+			predicates := res.IngressSegment.Annotations[IngressPredicateKey]
+			lowerLimit, upperLimit, err := getSegmentLimits(predicates)
+			if err != nil {
+				return nil, err
+			}
+			res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
 
-		lowerLimit, upperLimit, err := getSegmentLimits(
-			res.RouteGroupSegment.Spec.Routes[0].Predicates...,
-		)
-		if err != nil {
-			return nil, err
+			// Create initial segment. Used when the controller creates the stack.
+		} else {
+			res.IngressSegment, err = sc.GenerateIngressSegment()
+			if err != nil {
+				return nil, err
+			}
+			if res.IngressSegment == nil {
+				return nil, fmt.Errorf(
+					"nil ingress segment for stack %s",
+					sc.Name(),
+				)
+			}
 		}
+	}
 
-		if res.IngressSegment != nil &&
-			(res.lowerLimit != lowerLimit || res.upperLimit != upperLimit) {
+	if sc.routeGroupSpec != nil {
+		if sc.Resources.RouteGroupSegment != nil {
+			res.RouteGroupSegment = sc.Resources.RouteGroupSegment.DeepCopy()
 
-			return nil, errors.New(
-				"mismatch in routegroup and ingress segment values",
+			lowerLimit, upperLimit, err := getSegmentLimits(
+				res.RouteGroupSegment.Spec.Routes[0].Predicates...,
 			)
+			if err != nil {
+				return nil, err
+			}
+
+			if res.IngressSegment != nil &&
+				(res.lowerLimit != lowerLimit || res.upperLimit != upperLimit) {
+
+				return nil, errors.New(
+					"mismatch in routegroup and ingress segment values",
+				)
+			}
+			res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
+
+			// Create initial segment. Used when the controller creates the stack.
+		} else {
+			res.RouteGroupSegment, err = sc.GenerateRouteGroupSegment()
+			if err != nil {
+				return nil, err
+			}
+			if res.RouteGroupSegment == nil {
+				return nil, fmt.Errorf(
+					"nil routegroup segment for stack %s",
+					sc.Name(),
+				)
+			}
 		}
-		res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
 	}
 
 	return res, nil
+}
+
+// GetID returns the stack container ID related to this TrafficSegment.
+func (t *TrafficSegment) GetID() types.UID {
+	return t.id
 }
 
 // weight returns the corresponding weight of the segment, in a decimal
@@ -485,6 +526,27 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 
 		return changes[i].id < changes[j].id
 	})
+
+	// Annotate segments for update
+	for _, s := range changes {
+		if s.IngressSegment != nil {
+			if s.IngressSegment.ObjectMeta.Annotations == nil {
+				s.IngressSegment.ObjectMeta.Annotations = make(
+					map[string]string,
+				)
+			}
+			s.IngressSegment.ObjectMeta.Annotations[ToUpdateAnnotation] = "true"
+		}
+
+		if s.RouteGroupSegment != nil {
+			if s.RouteGroupSegment.ObjectMeta.Annotations == nil {
+				s.RouteGroupSegment.ObjectMeta.Annotations = make(
+					map[string]string,
+				)
+			}
+			s.RouteGroupSegment.ObjectMeta.Annotations[ToUpdateAnnotation] = "true"
+		}
+	}
 
 	return changes, nil
 }

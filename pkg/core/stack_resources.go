@@ -329,7 +329,11 @@ func (sc *StackContainer) stackHostnames(
 			if strings.HasSuffix(host, domain) {
 				result.Insert(fmt.Sprintf("%s.%s", sc.Name(), domain))
 			} else {
-				log.Debugf("Ingress host: %s suffix did not match cluster-domain %s", host, domain)
+				log.Debugf(
+					"Ingress host: %s suffix did not match cluster-domain %s",
+					host,
+					domain,
+				)
 			}
 		}
 	}
@@ -345,6 +349,9 @@ func (sc *StackContainer) GenerateIngressSegment() (
 	*networking.Ingress,
 	error,
 ) {
+	if sc.IngressSegmentToUpdate != nil {
+		return sc.IngressSegmentToUpdate, nil
+	}
 	return sc.generateIngress(true)
 }
 
@@ -404,7 +411,10 @@ func (sc *StackContainer) generateIngress(segment bool) (
 	}
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, sc.ingressSpec.GetAnnotations())
+	result.Annotations = mergeLabels(
+		result.Annotations,
+		sc.ingressSpec.GetAnnotations(),
+	)
 
 	if segment {
 		result.Annotations = mergeLabels(
@@ -424,6 +434,9 @@ func (sc *StackContainer) GenerateRouteGroupSegment() (
 	*rgv1.RouteGroup,
 	error,
 ) {
+	if sc.RouteGroupSegmentToUpdate != nil {
+		return sc.RouteGroupSegmentToUpdate, nil
+	}
 	return sc.generateRouteGroup(true)
 }
 
@@ -493,7 +506,10 @@ func (sc *StackContainer) generateRouteGroup(segment bool) (
 	})
 
 	// insert annotations
-	result.Annotations = mergeLabels(result.Annotations, sc.routeGroupSpec.GetAnnotations())
+	result.Annotations = mergeLabels(
+		result.Annotations,
+		sc.routeGroupSpec.GetAnnotations(),
+	)
 
 	return result, nil
 }

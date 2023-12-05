@@ -12,6 +12,7 @@ import (
 	v1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
@@ -977,6 +978,7 @@ func TestNewTrafficSegment(t *testing.T) {
 	}{
 		{
 			stackContainer: &StackContainer{
+				ingressSpec: &zv1.StackSetIngressSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -995,16 +997,104 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
-				Resources: StackResources{IngressSegment: &v1.Ingress{}},
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo-v1",
+					},
+				},
+				backendPort: &intstr.IntOrString{
+					IntVal: 8080,
+				},
+				ingressSpec: &zv1.StackSetIngressSpec{
+					Hosts: []string{"foo.example.com"},
+				},
 			},
-			expectedLowerLimit: -1.0,
-			expectedUpperLimit: -1.0,
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.0,
+			expectIngress:      true,
+			expectRouteGroup:   false,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo-v1",
+					},
+				},
+				ingressSpec: &zv1.StackSetIngressSpec{
+					Hosts: []string{"foo.example.com"},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.0,
 			expectIngress:      false,
 			expectRouteGroup:   false,
 			expectErr:          true,
 		},
 		{
 			stackContainer: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo-v1",
+					},
+				},
+				backendPort: &intstr.IntOrString{
+					IntVal: 8080,
+				},
+				routeGroupSpec: &zv1.RouteGroupSpec{
+					Hosts: []string{"foo.example.com"},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.0,
+			expectIngress:      false,
+			expectRouteGroup:   true,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo-v1",
+					},
+				},
+				routeGroupSpec: &zv1.RouteGroupSpec{
+					Hosts: []string{"foo.example.com"},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.0,
+			expectIngress:      false,
+			expectRouteGroup:   false,
+			expectErr:          true,
+		},
+		{
+			stackContainer: &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "foo-v1",
+					},
+				},
+				backendPort: &intstr.IntOrString{
+					IntVal: 8080,
+				},
+				routeGroupSpec: &zv1.RouteGroupSpec{
+					Hosts: []string{"foo.example.com"},
+				},
+				ingressSpec: &zv1.StackSetIngressSpec{
+					Hosts: []string{"foo.example.com"},
+				},
+			},
+			expectedLowerLimit: 0.0,
+			expectedUpperLimit: 0.0,
+			expectIngress:      true,
+			expectRouteGroup:   true,
+			expectErr:          false,
+		},
+		{
+			stackContainer: &StackContainer{
+				ingressSpec: &zv1.StackSetIngressSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1023,6 +1113,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				ingressSpec: &zv1.StackSetIngressSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1041,6 +1132,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				ingressSpec: &zv1.StackSetIngressSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1059,6 +1151,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				ingressSpec: &zv1.StackSetIngressSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1077,6 +1170,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				ingressSpec: &zv1.StackSetIngressSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1095,6 +1189,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				routeGroupSpec: &zv1.RouteGroupSpec{},
 				Resources: StackResources{
 					RouteGroupSegment: &rgv1.RouteGroup{
 						Spec: rgv1.RouteGroupSpec{
@@ -1117,6 +1212,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				routeGroupSpec: &zv1.RouteGroupSpec{},
 				Resources: StackResources{
 					RouteGroupSegment: &rgv1.RouteGroup{
 						Spec: rgv1.RouteGroupSpec{
@@ -1135,6 +1231,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				routeGroupSpec: &zv1.RouteGroupSpec{},
 				Resources: StackResources{
 					RouteGroupSegment: &rgv1.RouteGroup{
 						Spec: rgv1.RouteGroupSpec{
@@ -1158,6 +1255,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				routeGroupSpec: &zv1.RouteGroupSpec{},
 				Resources: StackResources{
 					RouteGroupSegment: &rgv1.RouteGroup{
 						Spec: rgv1.RouteGroupSpec{
@@ -1181,6 +1279,7 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				routeGroupSpec: &zv1.RouteGroupSpec{},
 				Resources: StackResources{
 					RouteGroupSegment: &rgv1.RouteGroup{
 						Spec: rgv1.RouteGroupSpec{
@@ -1204,6 +1303,8 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				ingressSpec:    &zv1.StackSetIngressSpec{},
+				routeGroupSpec: &zv1.RouteGroupSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1234,6 +1335,8 @@ func TestNewTrafficSegment(t *testing.T) {
 		},
 		{
 			stackContainer: &StackContainer{
+				ingressSpec:    &zv1.StackSetIngressSpec{},
+				routeGroupSpec: &zv1.RouteGroupSpec{},
 				Resources: StackResources{
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1404,6 +1507,12 @@ func TestSetLimits(t *testing.T) {
 					},
 				},
 			}
+			container.backendPort = &intstr.IntOrString{
+				IntVal: 8080,
+			}
+			container.ingressSpec = &zv1.StackSetIngressSpec{
+				Hosts: []string{"foo.example.com"},
+			}
 		}
 
 		if tc.routeGroupSegment != "" {
@@ -1413,6 +1522,12 @@ func TestSetLimits(t *testing.T) {
 						{Predicates: []string{tc.routeGroupSegment}},
 					},
 				},
+			}
+			container.backendPort = &intstr.IntOrString{
+				IntVal: 8080,
+			}
+			container.routeGroupSpec = &zv1.RouteGroupSpec{
+				Hosts: []string{"foo.example.com"},
 			}
 		}
 
@@ -1912,6 +2027,12 @@ func TestComputeTrafficSegments(t *testing.T) {
 						},
 					},
 				}
+				stackContainers[k].backendPort = &intstr.IntOrString{
+					IntVal: 8080,
+				}
+				stackContainers[k].ingressSpec = &zv1.StackSetIngressSpec{
+					Hosts: []string{"foo.example.com"},
+				}
 			}
 
 			if tc.routeGroupSegments[k] != "" {
@@ -1921,6 +2042,12 @@ func TestComputeTrafficSegments(t *testing.T) {
 							{Predicates: []string{tc.routeGroupSegments[k]}},
 						},
 					},
+				}
+				stackContainers[k].backendPort = &intstr.IntOrString{
+					IntVal: 8080,
+				}
+				stackContainers[k].routeGroupSpec = &zv1.RouteGroupSpec{
+					Hosts: []string{"foo.example.com"},
 				}
 			}
 		}

@@ -239,9 +239,12 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 	}
 
 	// Check if we need to update the Ingress
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		(ingress.ObjectMeta.Annotations == nil ||
+			ingress.ObjectMeta.Annotations[core.ToUpdateAnnotation] != "true") {
 		return nil
 	}
+	delete(ingress.ObjectMeta.Annotations, core.ToUpdateAnnotation)
 
 	updated := existing.DeepCopy()
 	syncObjectMeta(updated, ingress)
@@ -299,9 +302,12 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	}
 
 	// Check if we need to update the RouteGroup
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		(routegroup.ObjectMeta.Annotations == nil ||
+			routegroup.ObjectMeta.Annotations[core.ToUpdateAnnotation] != "true") {
 		return nil
 	}
+	delete(routegroup.ObjectMeta.Annotations, core.ToUpdateAnnotation)
 
 	updated := existing.DeepCopy()
 	syncObjectMeta(updated, routegroup)

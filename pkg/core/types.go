@@ -115,6 +115,10 @@ type StackContainer struct {
 	// Current number of up-to-date replicas that the deployment has, from Deployment.status
 	updatedReplicas int32
 
+	// When using traffic segments: the traffic segment associated to this stack
+	IngressSegmentToUpdate    *networking.Ingress
+	RouteGroupSegmentToUpdate *rgv1.RouteGroup
+
 	// Traffic & scaling
 	currentActualTrafficWeight     float64
 	actualTrafficWeight            float64
