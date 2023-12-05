@@ -956,3 +956,242 @@ func TestReconcileStackRouteGroup(t *testing.T) {
 		})
 	}
 }
+
+func TestReconcileStackConfigMap(t *testing.T) {
+	testConfigMapStack := baseTestStack
+	testConfigMapStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					ConfigMapRef: v1.LocalObjectReference{
+						Name: "foo-v1-test-configmap",
+					},
+				},
+			},
+		},
+	}
+
+	multipleConfigMapsStack := baseTestStack
+	multipleConfigMapsStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					ConfigMapRef: v1.LocalObjectReference{
+						Name: "foo-v1-first-configmap",
+					},
+				},
+				{
+					ConfigMapRef: v1.LocalObjectReference{
+						Name: "foo-v1-scnd-configmap",
+					},
+				},
+			},
+		},
+	}
+
+	baseData := map[string]string{
+		"testK": "testV",
+	}
+
+	differentData := map[string]string{
+		"testK-00": "testV-00",
+	}
+
+	testConfigMap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-test-configmap",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: baseData,
+	}
+
+	firstConfigMap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-first-configmap",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: baseData,
+	}
+
+	scndConfigMap := v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-scnd-configmap",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: differentData,
+	}
+
+	immutable := true
+	notImmutable := false
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing []*v1.ConfigMap
+		template []*v1.ConfigMap
+		expected []*v1.ConfigMap
+	}{
+		{
+			name:     "configmap ownerReference is added to referenced configmap",
+			stack:    testConfigMapStack,
+			existing: nil,
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-test-configmap",
+						Namespace: testConfigMapStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: []*v1.ConfigMap{
+				&testConfigMap,
+			},
+		},
+		{
+			name:  "stack already has configmap version",
+			stack: testConfigMapStack,
+			existing: []*v1.ConfigMap{
+				&testConfigMap,
+			},
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-test-configmap",
+						Namespace: testConfigMapStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: nil,
+		},
+		{
+			name:  "configmap name does not follow expected pattern",
+			stack: testConfigMapStack,
+			existing: []*v1.ConfigMap{
+				&testConfigMap,
+			},
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-configmap",
+						Namespace: testConfigMapStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: nil,
+		},
+		{
+			name:     "stack with multiple configmap resources",
+			stack:    multipleConfigMapsStack,
+			existing: nil,
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-first-configmap",
+						Namespace: multipleConfigMapsStack.Namespace,
+					},
+					Data: baseData,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-scnd-configmap",
+						Namespace: multipleConfigMapsStack.Namespace,
+					},
+					Data: differentData,
+				},
+			},
+			expected: []*v1.ConfigMap{
+				&firstConfigMap,
+				&scndConfigMap,
+			},
+		},
+		{
+			name:     "configmap version doesnt have immutability changed",
+			stack:    multipleConfigMapsStack,
+			existing: nil,
+			template: []*v1.ConfigMap{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-first-configmap",
+						Namespace: multipleConfigMapsStack.Namespace,
+					},
+					Data:      baseData,
+					Immutable: &immutable,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-scnd-configmap",
+						Namespace: multipleConfigMapsStack.Namespace,
+					},
+					Data:      differentData,
+					Immutable: &notImmutable,
+				},
+			},
+			expected: []*v1.ConfigMap{
+				{
+					ObjectMeta: firstConfigMap.ObjectMeta,
+					Data:       baseData,
+					Immutable:  &immutable,
+				},
+				{
+					ObjectMeta: scndConfigMap.ObjectMeta,
+					Data:       differentData,
+					Immutable:  &notImmutable,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			if tc.template != nil {
+				for _, i := range tc.template {
+					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*i})
+					require.NoError(t, err)
+				}
+			}
+
+			if tc.existing != nil {
+				for _, existing := range tc.existing {
+					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
+					for _, template := range tc.template {
+						if existing.Name == template.Name {
+							require.Error(t, err)
+						} else {
+							require.NoError(t, err)
+						}
+					}
+				}
+			}
+
+			err = env.controller.ReconcileStackConfigMap(
+				context.Background(), &tc.stack, tc.existing, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
+					if tmp.Name == tc.template[0].Name {
+						return &tc.expected[0].ObjectMeta
+					}
+					return &tc.expected[1].ObjectMeta
+				})
+			require.NoError(t, err)
+
+			// Versioned ConfigMap exists as expected
+			for _, expected := range tc.expected {
+				versioned, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
+					context.Background(), expected.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				require.Equal(t, expected, versioned)
+				require.Equal(t, versioned.OwnerReferences, baseTestStackOwned.OwnerReferences)
+			}
+		})
+	}
+}

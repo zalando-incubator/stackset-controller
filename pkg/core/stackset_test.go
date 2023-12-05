@@ -635,6 +635,15 @@ func TestStackUpdateFromResources(t *testing.T) {
 			},
 		}
 	}
+	configMap := func(stackGeneration int64) *v1.ConfigMap {
+		return &v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					stackGenerationAnnotationKey: strconv.FormatInt(stackGeneration, 10),
+				},
+			},
+		}
+	}
 
 	hourAgo := time.Now().Add(-time.Hour)
 
@@ -747,6 +756,14 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.HPA = hpa(11)
+		container.updateFromResources()
+		require.EqualValues(t, false, container.resourcesUpdated)
+	})
+
+	runTest("configMap isn't considered updated if the generation is different", func(t *testing.T, container *StackContainer) {
+		container.Stack.Generation = 11
+		container.Resources.Deployment = deployment(11, 5, 5)
+		container.Resources.ConfigMaps = append(container.Resources.ConfigMaps, configMap(10))
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})

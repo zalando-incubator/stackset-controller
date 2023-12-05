@@ -240,10 +240,6 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		return nil, nil
 	}
 
-	if sc.ScaledDown() {
-		return nil, nil
-	}
-
 	result := &autoscaling.HorizontalPodAutoscaler{
 		ObjectMeta: sc.resourceMeta(),
 		TypeMeta: metav1.TypeMeta{
@@ -512,6 +508,15 @@ func (sc *StackContainer) generateRouteGroup(segment bool) (
 	)
 
 	return result, nil
+}
+
+func (sc *StackContainer) UpdateObjectMeta(objMeta *metav1.ObjectMeta) *metav1.ObjectMeta {
+	metaObj := sc.resourceMeta()
+	objMeta.OwnerReferences = metaObj.OwnerReferences
+	objMeta.Labels = mergeLabels(metaObj.Labels, objMeta.Labels)
+	objMeta.Annotations = mergeLabels(metaObj.Annotations, objMeta.Annotations)
+
+	return objMeta
 }
 
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
