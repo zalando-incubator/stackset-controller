@@ -345,10 +345,14 @@ func (sc *StackContainer) GenerateIngressSegment() (
 	*networking.Ingress,
 	error,
 ) {
-	if sc.IngressSegmentToUpdate != nil {
+	switch {
+	case sc.IngressSegmentToUpdate != nil:
 		return sc.IngressSegmentToUpdate, nil
+	case sc.Resources.IngressSegment != nil:
+		return sc.Resources.IngressSegment.DeepCopy(), nil
+	default:
+		return sc.generateIngress(true)
 	}
-	return sc.generateIngress(true)
 }
 
 func (sc *StackContainer) generateIngress(segment bool) (
@@ -430,10 +434,14 @@ func (sc *StackContainer) GenerateRouteGroupSegment() (
 	*rgv1.RouteGroup,
 	error,
 ) {
-	if sc.RouteGroupSegmentToUpdate != nil {
+	switch {
+	case sc.RouteGroupSegmentToUpdate != nil:
 		return sc.RouteGroupSegmentToUpdate, nil
+	case sc.Resources.RouteGroupSegment != nil:
+		return sc.Resources.RouteGroupSegment.DeepCopy(), nil
+	default:
+		return sc.generateRouteGroup(true)
 	}
-	return sc.generateRouteGroup(true)
 }
 
 func (sc *StackContainer) generateRouteGroup(segment bool) (
