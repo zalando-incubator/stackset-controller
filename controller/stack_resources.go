@@ -240,7 +240,9 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 	}
 
 	// Check if we need to update the Ingress
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && core.AreAnnotationsUpToDate(ingress.ObjectMeta, existing.ObjectMeta) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		core.AreAnnotationsUpToDate(ingress.ObjectMeta, existing.ObjectMeta) {
+
 		return nil
 	}
 
@@ -300,7 +302,9 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	}
 
 	// Check if we need to update the RouteGroup
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) && equality.Semantic.DeepEqual(routegroup.Spec, existing.Spec) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		equality.Semantic.DeepEqual(routegroup.Spec, existing.Spec) {
+
 		return nil
 	}
 
