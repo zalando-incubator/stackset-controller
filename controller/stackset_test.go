@@ -66,6 +66,7 @@ func TestCollectResources(t *testing.T) {
 		services    []v1.Service
 		hpas        []autoscaling.HorizontalPodAutoscaler
 		configmaps  []v1.ConfigMap
+		secrets     []v1.Secret
 		expected    map[types.UID]*core.StackSetContainer
 	}{
 		{
@@ -211,6 +212,11 @@ func TestCollectResources(t *testing.T) {
 				{ObjectMeta: testOrphanMeta},          // owned by unknown stack
 				{ObjectMeta: testUnownedA1Meta},       // same name, but not owned by a stack
 			},
+			secrets: []v1.Secret{
+				{ObjectMeta: stackOwned(testStackA2)}, // stack owned
+				{ObjectMeta: testOrphanMeta},          // owned by unknown stack
+				{ObjectMeta: testUnownedA1Meta},       // same name, but not owned by a stack
+			},
 			expected: map[types.UID]*core.StackSetContainer{
 				testStacksetA.UID: {
 					StackSet: &testStacksetA,
@@ -227,6 +233,7 @@ func TestCollectResources(t *testing.T) {
 								Ingress:    &networking.Ingress{ObjectMeta: stackOwned(testStackA2)},
 								RouteGroup: &rgv1.RouteGroup{ObjectMeta: stackOwned(testStackA2)},
 								ConfigMaps: []*v1.ConfigMap{{ObjectMeta: stackOwned(testStackA2)}},
+								Secrets:    []*v1.Secret{{ObjectMeta: stackOwned(testStackA2)}},
 							},
 						},
 					},
@@ -307,6 +314,9 @@ func TestCollectResources(t *testing.T) {
 			require.NoError(t, err)
 
 			err = env.CreateConfigMaps(context.Background(), tc.configmaps)
+			require.NoError(t, err)
+
+			err = env.CreateSecrets(context.Background(), tc.secrets)
 			require.NoError(t, err)
 
 			resources, err := env.controller.collectResources(context.Background())

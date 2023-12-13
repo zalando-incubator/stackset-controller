@@ -35,7 +35,7 @@ func syncObjectMeta(target, source metav1.Object) {
 
 // equalResourceList compares existing Resources with list of
 // ConfigurationResources to be created for Stack
-func equalResourceList(
+func equalConfigMapList(
 	existing []*apiv1.ConfigMap,
 	defined []zv1.ConfigurationResourcesSpec,
 ) bool {
@@ -46,6 +46,25 @@ func equalResourceList(
 	var crName []string
 	for _, cr := range defined {
 		crName = append(crName, cr.ConfigMapRef.Name)
+	}
+
+	sort.Strings(existingName)
+	sort.Strings(crName)
+
+	return reflect.DeepEqual(existingName, crName)
+}
+
+func equalSecretList(
+	existing []*apiv1.Secret,
+	defined []zv1.ConfigurationResourcesSpec,
+) bool {
+	var existingName []string
+	for _, e := range existing {
+		existingName = append(existingName, e.Name)
+	}
+	var crName []string
+	for _, cr := range defined {
+		crName = append(crName, cr.SecretRef.Name)
 	}
 
 	sort.Strings(existingName)
@@ -351,14 +370,16 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		return nil
 	}
 
-	if equalResourceList(existing, stack.Spec.ConfigurationResources) {
+	if equalConfigMapList(existing, stack.Spec.ConfigurationResources) {
 		return nil
 	}
 
 	for _, rsc := range stack.Spec.ConfigurationResources {
+		if rsc.ConfigMapRef.Name == "" {
+			continue
+		}
 		rscName := rsc.ConfigMapRef.Name
 
-		// ensure that ConfigurationResources are prefixed by Stack name.
 		if err := validateConfigurationResourceNames(stack); err != nil {
 			return err
 		}
@@ -393,6 +414,65 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			"UpdatedConfigMap",
 			"Updated ConfigMap %s",
 			configMap.Name,
+		)
+	}
+	return nil
+}
+
+func (c *StackSetController) ReconcileStackSecret(
+	ctx context.Context,
+	stack *zv1.Stack,
+	existing []*apiv1.Secret,
+	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
+) error {
+	if stack.Spec.ConfigurationResources == nil {
+		return nil
+	}
+
+	if equalSecretList(existing, stack.Spec.ConfigurationResources) {
+		return nil
+	}
+
+	for _, rsc := range stack.Spec.ConfigurationResources {
+		if rsc.SecretRef.Name == "" {
+			continue
+		}
+		rscName := rsc.SecretRef.Name
+
+		if err := validateConfigurationResourceNames(stack); err != nil {
+			return err
+		}
+
+		secret, err := c.client.CoreV1().Secrets(stack.Namespace).
+			Get(ctx, rscName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if secret.OwnerReferences != nil {
+			for _, owner := range secret.OwnerReferences {
+				if owner.UID != stack.UID {
+					return fmt.Errorf("Secret already owned by other resource. "+
+						"Secret: %s, Stack: %s", rscName, stack.Name)
+				}
+			}
+			continue
+		}
+
+		objectMeta := updateObjMeta(&secret.ObjectMeta)
+		secret.ObjectMeta = *objectMeta
+
+		_, err = c.client.CoreV1().Secrets(secret.Namespace).
+			Update(ctx, secret, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"UpdatedSecret",
+			"Updated Secret %s",
+			secret.Name,
 		)
 	}
 	return nil

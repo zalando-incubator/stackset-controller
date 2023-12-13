@@ -437,8 +437,11 @@ type StackSpec struct {
 // ConfigurationResourcesSpec makes it possible to defined the config resources to be created
 // +k8s:deepcopy-gen=true
 type ConfigurationResourcesSpec struct {
-	// ConfigMap to be versioned for Stack
+	// ConfigMap to be owned by Stack
 	ConfigMapRef v1.LocalObjectReference `json:"configMapRef,omitempty"`
+
+	// Secret to be owned by Stack
+	SecretRef v1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and

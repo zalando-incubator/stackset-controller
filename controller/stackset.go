@@ -360,6 +360,10 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 	}
 
+	err = c.collectSecrets(ctx, stacksets)
+	if err != nil {
+		return nil, err
+	}
 	return stacksets, nil
 }
 
@@ -549,6 +553,26 @@ func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets ma
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					s.Resources.ConfigMaps = append(s.Resources.ConfigMaps, &configMap)
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectSecrets(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	secrets, err := c.client.CoreV1().Secrets(c.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list Secrets: %v", err)
+	}
+
+	for _, sct := range secrets.Items {
+		secret := sct
+		if uid, ok := getOwnerUID(secret.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				if s, ok := stackset.StackContainers[uid]; ok {
+					s.Resources.Secrets = append(s.Resources.Secrets, &secret)
 					break
 				}
 			}
@@ -1238,10 +1262,16 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		}
 	}
 
-	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
+	err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManageSecret", err)
+	}
+
+	err = c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
+
 	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
@@ -1293,6 +1323,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -1459,15 +1490,23 @@ func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
 	return false
 }
 
-// validateConfigurationResourceNames returns an error if any ConfigurationResource name is not prefixed by Stack name.
+// validateConfigurationResourceNames returns an error if any ConfigurationResource
+// name is not prefixed by Stack name.
 func validateConfigurationResourceNames(stack *zv1.Stack) error {
+	var rscName string
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		rscName := rsc.ConfigMapRef.Name
+		if rsc.ConfigMapRef.Name != "" {
+			rscName = rsc.ConfigMapRef.Name
+		}
+
+		if rsc.SecretRef.Name != "" {
+			rscName = rsc.SecretRef.Name
+		}
+
 		if !strings.HasPrefix(rscName, stack.Name) {
 			return fmt.Errorf("ConfigurationResource name must be prefixed by Stack name. "+
 				"ConfigurationResource: %s, Stack: %s", rscName, stack.Name)
 		}
 	}
-
 	return nil
 }

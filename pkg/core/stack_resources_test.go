@@ -1487,7 +1487,7 @@ func TestGenerateStackStatus(t *testing.T) {
 	}
 }
 
-func TestGenerateConfigMap(t *testing.T) {
+func TestOwnConfigMap(t *testing.T) {
 	c := &StackContainer{
 		Stack: &zv1.Stack{
 			ObjectMeta: testStackMeta,
@@ -1548,6 +1548,82 @@ func TestGenerateConfigMap(t *testing.T) {
 				},
 				Data: map[string]string{
 					"testK": "testV",
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			objMeta := c.UpdateObjectMeta(&tc.template.ObjectMeta)
+			require.Equal(t, objMeta.Name, tc.result.Name)
+			require.Equal(t, objMeta.Labels, tc.result.Labels)
+			require.Equal(t, objMeta.Annotations, tc.result.Annotations)
+			require.Equal(t, objMeta.OwnerReferences, tc.result.OwnerReferences)
+			require.Equal(t, tc.template.Data, tc.result.Data)
+		})
+	}
+}
+
+func TestOwnSecret(t *testing.T) {
+	c := &StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: testStackMeta,
+		},
+		stacksetName: "foo",
+	}
+	c.Stack.Annotations = map[string]string{
+		"stack-annotation": "stack-foo",
+	}
+
+	sctLabels := map[string]string{
+		"secret-label": "sct-lbl",
+	}
+	sctAnnotations := map[string]string{
+		"secret-annotations": "sct-ann",
+	}
+
+	updatedLabels := c.Stack.Labels
+	updatedLabels["secret-label"] = sctLabels["secret-label"]
+
+	updatedAnnotations := map[string]string{
+		stackGenerationAnnotationKey: strconv.FormatInt(c.Stack.Generation, 10),
+		"secret-annotations":         sctAnnotations["secret-annotations"],
+	}
+
+	for _, tc := range []struct {
+		name     string
+		template *v1.Secret
+		result   *v1.Secret
+	}{
+		{
+			name: "Secret is updated with Stack data",
+			template: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo-v1-secret",
+					Namespace:   testStackMeta.Namespace,
+					Labels:      sctLabels,
+					Annotations: sctAnnotations,
+				},
+				Data: map[string][]byte{
+					"testK": {0},
+				},
+			},
+			result: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo-v1-secret",
+					Namespace:   testStackMeta.Namespace,
+					Labels:      updatedLabels,
+					Annotations: updatedAnnotations,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: APIVersion,
+							Kind:       KindStack,
+							Name:       c.Name(),
+							UID:        c.Stack.UID,
+						},
+					},
+				},
+				Data: map[string][]byte{
+					"testK": {0},
 				},
 			},
 		},
