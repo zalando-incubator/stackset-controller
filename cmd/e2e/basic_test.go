@@ -862,7 +862,7 @@ func testStacksetUpdate(
 				t,
 				stacksetName,
 				updatedVersion,
-				"TrafficSegment(0.0, 0.0)",
+				"TrafficSegment(0.00, 0.00)",
 				newSubResourceAnnotations,
 			)
 		default:

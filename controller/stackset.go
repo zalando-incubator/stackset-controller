@@ -62,6 +62,7 @@ type StackSetController struct {
 	HealthReporter              healthcheck.Handler
 	routeGroupSupportEnabled    bool
 	trafficSegmentsEnabled      bool
+	annotatedTrafficSegments    bool
 	ingressSourceSwitchTTL      time.Duration
 	now                         func() string
 	reconcileWorkers            int
@@ -98,6 +99,7 @@ func NewStackSetController(
 	interval time.Duration,
 	routeGroupSupportEnabled bool,
 	trafficSegmentsEnabled bool,
+	annotatedTrafficSegments bool,
 	configMapSupportEnabled bool,
 	ingressSourceSwitchTTL time.Duration,
 ) (*StackSetController, error) {
@@ -120,6 +122,7 @@ func NewStackSetController(
 		HealthReporter:              healthcheck.NewHandler(),
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
 		trafficSegmentsEnabled:      trafficSegmentsEnabled,
+		annotatedTrafficSegments:    annotatedTrafficSegments,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		configMapSupportEnabled:     configMapSupportEnabled,
 		now:                         now,
@@ -234,12 +237,17 @@ func (c *StackSetController) Run(ctx context.Context) {
 // already present.
 //
 // Only inject the traffic segment annotation if the controller has traffic
-// segments enabled.
+// segments enabled by default, i.e. doesn't matter if the StackSet has the
+// segment annotation.
 func (c *StackSetController) injectSegmentAnnotation(
 	ctx context.Context,
 	stackSet *zv1.StackSet,
 ) bool {
 	if !c.trafficSegmentsEnabled {
+		return false
+	}
+
+	if c.annotatedTrafficSegments {
 		return false
 	}
 
@@ -295,7 +303,9 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 
 		stacksetContainer := core.NewContainer(&stackset, reconciler, c.backendWeightsAnnotationKey, c.clusterDomains)
-		if stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
+		if c.trafficSegmentsEnabled &&
+			stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
+
 			stacksetContainer.EnableSegmentTraffic()
 		}
 		stacksets[uid] = stacksetContainer
@@ -712,17 +722,11 @@ func (c *StackSetController) ReconcileStatuses(ctx context.Context, ssc *core.St
 func (c *StackSetController) ReconcileTrafficSegments(
 	ctx context.Context,
 	ssc *core.StackSetContainer,
-) ([]core.TrafficSegment, error) {
+) ([]types.UID, error) {
 	// Compute segments
 	toUpdate, err := ssc.ComputeTrafficSegments()
 	if err != nil {
-		return []core.TrafficSegment{},
-			c.errorEventf(ssc.StackSet, "FailedManageSegments", err)
-	}
-
-	for _, ts := range toUpdate {
-		ssc.StackContainers[ts.GetID()].IngressSegmentToUpdate = ts.IngressSegment
-		ssc.StackContainers[ts.GetID()].RouteGroupSegmentToUpdate = ts.RouteGroupSegment
+		return nil, c.errorEventf(ssc.StackSet, "FailedManageSegments", err)
 	}
 
 	return toUpdate, nil
@@ -1248,8 +1252,6 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageIngressSegment", err)
 		}
-
-		sc.IngressSegmentToUpdate = nil
 	}
 
 	if c.routeGroupSupportEnabled {
@@ -1273,8 +1275,6 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 					err,
 				)
 			}
-
-			sc.RouteGroupSegmentToUpdate = nil
 		}
 	}
 	return nil
@@ -1322,7 +1322,7 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 	// Mark stacks that should be removed
 	container.MarkExpiredStacks()
 
-	segsInOrder := []core.TrafficSegment{}
+	segsInOrder := []types.UID{}
 	// This is to support both central and segment-based traffic.
 	if container.SupportsSegmentTraffic() {
 		// Update traffic segments. Proceed on errors.
@@ -1342,9 +1342,9 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 
 	// Reconcile stack resources. Proceed on errors.
 	reconciledStacks := map[types.UID]bool{}
-	for _, ts := range segsInOrder {
-		reconciledStacks[ts.GetID()] = true
-		sc := container.StackContainers[ts.GetID()]
+	for _, id := range segsInOrder {
+		reconciledStacks[id] = true
+		sc := container.StackContainers[id]
 		err = c.ReconcileStackResources(ctx, container, sc)
 		if err != nil {
 			err = c.errorEventf(sc.Stack, "FailedManageStack", err)

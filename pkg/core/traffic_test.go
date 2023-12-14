@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"reflect"
 	"sort"
 	"testing"
 	"time"
@@ -972,8 +973,6 @@ func TestNewTrafficSegment(t *testing.T) {
 		stackContainer     *StackContainer
 		expectedLowerLimit float64
 		expectedUpperLimit float64
-		expectIngress      bool
-		expectRouteGroup   bool
 		expectErr          bool
 	}{
 		{
@@ -991,94 +990,28 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.1,
-			expectIngress:      true,
-			expectRouteGroup:   false,
 			expectErr:          false,
 		},
 		{
 			stackContainer: &StackContainer{
-				Stack: &zv1.Stack{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo-v1",
-					},
-				},
-				backendPort: &intstr.IntOrString{
-					IntVal: 8080,
-				},
-				ingressSpec: &zv1.StackSetIngressSpec{
-					Hosts: []string{"foo.example.com"},
-				},
+				ingressSpec: &zv1.StackSetIngressSpec{},
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.0,
-			expectIngress:      true,
-			expectRouteGroup:   false,
 			expectErr:          false,
 		},
 		{
 			stackContainer: &StackContainer{
-				Stack: &zv1.Stack{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo-v1",
-					},
-				},
-				ingressSpec: &zv1.StackSetIngressSpec{
-					Hosts: []string{"foo.example.com"},
-				},
-			},
-			expectedLowerLimit: 0.0,
-			expectedUpperLimit: 0.0,
-			expectIngress:      false,
-			expectRouteGroup:   false,
-			expectErr:          true,
-		},
-		{
-			stackContainer: &StackContainer{
-				Stack: &zv1.Stack{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo-v1",
-					},
-				},
-				backendPort: &intstr.IntOrString{
-					IntVal: 8080,
-				},
 				routeGroupSpec: &zv1.RouteGroupSpec{
 					Hosts: []string{"foo.example.com"},
 				},
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.0,
-			expectIngress:      false,
-			expectRouteGroup:   true,
 			expectErr:          false,
 		},
 		{
 			stackContainer: &StackContainer{
-				Stack: &zv1.Stack{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo-v1",
-					},
-				},
-				routeGroupSpec: &zv1.RouteGroupSpec{
-					Hosts: []string{"foo.example.com"},
-				},
-			},
-			expectedLowerLimit: 0.0,
-			expectedUpperLimit: 0.0,
-			expectIngress:      false,
-			expectRouteGroup:   false,
-			expectErr:          true,
-		},
-		{
-			stackContainer: &StackContainer{
-				Stack: &zv1.Stack{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "foo-v1",
-					},
-				},
-				backendPort: &intstr.IntOrString{
-					IntVal: 8080,
-				},
 				routeGroupSpec: &zv1.RouteGroupSpec{
 					Hosts: []string{"foo.example.com"},
 				},
@@ -1088,8 +1021,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.0,
-			expectIngress:      true,
-			expectRouteGroup:   true,
 			expectErr:          false,
 		},
 		{
@@ -1099,7 +1030,7 @@ func TestNewTrafficSegment(t *testing.T) {
 					IngressSegment: &v1.Ingress{
 						ObjectMeta: metav1.ObjectMeta{
 							Annotations: map[string]string{
-								IngressPredicateKey: "TraficSegment(0.0, 0.1)",
+								IngressPredicateKey: "NoMatch(0.0, 0.1)",
 							},
 						},
 					},
@@ -1107,8 +1038,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: -1.0,
 			expectedUpperLimit: -1.0,
-			expectIngress:      false,
-			expectRouteGroup:   false,
 			expectErr:          true,
 		},
 		{
@@ -1126,8 +1055,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: -1.0,
 			expectedUpperLimit: -1.0,
-			expectIngress:      false,
-			expectRouteGroup:   false,
 			expectErr:          true,
 		},
 		{
@@ -1145,8 +1072,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: -1.0,
 			expectedUpperLimit: -1.0,
-			expectIngress:      false,
-			expectRouteGroup:   false,
 			expectErr:          true,
 		},
 		{
@@ -1164,8 +1089,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.1,
-			expectIngress:      true,
-			expectRouteGroup:   false,
 			expectErr:          false,
 		},
 		{
@@ -1183,8 +1106,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.1,
-			expectIngress:      true,
-			expectRouteGroup:   false,
 			expectErr:          false,
 		},
 		{
@@ -1206,8 +1127,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.1,
-			expectIngress:      false,
-			expectRouteGroup:   true,
 			expectErr:          false,
 		},
 		{
@@ -1225,8 +1144,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: -1.0,
 			expectedUpperLimit: -1.0,
-			expectIngress:      false,
-			expectRouteGroup:   false,
 			expectErr:          true,
 		},
 		{
@@ -1249,8 +1166,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.1,
-			expectIngress:      false,
-			expectRouteGroup:   true,
 			expectErr:          false,
 		},
 		{
@@ -1273,8 +1188,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.1,
-			expectIngress:      false,
-			expectRouteGroup:   true,
 			expectErr:          false,
 		},
 		{
@@ -1297,8 +1210,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: -1.0,
 			expectedUpperLimit: -1.10,
-			expectIngress:      false,
-			expectRouteGroup:   false,
 			expectErr:          true,
 		},
 		{
@@ -1329,8 +1240,6 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: 0.0,
 			expectedUpperLimit: 0.1,
-			expectIngress:      true,
-			expectRouteGroup:   true,
 			expectErr:          false,
 		},
 		{
@@ -1361,12 +1270,10 @@ func TestNewTrafficSegment(t *testing.T) {
 			},
 			expectedLowerLimit: -1.0,
 			expectedUpperLimit: -1.0,
-			expectIngress:      false,
-			expectRouteGroup:   false,
 			expectErr:          true,
 		},
 	} {
-		res, err := NewTrafficSegment("id", tc.stackContainer)
+		res, err := newTrafficSegment("id", tc.stackContainer)
 		if (err != nil) != tc.expectErr {
 			t.Errorf(
 				"expected error: %s. got error: %s",
@@ -1391,23 +1298,6 @@ func TestNewTrafficSegment(t *testing.T) {
 				res.upperLimit,
 			)
 			continue
-		}
-
-		if (res.IngressSegment != nil) != tc.expectIngress {
-			t.Errorf(
-				"expected Ingress segment: %s. got Ingress segment: %s",
-				yesNo[tc.expectIngress],
-				yesNo[res.IngressSegment != nil],
-			)
-			continue
-		}
-
-		if (res.RouteGroupSegment != nil) != tc.expectRouteGroup {
-			t.Errorf(
-				"expected RouteGroup Segment: %s. got RouteGroup: %s",
-				yesNo[tc.expectRouteGroup],
-				yesNo[res.RouteGroupSegment != nil],
-			)
 		}
 	}
 }
@@ -1531,7 +1421,7 @@ func TestSetLimits(t *testing.T) {
 			}
 		}
 
-		segment, _ := NewTrafficSegment("v1", container)
+		segment, _ := newTrafficSegment("v1", container)
 		err := segment.setLimits(tc.lower, tc.upper)
 
 		if (err != nil) != tc.expectErr {
@@ -1555,7 +1445,7 @@ func TestSetLimits(t *testing.T) {
 					segment.upperLimit,
 					expectedPretty,
 				)
-				break
+				continue
 			}
 		} else {
 			if segment.lowerLimit != 0.0 || segment.upperLimit != 0.0 {
@@ -1565,64 +1455,7 @@ func TestSetLimits(t *testing.T) {
 					segment.upperLimit,
 					expectedPretty,
 				)
-				break
-			}
-		}
-
-		if tc.ingressSegment == "" {
-			if segment.IngressSegment != nil {
-				t.Errorf(
-					"non nil IngressSegment, expected\n%s",
-					expectedPretty,
-				)
-				break
-			}
-
-		} else {
-			if segment.IngressSegment == nil {
-				t.Errorf(
-					"nil IngressSegment, expected\n%s",
-					expectedPretty,
-				)
-				break
-			}
-
-			if segment.IngressSegment.Annotations[IngressPredicateKey] !=
-				tc.expected["ingress"] {
-
-				t.Errorf(
-					"IngressSegment mismatch %q, expected\n%s",
-					segment.IngressSegment.Annotations[IngressPredicateKey],
-					expectedPretty,
-				)
-				break
-			}
-		}
-
-		if tc.routeGroupSegment == "" {
-			if segment.RouteGroupSegment != nil {
-				t.Errorf(
-					"non nil RouteGroupSegment, expected\n%s",
-					expectedPretty,
-				)
-				break
-			}
-
-		} else {
-			found := false
-			for _, pred := range segment.RouteGroupSegment.Spec.Routes[0].Predicates {
-				if pred == tc.expected["routegroup"] {
-					found = true
-					break
-				}
-			}
-
-			if !found {
-				t.Errorf(
-					"RouteGroupSegment not found in %v, expected\n%s",
-					segment.RouteGroupSegment.Spec.Routes[0].Predicates,
-					expectedPretty,
-				)
+				continue
 			}
 		}
 	}
@@ -1635,60 +1468,60 @@ func TestSegmentSorting(t *testing.T) {
 	}{
 		{
 			input: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
-				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				trafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
 			},
 			expected: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
-				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				trafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
 			},
 		},
 		{
 			input: segmentList{
-				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
 			},
 			expected: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
-				TrafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 0.3},
+				trafficSegment{lowerLimit: 0.3, upperLimit: 1.0},
 			},
 		},
 		{
 			input: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
 			},
 			expected: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
 			},
 		},
 		{
 			input: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
 			},
 			expected: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
 			},
 		},
 		{
 			input: segmentList{
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.2},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.2},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
 			},
 			expected: segmentList{
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
-				TrafficSegment{lowerLimit: 0.0, upperLimit: 0.2},
-				TrafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.1},
+				trafficSegment{lowerLimit: 0.0, upperLimit: 0.2},
+				trafficSegment{lowerLimit: 0.1, upperLimit: 1.0},
 			},
 		},
 	} {
@@ -1811,7 +1644,9 @@ func TestComputeTrafficSegments(t *testing.T) {
 		actualTrafficWeights map[types.UID]float64
 		ingressSegments      map[types.UID]string
 		routeGroupSegments   map[types.UID]string
-		expected             []map[types.UID]map[string]string
+		expected             []types.UID
+		expectedLowerLimits  map[types.UID]float64
+		expectedUpperLimits  map[types.UID]float64
 		expectErr            bool
 	}{
 		{
@@ -1824,10 +1659,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 			routeGroupSegments: map[types.UID]string{
 				"v1": "",
 			},
-			expected: []map[types.UID]map[string]string{
-				{"v1": {"ingress": "TrafficSegment(0.00, 1.00)"}},
-			},
-			expectErr: false,
+			expected:            []types.UID{"v1"},
+			expectedLowerLimits: map[types.UID]float64{"v1": 0.0},
+			expectedUpperLimits: map[types.UID]float64{"v1": 1.0},
+			expectErr:           false,
 		},
 		{
 			actualTrafficWeights: map[types.UID]float64{
@@ -1839,8 +1674,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 			routeGroupSegments: map[types.UID]string{
 				"v1": "",
 			},
-			expected:  []map[types.UID]map[string]string{},
-			expectErr: false,
+			expected:            []types.UID{},
+			expectedLowerLimits: map[types.UID]float64{},
+			expectedUpperLimits: map[types.UID]float64{},
+			expectErr:           false,
 		},
 		{
 			actualTrafficWeights: map[types.UID]float64{
@@ -1858,8 +1695,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v2": "",
 				"v3": "",
 			},
-			expected:  []map[types.UID]map[string]string{},
-			expectErr: false,
+			expected:            []types.UID{},
+			expectedLowerLimits: map[types.UID]float64{},
+			expectedUpperLimits: map[types.UID]float64{},
+			expectErr:           false,
 		},
 		{
 			actualTrafficWeights: map[types.UID]float64{
@@ -1871,10 +1710,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 			routeGroupSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.0)",
 			},
-			expected: []map[types.UID]map[string]string{
-				{"v1": {"routegroup": "TrafficSegment(0.00, 1.00)"}},
-			},
-			expectErr: false,
+			expected:            []types.UID{"v1"},
+			expectedLowerLimits: map[types.UID]float64{"v1": 0.0},
+			expectedUpperLimits: map[types.UID]float64{"v1": 1.0},
+			expectErr:           false,
 		},
 		{
 			actualTrafficWeights: map[types.UID]float64{
@@ -1886,15 +1725,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 			routeGroupSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.0)",
 			},
-			expected: []map[types.UID]map[string]string{
-				{
-					"v1": {
-						"ingress":    "TrafficSegment(0.00, 1.00)",
-						"routegroup": "TrafficSegment(0.00, 1.00)",
-					},
-				},
-			},
-			expectErr: false,
+			expected:            []types.UID{"v1"},
+			expectedLowerLimits: map[types.UID]float64{"v1": 0.0},
+			expectedUpperLimits: map[types.UID]float64{"v1": 1.0},
+			expectErr:           false,
 		},
 		{
 			actualTrafficWeights: map[types.UID]float64{
@@ -1909,11 +1743,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v1": "",
 				"v2": "",
 			},
-			expected: []map[types.UID]map[string]string{
-				{"v2": {"ingress": "TrafficSegment(0.00, 1.00)"}},
-				{"v1": {"ingress": "TrafficSegment(0.00, 0.00)"}},
-			},
-			expectErr: false,
+			expected:            []types.UID{"v2", "v1"},
+			expectedLowerLimits: map[types.UID]float64{"v2": 0.0, "v1": 0.0},
+			expectedUpperLimits: map[types.UID]float64{"v2": 1.0, "v1": 0.0},
+			expectErr:           false,
 		},
 		{
 			actualTrafficWeights: map[types.UID]float64{
@@ -1928,11 +1761,10 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v1": "",
 				"v2": "TrafficSegment(0.0, 0.0)",
 			},
-			expected: []map[types.UID]map[string]string{
-				{"v2": {"routegroup": "TrafficSegment(0.00, 1.00)"}},
-				{"v1": {"ingress": "TrafficSegment(0.00, 0.00)"}},
-			},
-			expectErr: false,
+			expected:            []types.UID{"v2", "v1"},
+			expectedLowerLimits: map[types.UID]float64{"v2": 0.0, "v1": 0.0},
+			expectedUpperLimits: map[types.UID]float64{"v2": 1.0, "v1": 0.0},
+			expectErr:           false,
 		},
 		{
 			actualTrafficWeights: map[types.UID]float64{
@@ -1950,10 +1782,16 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v2": "",
 				"v3": "",
 			},
-			expected: []map[types.UID]map[string]string{
-				{"v2": {"ingress": "TrafficSegment(0.30, 0.70)"}},
-				{"v3": {"ingress": "TrafficSegment(0.70, 1.00)"}},
-				{"v1": {"ingress": "TrafficSegment(0.00, 0.30)"}},
+			expected: []types.UID{"v2", "v3", "v1"},
+			expectedLowerLimits: map[types.UID]float64{
+				"v2": 0.3,
+				"v3": 0.7,
+				"v1": 0.0,
+			},
+			expectedUpperLimits: map[types.UID]float64{
+				"v2": 0.7,
+				"v3": 1.0,
+				"v1": 0.3,
 			},
 			expectErr: false,
 		},
@@ -1973,10 +1811,16 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v2": "",
 				"v3": "",
 			},
-			expected: []map[types.UID]map[string]string{
-				{"v1": {"ingress": "TrafficSegment(0.00, 0.40)"}},
-				{"v3": {"ingress": "TrafficSegment(0.60, 1.00)"}},
-				{"v2": {"ingress": "TrafficSegment(0.40, 0.60)"}},
+			expected: []types.UID{"v1", "v3", "v2"},
+			expectedLowerLimits: map[types.UID]float64{
+				"v1": 0.0,
+				"v3": 0.6000000000000001,
+				"v2": 0.4,
+			},
+			expectedUpperLimits: map[types.UID]float64{
+				"v1": 0.4,
+				"v3": 1.0,
+				"v2": 0.6000000000000001,
 			},
 			expectErr: false,
 		},
@@ -1996,22 +1840,20 @@ func TestComputeTrafficSegments(t *testing.T) {
 				"v2": "",
 				"v3": "",
 			},
-			expected: []map[types.UID]map[string]string{
-				{"v3": {"ingress": "TrafficSegment(0.60, 1.00)"}},
-				{"v2": {"ingress": "TrafficSegment(0.40, 0.60)"}},
-				{"v1": {"ingress": "TrafficSegment(0.00, 0.40)"}},
+			expected: []types.UID{"v3", "v2", "v1"},
+			expectedLowerLimits: map[types.UID]float64{
+				"v3": 0.6000000000000001,
+				"v2": 0.4,
+				"v1": 0.0,
+			},
+			expectedUpperLimits: map[types.UID]float64{
+				"v3": 1.0,
+				"v2": 0.6000000000000001,
+				"v1": 0.4,
 			},
 			expectErr: false,
 		},
 	} {
-		expectedJSON, err := json.MarshalIndent(tc.expected, "", "  ")
-		if err != nil {
-			// shouldn't happen
-			t.Errorf("Failed marshalling expected result")
-			break
-		}
-		expectedPretty := string(expectedJSON)
-
 		stackContainers := map[types.UID]*StackContainer{}
 		for k, v := range tc.actualTrafficWeights {
 			stackContainers[k] = &StackContainer{
@@ -2027,9 +1869,7 @@ func TestComputeTrafficSegments(t *testing.T) {
 						},
 					},
 				}
-				stackContainers[k].backendPort = &intstr.IntOrString{
-					IntVal: 8080,
-				}
+
 				stackContainers[k].ingressSpec = &zv1.StackSetIngressSpec{
 					Hosts: []string{"foo.example.com"},
 				}
@@ -2043,9 +1883,7 @@ func TestComputeTrafficSegments(t *testing.T) {
 						},
 					},
 				}
-				stackContainers[k].backendPort = &intstr.IntOrString{
-					IntVal: 8080,
-				}
+
 				stackContainers[k].routeGroupSpec = &zv1.RouteGroupSpec{
 					Hosts: []string{"foo.example.com"},
 				}
@@ -2070,95 +1908,30 @@ func TestComputeTrafficSegments(t *testing.T) {
 			continue
 		}
 
-		if len(res) != len(tc.expected) {
-			t.Errorf(
-				"wrong number of segments (%d), expected\n%s",
-				len(res),
-				expectedPretty,
-			)
+		if !reflect.DeepEqual(res, tc.expected) {
+			t.Errorf("Expected %v, got %v\n", tc.expected, res)
 			continue
 		}
 
-		for i, v := range res {
-			segments, ok := tc.expected[i][v.id]
-			if !ok {
+		for k, v := range tc.expectedLowerLimits {
+			if ssc.StackContainers[k].segmentLowerLimit != v {
 				t.Errorf(
-					"id mismatch at index %d(%q), expected\n%s",
-					i,
-					v.id,
-					expectedPretty,
+					"mismatched lower limit (%s): %f, expected %v",
+					k,
+					ssc.StackContainers[k].segmentLowerLimit,
+					tc.expectedLowerLimits,
 				)
 				break
 			}
 
-			ingressSegment, ok := segments["ingress"]
-			if !ok && v.IngressSegment != nil {
+			if ssc.StackContainers[k].segmentUpperLimit !=
+				tc.expectedUpperLimits[k] {
 				t.Errorf(
-					"non nil IngressSegment at index %d, expected\n%s",
-					i,
-					expectedPretty,
+					"mismatched upper limit (%s): %f, expected %v",
+					k,
+					ssc.StackContainers[k].segmentUpperLimit,
+					tc.expectedUpperLimits,
 				)
-				break
-			}
-
-			if ok {
-				if v.IngressSegment == nil {
-					t.Errorf(
-						"nil IngressSegment at index %d, expected\n%s",
-						i,
-						expectedPretty,
-					)
-					break
-				}
-
-				if v.IngressSegment.Annotations[IngressPredicateKey] !=
-					ingressSegment {
-
-					t.Errorf(
-						"IngressSegment mismatch %q at index %d, expected\n%s",
-						v.IngressSegment.Annotations[IngressPredicateKey],
-						i,
-						expectedPretty,
-					)
-					break
-				}
-			}
-
-			rgSegment, ok := segments["routegroup"]
-			if !ok && v.RouteGroupSegment != nil {
-				t.Errorf(
-					"non nil RouteGroupSegment at index %d, expected\n%s",
-					i,
-					expectedPretty,
-				)
-				break
-			}
-
-			if ok {
-				if v.RouteGroupSegment == nil {
-					t.Errorf(
-						"nil RouteGroupSegment at index %d, expected\n%s",
-						i,
-						expectedPretty,
-					)
-					break
-				}
-
-				found := false
-				for _, pred := range v.RouteGroupSegment.Spec.Routes[0].Predicates {
-					if pred == rgSegment {
-						found = true
-						break
-					}
-				}
-
-				if !found {
-					t.Errorf(
-						"RouteGroupSegment not found at index %d, expected\n%s",
-						i,
-						expectedPretty,
-					)
-				}
 			}
 		}
 	}

@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
-	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -27,17 +25,15 @@ type (
 		) error
 	}
 
-	// TrafficSegment holds segment information for a stack, specified by its UID.
-	TrafficSegment struct {
-		id                types.UID
-		lowerLimit        float64
-		upperLimit        float64
-		IngressSegment    *networking.Ingress
-		RouteGroupSegment *rgv1.RouteGroup
+	// trafficSegment holds segment information for a stack, specified by its UID.
+	trafficSegment struct {
+		id         types.UID
+		lowerLimit float64
+		upperLimit float64
 	}
 
 	// segmentList holds a sortable set of TrafficSegments.
-	segmentList []TrafficSegment
+	segmentList []trafficSegment
 )
 
 var (
@@ -46,14 +42,13 @@ var (
 	)
 )
 
-// NewTrafficSegment returns a new TrafficSegment based on the specified stack
+// newTrafficSegment returns a new TrafficSegment based on the specified stack
 // container.
-func NewTrafficSegment(id types.UID, sc *StackContainer) (
-	*TrafficSegment,
+func newTrafficSegment(id types.UID, sc *StackContainer) (
+	*trafficSegment,
 	error,
 ) {
-	var err error
-	res := &TrafficSegment{
+	res := &trafficSegment{
 		id:         id,
 		lowerLimit: 0.0,
 		upperLimit: 0.0,
@@ -61,41 +56,25 @@ func NewTrafficSegment(id types.UID, sc *StackContainer) (
 
 	if sc.ingressSpec != nil {
 		if sc.Resources.IngressSegment != nil {
-			res.IngressSegment = sc.Resources.IngressSegment.DeepCopy()
-			predicates := res.IngressSegment.Annotations[IngressPredicateKey]
+			predicates := sc.Resources.IngressSegment.Annotations[IngressPredicateKey]
 			lowerLimit, upperLimit, err := getSegmentLimits(predicates)
 			if err != nil {
 				return nil, err
 			}
 			res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
-
-			// Create initial segment. Used when the controller creates the stack.
-		} else {
-			res.IngressSegment, err = sc.GenerateIngressSegment()
-			if err != nil {
-				return nil, err
-			}
-			if res.IngressSegment == nil {
-				return nil, fmt.Errorf(
-					"nil ingress segment for stack %s",
-					sc.Name(),
-				)
-			}
 		}
 	}
 
 	if sc.routeGroupSpec != nil {
 		if sc.Resources.RouteGroupSegment != nil {
-			res.RouteGroupSegment = sc.Resources.RouteGroupSegment.DeepCopy()
-
 			lowerLimit, upperLimit, err := getSegmentLimits(
-				res.RouteGroupSegment.Spec.Routes[0].Predicates...,
+				sc.Resources.RouteGroupSegment.Spec.Routes[0].Predicates...,
 			)
 			if err != nil {
 				return nil, err
 			}
 
-			if res.IngressSegment != nil &&
+			if sc.ingressSpec != nil &&
 				(res.lowerLimit != lowerLimit || res.upperLimit != upperLimit) {
 
 				return nil, errors.New(
@@ -103,33 +82,15 @@ func NewTrafficSegment(id types.UID, sc *StackContainer) (
 				)
 			}
 			res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
-
-			// Create initial segment. Used when the controller creates the stack.
-		} else {
-			res.RouteGroupSegment, err = sc.GenerateRouteGroupSegment()
-			if err != nil {
-				return nil, err
-			}
-			if res.RouteGroupSegment == nil {
-				return nil, fmt.Errorf(
-					"nil routegroup segment for stack %s",
-					sc.Name(),
-				)
-			}
 		}
 	}
 
 	return res, nil
 }
 
-// GetID returns the stack container ID related to this TrafficSegment.
-func (t *TrafficSegment) GetID() types.UID {
-	return t.id
-}
-
 // weight returns the corresponding weight of the segment, in a decimal
 // fraction.
-func (t *TrafficSegment) weight() float64 {
+func (t *trafficSegment) weight() float64 {
 	return t.upperLimit - t.lowerLimit
 }
 
@@ -138,7 +99,7 @@ func (t *TrafficSegment) weight() float64 {
 //
 // Returns an error if any of the limits is a negative value, or if the upper
 // limit's value lower than the lower limit.
-func (t *TrafficSegment) setLimits(lower, upper float64) error {
+func (t *trafficSegment) setLimits(lower, upper float64) error {
 	switch {
 	case lower < 0.0 || upper < 0.0:
 		return fmt.Errorf(
@@ -159,28 +120,6 @@ func (t *TrafficSegment) setLimits(lower, upper float64) error {
 
 	default:
 		t.lowerLimit, t.upperLimit = lower, upper
-	}
-
-	newSegment := fmt.Sprintf(segmentString, t.lowerLimit, t.upperLimit)
-
-	if t.IngressSegment != nil {
-		newPreds := segmentRe.ReplaceAllString(
-			t.IngressSegment.Annotations[IngressPredicateKey],
-			newSegment,
-		)
-
-		t.IngressSegment.Annotations[IngressPredicateKey] = newPreds
-	}
-
-	if t.RouteGroupSegment != nil {
-		for _, r := range t.RouteGroupSegment.Spec.Routes {
-			for i, p := range r.Predicates {
-				if segmentRe.MatchString(p) {
-					r.Predicates[i] = newSegment
-					break
-				}
-			}
-		}
 	}
 
 	return nil
@@ -449,13 +388,11 @@ func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 //
 // Returns an ordered list of traffic segments, to ensure no gaps in traffic
 // assignment.
-func (ssc *StackSetContainer) ComputeTrafficSegments() (
-	[]TrafficSegment,
-	error,
-) {
+func (ssc *StackSetContainer) ComputeTrafficSegments() ([]types.UID, error) {
 	var segments segmentList
 	weightDiffs := map[types.UID]float64{}
-	changes := []TrafficSegment{}
+	changes := []trafficSegment{}
+	unchanged := []trafficSegment{}
 	existingStacks := map[types.UID]bool{}
 	newWeights := map[types.UID]float64{}
 
@@ -466,7 +403,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 			newWeights[uid] = sc.actualTrafficWeight / 100.0
 		}
 
-		trafficSegment, err := NewTrafficSegment(uid, sc)
+		trafficSegment, err := newTrafficSegment(uid, sc)
 		if err != nil {
 			return nil, err
 		}
@@ -494,6 +431,8 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		// Don't add segments that didn't change
 		if lBefore != s.lowerLimit || uBefore != s.upperLimit {
 			changes = append(changes, s)
+		} else {
+			unchanged = append(unchanged, s)
 		}
 		index += w
 	}
@@ -501,7 +440,7 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 	// Add new stacks, previously with no traffic
 	for id, w := range newWeights {
 		if !existingStacks[id] {
-			s, err := NewTrafficSegment(id, ssc.StackContainers[id])
+			s, err := newTrafficSegment(id, ssc.StackContainers[id])
 			if err != nil {
 				return nil, err
 			}
@@ -526,7 +465,21 @@ func (ssc *StackSetContainer) ComputeTrafficSegments() (
 		return changes[i].id < changes[j].id
 	})
 
-	return changes, nil
+	ordered := []types.UID{}
+	for _, s := range changes {
+		ordered = append(ordered, s.id)
+		ssc.StackContainers[s.id].segmentLowerLimit = s.lowerLimit
+		ssc.StackContainers[s.id].segmentUpperLimit = s.upperLimit
+	}
+
+	// This ensures that at the time of ingress reconciliation, the limits are
+	// consistent with the segment collected by the controller.
+	for _, s := range unchanged {
+		ssc.StackContainers[s.id].segmentLowerLimit = s.lowerLimit
+		ssc.StackContainers[s.id].segmentUpperLimit = s.upperLimit
+	}
+
+	return ordered, nil
 }
 
 // fallbackStack returns a stack that should be the target of traffic if none of the existing stacks get anything

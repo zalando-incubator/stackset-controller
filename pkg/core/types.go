@@ -116,8 +116,8 @@ type StackContainer struct {
 	updatedReplicas int32
 
 	// When using traffic segments: the traffic segment associated to this stack
-	IngressSegmentToUpdate    *networking.Ingress
-	RouteGroupSegmentToUpdate *rgv1.RouteGroup
+	segmentLowerLimit float64
+	segmentUpperLimit float64
 
 	// Traffic & scaling
 	currentActualTrafficWeight     float64
@@ -196,7 +196,7 @@ type StackResources struct {
 	IngressSegment    *networking.Ingress
 	RouteGroup        *rgv1.RouteGroup
 	RouteGroupSegment *rgv1.RouteGroup
-	ConfigMaps []*v1.ConfigMap
+	ConfigMaps        []*v1.ConfigMap
 }
 
 func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {
