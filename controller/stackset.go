@@ -275,8 +275,9 @@ func (c *StackSetController) injectSegmentAnnotation(
 		stackSet,
 		v1.EventTypeNormal,
 		"UpdatedStackSet",
-		"Updated StackSet %s",
+		"Updated StackSet %s. Injected %s annotation",
 		stackSet.Name,
+		TrafficSegmentsAnnotationKey,
 	)
 
 	return true
@@ -1110,7 +1111,7 @@ func (c *StackSetController) convertToTrafficSegments(
 			ssc.StackSet,
 			v1.EventTypeNormal,
 			"DeletedIngress",
-			"Deleted Ingress %s, StackSet conversion complete",
+			"Deleted Ingress %s, StackSet conversion to traffic segments complete",
 			ssc.Ingress.Namespace,
 		)
 
@@ -1142,7 +1143,7 @@ func (c *StackSetController) convertToTrafficSegments(
 			ssc.RouteGroup,
 			v1.EventTypeNormal,
 			"DeletedRouteGroup",
-			"Deleted RouteGroup %s, StackSet conversion complete",
+			"Deleted RouteGroup %s, StackSet conversion to traffic segments complete",
 			ssc.RouteGroup.Namespace,
 		)
 
