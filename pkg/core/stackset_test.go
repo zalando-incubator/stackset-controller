@@ -409,7 +409,7 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		expectedIngress *zv1.StackSetIngressSpec
 	}{
 		{
-			name:            "no ingress",
+			name: "no ingress",
 			expectedIngress: nil,
 		},
 		{
@@ -425,12 +425,22 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec.Ingress = tc.ingress
+			c.StackContainers = map[types.UID]*StackContainer{
+				"v1": {
+					Stack: &zv1.Stack{
+						Spec: zv1.StackSpecInternal{
+							Ingress: tc.ingress,
+						},
+					},
+				},
+			}
+
 			err := c.UpdateFromResources()
 			require.NoError(t, err)
 
 			for _, sc := range c.StackContainers {
 				require.Equal(t, c.StackSet.Name, sc.stacksetName)
-				require.EqualValues(t, c.StackSet.Spec.Ingress, sc.ingressSpec)
+				require.EqualValues(t, sc.Stack.Spec.Ingress, sc.ingressSpec)
 			}
 		})
 	}
@@ -469,6 +479,16 @@ func TestStackSetUpdateFromResourcesPopulatesBackendPort(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := dummyStacksetContainer()
 			c.StackSet.Spec = tc.spec
+			c.StackContainers = map[types.UID]*StackContainer{
+				"v1": {
+					Stack: &zv1.Stack{
+						Spec: zv1.StackSpecInternal{
+							Ingress: tc.spec.Ingress,
+							ExternalIngress: tc.spec.ExternalIngress,
+						},
+					},
+				},
+			}
 			err := c.UpdateFromResources()
 			require.NoError(t, err)
 
@@ -522,6 +542,16 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 			if tc.ingress != nil {
 				c.StackSet.Spec.Ingress = tc.ingress
 			}
+			c.StackContainers = map[types.UID]*StackContainer{
+				"v1": {
+					Stack: &zv1.Stack{
+						Spec: zv1.StackSpecInternal{
+							Ingress: tc.ingress,
+							ExternalIngress: tc.externalIngress,
+						},
+					},
+				},
+			}
 
 			err := c.UpdateFromResources()
 			require.NoError(t, err)
@@ -529,12 +559,16 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 			for _, sc := range c.StackContainers {
 				require.Equal(t, c.StackSet.Name, sc.stacksetName)
 
-				require.EqualValues(t, c.StackSet.Spec.Ingress, sc.ingressSpec)
+				require.EqualValues(t, sc.Stack.Spec.Ingress, sc.ingressSpec)
 				if tc.externalIngress != nil || tc.ingress != nil {
 					require.NotNil(t, sc.backendPort, "stack container backendport should not be nil")
 				}
 				if tc.externalIngress != nil {
-					require.EqualValues(t, c.StackSet.Spec.ExternalIngress.BackendPort, *sc.backendPort)
+					require.EqualValues(
+						t,
+						sc.Stack.Spec.ExternalIngress.BackendPort,
+						*sc.backendPort,
+					)
 				}
 				require.Equal(t, tc.expectedScaledownTTL, sc.scaledownTTL)
 			}
@@ -748,6 +782,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.Ingress = ingress(11)
+		container.Resources.IngressSegment = ingress(11)
 		container.Resources.HPA = hpa(11)
 		container.updateFromResources()
 		require.EqualValues(t, true, container.resourcesUpdated)

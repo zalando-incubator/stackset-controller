@@ -65,6 +65,11 @@ type StackSetContainer struct {
 	// clusterDomains stores the main domain names of the cluster;
 	// per-stack ingress hostnames are not generated for names outside of them
 	clusterDomains []string
+
+	// segmentTraffic controls support of managing traffic weight by using
+	// dedicated Ingress and RouteGroup resources with Skipper's TrafficSegment
+	// predicate.
+	segmentTraffic bool
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -85,8 +90,7 @@ type StackContainer struct {
 	scaledownTTL   time.Duration
 	clusterDomains []string
 
-	// Fields from the stack itself. If not present in the stack, default to
-	// fields from the parent stackset
+	// Fields from the stack itself.
 	ingressSpec    *zv1.StackSetIngressSpec
 	routeGroupSpec *zv1.RouteGroupSpec
 	backendPort    *intstr.IntOrString
@@ -110,6 +114,10 @@ type StackContainer struct {
 
 	// Current number of up-to-date replicas that the deployment has, from Deployment.status
 	updatedReplicas int32
+
+	// When using traffic segments: the traffic segment associated to this stack
+	segmentLowerLimit float64
+	segmentUpperLimit float64
 
 	// Traffic & scaling
 	currentActualTrafficWeight     float64
@@ -181,12 +189,14 @@ func (sc *StackContainer) Namespace() string {
 
 // StackResources describes the resources of a stack.
 type StackResources struct {
-	Deployment *appsv1.Deployment
-	HPA        *autoscaling.HorizontalPodAutoscaler
-	Service    *v1.Service
-	Ingress    *networking.Ingress
-	RouteGroup *rgv1.RouteGroup
-	ConfigMaps []*v1.ConfigMap
+	Deployment        *appsv1.Deployment
+	HPA               *autoscaling.HorizontalPodAutoscaler
+	Service           *v1.Service
+	Ingress           *networking.Ingress
+	IngressSegment    *networking.Ingress
+	RouteGroup        *rgv1.RouteGroup
+	RouteGroupSegment *rgv1.RouteGroup
+	ConfigMaps        []*v1.ConfigMap
 }
 
 func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {
@@ -287,7 +297,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		return err
 	}
 
-	// if backendPort is not defined from Ingress or Routegroup fall back
+	// if backendPort is not defined from Ingress or Routegroup fallback
 	// to externalIngress if defined
 	if ssc.StackSet.Spec.ExternalIngress != nil {
 		ssc.externalIngressBackendPort = backendPort
@@ -302,17 +312,19 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 
 	for _, sc := range ssc.StackContainers {
 		sc.stacksetName = ssc.StackSet.Name
-		sc.ingressSpec = ssc.StackSet.Spec.Ingress
 		sc.backendPort = backendPort
-		sc.routeGroupSpec = ssc.StackSet.Spec.RouteGroup
 		sc.scaledownTTL = scaledownTTL
 		sc.clusterDomains = ssc.clusterDomains
-		err := sc.overrideParentResources()
+		err := sc.updateStackResources()
 		if err != nil {
 			return err
 		}
 
 		sc.updateFromResources()
+		// This is to support both central and segment-based traffic.
+		if ssc.SupportsSegmentTraffic() {
+			sc.updateFromSegmentResources()
+		}
 	}
 
 	// only populate traffic if traffic management is enabled
@@ -324,7 +336,6 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		if err != nil {
 			return err
 		}
-
 		return ssc.updateActualTraffic()
 	}
 
@@ -353,31 +364,22 @@ func (ssc *StackSetContainer) TrafficChanges() []TrafficChange {
 	return result
 }
 
-// overrideParentResources writes over Ingress and RouteGroup resources from the
-// parent, in case the stack has the corresponding resources in the spec.
-func (sc *StackContainer) overrideParentResources() error {
-	overridePort := sc.Stack.Spec.ExternalIngress != nil
+// updateStackResources writes sets the Ingress and RouteGroup
+// resources, based on this container's Spec.
+func (sc *StackContainer) updateStackResources() error {
+	sc.ingressSpec = sc.Stack.Spec.Ingress
+	sc.routeGroupSpec = sc.Stack.Spec.RouteGroup
 
-	if sc.Stack.Spec.Ingress != nil {
-		overridePort = true
-		sc.ingressSpec = sc.Stack.Spec.Ingress
+	backendPort, err := findBackendPort(
+		sc.ingressSpec,
+		sc.routeGroupSpec,
+		sc.Stack.Spec.ExternalIngress,
+	)
+	if err != nil {
+		return err
 	}
 
-	if sc.Stack.Spec.RouteGroup != nil {
-		overridePort = true
-		sc.routeGroupSpec = sc.Stack.Spec.RouteGroup
-	}
-
-	if overridePort {
-		backendPort, err := findBackendPort(
-			sc.ingressSpec,
-			sc.routeGroupSpec,
-			sc.Stack.Spec.ExternalIngress,
-		)
-		if err != nil {
-			return err
-		}
-
+	if backendPort != nil {
 		sc.backendPort = backendPort
 	}
 
@@ -414,7 +416,7 @@ func (sc *StackContainer) updateFromResources() {
 	if sc.routeGroupSpec != nil {
 		routeGroupUpdated = sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
 	} else {
-		// ignore if ingress is not set
+		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
 	}
 
@@ -426,7 +428,11 @@ func (sc *StackContainer) updateFromResources() {
 	}
 
 	// aggregated 'resources updated' for the readiness
-	sc.resourcesUpdated = deploymentUpdated && serviceUpdated && ingressUpdated && routeGroupUpdated && hpaUpdated
+	sc.resourcesUpdated = deploymentUpdated &&
+		serviceUpdated &&
+		ingressUpdated &&
+		routeGroupUpdated &&
+		hpaUpdated
 
 	status := sc.Stack.Status
 	sc.noTrafficSince = unwrapTime(status.NoTrafficSince)
@@ -436,4 +442,33 @@ func (sc *StackContainer) updateFromResources() {
 		sc.prescalingDesiredTrafficWeight = status.Prescaling.DesiredTrafficWeight
 		sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
 	}
+}
+
+func (sc *StackContainer) updateFromSegmentResources() {
+	var ingressSegmentUpdated, routeGroupSegmentUpdated bool
+
+	// ingress: ignore if ingress is not set or check if we are up to date
+	if sc.ingressSpec != nil {
+		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
+			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
+	} else {
+		// ignore if ingress is not set
+		ingressSegmentUpdated = sc.Resources.Ingress == nil
+	}
+
+	// routegroup: ignore if routegroup is not set or check if we are up to date
+	if sc.routeGroupSpec != nil {
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
+			IsResourceUpToDate(
+				sc.Stack,
+				sc.Resources.RouteGroupSegment.ObjectMeta,
+			)
+	} else {
+		// ignore if route group is not set
+		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
+	}
+
+	sc.resourcesUpdated = sc.resourcesUpdated &&
+		ingressSegmentUpdated &&
+		routeGroupSegmentUpdated
 }

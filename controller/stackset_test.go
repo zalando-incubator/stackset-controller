@@ -126,6 +126,54 @@ func TestCollectResources(t *testing.T) {
 			},
 		},
 		{
+			name:      "controller collects Ingress segment",
+			stacksets: []zv1.StackSet{testStacksetA},
+			stacks:    []zv1.Stack{testStackA1},
+			ingresses: []networking.Ingress{
+				{ObjectMeta: segmentStackOwned(testStackA1)},
+			},
+			expected: map[types.UID]*core.StackSetContainer{
+				testStacksetA.UID: {
+					StackSet: &testStacksetA,
+					StackContainers: map[types.UID]*core.StackContainer{
+						testStackA1.UID: {
+							Stack: &testStackA1,
+							Resources: core.StackResources{
+								IngressSegment: &networking.Ingress{
+									ObjectMeta: segmentStackOwned(testStackA1),
+								},
+							},
+						},
+					},
+					TrafficReconciler: &core.SimpleTrafficReconciler{},
+				},
+			},
+		},
+		{
+			name:      "controller collects RouteGroup segment",
+			stacksets: []zv1.StackSet{testStacksetA},
+			stacks:    []zv1.Stack{testStackA1},
+			routegroups: []rgv1.RouteGroup{
+				{ObjectMeta: segmentStackOwned(testStackA1)},
+			},
+			expected: map[types.UID]*core.StackSetContainer{
+				testStacksetA.UID: {
+					StackSet: &testStacksetA,
+					StackContainers: map[types.UID]*core.StackContainer{
+						testStackA1.UID: {
+							Stack: &testStackA1,
+							Resources: core.StackResources{
+								RouteGroupSegment: &rgv1.RouteGroup{
+									ObjectMeta: segmentStackOwned(testStackA1),
+								},
+							},
+						},
+					},
+					TrafficReconciler: &core.SimpleTrafficReconciler{},
+				},
+			},
+		},
+		{
 			name:      "all resources are collected",
 			stacksets: []zv1.StackSet{testStacksetA, testStacksetB},
 			stacks:    []zv1.Stack{testStackA1, testStackA2, testStackB1},

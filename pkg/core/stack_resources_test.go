@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
@@ -369,6 +370,119 @@ func TestStackGenerateIngress(t *testing.T) {
 	}
 }
 
+func TestStackGenerateIngressSegment(t *testing.T) {
+	for _, tc := range []struct {
+		ingressSpec       *zv1.StackSetIngressSpec
+		lowerLimit        float64
+		upperLimit        float64
+		expectNil         bool
+		expectError       bool
+		expectedPredicate string
+		expectedHosts     []string
+	}{
+		{
+			ingressSpec: nil,
+			expectNil:   true,
+		},
+		{
+			ingressSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{},
+			},
+			expectNil: true,
+		},
+		{
+			ingressSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{"example.teapot.zalan.do"},
+			},
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.00, 0.00)",
+			expectedHosts:     []string{"example.teapot.zalan.do"},
+		},
+		{
+			ingressSpec: &zv1.StackSetIngressSpec{
+				Hosts: []string{
+					"example.teapot.zalan.do",
+					"sample.teapot.zalan.do",
+				},
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30)",
+			expectedHosts: []string{
+				"example.teapot.zalan.do",
+				"sample.teapot.zalan.do",
+			},
+		},
+		{
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{
+						IngressPredicateKey: "Method(\"GET\")",
+					},
+				},
+				Hosts: []string{"example.teapot.zalan.do"},
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30) && Method(\"GET\")",
+			expectedHosts:     []string{"example.teapot.zalan.do"},
+		},
+	} {
+		backendPort := intstr.FromInt(int(80))
+		c := &StackContainer{
+			Stack: &zv1.Stack{
+				ObjectMeta: testStackMeta,
+			},
+			ingressSpec:       tc.ingressSpec,
+			segmentLowerLimit: tc.lowerLimit,
+			segmentUpperLimit: tc.upperLimit,
+			backendPort:       &backendPort,
+		}
+		ingress, err := c.GenerateIngressSegment()
+
+		if (err != nil) != tc.expectError {
+			t.Errorf("expected error: %t , got %v", tc.expectError, err)
+			continue
+		}
+
+		if (ingress == nil) != tc.expectNil {
+			t.Errorf("expected nil: %t, got %v", tc.expectNil, ingress)
+			continue
+		}
+
+		if ingress == nil {
+			continue
+		}
+
+		if ingress.Annotations[IngressPredicateKey] != tc.expectedPredicate {
+			t.Errorf("expected predicate %q, got %q",
+				tc.expectedPredicate,
+				ingress.Annotations[IngressPredicateKey],
+			)
+			continue
+		}
+
+		ingressHosts := []string{}
+		for _, rules := range ingress.Spec.Rules {
+			ingressHosts = append(ingressHosts, rules.Host)
+		}
+		slices.Sort(ingressHosts)
+		slices.Sort(tc.expectedHosts)
+		if !slices.Equal(ingressHosts, tc.expectedHosts) {
+			t.Errorf(
+				"expected hosts %v, got %v",
+				tc.expectedHosts,
+				ingressHosts,
+			)
+		}
+	}
+}
+
 func TestStackGenerateRouteGroup(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
@@ -477,6 +591,158 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			}
 			require.Equal(t, expected, rg)
 		})
+	}
+}
+
+func TestStackGenerateRouteGroupSegment(t *testing.T) {
+	for _, tc := range []struct {
+		rgSpec            *zv1.RouteGroupSpec
+		lowerLimit        float64
+		upperLimit        float64
+		expectNil         bool
+		expectError       bool
+		expectedPredicate string
+		expectedHosts     []string
+	}{
+		{
+			rgSpec:    nil,
+			expectNil: true,
+		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{},
+			},
+			expectNil: true,
+		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts:  []string{"example.teapot.zalan.do"},
+				Routes: []rgv1.RouteGroupRouteSpec{{}},
+			},
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.00, 0.00)",
+			expectedHosts:     []string{"example.teapot.zalan.do"},
+		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{
+					"example.teapot.zalan.do",
+					"sample.teapot.zalan.do",
+				},
+				Routes: []rgv1.RouteGroupRouteSpec{{}},
+			},
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.00, 0.00)",
+			expectedHosts: []string{
+				"example.teapot.zalan.do",
+				"sample.teapot.zalan.do",
+			},
+		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts:  []string{"example.teapot.zalan.do"},
+				Routes: []rgv1.RouteGroupRouteSpec{{}},
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30)",
+			expectedHosts: []string{
+				"example.teapot.zalan.do",
+			},
+		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.teapot.zalan.do"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						Predicates: []string{"Method(\"GET\")"},
+					},
+				},
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30)",
+			expectedHosts: []string{
+				"example.teapot.zalan.do",
+			},
+		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts: []string{"example.teapot.zalan.do"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{Predicates: []string{"Method(\"GET\")"}},
+					{Predicates: []string{"Method(\"PUT\")"}},
+				},
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30)",
+			expectedHosts: []string{
+				"example.teapot.zalan.do",
+			},
+		},
+	} {
+		backendPort := intstr.FromInt(int(80))
+		c := &StackContainer{
+			Stack: &zv1.Stack{
+				ObjectMeta: testStackMeta,
+			},
+			routeGroupSpec:    tc.rgSpec,
+			segmentLowerLimit: tc.lowerLimit,
+			segmentUpperLimit: tc.upperLimit,
+			backendPort:       &backendPort,
+		}
+		rg, err := c.GenerateRouteGroupSegment()
+
+		if (err != nil) != tc.expectError {
+			t.Errorf("expected error: %t , got %v", tc.expectError, err)
+			continue
+		}
+
+		if (rg == nil) != tc.expectNil {
+			t.Errorf("expected nil: %t, got %v", tc.expectNil, rg)
+			continue
+		}
+
+		if rg == nil {
+			continue
+		}
+
+		slices.Sort(rg.Spec.Hosts)
+		slices.Sort(tc.expectedHosts)
+		if !slices.Equal(rg.Spec.Hosts, tc.expectedHosts) {
+			t.Errorf(
+				"expected hosts %v, got %v",
+				tc.expectedHosts,
+				rg.Spec.Hosts,
+			)
+		}
+
+		for _, r := range rg.Spec.Routes {
+			found := false
+			for _, p := range r.Predicates {
+				if p == tc.expectedPredicate {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				t.Errorf("predicate %q not found in route %v",
+					tc.expectedPredicate,
+					r,
+				)
+				break
+			}
+		}
 	}
 }
 

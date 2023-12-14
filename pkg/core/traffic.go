@@ -1,14 +1,183 @@
 package core
 
 import (
+	"errors"
+	"fmt"
 	"math"
+	"regexp"
 	"sort"
+	"strconv"
 	"time"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
-type TrafficReconciler interface {
-	// Handle the traffic switching and/or scaling logic.
-	Reconcile(stacks map[string]*StackContainer, currentTimestamp time.Time) error
+const (
+	segmentString = "TrafficSegment(%.2f, %.2f)"
+)
+
+type (
+	TrafficReconciler interface {
+		// Handle the traffic switching and/or scaling logic.
+		Reconcile(
+			stacks map[string]*StackContainer,
+			currentTimestamp time.Time,
+		) error
+	}
+
+	// trafficSegment holds segment information for a stack, specified by its UID.
+	trafficSegment struct {
+		id         types.UID
+		lowerLimit float64
+		upperLimit float64
+	}
+
+	// segmentList holds a sortable set of TrafficSegments.
+	segmentList []trafficSegment
+)
+
+var (
+	segmentRe = regexp.MustCompile(
+		`TrafficSegment\((?P<Low>.*?), (?P<High>.*?)\)`,
+	)
+)
+
+// newTrafficSegment returns a new TrafficSegment based on the specified stack
+// container.
+func newTrafficSegment(id types.UID, sc *StackContainer) (
+	*trafficSegment,
+	error,
+) {
+	res := &trafficSegment{
+		id:         id,
+		lowerLimit: 0.0,
+		upperLimit: 0.0,
+	}
+
+	if sc.ingressSpec != nil {
+		if sc.Resources.IngressSegment != nil {
+			predicates := sc.Resources.IngressSegment.Annotations[IngressPredicateKey]
+			lowerLimit, upperLimit, err := getSegmentLimits(predicates)
+			if err != nil {
+				return nil, err
+			}
+			res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
+		}
+	}
+
+	if sc.routeGroupSpec != nil {
+		if sc.Resources.RouteGroupSegment != nil {
+			lowerLimit, upperLimit, err := getSegmentLimits(
+				sc.Resources.RouteGroupSegment.Spec.Routes[0].Predicates...,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			if sc.ingressSpec != nil &&
+				(res.lowerLimit != lowerLimit || res.upperLimit != upperLimit) {
+
+				return nil, errors.New(
+					"mismatch in routegroup and ingress segment values",
+				)
+			}
+			res.lowerLimit, res.upperLimit = lowerLimit, upperLimit
+		}
+	}
+
+	return res, nil
+}
+
+// weight returns the corresponding weight of the segment, in a decimal
+// fraction.
+func (t *trafficSegment) weight() float64 {
+	return t.upperLimit - t.lowerLimit
+}
+
+// setLimits sets the lower and upper limit of the traffic segment to the
+// specified values.
+//
+// Returns an error if any of the limits is a negative value, or if the upper
+// limit's value lower than the lower limit.
+func (t *trafficSegment) setLimits(lower, upper float64) error {
+	switch {
+	case lower < 0.0 || upper < 0.0:
+		return fmt.Errorf(
+			"limits cannot have a negative value (%f, %f)",
+			lower,
+			upper,
+		)
+
+	case upper < lower:
+		return fmt.Errorf(
+			"lower must be smaller or equal to upper (%f, %f)",
+			lower,
+			upper,
+		)
+
+	case upper == lower:
+		t.lowerLimit, t.upperLimit = 0.0, 0.0
+
+	default:
+		t.lowerLimit, t.upperLimit = lower, upper
+	}
+
+	return nil
+}
+
+// Len returns the slice length, as required by the sort Interface.
+func (l segmentList) Len() int {
+	return len(l)
+}
+
+// Less reports wheter segment i comes before segment j
+func (l segmentList) Less(i, j int) bool {
+	switch {
+	case l[i].lowerLimit != l[j].lowerLimit:
+		return l[i].lowerLimit < l[j].lowerLimit
+	case l[i].upperLimit != l[j].upperLimit:
+		return l[i].upperLimit < l[j].upperLimit
+	default:
+		return false
+	}
+}
+
+// Swap swaps the segments with indexes i and j
+func (l segmentList) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+
+// getSegmentLimits returns the lower and upper limit of the TrafficSegment
+// predicate.
+//
+// Returns an error if it fails to parse.
+func getSegmentLimits(predicates ...string) (float64, float64, error) {
+	for _, p := range predicates {
+		segmentParams := segmentRe.FindStringSubmatch(p)
+		if len(segmentParams) != 3 {
+			continue
+		}
+
+		lowerLimit, err := strconv.ParseFloat(segmentParams[1], 64)
+		if err != nil || lowerLimit < 0.0 {
+			return -1.0, -1.0, fmt.Errorf(
+				"error parsing TrafficSegment %q",
+				p,
+			)
+		}
+
+		upperLimit, err := strconv.ParseFloat(segmentParams[2], 64)
+		if err != nil || upperLimit < lowerLimit {
+			return -1.0, -1.0, fmt.Errorf(
+				"error parsing TrafficSegment %q",
+				p,
+			)
+		}
+
+		return lowerLimit, upperLimit, nil
+	}
+
+	return -1.0, -1.0, fmt.Errorf("TrafficSegment not found")
 }
 
 // allZero returns true if all weights defined in the map are 0.
@@ -119,6 +288,17 @@ func roundWeights(weights map[string]float64) {
 	}
 }
 
+// EnableSegmentTraffic enables managing traffic weight by using dedicated
+// Ingress and RouteGroup resources with Skipper's TrafficSegment predicate.
+func (ssc *StackSetContainer) EnableSegmentTraffic() {
+	ssc.segmentTraffic = true
+}
+
+// SupportsSegmentTraffic returns if the StackSet has segmented traffic enabled.
+func (ssc *StackSetContainer) SupportsSegmentTraffic() bool {
+	return ssc.segmentTraffic
+}
+
 // ManageTraffic handles the traffic reconciler logic
 func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 	// No ingress -> no traffic management required
@@ -201,6 +381,105 @@ func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 		}
 	}
 	return err
+}
+
+// ComputeTrafficSegments returns the stack segments necessary to fulfill the
+// actual traffic configured in the main StackSet.
+//
+// Returns an ordered list of traffic segments, to ensure no gaps in traffic
+// assignment.
+func (ssc *StackSetContainer) ComputeTrafficSegments() ([]types.UID, error) {
+	var segments segmentList
+	weightDiffs := map[types.UID]float64{}
+	changes := []trafficSegment{}
+	unchanged := []trafficSegment{}
+	existingStacks := map[types.UID]bool{}
+	newWeights := map[types.UID]float64{}
+
+	// Gather actual active weights and currently active segments.
+	for uid, sc := range ssc.StackContainers {
+		// active stacks
+		if sc.actualTrafficWeight > 0 {
+			newWeights[uid] = sc.actualTrafficWeight / 100.0
+		}
+
+		trafficSegment, err := newTrafficSegment(uid, sc)
+		if err != nil {
+			return nil, err
+		}
+
+		// Consider only active segments
+		if trafficSegment.weight() != 0 {
+			segments = append(segments, *trafficSegment)
+			existingStacks[trafficSegment.id] = true
+		}
+	}
+
+	sort.Sort(segments)
+
+	// Construct new traffic segments based on actual traffic weights
+	index := 0.0
+	for _, s := range segments {
+		w := newWeights[s.id]
+		wBefore, lBefore, uBefore := s.weight(), s.lowerLimit, s.upperLimit
+		err := s.setLimits(index, index+w)
+		if err != nil {
+			return nil, err
+		}
+
+		weightDiffs[s.id] = s.weight() - wBefore
+		// Don't add segments that didn't change
+		if lBefore != s.lowerLimit || uBefore != s.upperLimit {
+			changes = append(changes, s)
+		} else {
+			unchanged = append(unchanged, s)
+		}
+		index += w
+	}
+
+	// Add new stacks, previously with no traffic
+	for id, w := range newWeights {
+		if !existingStacks[id] {
+			s, err := newTrafficSegment(id, ssc.StackContainers[id])
+			if err != nil {
+				return nil, err
+			}
+			err = s.setLimits(index, index+w)
+			if err != nil {
+				return nil, err
+			}
+
+			weightDiffs[id] = s.weight()
+			changes = append(changes, *s)
+			index += w
+		}
+	}
+
+	// Sorts descending by weight diff, to make sure we apply growing segments
+	// first.
+	sort.SliceStable(changes, func(i, j int) bool {
+		if weightDiffs[changes[i].id] > weightDiffs[changes[j].id] {
+			return true
+		}
+
+		return changes[i].id < changes[j].id
+	})
+
+	ordered := []types.UID{}
+	for _, s := range changes {
+		ordered = append(ordered, s.id)
+		ssc.StackContainers[s.id].segmentLowerLimit = s.lowerLimit
+		ssc.StackContainers[s.id].segmentUpperLimit = s.upperLimit
+	}
+
+	// This ensures that at the time of ingress reconciliation, the limits are
+	// consistent with the segment collected by the controller.
+	for _, s := range unchanged {
+		ssc.StackContainers[s.id].segmentLowerLimit = s.lowerLimit
+		ssc.StackContainers[s.id].segmentUpperLimit = s.upperLimit
+	}
+
+	return ordered, nil
 }
 
 // fallbackStack returns a stack that should be the target of traffic if none of the existing stacks get anything

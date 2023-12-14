@@ -14,6 +14,7 @@ import (
 	ssfake "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/fake"
 	zi "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
 	ssunified "github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
@@ -57,7 +58,21 @@ func NewTestEnvironment() *testEnvironment {
 		rgClient:  rgfake.NewSimpleClientset(),
 	}
 
-	controller, err := NewStackSetController(client, "", 10, "", nil, prometheus.NewPedanticRegistry(), time.Minute, true, time.Minute, true)
+	controller, err := NewStackSetController(
+		client,
+		"",
+		10,
+		"",
+		nil,
+		prometheus.NewPedanticRegistry(),
+		time.Minute,
+		true,
+		true,
+		true,
+		true,
+		time.Minute,
+	)
+
 	if err != nil {
 		panic(err)
 	}
@@ -200,6 +215,13 @@ func stackOwned(owner zv1.Stack) metav1.ObjectMeta {
 			},
 		},
 	}
+}
+
+func segmentStackOwned(owner zv1.Stack) metav1.ObjectMeta {
+	meta := stackOwned(owner)
+	meta.Name += core.SegmentSuffix
+
+	return meta
 }
 
 func deploymentOwned(owner apps.Deployment) metav1.ObjectMeta {

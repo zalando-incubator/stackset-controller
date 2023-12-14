@@ -22,6 +22,7 @@ func (SimpleTrafficReconciler) Reconcile(stacks map[string]*StackContainer, curr
 		}
 		actualWeights[stackName] = stack.desiredTrafficWeight
 	}
+
 	if len(nonReadyStacks) > 0 {
 		sort.Strings(nonReadyStacks)
 		return fmt.Errorf("stacks not ready: %s", strings.Join(nonReadyStacks, ", "))

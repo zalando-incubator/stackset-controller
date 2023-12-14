@@ -13,6 +13,7 @@ import (
 	v2 "k8s.io/api/autoscaling/v2"
 	apiv1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -24,30 +25,6 @@ func pint32Equal(p1, p2 *int32) bool {
 		return *p1 == *p2
 	}
 	return false
-}
-
-// There are HPA metrics that depend on annotations to work properly,
-// e.g. External RPS metric, this verification provides a way to verify
-// all relevant annotations are actually up to date.
-func areHPAAnnotationsUpToDate(updated, existing *v2.HorizontalPodAutoscaler) bool {
-	if len(updated.Annotations) != len(existing.Annotations) {
-		return false
-	}
-
-	for k, v := range updated.Annotations {
-		if k == "stackset-controller.zalando.org/stack-generation" {
-			continue
-		}
-
-		existingValue, ok := existing.Annotations[k]
-		if ok && existingValue == v {
-			continue
-		}
-
-		return false
-	}
-
-	return true
 }
 
 // syncObjectMeta copies metadata elements such as labels or annotations from source to target
@@ -159,7 +136,7 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 	// Check if we need to update the HPA
 	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
 		pint32Equal(existing.Spec.MinReplicas, hpa.Spec.MinReplicas) &&
-		areHPAAnnotationsUpToDate(hpa, existing) {
+		core.AreAnnotationsUpToDate(hpa.ObjectMeta, existing.ObjectMeta) {
 		return nil
 	}
 
@@ -263,7 +240,9 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 	}
 
 	// Check if we need to update the Ingress
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		core.AreAnnotationsUpToDate(ingress.ObjectMeta, existing.ObjectMeta) {
+
 		return nil
 	}
 
@@ -323,7 +302,9 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	}
 
 	// Check if we need to update the RouteGroup
-	if core.IsResourceUpToDate(stack, existing.ObjectMeta) {
+	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
+		equality.Semantic.DeepEqual(routegroup.Spec, existing.Spec) {
+
 		return nil
 	}
 

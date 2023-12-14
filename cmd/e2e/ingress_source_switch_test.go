@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	v1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/controller"
+	"github.com/zalando-incubator/stackset-controller/pkg/core"
 )
 
 const (
@@ -133,4 +134,52 @@ func TestRouteGroupToIngressSwitch(t *testing.T) {
 	// make sure ingress is not deleted before IngressSourceSwitchTTL
 	err = resourceDeleted(t, "routegroup", stacksetName, routegroupInterface()).await()
 	require.Error(t, err)
+}
+
+func TestStackTTLConvertToSegmentIngress(t *testing.T) {
+	t.Parallel()
+	stacksetName := "stackset-ttl-convert-segment"
+	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress()
+
+	// create stackset with central ingress
+	spec := specFactory.Create("v1")
+	err := createStackSet(stacksetName, 1, spec)
+	require.NoError(t, err)
+	_, err = waitForIngress(t, stacksetName)
+	require.NoError(t, err)
+
+	time.Sleep(IngressSourceSwitchTTL)
+
+	// Add the annotation to convert to segment ingresses
+	spec.StackTemplate.Spec.Version = "v2"
+	err = updateStackSetWithAnnotations(
+		stacksetName,
+		spec,
+		map[string]string{controller.TrafficSegmentsAnnotationKey: "true"},
+	)
+	require.NoError(t, err)
+
+	// make sure controller does not delete ingress IngressSourceSwitchTTL
+	err = resourceDeleted(
+		t,
+		"ingress",
+		stacksetName,
+		ingressInterface(),
+	).await()
+	require.Error(t, err)
+
+	// make sure controller creates ingress segments
+	_, err = waitForIngress(t, stacksetName+"-v1"+core.SegmentSuffix)
+	require.NoError(t, err)
+	_, err = waitForIngress(t, stacksetName+"-v2"+core.SegmentSuffix)
+	require.NoError(t, err)
+
+	// make sure controller deletes ingress is after IngressSourceSwitchTTL
+	err = resourceDeleted(
+		t,
+		"ingress",
+		stacksetName,
+		ingressInterface(),
+	).await()
+	require.NoError(t, err)
 }
