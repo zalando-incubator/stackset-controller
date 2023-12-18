@@ -481,11 +481,11 @@ func waitForRouteGroup(t *testing.T, name string) (*rgv1.RouteGroup, error) {
 }
 
 func waitForConfigMap(t *testing.T, configMapName string) (*corev1.ConfigMap, error) {
-	err := resourceCreated(t, "configmap", configMapName, configmapInterface()).await()
+	err := resourceCreated(t, "configmap", configMapName, configMapInterface()).await()
 	if err != nil {
 		return nil, err
 	}
-	return configmapInterface().Get(context.Background(), configMapName, metav1.GetOptions{})
+	return configMapInterface().Get(context.Background(), configMapName, metav1.GetOptions{})
 }
 
 func waitForUpdatedRouteGroup(t *testing.T, name string, oldTimestamp string) (*rgv1.RouteGroup, error) {

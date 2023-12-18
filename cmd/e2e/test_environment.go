@@ -97,7 +97,7 @@ func routegroupInterface() rgv1client.RouteGroupInterface {
 	return routegroupClient.ZalandoV1().RouteGroups(namespace)
 }
 
-func configmapInterface() corev1typed.ConfigMapInterface {
+func configMapInterface() corev1typed.ConfigMapInterface {
 	return kubernetesClient.CoreV1().ConfigMaps(namespace)
 }
 
