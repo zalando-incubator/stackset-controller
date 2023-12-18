@@ -26,7 +26,6 @@ spec:
           - "--controller-id={{{CONTROLLER_ID}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN_INTERNAL}}}"
-          - "--enable-configmap-support"
           - "--enable-routegroup-support"
           - "--enable-traffic-segments"
           - "--annotated-traffic-segments"
