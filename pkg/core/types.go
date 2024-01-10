@@ -70,6 +70,10 @@ type StackSetContainer struct {
 	// dedicated Ingress and RouteGroup resources with Skipper's TrafficSegment
 	// predicate.
 	segmentTraffic bool
+
+	// ingressAnnotationsToSync is a list of ingress annotations that should be
+	// synchronized accross all existing stacks.
+	ingressAnnotationsToSync []string
 }
 
 // StackContainer is a container for storing the full state of a Stack
@@ -89,6 +93,15 @@ type StackContainer struct {
 	stacksetName   string
 	scaledownTTL   time.Duration
 	clusterDomains []string
+
+	// Ingress annotations to synchronize
+	ingressAnnotationsToSync []string
+
+	// Ingress annotations present in the StackSet
+	syncAnnotationsInIngress map[string]string
+
+	// RouteGroup annotations present in the StackSet
+	syncAnnotationsInRouteGroup map[string]string
 
 	// Fields from the stack itself.
 	ingressSpec    *zv1.StackSetIngressSpec
@@ -209,6 +222,18 @@ func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendW
 	}
 }
 
+// SynchronizeIngessAnnotations ensures that the container propagates the
+// specified annotations to all segment Ingress or Routegroups, when they are
+// present in the StackSet's Ingress or RouteGroup definition.
+//
+// This synchronization is only relevant when  the container supports traffic
+// segments.
+func (ssc *StackSetContainer) SynchronizeIngressAnnotations(
+	annotations []string,
+) {
+	ssc.ingressAnnotationsToSync = annotations
+}
+
 func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
 	for _, container := range ssc.StackContainers {
 		if container.Name() == name {
@@ -297,6 +322,22 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		return err
 	}
 
+	syncAnnotationsInIngress := map[string]string{}
+	if ssc.StackSet.Spec.Ingress != nil {
+		syncAnnotationsInIngress = getKeyValues(
+			ssc.ingressAnnotationsToSync,
+			ssc.StackSet.Spec.Ingress.Annotations,
+		)
+	}
+
+	syncAnnotationsInRouteGroup := map[string]string{}
+	if ssc.StackSet.Spec.RouteGroup != nil {
+		syncAnnotationsInRouteGroup = getKeyValues(
+			ssc.ingressAnnotationsToSync,
+			ssc.StackSet.Spec.RouteGroup.Annotations,
+		)
+	}
+
 	// if backendPort is not defined from Ingress or Routegroup fallback
 	// to externalIngress if defined
 	if ssc.StackSet.Spec.ExternalIngress != nil {
@@ -312,6 +353,9 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 
 	for _, sc := range ssc.StackContainers {
 		sc.stacksetName = ssc.StackSet.Name
+		sc.ingressAnnotationsToSync = ssc.ingressAnnotationsToSync
+		sc.syncAnnotationsInIngress = syncAnnotationsInIngress
+		sc.syncAnnotationsInRouteGroup = syncAnnotationsInRouteGroup
 		sc.backendPort = backendPort
 		sc.scaledownTTL = scaledownTTL
 		sc.clusterDomains = ssc.clusterDomains

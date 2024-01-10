@@ -308,6 +308,9 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 			stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
 
 			stacksetContainer.EnableSegmentTraffic()
+			stacksetContainer.SynchronizeIngressAnnotations(
+				core.SyncIngressAnnotationKeys,
+			)
 		}
 		stacksets[uid] = stacksetContainer
 	}
