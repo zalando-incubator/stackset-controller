@@ -61,6 +61,7 @@ func NewTestEnvironment() *testEnvironment {
 	controller, err := NewStackSetController(
 		client,
 		"",
+		"",
 		10,
 		"",
 		nil,

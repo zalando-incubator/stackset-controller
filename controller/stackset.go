@@ -17,6 +17,7 @@ import (
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
+	"github.com/zalando-incubator/stackset-controller/pkg/config"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	"github.com/zalando-incubator/stackset-controller/pkg/recorder"
 	"golang.org/x/sync/errgroup"
@@ -49,24 +50,26 @@ const (
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
 type StackSetController struct {
-	logger                      *log.Entry
-	client                      clientset.Interface
-	controllerID                string
-	backendWeightsAnnotationKey string
-	clusterDomains              []string
-	interval                    time.Duration
-	stacksetEvents              chan stacksetEvent
-	stacksetStore               map[types.UID]zv1.StackSet
-	recorder                    kube_record.EventRecorder
-	metricsReporter             *core.MetricsReporter
-	HealthReporter              healthcheck.Handler
-	routeGroupSupportEnabled    bool
-	trafficSegmentsEnabled      bool
-	annotatedTrafficSegments    bool
-	ingressSourceSwitchTTL      time.Duration
-	now                         func() string
-	reconcileWorkers            int
-	configMapSupportEnabled     bool
+	logger                        *log.Entry
+	client                        clientset.Interface
+	configFile                    string
+	synchronizeIngressAnnotations []string
+	controllerID                  string
+	backendWeightsAnnotationKey   string
+	clusterDomains                []string
+	interval                      time.Duration
+	stacksetEvents                chan stacksetEvent
+	stacksetStore                 map[types.UID]zv1.StackSet
+	recorder                      kube_record.EventRecorder
+	metricsReporter               *core.MetricsReporter
+	HealthReporter                healthcheck.Handler
+	routeGroupSupportEnabled      bool
+	trafficSegmentsEnabled        bool
+	annotatedTrafficSegments      bool
+	ingressSourceSwitchTTL        time.Duration
+	now                           func() string
+	reconcileWorkers              int
+	configMapSupportEnabled       bool
 	sync.Mutex
 }
 
@@ -91,6 +94,7 @@ func now() string {
 // NewStackSetController initializes a new StackSetController.
 func NewStackSetController(
 	client clientset.Interface,
+	configFile string,
 	controllerID string,
 	parallelWork int,
 	backendWeightsAnnotationKey string,
@@ -111,6 +115,7 @@ func NewStackSetController(
 	return &StackSetController{
 		logger:                      log.WithFields(log.Fields{"controller": "stackset"}),
 		client:                      client,
+		configFile:                  configFile,
 		controllerID:                controllerID,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
 		clusterDomains:              clusterDomains,
@@ -170,6 +175,18 @@ func (c *StackSetController) Run(ctx context.Context) {
 		case <-time.After(time.Until(nextCheck)):
 
 			nextCheck = time.Now().Add(c.interval)
+
+			if c.configFile != "" {
+				config, err := config.ReadConfig(c.configFile)
+				if err == nil {
+					c.synchronizeIngressAnnotations = config.SynchronizeIngressAnnotations
+				} else {
+					c.logger.Errorf(
+						"Failed reading configuration from file: %v",
+						err,
+					)
+				}
+			}
 
 			stackSetContainers, err := c.collectResources(ctx)
 			if err != nil {
@@ -309,7 +326,7 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 
 			stacksetContainer.EnableSegmentTraffic()
 			stacksetContainer.SynchronizeIngressAnnotations(
-				core.SyncIngressAnnotationKeys,
+				c.synchronizeIngressAnnotations,
 			)
 		}
 		stacksets[uid] = stacksetContainer

@@ -45,11 +45,15 @@ var (
 		IngressSourceSwitchTTL      time.Duration
 		ReconcileWorkers            int
 		ConfigMapSupportEnabled     bool
+		ConfigFile                  string
 	}
 )
 
 func main() {
 	kingpin.Flag("debug", "Enable debug logging.").BoolVar(&config.Debug)
+	kingpin.Flag(
+		"config-file", "Filename with StackSet configuration",
+	).StringVar(&config.ConfigFile)
 	kingpin.Flag("interval", "Interval between syncing stacksets.").
 		Default(defaultInterval).DurationVar(&config.Interval)
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
@@ -90,6 +94,7 @@ func main() {
 
 	controller, err := controller.NewStackSetController(
 		client,
+		config.ConfigFile,
 		config.ControllerID,
 		config.ReconcileWorkers,
 		config.BackendWeightsAnnotationKey,
