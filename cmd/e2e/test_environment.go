@@ -97,6 +97,10 @@ func routegroupInterface() rgv1client.RouteGroupInterface {
 	return routegroupClient.ZalandoV1().RouteGroups(namespace)
 }
 
+func configMapInterface() corev1typed.ConfigMapInterface {
+	return kubernetesClient.CoreV1().ConfigMaps(namespace)
+}
+
 func requiredEnvar(envar string) string {
 	namespace := os.Getenv(envar)
 	if namespace == "" {
