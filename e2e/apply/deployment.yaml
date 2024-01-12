@@ -24,12 +24,17 @@ spec:
         image: "{{{IMAGE}}}"
         args:
           - "--controller-id={{{CONTROLLER_ID}}}"
+          - "--config-file=/meta/config/stackset-controlller-config.yaml"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN_INTERNAL}}}"
           - "--enable-routegroup-support"
           - "--enable-traffic-segments"
           - "--annotated-traffic-segments"
           - "--ingress-source-switch-ttl=1m"
+        volumeMounts:
+          - name: config
+            mountPath: /meta/config
+            readOnly: true
         resources:
           limits:
             cpu: 10m
@@ -43,3 +48,8 @@ spec:
           readOnlyRootFilesystem: true
           capabilities:
             drop: ["ALL"]
+      volumes:
+        - name: config
+          configMap:
+            defaultMode: 420
+            name: "{{{APPLICATION}}}-config"
