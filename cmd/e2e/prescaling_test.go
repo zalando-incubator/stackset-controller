@@ -16,7 +16,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 
 	// create stack with 3 replicas
 	firstStack := "v1"
-	spec := specFactory.Create(firstStack)
+	spec := specFactory.Create(t, firstStack)
 	err := createStackSet(stacksetName, 1, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstStack)
@@ -24,7 +24,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 
 	// create second stack with 3 replicas
 	secondStack := "v2"
-	spec = specFactory.Create(secondStack)
+	spec = specFactory.Create(t, secondStack)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
@@ -47,7 +47,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	// create third stack with only 1 replica and wait for the deployment to be created
 	thirdStack := "v3"
 	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, thirdStack)
-	spec = specFactory.Replicas(1).Create(thirdStack)
+	spec = specFactory.Replicas(1).Create(t, thirdStack)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	deployment, err := waitForDeployment(t, fullThirdStack)
@@ -87,7 +87,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 
 	// create first stack with 3 replicas
 	firstStack := "v1"
-	spec := specFactory.Create(firstStack)
+	spec := specFactory.Create(t, firstStack)
 	err := createStackSet(stacksetName, 1, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstStack)
@@ -95,7 +95,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 
 	// create second stack with 3 replicas
 	secondStack := "v2"
-	spec = specFactory.Create(secondStack)
+	spec = specFactory.Create(t, secondStack)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
@@ -118,7 +118,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 	// create a third stack with only one replica and verify the deployment has only one pod
 	thirdStack := "v3"
 	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, thirdStack)
-	spec = specFactory.Replicas(1).Create(thirdStack)
+	spec = specFactory.Replicas(1).Create(t, thirdStack)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	deployment, err := waitForDeployment(t, fullThirdStack)
@@ -160,7 +160,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	firstVersion := "v1"
 	fullFirstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	firstCreateTimestamp := time.Now()
-	err := createStackSet(stacksetName, stackPrescalingTimeout, factory.Create(firstVersion))
+	err := createStackSet(stacksetName, stackPrescalingTimeout, factory.Create(t, firstVersion))
 	require.NoError(t, err)
 	_, err = waitForDeployment(t, fullFirstStack)
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	secondVersion := "v2"
 	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	secondCreateTimestamp := time.Now()
-	err = updateStackset(stacksetName, factory.Create(secondVersion))
+	err = updateStackset(stacksetName, factory.Create(t, secondVersion))
 	require.NoError(t, err)
 	_, err = waitForDeployment(t, fullSecondStack)
 	require.NoError(t, err)
@@ -191,7 +191,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	thirdVersion := "v3"
 	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	thirdCreateTimestamp := time.Now()
-	err = updateStackset(stacksetName, factory.Create(thirdVersion))
+	err = updateStackset(stacksetName, factory.Create(t, thirdVersion))
 	require.NoError(t, err)
 	_, err = waitForDeployment(t, fullThirdStack)
 	require.NoError(t, err)
@@ -239,7 +239,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 
 	// create stack with 3 replicas
 	firstStack := "v1"
-	spec := specFactory.Create(firstStack)
+	spec := specFactory.Create(t, firstStack)
 	err := createStackSet(stacksetName, 1, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstStack)
@@ -247,7 +247,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 
 	// create second stack with 3 replicas
 	secondStack := "v2"
-	spec = specFactory.Create(secondStack)
+	spec = specFactory.Create(t, secondStack)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
@@ -255,7 +255,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 
 	// create third stack with 3 replicas
 	thirdStack := "v3"
-	spec = specFactory.Create(thirdStack)
+	spec = specFactory.Create(t, thirdStack)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, thirdStack)

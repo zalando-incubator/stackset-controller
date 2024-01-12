@@ -25,7 +25,7 @@ func TestConfigureAutoscaling(t *testing.T) {
 		Autoscaler(1, 10, metrics).
 		Behavior(stabilizationWindow)
 	firstVersion := "v1"
-	spec := factory.Create(firstVersion)
+	spec := factory.Create(t, firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
 
