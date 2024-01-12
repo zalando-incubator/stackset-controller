@@ -67,21 +67,9 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	}
 }
 
-func (f *TestStacksetSpecFactory) ConfigMap(configMapName string, data map[string]string) (*TestStacksetSpecFactory, error) {
-	configMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: configMapName,
-		},
-		Data: data,
-	}
-
-	_, err := configMapInterface().Create(context.Background(), configMap, metav1.CreateOptions{})
-	if err != nil {
-		return nil, err
-	}
-
+func (f *TestStacksetSpecFactory) ConfigMap() *TestStacksetSpecFactory {
 	f.configMap = true
-	return f, nil
+	return f
 }
 
 func (f *TestStacksetSpecFactory) Behavior(stabilizationWindowSeconds int32) *TestStacksetSpecFactory {
@@ -157,10 +145,36 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 	}
 
 	if f.configMap {
+		configMapName := fmt.Sprintf("%s-%s-configmap", f.stacksetName, stackVersion)
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: configMapName,
+			},
+			Data: map[string]string{
+				"key": "value",
+			},
+		}
+
+		_, err := configMapInterface().Create(context.Background(), configMap, metav1.CreateOptions{})
+		require.NoError(t, err)
+
 		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
 			{
 				ConfigMapRef: corev1.LocalObjectReference{
-					Name: fmt.Sprintf("%s-%s-configmap", f.stacksetName, stackVersion),
+					Name: configMapName,
+				},
+			},
+		}
+
+		result.StackTemplate.Spec.StackSpec.PodTemplate.Spec.Volumes = []corev1.Volume{
+			{
+				Name: "config-volume",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: configMapName,
+						},
+					},
 				},
 			},
 		}
@@ -640,11 +654,7 @@ func testStacksetCreate(
 		stackVersion := "v1"
 		stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
 		if configmap {
-			_, err := stacksetSpecFactory.ConfigMap(
-				fmt.Sprintf("%s-%s-configmap", stacksetName, stackVersion),
-				map[string]string{"key": "value"},
-			)
-			require.NoError(t, err)
+			stacksetSpecFactory.ConfigMap()
 		}
 		if hpa {
 			stacksetSpecFactory.Autoscaler(
