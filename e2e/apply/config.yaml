@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: stackset-controller-config
+  name: {{{APPLICATION}}}-config
 data:
   stackset-controller-config.yaml: |
     synchronize-ingress-annotations:
