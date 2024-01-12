@@ -18,7 +18,7 @@ func TestBrokenStacks(t *testing.T) {
 
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
-	spec := factory.Create(firstVersion)
+	spec := factory.Create(t, firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstVersion)
@@ -26,7 +26,7 @@ func TestBrokenStacks(t *testing.T) {
 
 	unhealthyVersion := "v2"
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
-	spec = factory.Create(unhealthyVersion)
+	spec = factory.Create(t, unhealthyVersion)
 	spec.StackTemplate.Spec.Service.Ports = []corev1.ServicePort{
 		{
 			Protocol:   corev1.ProtocolTCP,
@@ -55,7 +55,7 @@ func TestBrokenStacks(t *testing.T) {
 	// Create a healthy stack
 	healthyVersion := "v3"
 	healthyStack := fmt.Sprintf("%s-%s", stacksetName, healthyVersion)
-	spec = factory.Create(healthyVersion)
+	spec = factory.Create(t, healthyVersion)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, healthyVersion)

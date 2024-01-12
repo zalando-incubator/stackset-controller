@@ -125,7 +125,7 @@ func (f *TestStacksetSpecFactory) SubResourceAnnotations(annotations map[string]
 	return f
 }
 
-func (f *TestStacksetSpecFactory) Create(stackVersion string) zv1.StackSetSpec {
+func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.StackSetSpec {
 	var result = zv1.StackSetSpec{
 		StackLifecycle: zv1.StackLifecycle{
 			Limit:               pint32(f.limit),
@@ -668,7 +668,7 @@ func testStacksetCreate(
 		if len(subResourceAnnotations) > 0 {
 			stacksetSpecFactory.SubResourceAnnotations(subResourceAnnotations)
 		}
-		stacksetSpec := stacksetSpecFactory.Create(stackVersion)
+		stacksetSpec := stacksetSpecFactory.Create(t, stackVersion)
 
 		var err error
 		switch ingType {
@@ -787,7 +787,7 @@ func testStacksetUpdate(
 				oldSubResourceAnnotations,
 			)
 		}
-		stacksetSpec := stacksetSpecFactory.Create(initialVersion)
+		stacksetSpec := stacksetSpecFactory.Create(t, initialVersion)
 
 		var err error
 		switch ingType {
@@ -897,7 +897,7 @@ func testStacksetUpdate(
 			)
 		}
 
-		updatedSpec := stacksetSpecFactory.Create(updatedVersion)
+		updatedSpec := stacksetSpecFactory.Create(t, updatedVersion)
 		err = updateStackset(stacksetName, updatedSpec)
 		require.NoError(t, err)
 
