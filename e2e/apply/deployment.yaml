@@ -24,7 +24,7 @@ spec:
         image: "{{{IMAGE}}}"
         args:
           - "--controller-id={{{CONTROLLER_ID}}}"
-          - "--config-file=/meta/config/stackset-controlller-config.yaml"
+          - "--config-file=/meta/config/stackset-controller-config.yaml"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN_INTERNAL}}}"
           - "--enable-configmap-support"

@@ -27,12 +27,19 @@ kubectl proxy
 ```
 watch -n 10 "kubectl get -n foo stackset,stack,ing,ep,deployment"
 ```
-3. recreate namespace `foo` and run local build stackset-controller
+3. generate config file from end-2-end setup
+```
+sed -ne '/stackset-controller-config/{:a' -e 'n;p;ba' -e '}' \
+e2e/apply/config.yaml > /tmp/stackset-controller-config.yaml
+```
+4. recreate namespace `foo` and run local build stackset-controller
 ```
 kubectl delete namespace foo; kubectl create namespace foo
 make
 ./build/stackset-controller --apiserver=http://127.0.0.1:8001 \
---enable-configmap-support --enable-routegroup-support --controller-id=foo \
+--enable-configmap-support --enable-routegroup-support \
+--enable-traffic-segments --annotated-traffic-segments \
+--config-file=/tmp/stackset-controller-config.yaml --controller-id=foo \
 --cluster-domain=${CLUSTER_DOMAIN} --cluster-domain=${CLUSTER_DOMAIN_INTERNAL}
 ```
 4. rebuild e2e test and run e2e tests in `foo` namespace

@@ -30,6 +30,9 @@ fi
 # Build the controller and its end-to-end tests.
 make build.local build/e2e
 
+sed -ne '/stackset-controller-config/{:a' -e 'n;p;ba' -e '}' \
+  e2e/apply/config.yaml > /tmp/stackset-controller-config.yaml
+
 cleanup() {
     zkubectl delete namespace $CONTROLLER_ID --context $CLUSTER_NAME --wait=false
     kill -- -$$
@@ -51,6 +54,9 @@ echo ">>> Writing controller logs in $controllerLog"
 sscPath=$(find build/ -name "stackset-controller" | head -n 1)
 command $sscPath --apiserver=http://127.0.0.1:8001 \
   --ingress-source-switch-ttl="1m" \
+  --config-file=/tmp/stackset-controller-config.yaml \
+  --enable-traffic-segments \
+  --annotated-traffic-segments \
   --enable-configmap-support \
   --enable-routegroup-support \
   --cluster-domain=${CLUSTER_DOMAIN} \
