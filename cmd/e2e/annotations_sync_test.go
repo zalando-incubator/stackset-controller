@@ -105,7 +105,7 @@ func TestSyncAnnotationsPropagateToSegments(t *testing.T) {
 		specFactory := NewTestStacksetSpecFactory(
 			stacksetName,
 		).Ingress().RouteGroup()
-		spec := specFactory.Create("v0")
+		spec := specFactory.Create(t, "v0")
 
 		for i, a := range tc.annotationsIng {
 			version := fmt.Sprintf("v%d", i)
