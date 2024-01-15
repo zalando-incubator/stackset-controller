@@ -17,7 +17,7 @@ func TestStackTTLWithoutIngress(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		stackVersion := fmt.Sprintf("v%d", i)
 		var err error
-		spec := specFactory.Create(stackVersion)
+		spec := specFactory.Create(t, stackVersion)
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {
@@ -53,7 +53,7 @@ func TestStackTTLWithIngress(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		stackVersion := fmt.Sprintf("v%d", i)
 		var err error
-		spec := specFactory.Create(stackVersion)
+		spec := specFactory.Create(t, stackVersion)
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {
@@ -100,7 +100,7 @@ func TestStackTTLWithExternalIngress(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		stackVersion := fmt.Sprintf("v%d", i)
 		var err error
-		spec := specFactory.Create(stackVersion)
+		spec := specFactory.Create(t, stackVersion)
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {
@@ -146,7 +146,7 @@ func TestStackTTLForLatestStack(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		stackVersion := fmt.Sprintf("v%d", i)
 		var err error
-		spec := specFactory.Create(stackVersion)
+		spec := specFactory.Create(t, stackVersion)
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {

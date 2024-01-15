@@ -23,7 +23,7 @@ func TestIngressSourceSwitch(t *testing.T) {
 
 	// create stackset with ingress
 	factory := NewTestStacksetSpecFactory(stacksetName).Ingress()
-	spec := factory.Create(firstVersion)
+	spec := factory.Create(t, firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
 	ingress, err := waitForIngress(t, stacksetName)
@@ -33,7 +33,7 @@ func TestIngressSourceSwitch(t *testing.T) {
 
 	// update stackset adding a routegroup
 	updatedVersion := "v2"
-	spec = factory.RouteGroup().Create(updatedVersion)
+	spec = factory.RouteGroup().Create(t, updatedVersion)
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	rg, err := waitForRouteGroup(t, stacksetName)
@@ -76,7 +76,7 @@ func TestIngressToRouteGroupSwitch(t *testing.T) {
 
 	// create stackset with ingress and routegroup
 	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().RouteGroup()
-	spec := factory.Create(firstVersion)
+	spec := factory.Create(t, firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
 	rg, err := waitForRouteGroup(t, stacksetName)
@@ -110,7 +110,7 @@ func TestRouteGroupToIngressSwitch(t *testing.T) {
 
 	// create stackset with ingress and routegroup
 	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().RouteGroup()
-	spec := factory.Create(firstVersion)
+	spec := factory.Create(t, firstVersion)
 	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
 	ing, err := waitForIngress(t, stacksetName)
@@ -142,7 +142,7 @@ func TestStackTTLConvertToSegmentIngress(t *testing.T) {
 	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress()
 
 	// create stackset with central ingress
-	spec := specFactory.Create("v1")
+	spec := specFactory.Create(t, "v1")
 	err := createStackSet(stacksetName, 1, spec)
 	require.NoError(t, err)
 	_, err = waitForIngress(t, stacksetName)

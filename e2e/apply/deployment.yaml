@@ -27,6 +27,7 @@ spec:
           - "--config-file=/meta/config/stackset-controlller-config.yaml"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN_INTERNAL}}}"
+          - "--enable-configmap-support"
           - "--enable-routegroup-support"
           - "--enable-traffic-segments"
           - "--annotated-traffic-segments"
