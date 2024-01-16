@@ -52,5 +52,5 @@ spec:
       volumes:
         - name: config
           configMap:
-            defaultMode: 420
+            defaultMode: 0400
             name: "{{{APPLICATION}}}-config"

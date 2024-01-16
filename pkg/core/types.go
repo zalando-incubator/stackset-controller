@@ -72,7 +72,7 @@ type StackSetContainer struct {
 	segmentTraffic bool
 
 	// ingressAnnotationsToSync is a list of ingress annotations that should be
-	// synchronized accross all existing stacks.
+	// synchronized across all existing stacks.
 	ingressAnnotationsToSync []string
 }
 
@@ -222,7 +222,7 @@ func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendW
 	}
 }
 
-// SynchronizeIngessAnnotations ensures that the container propagates the
+// SynchronizeIngressAnnotations ensures that the container propagates the
 // specified annotations to all segment Ingress or Routegroups, when they are
 // present in the StackSet's Ingress or RouteGroup definition.
 //
