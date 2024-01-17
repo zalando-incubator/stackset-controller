@@ -42,6 +42,7 @@ var (
 		RouteGroupSupportEnabled    bool
 		TrafficSegmentsEnabled      bool
 		AnnotatedTrafficSegments    bool
+		SyncIngressAnnotations      []string
 		IngressSourceSwitchTTL      time.Duration
 		ReconcileWorkers            int
 		ConfigMapSupportEnabled     bool
@@ -72,6 +73,10 @@ func main() {
 		"annotated-traffic-segments",
 		"Only support traffic segments when annotated. Requires --enable-traffic-segments.",
 	).Default("false").BoolVar(&config.AnnotatedTrafficSegments)
+	kingpin.Flag(
+		"sync-ingress-annotation",
+		"Ingress/RouteGroup annotation to propagate to all traffic segments.",
+	).StringsVar(&config.SyncIngressAnnotations)
 	kingpin.Flag("ingress-source-switch-ttl", "The ttl before an ingress source is deleted when replaced with another one e.g. switching from RouteGroup to Ingress or vice versa.").
 		Default(defaultIngressSourceSwitchTTL).DurationVar(&config.IngressSourceSwitchTTL)
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
@@ -94,7 +99,6 @@ func main() {
 
 	controller, err := controller.NewStackSetController(
 		client,
-		config.ConfigFile,
 		config.ControllerID,
 		config.ReconcileWorkers,
 		config.BackendWeightsAnnotationKey,
@@ -104,6 +108,7 @@ func main() {
 		config.RouteGroupSupportEnabled,
 		config.TrafficSegmentsEnabled,
 		config.AnnotatedTrafficSegments,
+		config.SyncIngressAnnotations,
 		config.ConfigMapSupportEnabled,
 		config.IngressSourceSwitchTTL,
 	)
