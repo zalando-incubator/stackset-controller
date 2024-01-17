@@ -30,9 +30,6 @@ fi
 # Build the controller and its end-to-end tests.
 make build.local build/e2e
 
-sed -ne '/stackset-controller-config/{:a' -e 'n;p;ba' -e '}' \
-  e2e/apply/config.yaml > /tmp/stackset-controller-config.yaml
-
 cleanup() {
     zkubectl delete namespace $CONTROLLER_ID --context $CLUSTER_NAME --wait=false
     kill -- -$$
