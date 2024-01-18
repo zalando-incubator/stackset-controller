@@ -39,6 +39,7 @@ type TestStacksetSpecFactory struct {
 	routegroup                    bool
 	externalIngress               bool
 	configMap                     bool
+	secret                        bool
 	limit                         int32
 	scaleDownTTL                  int64
 	replicas                      int32
@@ -56,6 +57,7 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	return &TestStacksetSpecFactory{
 		stacksetName:           stacksetName,
 		configMap:              false,
+		secret:                 false,
 		ingress:                false,
 		externalIngress:        false,
 		limit:                  4,
@@ -69,6 +71,11 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 
 func (f *TestStacksetSpecFactory) ConfigMap() *TestStacksetSpecFactory {
 	f.configMap = true
+	return f
+}
+
+func (f *TestStacksetSpecFactory) Secret() *TestStacksetSpecFactory {
+	f.secret = true
 	return f
 }
 
@@ -174,6 +181,40 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: configMapName,
 						},
+					},
+				},
+			},
+		}
+	}
+
+	if f.secret {
+		secretName := fmt.Sprintf("%s-%s-secret", f.stacksetName, stackVersion)
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: secretName,
+			},
+			Data: map[string][]byte{
+				"key": {0},
+			},
+		}
+
+		_, err := secretInterface().Create(context.Background(), secret, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
+			{
+				SecretRef: corev1.LocalObjectReference{
+					Name: secretName,
+				},
+			},
+		}
+
+		result.StackTemplate.Spec.PodTemplate.Spec.Volumes = []corev1.Volume{
+			{
+				Name: "secret-volume",
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: secretName,
 					},
 				},
 			},
@@ -348,6 +389,22 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 				UID:        stack.UID,
 			},
 		}, configMap.OwnerReferences)
+	}
+
+	// Verify Secrets
+	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
+		secret, err := waitForSecret(t, rsc.SecretRef.Name)
+		require.NoError(t, err)
+		assert.EqualValues(t, stackResourceLabels, secret.Labels)
+		assert.Contains(t, secret.Name, stack.Name)
+		assert.Equal(t, []metav1.OwnerReference{
+			{
+				APIVersion: "zalando.org/v1",
+				Kind:       "Stack",
+				Name:       stack.Name,
+				UID:        stack.UID,
+			},
+		}, secret.OwnerReferences)
 	}
 
 	verifyStackIngressSources(
@@ -640,6 +697,7 @@ func testStacksetCreate(
 	t *testing.T,
 	testName string,
 	configmap bool,
+	secret bool,
 	hpa,
 	ingress,
 	routegroup,
@@ -655,6 +713,9 @@ func testStacksetCreate(
 		stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
 		if configmap {
 			stacksetSpecFactory.ConfigMap()
+		}
+		if secret {
+			stacksetSpecFactory.Secret()
 		}
 		if hpa {
 			stacksetSpecFactory.Autoscaler(
@@ -1008,31 +1069,35 @@ func testStacksetUpdate(
 }
 
 func TestStacksetCreateBasic(t *testing.T) {
-	testStacksetCreate(t, "basic", false, false, false, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "basic", false, false, false, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateConfigMap(t *testing.T) {
-	testStacksetCreate(t, "configmap", true, false, false, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "configmap", true, false, false, false, false, false, false, testAnnotationsCreate)
+}
+
+func TestStacksetCreateSecret(t *testing.T) {
+	testStacksetCreate(t, "secret", false, true, false, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateHPA(t *testing.T) {
-	testStacksetCreate(t, "hpa", false, true, false, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "hpa", false, false, true, false, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateIngress(t *testing.T) {
-	testStacksetCreate(t, "ingress", false, false, true, false, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "ingress", false, false, false, true, false, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateRouteGroup(t *testing.T) {
-	testStacksetCreate(t, "routegroup", false, false, false, true, false, false, testAnnotationsCreate)
+	testStacksetCreate(t, "routegroup", false, false, false, false, true, false, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateExternalIngress(t *testing.T) {
-	testStacksetCreate(t, "externalingress", false, false, false, false, true, false, testAnnotationsCreate)
+	testStacksetCreate(t, "externalingress", false, false, false, false, false, true, false, testAnnotationsCreate)
 }
 
 func TestStacksetCreateUpdateStrategy(t *testing.T) {
-	testStacksetCreate(t, "updatestrategy", false, false, false, false, false, true, testAnnotationsCreate)
+	testStacksetCreate(t, "updatestrategy", false, false, false, false, false, false, true, testAnnotationsCreate)
 }
 
 func TestStacksetUpdateBasic(t *testing.T) {
