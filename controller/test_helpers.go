@@ -69,6 +69,7 @@ func NewTestEnvironment() *testEnvironment {
 		true,
 		true,
 		true,
+		[]string{},
 		true,
 		time.Minute,
 	)

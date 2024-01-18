@@ -303,7 +303,11 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 
 	// Check if we need to update the RouteGroup
 	if core.IsResourceUpToDate(stack, existing.ObjectMeta) &&
-		equality.Semantic.DeepEqual(routegroup.Spec, existing.Spec) {
+		equality.Semantic.DeepEqual(routegroup.Spec, existing.Spec) &&
+		core.AreAnnotationsUpToDate(
+			routegroup.ObjectMeta,
+			existing.ObjectMeta,
+		) {
 
 		return nil
 	}

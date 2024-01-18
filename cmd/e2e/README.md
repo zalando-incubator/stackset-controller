@@ -32,7 +32,10 @@ watch -n 10 "kubectl get -n foo stackset,stack,ing,ep,deployment"
 kubectl delete namespace foo; kubectl create namespace foo
 make
 ./build/stackset-controller --apiserver=http://127.0.0.1:8001 \
---enable-configmap-support --enable-routegroup-support --controller-id=foo \
+--enable-configmap-support --enable-routegroup-support \
+--enable-traffic-segments --annotated-traffic-segments \
+--sync-ingress-annotation=example.org/i-haz-synchronize \
+--sync-ingress-annotation=teapot.org/the-best --controller-id=foo \
 --cluster-domain=${CLUSTER_DOMAIN} --cluster-domain=${CLUSTER_DOMAIN_INTERNAL}
 ```
 4. rebuild e2e test and run e2e tests in `foo` namespace

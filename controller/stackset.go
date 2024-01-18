@@ -51,6 +51,7 @@ const (
 type StackSetController struct {
 	logger                      *log.Entry
 	client                      clientset.Interface
+	syncIngressAnnotations      []string
 	controllerID                string
 	backendWeightsAnnotationKey string
 	clusterDomains              []string
@@ -100,6 +101,7 @@ func NewStackSetController(
 	routeGroupSupportEnabled bool,
 	trafficSegmentsEnabled bool,
 	annotatedTrafficSegments bool,
+	syncIngressAnnotations []string,
 	configMapSupportEnabled bool,
 	ingressSourceSwitchTTL time.Duration,
 ) (*StackSetController, error) {
@@ -123,6 +125,7 @@ func NewStackSetController(
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
 		trafficSegmentsEnabled:      trafficSegmentsEnabled,
 		annotatedTrafficSegments:    annotatedTrafficSegments,
+		syncIngressAnnotations:      syncIngressAnnotations,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		configMapSupportEnabled:     configMapSupportEnabled,
 		now:                         now,
@@ -308,6 +311,9 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 			stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
 
 			stacksetContainer.EnableSegmentTraffic()
+			stacksetContainer.SynchronizeIngressAnnotations(
+				c.syncIngressAnnotations,
+			)
 		}
 		stacksets[uid] = stacksetContainer
 	}

@@ -342,6 +342,13 @@ func (sc *StackContainer) GenerateIngressSegment() (
 		return res, err
 	}
 
+	// Synchronize annotations specified in the StackSet.
+	res.Annotations = syncAnnotations(
+		res.Annotations,
+		sc.syncAnnotationsInIngress,
+		sc.ingressAnnotationsToSync,
+	)
+
 	if predVal, ok := res.Annotations[IngressPredicateKey]; !ok {
 		res.Annotations = mergeLabels(
 			res.Annotations,
@@ -435,6 +442,13 @@ func (sc *StackContainer) GenerateRouteGroupSegment() (
 	if err != nil || res == nil {
 		return res, err
 	}
+
+	// Synchronize annotations specified in the StackSet.
+	res.Annotations = syncAnnotations(
+		res.Annotations,
+		sc.syncAnnotationsInRouteGroup,
+		sc.ingressAnnotationsToSync,
+	)
 
 	segmentedRoutes := []rgv1.RouteGroupRouteSpec{}
 	for _, r := range res.Spec.Routes {

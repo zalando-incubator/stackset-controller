@@ -28,6 +28,40 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 	return labels
 }
 
+// syncAnnotations synchronizes the given "dest" map with the key/pair values
+// from "src". The function removes all keys from "dest" that are not present in
+// "src", but specified in "annotationsToSync".
+func syncAnnotations(dest, src map[string]string, annotationsToSync []string) (
+	map[string]string,
+) {
+	res := mergeLabels(dest, src)
+
+	for _, k := range annotationsToSync {
+		if _, ok := src[k]; !ok {
+			delete(res, k)
+		}
+	}
+
+	return res
+}
+
+// getKeyValues returns a map with the given keys and values from the given
+// annotations.
+func getKeyValues(
+	keys []string,
+	annotations map[string]string,
+) map[string]string {
+
+	result := make(map[string]string)
+	for _, key := range keys {
+		if value, ok := annotations[key]; ok {
+			result[key] = value
+		}
+	}
+
+	return result
+}
+
 // IsResourceUpToDate checks whether the stack is assigned to the resource
 // by comparing the stack generation with the corresponding resource annotation.
 func IsResourceUpToDate(stack *zv1.Stack, resourceMeta metav1.ObjectMeta) bool {
