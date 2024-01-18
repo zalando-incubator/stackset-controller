@@ -48,6 +48,7 @@ var (
 		IngressSourceSwitchTTL      time.Duration
 		ReconcileWorkers            int
 		ConfigMapSupportEnabled     bool
+		SecretSupportEnabled        bool
 	}
 )
 
@@ -79,6 +80,7 @@ func main() {
 	kingpin.Flag("ingress-source-switch-ttl", "The ttl before an ingress source is deleted when replaced with another one e.g. switching from RouteGroup to Ingress or vice versa.").
 		Default(defaultIngressSourceSwitchTTL).DurationVar(&config.IngressSourceSwitchTTL)
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
+	kingpin.Flag("enable-secret-support", "Enable support for Secrets on StackSets.").Default("false").BoolVar(&config.SecretSupportEnabled)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -110,6 +112,7 @@ func main() {
 		config.AnnotatedTrafficSegments,
 		config.SyncIngressAnnotations,
 		config.ConfigMapSupportEnabled,
+		config.SecretSupportEnabled,
 		config.IngressSourceSwitchTTL,
 	)
 	if err != nil {

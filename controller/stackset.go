@@ -69,6 +69,7 @@ type StackSetController struct {
 	now                         func() string
 	reconcileWorkers            int
 	configMapSupportEnabled     bool
+	secretSupportEnabled        bool
 	sync.Mutex
 }
 
@@ -105,6 +106,7 @@ func NewStackSetController(
 	annotatedTrafficSegments bool,
 	syncIngressAnnotations []string,
 	configMapSupportEnabled bool,
+	secretSupportEnabled bool,
 	ingressSourceSwitchTTL time.Duration,
 ) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
@@ -131,6 +133,7 @@ func NewStackSetController(
 		syncIngressAnnotations:      syncIngressAnnotations,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		configMapSupportEnabled:     configMapSupportEnabled,
+		secretSupportEnabled:        secretSupportEnabled,
 		now:                         now,
 		reconcileWorkers:            parallelWork,
 	}, nil
@@ -360,10 +363,13 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 	}
 
-	err = c.collectSecrets(ctx, stacksets)
-	if err != nil {
-		return nil, err
+	if c.secretSupportEnabled {
+		err = c.collectSecrets(ctx, stacksets)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	return stacksets, nil
 }
 
@@ -773,7 +779,7 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 		return nil
 	}
 
-	if c.configMapSupportEnabled {
+	if c.configMapSupportEnabled || c.secretSupportEnabled {
 		// ensure that ConfigurationResources are prefixed by Stack name.
 		if err := validateConfigurationResourceNames(newStack.Stack); err != nil {
 			return err
@@ -1262,12 +1268,14 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		}
 	}
 
-	err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
-	if err != nil {
-		return c.errorEventf(sc.Stack, "FailedManageSecret", err)
+	if c.secretSupportEnabled {
+		err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
+		}
 	}
 
-	err = c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
+	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
