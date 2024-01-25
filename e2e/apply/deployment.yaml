@@ -23,6 +23,7 @@ spec:
       - name: "{{{APPLICATION}}}"
         image: "{{{IMAGE}}}"
         args:
+          - "--namespace={{{CDP_DEPLOYMENT_ID}}}"
           - "--controller-id={{{CONTROLLER_ID}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN}}}"
           - "--cluster-domain={{{CLUSTER_DOMAIN_INTERNAL}}}"
