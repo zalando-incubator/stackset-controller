@@ -51,6 +51,7 @@ const (
 type StackSetController struct {
 	logger                      *log.Entry
 	client                      clientset.Interface
+	namespace                   string
 	syncIngressAnnotations      []string
 	controllerID                string
 	backendWeightsAnnotationKey string
@@ -92,6 +93,7 @@ func now() string {
 // NewStackSetController initializes a new StackSetController.
 func NewStackSetController(
 	client clientset.Interface,
+	namespace string,
 	controllerID string,
 	parallelWork int,
 	backendWeightsAnnotationKey string,
@@ -113,6 +115,7 @@ func NewStackSetController(
 	return &StackSetController{
 		logger:                      log.WithFields(log.Fields{"controller": "stackset"}),
 		client:                      client,
+		namespace:                   namespace,
 		controllerID:                controllerID,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
 		clusterDomains:              clusterDomains,
@@ -361,7 +364,7 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 }
 
 func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	ingresses, err := c.client.NetworkingV1().Ingresses(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	ingresses, err := c.client.NetworkingV1().Ingresses(c.namespace).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		return fmt.Errorf("failed to list Ingresses: %v", err)
@@ -397,7 +400,7 @@ func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map
 }
 
 func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	rgs, err := c.client.RouteGroupV1().RouteGroups(v1.NamespaceAll).List(
+	rgs, err := c.client.RouteGroupV1().RouteGroups(c.namespace).List(
 		ctx,
 		metav1.ListOptions{},
 	)
@@ -435,7 +438,7 @@ func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets m
 }
 
 func (c *StackSetController) collectStacks(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	stacks, err := c.client.ZalandoV1().Stacks(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	stacks, err := c.client.ZalandoV1().Stacks(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Stacks: %v", err)
 	}
@@ -457,7 +460,7 @@ func (c *StackSetController) collectStacks(ctx context.Context, stacksets map[ty
 }
 
 func (c *StackSetController) collectDeployments(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	deployments, err := c.client.AppsV1().Deployments(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	deployments, err := c.client.AppsV1().Deployments(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Deployments: %v", err)
 	}
@@ -477,7 +480,7 @@ func (c *StackSetController) collectDeployments(ctx context.Context, stacksets m
 }
 
 func (c *StackSetController) collectServices(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	services, err := c.client.CoreV1().Services(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	services, err := c.client.CoreV1().Services(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Services: %v", err)
 	}
@@ -506,7 +509,7 @@ Items:
 }
 
 func (c *StackSetController) collectHPAs(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	hpas, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	hpas, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list HPAs: %v", err)
 	}
@@ -535,7 +538,7 @@ Items:
 }
 
 func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	configMaps, err := c.client.CoreV1().ConfigMaps(v1.NamespaceAll).List(ctx, metav1.ListOptions{})
+	configMaps, err := c.client.CoreV1().ConfigMaps(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list ConfigMaps: %v", err)
 	}
@@ -592,7 +595,7 @@ func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 
 func (c *StackSetController) startWatch(ctx context.Context) {
 	informer := cache.NewSharedIndexInformer(
-		cache.NewListWatchFromClient(c.client.ZalandoV1().RESTClient(), "stacksets", v1.NamespaceAll, fields.Everything()),
+		cache.NewListWatchFromClient(c.client.ZalandoV1().RESTClient(), "stacksets", c.namespace, fields.Everything()),
 		&zv1.StackSet{},
 		0, // skip resync
 		cache.Indexers{},

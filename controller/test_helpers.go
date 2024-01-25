@@ -60,6 +60,7 @@ func NewTestEnvironment() *testEnvironment {
 
 	controller, err := NewStackSetController(
 		client,
+		v1.NamespaceAll,
 		"",
 		10,
 		"",

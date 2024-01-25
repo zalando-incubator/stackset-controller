@@ -17,6 +17,7 @@ import (
 	"github.com/zalando-incubator/stackset-controller/controller"
 	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/transport"
 )
@@ -34,6 +35,7 @@ var (
 		Debug                       bool
 		Interval                    time.Duration
 		APIServer                   *url.URL
+		Namespace                   string
 		MetricsAddress              string
 		ClusterDomains              []string
 		NoTrafficScaledownTTL       time.Duration
@@ -54,6 +56,7 @@ func main() {
 	kingpin.Flag("interval", "Interval between syncing stacksets.").
 		Default(defaultInterval).DurationVar(&config.Interval)
 	kingpin.Flag("apiserver", "API server url.").URLVar(&config.APIServer)
+	kingpin.Flag("namespace", "Limit scope to a particular namespace.").Default(corev1.NamespaceAll).StringVar(&config.Namespace)
 	kingpin.Flag("metrics-address", "defines where to serve metrics").Default(defaultMetricsAddress).StringVar(&config.MetricsAddress)
 	kingpin.Flag("controller-id", "ID of the controller used to determine ownership of StackSet resources").StringVar(&config.ControllerID)
 	kingpin.Flag("reconcile-workers", "The amount of stacksets to reconcile in parallel at a time.").
@@ -95,6 +98,7 @@ func main() {
 
 	controller, err := controller.NewStackSetController(
 		client,
+		config.Namespace,
 		config.ControllerID,
 		config.ReconcileWorkers,
 		config.BackendWeightsAnnotationKey,
