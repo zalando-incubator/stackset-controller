@@ -173,7 +173,7 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 			},
 		}
 
-		result.StackTemplate.Spec.StackSpec.PodTemplate.Spec.Volumes = []corev1.Volume{
+		result.StackTemplate.Spec.PodTemplate.Spec.Volumes = []corev1.Volume{
 			{
 				Name: "config-volume",
 				VolumeSource: corev1.VolumeSource{
@@ -194,7 +194,7 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 				Name: secretName,
 			},
 			Data: map[string][]byte{
-				"key": {0},
+				"key": []byte("value"),
 			},
 		}
 
@@ -374,37 +374,40 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		require.EqualValues(t, expectedRef, hpa.Spec.ScaleTargetRef)
 	}
 
-	// Verify ConfigMaps
 	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
-		configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name)
-		require.NoError(t, err)
-		assert.EqualValues(t, stackResourceLabels, configMap.Labels)
-		assert.Contains(t, configMap.Name, stack.Name)
-		assert.Equal(t, map[string]string{"key": "value"}, configMap.Data)
-		assert.Equal(t, []metav1.OwnerReference{
-			{
-				APIVersion: "zalando.org/v1",
-				Kind:       "Stack",
-				Name:       stack.Name,
-				UID:        stack.UID,
-			},
-		}, configMap.OwnerReferences)
-	}
+		// Verify ConfigMaps
+		if rsc.ConfigMapRef.Name != "" {
+			configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name)
+			require.NoError(t, err)
+			assert.EqualValues(t, stackResourceLabels, configMap.Labels)
+			assert.Contains(t, configMap.Name, stack.Name)
+			assert.Equal(t, map[string]string{"key": "value"}, configMap.Data)
+			assert.Equal(t, []metav1.OwnerReference{
+				{
+					APIVersion: "zalando.org/v1",
+					Kind:       "Stack",
+					Name:       stack.Name,
+					UID:        stack.UID,
+				},
+			}, configMap.OwnerReferences)
+		}
 
-	// Verify Secrets
-	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
-		secret, err := waitForSecret(t, rsc.SecretRef.Name)
-		require.NoError(t, err)
-		assert.EqualValues(t, stackResourceLabels, secret.Labels)
-		assert.Contains(t, secret.Name, stack.Name)
-		assert.Equal(t, []metav1.OwnerReference{
-			{
-				APIVersion: "zalando.org/v1",
-				Kind:       "Stack",
-				Name:       stack.Name,
-				UID:        stack.UID,
-			},
-		}, secret.OwnerReferences)
+		// Verify Secrets
+		if rsc.SecretRef.Name != "" {
+			secret, err := waitForSecret(t, rsc.SecretRef.Name)
+			require.NoError(t, err)
+			assert.EqualValues(t, stackResourceLabels, secret.Labels)
+			assert.Contains(t, secret.Name, stack.Name)
+			assert.Equal(t, map[string][]byte{"key": []byte("value")}, secret.Data)
+			assert.Equal(t, []metav1.OwnerReference{
+				{
+					APIVersion: "zalando.org/v1",
+					Kind:       "Stack",
+					Name:       stack.Name,
+					UID:        stack.UID,
+				},
+			}, secret.OwnerReferences)
+		}
 	}
 
 	verifyStackIngressSources(
