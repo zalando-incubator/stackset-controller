@@ -5,7 +5,7 @@ metadata:
   name: stackset-controller
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
+kind: Role
 metadata:
   name: stackset-controller
 rules:
@@ -103,14 +103,13 @@ rules:
   - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
   name: stackset-controller-e2e
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
+  kind: Role
   name: stackset-controller
 subjects:
 - kind: ServiceAccount
   name: stackset-controller
-  namespace: {{{NAMESPACE}}}
