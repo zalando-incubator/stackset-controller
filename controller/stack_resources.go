@@ -33,8 +33,8 @@ func syncObjectMeta(target, source metav1.Object) {
 	target.SetAnnotations(source.GetAnnotations())
 }
 
-// equalResourceList compares existing Resources with list of
-// ConfigurationResources to be created for Stack
+// equalConfigMapList compares existing ConfigMaps with list of ConfigMaps
+// defined under ConfigurationResources to be assigned to Stack
 func equalConfigMapList(
 	existing []*apiv1.ConfigMap,
 	defined []zv1.ConfigurationResourcesSpec,
@@ -54,6 +54,8 @@ func equalConfigMapList(
 	return reflect.DeepEqual(existingName, crName)
 }
 
+// equalSecretList compares existing Secrets with list of Secrets
+// defined under ConfigurationResources to be assigned to Stack
 func equalSecretList(
 	existing []*apiv1.Secret,
 	defined []zv1.ConfigurationResourcesSpec,
@@ -419,6 +421,18 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	return nil
 }
 
+// ReconcileStackSecret will update the named user-provided Secret to be
+// attached to the Stack by ownerReferences, when a list of Configuration
+// Resources are defined on the Stack template.
+//
+// The provided Secret name must be prefixed by the Stack name.
+// eg: Stack: myapp-v1 Secret: myapp-v1-my-secret
+//
+// User update of running versioned Secrets is not encouraged but is allowed
+// on consideration of emergency needs. Similarly, addition of Secrets to
+// running resources is also allowed, so the method checks for changes on the
+// ConfigurationResources to ensure all listed Secrets are properly linked
+// to the Stack.
 func (c *StackSetController) ReconcileStackSecret(
 	ctx context.Context,
 	stack *zv1.Stack,
