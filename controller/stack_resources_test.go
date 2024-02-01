@@ -1155,17 +1155,19 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
-			if tc.template != nil {
-				for _, i := range tc.template {
-					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*i})
+			// Create case's existing resources
+			if tc.existing != nil {
+				for _, existing := range tc.existing {
+					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
 					require.NoError(t, err)
 				}
 			}
 
-			if tc.existing != nil {
-				for _, existing := range tc.existing {
-					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
-					for _, template := range tc.template {
+			// Create case's template resources
+			if tc.template != nil {
+				for _, template := range tc.template {
+					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*template})
+					for _, existing := range tc.existing {
 						if existing.Name == template.Name {
 							require.Error(t, err)
 						} else {
@@ -1181,7 +1183,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 				})
 			require.NoError(t, err)
 
-			// Versioned ConfigMap exists as expected
+			// Versioned ConfigMaps exist as expected
 			for _, expected := range tc.expected {
 				versioned, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
 					context.Background(), expected.Name, metav1.GetOptions{})
@@ -1388,17 +1390,19 @@ func TestReconcileStackSecret(t *testing.T) {
 			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
-			if tc.template != nil {
-				for _, i := range tc.template {
-					err = env.CreateSecrets(context.Background(), []v1.Secret{*i})
+			// Create case's existing resources
+			if tc.existing != nil {
+				for _, existing := range tc.existing {
+					err = env.CreateSecrets(context.Background(), []v1.Secret{*existing})
 					require.NoError(t, err)
 				}
 			}
 
-			if tc.existing != nil {
-				for _, existing := range tc.existing {
-					err = env.CreateSecrets(context.Background(), []v1.Secret{*existing})
-					for _, template := range tc.template {
+			// Create case's template resources
+			if tc.template != nil {
+				for _, template := range tc.template {
+					err = env.CreateSecrets(context.Background(), []v1.Secret{*template})
+					for _, existing := range tc.existing {
 						if existing.Name == template.Name {
 							require.Error(t, err)
 						} else {
@@ -1414,7 +1418,7 @@ func TestReconcileStackSecret(t *testing.T) {
 				})
 			require.NoError(t, err)
 
-			// Versioned Secret exists as expected
+			// Versioned Secrets exist as expected
 			for _, expected := range tc.expected {
 				versioned, err := env.client.CoreV1().Secrets(tc.stack.Namespace).Get(
 					context.Background(), expected.Name, metav1.GetOptions{})

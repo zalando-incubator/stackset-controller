@@ -781,7 +781,7 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 
 	if c.configMapSupportEnabled || c.secretSupportEnabled {
 		// ensure that ConfigurationResources are prefixed by Stack name.
-		if err := validateConfigurationResourceNames(newStack.Stack); err != nil {
+		if err := validateConfigurationResourcesNames(newStack.Stack); err != nil {
 			return err
 		}
 	}
@@ -1498,11 +1498,11 @@ func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
 	return false
 }
 
-// validateConfigurationResourceNames returns an error if any ConfigurationResource
+// validateConfigurationResourcesNames returns an error if any ConfigurationResource
 // name is not prefixed by Stack name.
-func validateConfigurationResourceNames(stack *zv1.Stack) error {
-	var rscName string
+func validateConfigurationResourcesNames(stack *zv1.Stack) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
+		var rscName string
 		if rsc.ConfigMapRef.Name != "" {
 			rscName = rsc.ConfigMapRef.Name
 		}

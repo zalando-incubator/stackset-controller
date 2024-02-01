@@ -382,7 +382,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		}
 		rscName := rsc.ConfigMapRef.Name
 
-		if err := validateConfigurationResourceNames(stack); err != nil {
+		if err := validateConfigurationResourcesNames(stack); err != nil {
 			return err
 		}
 
@@ -453,7 +453,7 @@ func (c *StackSetController) ReconcileStackSecret(
 		}
 		rscName := rsc.SecretRef.Name
 
-		if err := validateConfigurationResourceNames(stack); err != nil {
+		if err := validateConfigurationResourcesNames(stack); err != nil {
 			return err
 		}
 
