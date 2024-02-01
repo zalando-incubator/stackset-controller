@@ -249,11 +249,11 @@ func (c *StackSetController) injectSegmentAnnotation(
 	ctx context.Context,
 	stackSet *zv1.StackSet,
 ) bool {
-	if !c.trafficSegmentsEnabled {
+	if c.annotatedTrafficSegments {
 		return false
 	}
 
-	if c.annotatedTrafficSegments {
+	if !c.trafficSegmentsEnabled {
 		return false
 	}
 
@@ -310,13 +310,14 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 
 		stacksetContainer := core.NewContainer(&stackset, reconciler, c.backendWeightsAnnotationKey, c.clusterDomains)
-		if c.trafficSegmentsEnabled &&
-			stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
+		if c.trafficSegmentsEnabled || c.annotatedTrafficSegments {
 
-			stacksetContainer.EnableSegmentTraffic()
-			stacksetContainer.SynchronizeIngressAnnotations(
-				c.syncIngressAnnotations,
-			)
+			if stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
+				stacksetContainer.EnableSegmentTraffic()
+				stacksetContainer.SynchronizeIngressAnnotations(
+					c.syncIngressAnnotations,
+				)
+			}
 		}
 		stacksets[uid] = stacksetContainer
 	}

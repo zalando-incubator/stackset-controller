@@ -316,6 +316,79 @@ func TestCollectResources(t *testing.T) {
 	}
 }
 
+func TestSegmentEnablement(t *testing.T) {
+	for _, tc := range []struct {
+		stacksets []zv1.StackSet
+		annotatedTrafficSegments bool
+		trafficSegmentsEnabled bool
+		segmentsEnabled map[types.UID]bool
+	}{
+		{
+			stacksets: []zv1.StackSet{
+				testStackset("foo", "default", "123"),
+				testStacksetAnnotatedSegment("bar", "default", "456"),
+			},
+			segmentsEnabled: map[types.UID]bool{"123": false, "456": false},
+		},
+		{
+			stacksets: []zv1.StackSet{
+				testStackset("foo", "default", "789"),
+				testStacksetAnnotatedSegment("bar", "default", "0AB"),
+			},
+			annotatedTrafficSegments: true,
+			segmentsEnabled: map[types.UID]bool{"789": false, "0AB": true},
+		},
+		{
+			stacksets: []zv1.StackSet{
+				testStackset("foo", "default", "CDE"),
+				testStacksetAnnotatedSegment("bar", "default", "FGH"),
+			},
+			trafficSegmentsEnabled: true,
+			segmentsEnabled: map[types.UID]bool{"CDE": false, "FGH": true},
+		},
+		{
+			stacksets: []zv1.StackSet{
+				testStackset("foo", "default", "IJK"),
+				testStacksetAnnotatedSegment("bar", "default", "LMN"),
+			},
+			annotatedTrafficSegments: true,
+			trafficSegmentsEnabled: true,
+			segmentsEnabled: map[types.UID]bool{"IJK": false, "LMN": true},
+		},
+	}{
+		env := NewTestEnvironment()
+		env.controller.annotatedTrafficSegments = tc.annotatedTrafficSegments
+		env.controller.trafficSegmentsEnabled = tc.trafficSegmentsEnabled
+
+		err := env.CreateStacksets(context.Background(), tc.stacksets)
+		require.NoError(t, err)
+
+		containers, err := env.controller.collectResources(context.Background())
+		require.NoError(t, err)
+
+		if len(containers) != len(tc.segmentsEnabled) {
+			t.Errorf(
+				"expected %d stacksets, got %d",
+				len(tc.segmentsEnabled),
+				len(containers),
+			)
+		}
+
+		for k, c := range containers {
+			if c.SupportsSegmentTraffic() != tc.segmentsEnabled[k] {
+				t.Errorf(
+					"expected segment support %t for stackset %s, got %t",
+					tc.segmentsEnabled[k],
+					k,
+					c.SupportsSegmentTraffic(),
+				)
+
+				break
+			}
+		}
+	}
+}
+
 func TestCreateCurrentStack(t *testing.T) {
 	env := NewTestEnvironment()
 
