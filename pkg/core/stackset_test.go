@@ -409,7 +409,7 @@ func TestStackSetUpdateFromResourcesPopulatesIngress(t *testing.T) {
 		expectedIngress *zv1.StackSetIngressSpec
 	}{
 		{
-			name: "no ingress",
+			name:            "no ingress",
 			expectedIngress: nil,
 		},
 		{
@@ -483,7 +483,7 @@ func TestStackSetUpdateFromResourcesPopulatesBackendPort(t *testing.T) {
 				"v1": {
 					Stack: &zv1.Stack{
 						Spec: zv1.StackSpecInternal{
-							Ingress: tc.spec.Ingress,
+							Ingress:         tc.spec.Ingress,
 							ExternalIngress: tc.spec.ExternalIngress,
 						},
 					},
@@ -546,7 +546,7 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 				"v1": {
 					Stack: &zv1.Stack{
 						Spec: zv1.StackSpecInternal{
-							Ingress: tc.ingress,
+							Ingress:         tc.ingress,
 							ExternalIngress: tc.externalIngress,
 						},
 					},
@@ -592,11 +592,11 @@ func TestStackSetUpdateFromResourcesSynchronizedIngressAnnotations(
 	t *testing.T,
 ) {
 	for _, tc := range []struct {
-		ingressAnnotationsToSync []string
-		stackSet zv1.StackSetSpec
-		ingress 	  *zv1.StackSetIngressSpec
-		expectedAnnotationsToSync    		  []string
-		expectedSyncAnnotationsInIngress map[string]string
+		ingressAnnotationsToSync            []string
+		stackSet                            zv1.StackSetSpec
+		ingress                             *zv1.StackSetIngressSpec
+		expectedAnnotationsToSync           []string
+		expectedSyncAnnotationsInIngress    map[string]string
 		expectedSyncAnnotationsInRouteGroup map[string]string
 	}{
 		{
@@ -606,7 +606,7 @@ func TestStackSetUpdateFromResourcesSynchronizedIngressAnnotations(
 					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 						Annotations: map[string]string{
 							"aSync": "1Sync",
-							"a": "1",
+							"a":     "1",
 						},
 					},
 					BackendPort: intstr.FromInt(8080),
@@ -628,8 +628,8 @@ func TestStackSetUpdateFromResourcesSynchronizedIngressAnnotations(
 					BackendPort: intstr.FromInt(8080),
 				},
 			},
-			expectedAnnotationsToSync: []string{"aSync"},
-			expectedSyncAnnotationsInIngress: map[string]string{},
+			expectedAnnotationsToSync:           []string{"aSync"},
+			expectedSyncAnnotationsInIngress:    map[string]string{},
 			expectedSyncAnnotationsInRouteGroup: map[string]string{},
 		},
 		{
@@ -639,15 +639,15 @@ func TestStackSetUpdateFromResourcesSynchronizedIngressAnnotations(
 					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 						Annotations: map[string]string{
 							"aSync": "1Sync",
-							"a": "1",
+							"a":     "1",
 						},
 					},
-					Hosts:  []string{"example.teapot.zalan.do"},
-					Routes: []rgv1.RouteGroupRouteSpec{{}},
+					Hosts:       []string{"example.teapot.zalan.do"},
+					Routes:      []rgv1.RouteGroupRouteSpec{{}},
 					BackendPort: 8080,
 				},
 			},
-			expectedAnnotationsToSync: []string{"aSync"},
+			expectedAnnotationsToSync:        []string{"aSync"},
 			expectedSyncAnnotationsInIngress: map[string]string{},
 			expectedSyncAnnotationsInRouteGroup: map[string]string{
 				"aSync": "1Sync",
@@ -660,7 +660,7 @@ func TestStackSetUpdateFromResourcesSynchronizedIngressAnnotations(
 					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 						Annotations: map[string]string{
 							"aSync": "1Sync",
-							"a": "1",
+							"a":     "1",
 						},
 					},
 					BackendPort: intstr.FromInt(8080),
@@ -669,11 +669,11 @@ func TestStackSetUpdateFromResourcesSynchronizedIngressAnnotations(
 					EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
 						Annotations: map[string]string{
 							"aSync": "1Sync",
-							"a": "1",
+							"a":     "1",
 						},
 					},
-					Hosts:  []string{"example.teapot.zalan.do"},
-					Routes: []rgv1.RouteGroupRouteSpec{{}},
+					Hosts:       []string{"example.teapot.zalan.do"},
+					Routes:      []rgv1.RouteGroupRouteSpec{{}},
 					BackendPort: 8080,
 				},
 			},

@@ -318,10 +318,10 @@ func TestCollectResources(t *testing.T) {
 
 func TestSegmentEnablement(t *testing.T) {
 	for _, tc := range []struct {
-		stacksets []zv1.StackSet
+		stacksets                []zv1.StackSet
 		annotatedTrafficSegments bool
-		trafficSegmentsEnabled bool
-		segmentsEnabled map[types.UID]bool
+		trafficSegmentsEnabled   bool
+		segmentsEnabled          map[types.UID]bool
 	}{
 		{
 			stacksets: []zv1.StackSet{
@@ -336,7 +336,7 @@ func TestSegmentEnablement(t *testing.T) {
 				testStacksetAnnotatedSegment("bar", "default", "0AB"),
 			},
 			annotatedTrafficSegments: true,
-			segmentsEnabled: map[types.UID]bool{"789": false, "0AB": true},
+			segmentsEnabled:          map[types.UID]bool{"789": false, "0AB": true},
 		},
 		{
 			stacksets: []zv1.StackSet{
@@ -344,7 +344,7 @@ func TestSegmentEnablement(t *testing.T) {
 				testStacksetAnnotatedSegment("bar", "default", "FGH"),
 			},
 			trafficSegmentsEnabled: true,
-			segmentsEnabled: map[types.UID]bool{"CDE": false, "FGH": true},
+			segmentsEnabled:        map[types.UID]bool{"CDE": false, "FGH": true},
 		},
 		{
 			stacksets: []zv1.StackSet{
@@ -352,10 +352,10 @@ func TestSegmentEnablement(t *testing.T) {
 				testStacksetAnnotatedSegment("bar", "default", "LMN"),
 			},
 			annotatedTrafficSegments: true,
-			trafficSegmentsEnabled: true,
-			segmentsEnabled: map[types.UID]bool{"IJK": false, "LMN": true},
+			trafficSegmentsEnabled:   true,
+			segmentsEnabled:          map[types.UID]bool{"IJK": false, "LMN": true},
 		},
-	}{
+	} {
 		env := NewTestEnvironment()
 		env.controller.annotatedTrafficSegments = tc.annotatedTrafficSegments
 		env.controller.trafficSegmentsEnabled = tc.trafficSegmentsEnabled
