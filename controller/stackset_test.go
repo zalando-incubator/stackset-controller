@@ -328,7 +328,9 @@ func TestSegmentEnablement(t *testing.T) {
 				testStackset("foo", "default", "123"),
 				testStacksetAnnotatedSegment("bar", "default", "456"),
 			},
-			segmentsEnabled: map[types.UID]bool{"123": false, "456": false},
+			annotatedTrafficSegments: false,
+			trafficSegmentsEnabled:   false,
+			segmentsEnabled:          map[types.UID]bool{"123": false, "456": false},
 		},
 		{
 			stacksets: []zv1.StackSet{
@@ -336,6 +338,7 @@ func TestSegmentEnablement(t *testing.T) {
 				testStacksetAnnotatedSegment("bar", "default", "0AB"),
 			},
 			annotatedTrafficSegments: true,
+			trafficSegmentsEnabled:   false,
 			segmentsEnabled:          map[types.UID]bool{"789": false, "0AB": true},
 		},
 		{
@@ -343,8 +346,9 @@ func TestSegmentEnablement(t *testing.T) {
 				testStackset("foo", "default", "CDE"),
 				testStacksetAnnotatedSegment("bar", "default", "FGH"),
 			},
-			trafficSegmentsEnabled: true,
-			segmentsEnabled:        map[types.UID]bool{"CDE": false, "FGH": true},
+			annotatedTrafficSegments: false,
+			trafficSegmentsEnabled:   true,
+			segmentsEnabled:          map[types.UID]bool{"CDE": false, "FGH": true},
 		},
 		{
 			stacksets: []zv1.StackSet{
