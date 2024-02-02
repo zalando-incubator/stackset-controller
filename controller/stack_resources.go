@@ -3,8 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"sort"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -31,48 +29,6 @@ func pint32Equal(p1, p2 *int32) bool {
 func syncObjectMeta(target, source metav1.Object) {
 	target.SetLabels(source.GetLabels())
 	target.SetAnnotations(source.GetAnnotations())
-}
-
-// equalConfigMapList compares existing ConfigMaps with list of ConfigMaps
-// defined under ConfigurationResources to be assigned to Stack
-func equalConfigMapList(
-	existing []*apiv1.ConfigMap,
-	defined []zv1.ConfigurationResourcesSpec,
-) bool {
-	var existingName []string
-	for _, e := range existing {
-		existingName = append(existingName, e.Name)
-	}
-	var crName []string
-	for _, cr := range defined {
-		crName = append(crName, cr.ConfigMapRef.Name)
-	}
-
-	sort.Strings(existingName)
-	sort.Strings(crName)
-
-	return reflect.DeepEqual(existingName, crName)
-}
-
-// equalSecretList compares existing Secrets with list of Secrets
-// defined under ConfigurationResources to be assigned to Stack
-func equalSecretList(
-	existing []*apiv1.Secret,
-	defined []zv1.ConfigurationResourcesSpec,
-) bool {
-	var existingName []string
-	for _, e := range existing {
-		existingName = append(existingName, e.Name)
-	}
-	var crName []string
-	for _, cr := range defined {
-		crName = append(crName, cr.SecretRef.Name)
-	}
-
-	sort.Strings(existingName)
-	sort.Strings(crName)
-
-	return reflect.DeepEqual(existingName, crName)
 }
 
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
@@ -372,10 +328,6 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		return nil
 	}
 
-	if equalConfigMapList(existing, stack.Spec.ConfigurationResources) {
-		return nil
-	}
-
 	for _, rsc := range stack.Spec.ConfigurationResources {
 		if rsc.ConfigMapRef.Name == "" {
 			continue
@@ -440,10 +392,6 @@ func (c *StackSetController) ReconcileStackSecret(
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	if stack.Spec.ConfigurationResources == nil {
-		return nil
-	}
-
-	if equalSecretList(existing, stack.Spec.ConfigurationResources) {
 		return nil
 	}
 
