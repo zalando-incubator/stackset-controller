@@ -318,12 +318,14 @@ func TestCollectResources(t *testing.T) {
 
 func TestSegmentEnablement(t *testing.T) {
 	for _, tc := range []struct {
+		name                     string
 		stacksets                []zv1.StackSet
 		annotatedTrafficSegments bool
 		trafficSegmentsEnabled   bool
 		segmentsEnabled          map[types.UID]bool
 	}{
 		{
+			name: "should not enable segments anywhere when either flags are off",
 			stacksets: []zv1.StackSet{
 				testStackset("foo", "default", "123"),
 				testStacksetAnnotatedSegment("bar", "default", "456"),
@@ -333,6 +335,7 @@ func TestSegmentEnablement(t *testing.T) {
 			segmentsEnabled:          map[types.UID]bool{"123": false, "456": false},
 		},
 		{
+			name: "should enable segments only on annotated StackSets",
 			stacksets: []zv1.StackSet{
 				testStackset("foo", "default", "789"),
 				testStacksetAnnotatedSegment("bar", "default", "0AB"),
@@ -342,6 +345,8 @@ func TestSegmentEnablement(t *testing.T) {
 			segmentsEnabled:          map[types.UID]bool{"789": false, "0AB": true},
 		},
 		{
+			name: "should enable segments on annotated StackSets (controller " +
+				"injects annotation in next loop for StackSets without annotation)",
 			stacksets: []zv1.StackSet{
 				testStackset("foo", "default", "CDE"),
 				testStacksetAnnotatedSegment("bar", "default", "FGH"),
@@ -351,6 +356,8 @@ func TestSegmentEnablement(t *testing.T) {
 			segmentsEnabled:          map[types.UID]bool{"CDE": false, "FGH": true},
 		},
 		{
+			name: "should enable segments on annotated StackSets (controller " +
+				"won't injects annotation in next loop for StackSets without annotation)",
 			stacksets: []zv1.StackSet{
 				testStackset("foo", "default", "IJK"),
 				testStacksetAnnotatedSegment("bar", "default", "LMN"),
@@ -360,36 +367,40 @@ func TestSegmentEnablement(t *testing.T) {
 			segmentsEnabled:          map[types.UID]bool{"IJK": false, "LMN": true},
 		},
 	} {
-		env := NewTestEnvironment()
-		env.controller.annotatedTrafficSegments = tc.annotatedTrafficSegments
-		env.controller.trafficSegmentsEnabled = tc.trafficSegmentsEnabled
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+			env.controller.annotatedTrafficSegments = tc.annotatedTrafficSegments
+			env.controller.trafficSegmentsEnabled = tc.trafficSegmentsEnabled
 
-		err := env.CreateStacksets(context.Background(), tc.stacksets)
-		require.NoError(t, err)
+			err := env.CreateStacksets(context.Background(), tc.stacksets)
+			require.NoError(t, err)
 
-		containers, err := env.controller.collectResources(context.Background())
-		require.NoError(t, err)
-
-		if len(containers) != len(tc.segmentsEnabled) {
-			t.Errorf(
-				"expected %d stacksets, got %d",
-				len(tc.segmentsEnabled),
-				len(containers),
+			containers, err := env.controller.collectResources(
+				context.Background(),
 			)
-		}
+			require.NoError(t, err)
 
-		for k, c := range containers {
-			if c.SupportsSegmentTraffic() != tc.segmentsEnabled[k] {
+			if len(containers) != len(tc.segmentsEnabled) {
 				t.Errorf(
-					"expected segment support %t for stackset %s, got %t",
-					tc.segmentsEnabled[k],
-					k,
-					c.SupportsSegmentTraffic(),
+					"expected %d stacksets, got %d",
+					len(tc.segmentsEnabled),
+					len(containers),
 				)
-
-				break
 			}
-		}
+
+			for k, c := range containers {
+				if c.SupportsSegmentTraffic() != tc.segmentsEnabled[k] {
+					t.Errorf(
+						"expected segment support %t for stackset %s, got %t",
+						tc.segmentsEnabled[k],
+						k,
+						c.SupportsSegmentTraffic(),
+					)
+
+					break
+				}
+			}
+		})
 	}
 }
 
