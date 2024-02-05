@@ -122,6 +122,7 @@ func (in *AutoscalerMetrics) DeepCopy() *AutoscalerMetrics {
 func (in *ConfigurationResourcesSpec) DeepCopyInto(out *ConfigurationResourcesSpec) {
 	*out = *in
 	out.ConfigMapRef = in.ConfigMapRef
+	out.SecretRef = in.SecretRef
 	return
 }
 

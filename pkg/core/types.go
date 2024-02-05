@@ -210,6 +210,7 @@ type StackResources struct {
 	RouteGroup        *rgv1.RouteGroup
 	RouteGroupSegment *rgv1.RouteGroup
 	ConfigMaps        []*v1.ConfigMap
+	Secrets           []*v1.Secret
 }
 
 func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {

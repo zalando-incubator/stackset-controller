@@ -3,8 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"sort"
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -31,27 +29,6 @@ func pint32Equal(p1, p2 *int32) bool {
 func syncObjectMeta(target, source metav1.Object) {
 	target.SetLabels(source.GetLabels())
 	target.SetAnnotations(source.GetAnnotations())
-}
-
-// equalResourceList compares existing Resources with list of
-// ConfigurationResources to be created for Stack
-func equalResourceList(
-	existing []*apiv1.ConfigMap,
-	defined []zv1.ConfigurationResourcesSpec,
-) bool {
-	var existingName []string
-	for _, e := range existing {
-		existingName = append(existingName, e.Name)
-	}
-	var crName []string
-	for _, cr := range defined {
-		crName = append(crName, cr.ConfigMapRef.Name)
-	}
-
-	sort.Strings(existingName)
-	sort.Strings(crName)
-
-	return reflect.DeepEqual(existingName, crName)
 }
 
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
@@ -347,19 +324,13 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	existing []*apiv1.ConfigMap,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
-	if stack.Spec.ConfigurationResources == nil {
-		return nil
-	}
-
-	if equalResourceList(existing, stack.Spec.ConfigurationResources) {
-		return nil
-	}
-
 	for _, rsc := range stack.Spec.ConfigurationResources {
+		if rsc.ConfigMapRef.Name == "" {
+			continue
+		}
 		rscName := rsc.ConfigMapRef.Name
 
-		// ensure that ConfigurationResources are prefixed by Stack name.
-		if err := validateConfigurationResourceNames(stack); err != nil {
+		if err := validateConfigurationResourceName(stack.Name, rscName); err != nil {
 			return err
 		}
 
@@ -393,6 +364,69 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			"UpdatedConfigMap",
 			"Updated ConfigMap %s",
 			configMap.Name,
+		)
+	}
+	return nil
+}
+
+// ReconcileStackSecret will update the named user-provided Secret to be
+// attached to the Stack by ownerReferences, when a list of Configuration
+// Resources are defined on the Stack template.
+//
+// The provided Secret name must be prefixed by the Stack name.
+// eg: Stack: myapp-v1 Secret: myapp-v1-my-secret
+//
+// User update of running versioned Secrets is not encouraged but is allowed
+// on consideration of emergency needs. Similarly, addition of Secrets to
+// running resources is also allowed, so the method checks for changes on the
+// ConfigurationResources to ensure all listed Secrets are properly linked
+// to the Stack.
+func (c *StackSetController) ReconcileStackSecret(
+	ctx context.Context,
+	stack *zv1.Stack,
+	existing []*apiv1.Secret,
+	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
+) error {
+	for _, rsc := range stack.Spec.ConfigurationResources {
+		if rsc.SecretRef.Name == "" {
+			continue
+		}
+		rscName := rsc.SecretRef.Name
+
+		if err := validateConfigurationResourceName(stack.Name, rscName); err != nil {
+			return err
+		}
+
+		secret, err := c.client.CoreV1().Secrets(stack.Namespace).
+			Get(ctx, rscName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+
+		if secret.OwnerReferences != nil {
+			for _, owner := range secret.OwnerReferences {
+				if owner.UID != stack.UID {
+					return fmt.Errorf("Secret already owned by other resource. "+
+						"Secret: %s, Stack: %s", rscName, stack.Name)
+				}
+			}
+			continue
+		}
+
+		objectMeta := updateObjMeta(&secret.ObjectMeta)
+		secret.ObjectMeta = *objectMeta
+
+		_, err = c.client.CoreV1().Secrets(secret.Namespace).
+			Update(ctx, secret, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"UpdatedSecret",
+			"Updated Secret %s",
+			secret.Name,
 		)
 	}
 	return nil

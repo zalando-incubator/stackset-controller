@@ -1032,7 +1032,7 @@ func TestReconcileStackConfigMap(t *testing.T) {
 		stack    zv1.Stack
 		existing []*v1.ConfigMap
 		template []*v1.ConfigMap
-		expected []*v1.ConfigMap
+		expected map[string]*v1.ConfigMap
 	}{
 		{
 			name:     "configmap ownerReference is added to referenced configmap",
@@ -1047,8 +1047,8 @@ func TestReconcileStackConfigMap(t *testing.T) {
 					Data: baseData,
 				},
 			},
-			expected: []*v1.ConfigMap{
-				&testConfigMap,
+			expected: map[string]*v1.ConfigMap{
+				"foo-v1-test-configmap": &testConfigMap,
 			},
 		},
 		{
@@ -1105,9 +1105,9 @@ func TestReconcileStackConfigMap(t *testing.T) {
 					Data: differentData,
 				},
 			},
-			expected: []*v1.ConfigMap{
-				&firstConfigMap,
-				&scndConfigMap,
+			expected: map[string]*v1.ConfigMap{
+				"foo-v1-first-configmap": &firstConfigMap,
+				"foo-v1-scnd-configmap":  &scndConfigMap,
 			},
 		},
 		{
@@ -1132,13 +1132,13 @@ func TestReconcileStackConfigMap(t *testing.T) {
 					Immutable: &notImmutable,
 				},
 			},
-			expected: []*v1.ConfigMap{
-				{
+			expected: map[string]*v1.ConfigMap{
+				"foo-v1-first-configmap": {
 					ObjectMeta: firstConfigMap.ObjectMeta,
 					Data:       baseData,
 					Immutable:  &immutable,
 				},
-				{
+				"foo-v1-scnd-configmap": {
 					ObjectMeta: scndConfigMap.ObjectMeta,
 					Data:       differentData,
 					Immutable:  &notImmutable,
@@ -1155,17 +1155,19 @@ func TestReconcileStackConfigMap(t *testing.T) {
 			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
-			if tc.template != nil {
-				for _, i := range tc.template {
-					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*i})
+			// Create case's existing resources
+			if tc.existing != nil {
+				for _, existing := range tc.existing {
+					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
 					require.NoError(t, err)
 				}
 			}
 
-			if tc.existing != nil {
-				for _, existing := range tc.existing {
-					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
-					for _, template := range tc.template {
+			// Create case's template resources
+			if tc.template != nil {
+				for _, template := range tc.template {
+					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*template})
+					for _, existing := range tc.existing {
 						if existing.Name == template.Name {
 							require.Error(t, err)
 						} else {
@@ -1177,16 +1179,248 @@ func TestReconcileStackConfigMap(t *testing.T) {
 
 			err = env.controller.ReconcileStackConfigMap(
 				context.Background(), &tc.stack, tc.existing, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
-					if tmp.Name == tc.template[0].Name {
-						return &tc.expected[0].ObjectMeta
-					}
-					return &tc.expected[1].ObjectMeta
+					return &tc.expected[tmp.Name].ObjectMeta
 				})
 			require.NoError(t, err)
 
-			// Versioned ConfigMap exists as expected
+			// Versioned ConfigMaps exist as expected
 			for _, expected := range tc.expected {
 				versioned, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
+					context.Background(), expected.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				require.Equal(t, expected, versioned)
+				require.Equal(t, versioned.OwnerReferences, baseTestStackOwned.OwnerReferences)
+			}
+		})
+	}
+}
+
+func TestReconcileStackSecret(t *testing.T) {
+	testSecretStack := baseTestStack
+	testSecretStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					SecretRef: v1.LocalObjectReference{
+						Name: "foo-v1-test-secret",
+					},
+				},
+			},
+		},
+	}
+
+	testMixedConfigStack := baseTestStack
+	testMixedConfigStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					SecretRef: v1.LocalObjectReference{
+						Name: "foo-v1-test-secret",
+					},
+				},
+				{
+					ConfigMapRef: v1.LocalObjectReference{
+						Name: "foo-v1-test-configmap",
+					},
+				},
+			},
+		},
+	}
+
+	multipleSecretsStack := baseTestStack
+	multipleSecretsStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					SecretRef: v1.LocalObjectReference{
+						Name: "foo-v1-first-secret",
+					},
+				},
+				{
+					SecretRef: v1.LocalObjectReference{
+						Name: "foo-v1-scnd-secret",
+					},
+				},
+			},
+		},
+	}
+
+	baseData := map[string][]byte{
+		"testK": []byte("value-00"),
+	}
+
+	differentData := map[string][]byte{
+		"testK": []byte("value-01"),
+	}
+
+	testSecret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-test-secret",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: baseData,
+	}
+
+	firstSecret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-first-secret",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: baseData,
+	}
+
+	scndSecret := v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-scnd-secret",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Data: differentData,
+	}
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing []*v1.Secret
+		template []*v1.Secret
+		expected map[string]*v1.Secret
+	}{
+		{
+			name:     "secret ownerReference is added to referenced secret",
+			stack:    testSecretStack,
+			existing: nil,
+			template: []*v1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-test-secret",
+						Namespace: testSecretStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: map[string]*v1.Secret{
+				"foo-v1-test-secret": &testSecret,
+			},
+		},
+		{
+			name:  "stack already has secret version",
+			stack: testSecretStack,
+			existing: []*v1.Secret{
+				&testSecret,
+			},
+			template: []*v1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-test-secret",
+						Namespace: testSecretStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: nil,
+		},
+		{
+			name:  "secret name does not follow expected pattern",
+			stack: testSecretStack,
+			existing: []*v1.Secret{
+				&testSecret,
+			},
+			template: []*v1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-secret",
+						Namespace: testSecretStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: nil,
+		},
+		{
+			name:     "stack with multiple secret resources",
+			stack:    multipleSecretsStack,
+			existing: nil,
+			template: []*v1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-first-secret",
+						Namespace: multipleSecretsStack.Namespace,
+					},
+					Data: baseData,
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-scnd-secret",
+						Namespace: multipleSecretsStack.Namespace,
+					},
+					Data: differentData,
+				},
+			},
+			expected: map[string]*v1.Secret{
+				"foo-v1-first-secret": &firstSecret,
+				"foo-v1-scnd-secret":  &scndSecret,
+			},
+		},
+		{
+			name:     "manage secrets out of mixed configurationResources",
+			stack:    testMixedConfigStack,
+			existing: nil,
+			template: []*v1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "foo-v1-test-secret",
+						Namespace: testSecretStack.Namespace,
+					},
+					Data: baseData,
+				},
+			},
+			expected: map[string]*v1.Secret{
+				"foo-v1-test-secret": &testSecret,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			// Create case's existing resources
+			if tc.existing != nil {
+				for _, existing := range tc.existing {
+					err = env.CreateSecrets(context.Background(), []v1.Secret{*existing})
+					require.NoError(t, err)
+				}
+			}
+
+			// Create case's template resources
+			if tc.template != nil {
+				for _, template := range tc.template {
+					err = env.CreateSecrets(context.Background(), []v1.Secret{*template})
+					for _, existing := range tc.existing {
+						if existing.Name == template.Name {
+							require.Error(t, err)
+						} else {
+							require.NoError(t, err)
+						}
+					}
+				}
+			}
+
+			err = env.controller.ReconcileStackSecret(
+				context.Background(), &tc.stack, tc.existing, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
+					return &tc.expected[tmp.Name].ObjectMeta
+				})
+			require.NoError(t, err)
+
+			// Versioned Secrets exist as expected
+			for _, expected := range tc.expected {
+				versioned, err := env.client.CoreV1().Secrets(tc.stack.Namespace).Get(
 					context.Background(), expected.Name, metav1.GetOptions{})
 				require.NoError(t, err)
 				require.Equal(t, expected, versioned)

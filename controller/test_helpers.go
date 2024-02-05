@@ -72,6 +72,7 @@ func NewTestEnvironment() *testEnvironment {
 		true,
 		[]string{},
 		true,
+		true,
 		time.Minute,
 	)
 
@@ -165,6 +166,16 @@ func (f *testEnvironment) CreateHPAs(ctx context.Context, hpas []autoscaling.Hor
 func (f *testEnvironment) CreateConfigMaps(ctx context.Context, configMaps []v1.ConfigMap) error {
 	for _, configMap := range configMaps {
 		_, err := f.client.CoreV1().ConfigMaps(configMap.Namespace).Create(ctx, &configMap, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *testEnvironment) CreateSecrets(ctx context.Context, secrets []v1.Secret) error {
+	for _, secret := range secrets {
+		_, err := f.client.CoreV1().Secrets(secret.Namespace).Create(ctx, &secret, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}

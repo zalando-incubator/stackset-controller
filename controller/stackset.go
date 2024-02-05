@@ -45,6 +45,8 @@ const (
 	defaultResetMinReplicasDelay = 10 * time.Minute
 )
 
+var configurationResourceNameError = "ConfigurationResource name must be prefixed by Stack name. ConfigurationResource: %s, Stack: %s"
+
 // StackSetController is the main controller. It watches for changes to
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
@@ -69,6 +71,7 @@ type StackSetController struct {
 	now                         func() string
 	reconcileWorkers            int
 	configMapSupportEnabled     bool
+	secretSupportEnabled        bool
 	sync.Mutex
 }
 
@@ -105,6 +108,7 @@ func NewStackSetController(
 	annotatedTrafficSegments bool,
 	syncIngressAnnotations []string,
 	configMapSupportEnabled bool,
+	secretSupportEnabled bool,
 	ingressSourceSwitchTTL time.Duration,
 ) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
@@ -131,6 +135,7 @@ func NewStackSetController(
 		syncIngressAnnotations:      syncIngressAnnotations,
 		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		configMapSupportEnabled:     configMapSupportEnabled,
+		secretSupportEnabled:        secretSupportEnabled,
 		now:                         now,
 		reconcileWorkers:            parallelWork,
 	}, nil
@@ -361,6 +366,13 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 	}
 
+	if c.secretSupportEnabled {
+		err = c.collectSecrets(ctx, stacksets)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return stacksets, nil
 }
 
@@ -550,6 +562,26 @@ func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets ma
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					s.Resources.ConfigMaps = append(s.Resources.ConfigMaps, &configMap)
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectSecrets(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+	secrets, err := c.client.CoreV1().Secrets(c.namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list Secrets: %v", err)
+	}
+
+	for _, sct := range secrets.Items {
+		secret := sct
+		if uid, ok := getOwnerUID(secret.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				if s, ok := stackset.StackContainers[uid]; ok {
+					s.Resources.Secrets = append(s.Resources.Secrets, &secret)
 					break
 				}
 			}
@@ -750,9 +782,9 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 		return nil
 	}
 
-	if c.configMapSupportEnabled {
+	if c.configMapSupportEnabled || c.secretSupportEnabled {
 		// ensure that ConfigurationResources are prefixed by Stack name.
-		if err := validateConfigurationResourceNames(newStack.Stack); err != nil {
+		if err := validateAllConfigurationResourcesNames(newStack.Stack); err != nil {
 			return err
 		}
 	}
@@ -1239,10 +1271,18 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		}
 	}
 
+	if c.secretSupportEnabled {
+		err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
+		}
+	}
+
 	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
+
 	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
@@ -1294,6 +1334,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -1460,15 +1501,31 @@ func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
 	return false
 }
 
-// validateConfigurationResourceNames returns an error if any ConfigurationResource name is not prefixed by Stack name.
-func validateConfigurationResourceNames(stack *zv1.Stack) error {
+// validateConfigurationResourcesNames returns an error if any ConfigurationResource
+// name is not prefixed by Stack name.
+func validateAllConfigurationResourcesNames(stack *zv1.Stack) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		rscName := rsc.ConfigMapRef.Name
+		var rscName string
+		if rsc.ConfigMapRef.Name != "" {
+			rscName = rsc.ConfigMapRef.Name
+		}
+
+		if rsc.SecretRef.Name != "" {
+			rscName = rsc.SecretRef.Name
+		}
+
 		if !strings.HasPrefix(rscName, stack.Name) {
-			return fmt.Errorf("ConfigurationResource name must be prefixed by Stack name. "+
-				"ConfigurationResource: %s, Stack: %s", rscName, stack.Name)
+			return fmt.Errorf(configurationResourceNameError, rscName, stack.Name)
 		}
 	}
+	return nil
+}
 
+// validateConfigurationResourceName returns an error if specific resource
+// name is not prefixed by Stack name.
+func validateConfigurationResourceName(stack string, rsc string) error {
+	if !strings.HasPrefix(rsc, stack) {
+		return fmt.Errorf(configurationResourceNameError, rsc, stack)
+	}
 	return nil
 }
