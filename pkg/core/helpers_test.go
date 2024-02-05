@@ -67,36 +67,36 @@ func TestSyncAnnotations(t *testing.T) {
 	}
 }
 
-func TestGetKeyValues(t * testing.T) {
+func TestGetKeyValues(t *testing.T) {
 	for _, tc := range []struct {
-		keys []string
+		keys        []string
 		annotations map[string]string
-		expected map[string]string
+		expected    map[string]string
 	}{
 		{
-			keys: []string{"a"},
+			keys:        []string{"a"},
 			annotations: map[string]string{"a": "1", "b": "2"},
-			expected: map[string]string{"a": "1"},
+			expected:    map[string]string{"a": "1"},
 		},
 		{
-			keys: []string{"a", "b"},
+			keys:        []string{"a", "b"},
 			annotations: map[string]string{"a": "1", "b": "2"},
-			expected: map[string]string{"a": "1", "b": "2"},
+			expected:    map[string]string{"a": "1", "b": "2"},
 		},
 		{
-			keys: []string{},
+			keys:        []string{},
 			annotations: map[string]string{"a": "1", "b": "2"},
-			expected: map[string]string{},
+			expected:    map[string]string{},
 		},
 		{
-			keys: []string{"c"},
+			keys:        []string{"c"},
 			annotations: map[string]string{"a": "1", "b": "2"},
-			expected: map[string]string{},
+			expected:    map[string]string{},
 		},
 		{
-			keys: []string{"a", "c"},
+			keys:        []string{"a", "c"},
 			annotations: map[string]string{"a": "1", "b": "2"},
-			expected: map[string]string{"a": "1"},
+			expected:    map[string]string{"a": "1"},
 		},
 	} {
 		res := getKeyValues(tc.keys, tc.annotations)

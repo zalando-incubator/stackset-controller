@@ -182,6 +182,12 @@ func testStackset(name, namespace string, uid types.UID) zv1.StackSet {
 	}
 }
 
+func testStacksetAnnotatedSegment(name, namespace string, uid types.UID) zv1.StackSet {
+	res := testStackset(name, namespace, uid)
+	res.Annotations = map[string]string{TrafficSegmentsAnnotationKey: "true"}
+	return res
+}
+
 func testStack(name, namespace string, uid types.UID, ownerStack zv1.StackSet) zv1.Stack {
 	return zv1.Stack{
 		TypeMeta: metav1.TypeMeta{

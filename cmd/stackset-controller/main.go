@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -66,11 +67,15 @@ func main() {
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
 	kingpin.Flag(
 		"enable-traffic-segments",
-		"Enable support for traffic segments.",
+		"Support traffic segments by default. "+
+			"Ignored when also setting --annotated-traffic-segments.",
 	).Default("false").BoolVar(&config.TrafficSegmentsEnabled)
 	kingpin.Flag(
 		"annotated-traffic-segments",
-		"Only support traffic segments when annotated. Requires --enable-traffic-segments.",
+		fmt.Sprintf(
+			"Support traffic segments annotated with %q.",
+			controller.TrafficSegmentsAnnotationKey,
+		),
 	).Default("false").BoolVar(&config.AnnotatedTrafficSegments)
 	kingpin.Flag(
 		"sync-ingress-annotation",

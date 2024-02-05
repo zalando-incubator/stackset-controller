@@ -31,9 +31,7 @@ func mergeLabels(labelMaps ...map[string]string) map[string]string {
 // syncAnnotations synchronizes the given "dest" map with the key/pair values
 // from "src". The function removes all keys from "dest" that are not present in
 // "src", but specified in "annotationsToSync".
-func syncAnnotations(dest, src map[string]string, annotationsToSync []string) (
-	map[string]string,
-) {
+func syncAnnotations(dest, src map[string]string, annotationsToSync []string) map[string]string {
 	res := mergeLabels(dest, src)
 
 	for _, k := range annotationsToSync {

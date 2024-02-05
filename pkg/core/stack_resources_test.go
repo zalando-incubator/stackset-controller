@@ -486,26 +486,26 @@ func TestStackGenerateIngressSegment(t *testing.T) {
 
 func TestGenerateIngressSegmentWithSyncAnnotations(t *testing.T) {
 	for _, tc := range []struct {
-		ingressSpec       *zv1.StackSetIngressSpec
-		ingresssAnnotationsToSync	[]string
-		syncAnnotationsInIngress map[string]string
-		expected map[string]string
+		ingressSpec               *zv1.StackSetIngressSpec
+		ingresssAnnotationsToSync []string
+		syncAnnotationsInIngress  map[string]string
+		expected                  map[string]string
 	}{
 		{
 			ingressSpec: &zv1.StackSetIngressSpec{
 				Hosts: []string{"example.teapot.zalan.do"},
 			},
 			ingresssAnnotationsToSync: []string{},
-			syncAnnotationsInIngress: map[string]string{},
-			expected: map[string]string{},
+			syncAnnotationsInIngress:  map[string]string{},
+			expected:                  map[string]string{},
 		},
 		{
 			ingressSpec: &zv1.StackSetIngressSpec{
 				Hosts: []string{"example.teapot.zalan.do"},
 			},
 			ingresssAnnotationsToSync: []string{"aSync"},
-			syncAnnotationsInIngress: map[string]string{"aSync": "1Sync"},
-			expected: map[string]string{"aSync": "1Sync"},
+			syncAnnotationsInIngress:  map[string]string{"aSync": "1Sync"},
+			expected:                  map[string]string{"aSync": "1Sync"},
 		},
 		{
 			ingressSpec: &zv1.StackSetIngressSpec{
@@ -517,8 +517,8 @@ func TestGenerateIngressSegmentWithSyncAnnotations(t *testing.T) {
 				},
 			},
 			ingresssAnnotationsToSync: []string{"aSync"},
-			syncAnnotationsInIngress: map[string]string{"aSync": "1Sync"},
-			expected: map[string]string{"a": "1", "aSync": "1Sync"},
+			syncAnnotationsInIngress:  map[string]string{"aSync": "1Sync"},
+			expected:                  map[string]string{"a": "1", "aSync": "1Sync"},
 		},
 		{
 			ingressSpec: &zv1.StackSetIngressSpec{
@@ -528,8 +528,8 @@ func TestGenerateIngressSegmentWithSyncAnnotations(t *testing.T) {
 				},
 			},
 			ingresssAnnotationsToSync: []string{"aSync"},
-			syncAnnotationsInIngress: map[string]string{},
-			expected: map[string]string{},
+			syncAnnotationsInIngress:  map[string]string{},
+			expected:                  map[string]string{},
 		},
 		{
 			ingressSpec: &zv1.StackSetIngressSpec{
@@ -539,17 +539,17 @@ func TestGenerateIngressSegmentWithSyncAnnotations(t *testing.T) {
 				},
 			},
 			ingresssAnnotationsToSync: []string{"aSync"},
-			syncAnnotationsInIngress: map[string]string{},
-			expected: map[string]string{"a": "1"},
+			syncAnnotationsInIngress:  map[string]string{},
+			expected:                  map[string]string{"a": "1"},
 		},
-	}{
+	} {
 		backendPort := intstr.FromInt(int(80))
 		c := &StackContainer{
 			Stack: &zv1.Stack{
 				ObjectMeta: testStackMeta,
 			},
-			ingressSpec:       tc.ingressSpec,
-			backendPort:       &backendPort,
+			ingressSpec:              tc.ingressSpec,
+			backendPort:              &backendPort,
 			ingressAnnotationsToSync: tc.ingresssAnnotationsToSync,
 			syncAnnotationsInIngress: tc.syncAnnotationsInIngress,
 		}
@@ -572,8 +572,8 @@ func TestGenerateIngressSegmentWithSyncAnnotations(t *testing.T) {
 
 func TestStackGenerateRouteGroup(t *testing.T) {
 	for _, tc := range []struct {
-		name           string
-		routeGroupSpec *zv1.RouteGroupSpec
+		name                string
+		routeGroupSpec      *zv1.RouteGroupSpec
 		expectDisabled      bool
 		expectError         bool
 		expectedAnnotations map[string]string
@@ -833,28 +833,28 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 }
 func TestGenerateRouteGroupSegmentWithSyncAnnotations(t *testing.T) {
 	for _, tc := range []struct {
-		rgSpec       *zv1.RouteGroupSpec
-		ingresssAnnotationsToSync	[]string
+		rgSpec                      *zv1.RouteGroupSpec
+		ingresssAnnotationsToSync   []string
 		syncAnnotationsInRouteGroup map[string]string
-		expected map[string]string
+		expected                    map[string]string
 	}{
 		{
 			rgSpec: &zv1.RouteGroupSpec{
 				Hosts:  []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{{}},
 			},
-			ingresssAnnotationsToSync: []string{},
+			ingresssAnnotationsToSync:   []string{},
 			syncAnnotationsInRouteGroup: map[string]string{},
-			expected: map[string]string{},
+			expected:                    map[string]string{},
 		},
 		{
 			rgSpec: &zv1.RouteGroupSpec{
 				Hosts:  []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{{}},
 			},
-			ingresssAnnotationsToSync: []string{"aSync"},
+			ingresssAnnotationsToSync:   []string{"aSync"},
 			syncAnnotationsInRouteGroup: map[string]string{"aSync": "1Sync"},
-			expected: map[string]string{"aSync": "1Sync"},
+			expected:                    map[string]string{"aSync": "1Sync"},
 		},
 		{
 			rgSpec: &zv1.RouteGroupSpec{
@@ -864,9 +864,9 @@ func TestGenerateRouteGroupSegmentWithSyncAnnotations(t *testing.T) {
 				Hosts:  []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{{}},
 			},
-			ingresssAnnotationsToSync: []string{"aSync"},
+			ingresssAnnotationsToSync:   []string{"aSync"},
 			syncAnnotationsInRouteGroup: map[string]string{"aSync": "1Sync"},
-			expected: map[string]string{"a": "1", "aSync": "1Sync"},
+			expected:                    map[string]string{"a": "1", "aSync": "1Sync"},
 		},
 		{
 			rgSpec: &zv1.RouteGroupSpec{
@@ -876,9 +876,9 @@ func TestGenerateRouteGroupSegmentWithSyncAnnotations(t *testing.T) {
 				Hosts:  []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{{}},
 			},
-			ingresssAnnotationsToSync: []string{"aSync"},
+			ingresssAnnotationsToSync:   []string{"aSync"},
 			syncAnnotationsInRouteGroup: map[string]string{},
-			expected: map[string]string{},
+			expected:                    map[string]string{},
 		},
 		{
 			rgSpec: &zv1.RouteGroupSpec{
@@ -888,19 +888,19 @@ func TestGenerateRouteGroupSegmentWithSyncAnnotations(t *testing.T) {
 				Hosts:  []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{{}},
 			},
-			ingresssAnnotationsToSync: []string{"aSync"},
+			ingresssAnnotationsToSync:   []string{"aSync"},
 			syncAnnotationsInRouteGroup: map[string]string{},
-			expected: map[string]string{"a": "1"},
+			expected:                    map[string]string{"a": "1"},
 		},
-	}{
+	} {
 		backendPort := intstr.FromInt(int(80))
 		c := &StackContainer{
 			Stack: &zv1.Stack{
 				ObjectMeta: testStackMeta,
 			},
-			routeGroupSpec:   tc.rgSpec,
-			backendPort:       &backendPort,
-			ingressAnnotationsToSync: tc.ingresssAnnotationsToSync,
+			routeGroupSpec:              tc.rgSpec,
+			backendPort:                 &backendPort,
+			ingressAnnotationsToSync:    tc.ingresssAnnotationsToSync,
 			syncAnnotationsInRouteGroup: tc.syncAnnotationsInRouteGroup,
 		}
 		res, _ := c.GenerateRouteGroupSegment()
