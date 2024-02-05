@@ -1505,17 +1505,8 @@ func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
 // name is not prefixed by Stack name.
 func validateAllConfigurationResourcesNames(stack *zv1.Stack) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		var rscName string
-		if rsc.ConfigMapRef.Name != "" {
-			rscName = rsc.ConfigMapRef.Name
-		}
-
-		if rsc.SecretRef.Name != "" {
-			rscName = rsc.SecretRef.Name
-		}
-
-		if !strings.HasPrefix(rscName, stack.Name) {
-			return fmt.Errorf(configurationResourceNameError, rscName, stack.Name)
+		if !strings.HasPrefix(rsc.GetName(), stack.Name) {
+			return fmt.Errorf(configurationResourceNameError, rsc.GetName(), stack.Name)
 		}
 	}
 	return nil

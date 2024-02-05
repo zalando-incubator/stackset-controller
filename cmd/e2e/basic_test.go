@@ -376,8 +376,8 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 
 	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
 		// Verify ConfigMaps
-		if rsc.ConfigMapRef.Name != "" {
-			configMap, err := waitForConfigMap(t, rsc.ConfigMapRef.Name)
+		if rsc.IsConfigMap() {
+			configMap, err := waitForConfigMap(t, rsc.GetName())
 			require.NoError(t, err)
 			assert.EqualValues(t, stackResourceLabels, configMap.Labels)
 			assert.Contains(t, configMap.Name, stack.Name)
@@ -393,8 +393,8 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		}
 
 		// Verify Secrets
-		if rsc.SecretRef.Name != "" {
-			secret, err := waitForSecret(t, rsc.SecretRef.Name)
+		if rsc.IsSecret() {
+			secret, err := waitForSecret(t, rsc.GetName())
 			require.NoError(t, err)
 			assert.EqualValues(t, stackResourceLabels, secret.Labels)
 			assert.Contains(t, secret.Name, stack.Name)

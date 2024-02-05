@@ -444,6 +444,29 @@ type ConfigurationResourcesSpec struct {
 	SecretRef v1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
+// GetName returns the name of the ConfigurationResourcesSpec.
+func (crs *ConfigurationResourcesSpec) GetName() string {
+	if crs.IsConfigMap() {
+		return crs.ConfigMapRef.Name
+	}
+
+	if crs.IsSecret() {
+		return crs.SecretRef.Name
+	}
+
+	return ""
+}
+
+// IsConfigMap returns true if the ConfigurationResourcesSpec is a ConfigMap.
+func (crs *ConfigurationResourcesSpec) IsConfigMap() bool {
+	return crs.ConfigMapRef.Name != ""
+}
+
+// IsSecret returns true if the ConfigurationResourcesSpec is a Secret.
+func (crs *ConfigurationResourcesSpec) IsSecret() bool {
+	return crs.SecretRef.Name != ""
+}
+
 // StackSpecInternal is the spec part of the Stack, including `ingress` and
 // `routegroup` specs inherited from the parent StackSet.
 // +k8s:deepcopy-gen=true

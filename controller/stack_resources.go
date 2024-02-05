@@ -325,17 +325,16 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if rsc.ConfigMapRef.Name == "" {
+		if !rsc.IsConfigMap() {
 			continue
 		}
-		rscName := rsc.ConfigMapRef.Name
 
-		if err := validateConfigurationResourceName(stack.Name, rscName); err != nil {
+		if err := validateConfigurationResourceName(stack.Name, rsc.GetName()); err != nil {
 			return err
 		}
 
 		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
-			Get(ctx, rscName, metav1.GetOptions{})
+			Get(ctx, rsc.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -344,7 +343,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 			for _, owner := range configMap.OwnerReferences {
 				if owner.UID != stack.UID {
 					return fmt.Errorf("ConfigMap already owned by other resource. "+
-						"ConfigMap: %s, Stack: %s", rscName, stack.Name)
+						"ConfigMap: %s, Stack: %s", rsc.GetName(), stack.Name)
 				}
 			}
 			continue
@@ -388,17 +387,16 @@ func (c *StackSetController) ReconcileStackSecret(
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if rsc.SecretRef.Name == "" {
+		if !rsc.IsSecret() {
 			continue
 		}
-		rscName := rsc.SecretRef.Name
 
-		if err := validateConfigurationResourceName(stack.Name, rscName); err != nil {
+		if err := validateConfigurationResourceName(stack.Name, rsc.GetName()); err != nil {
 			return err
 		}
 
 		secret, err := c.client.CoreV1().Secrets(stack.Namespace).
-			Get(ctx, rscName, metav1.GetOptions{})
+			Get(ctx, rsc.GetName(), metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
@@ -407,7 +405,7 @@ func (c *StackSetController) ReconcileStackSecret(
 			for _, owner := range secret.OwnerReferences {
 				if owner.UID != stack.UID {
 					return fmt.Errorf("Secret already owned by other resource. "+
-						"Secret: %s, Stack: %s", rscName, stack.Name)
+						"Secret: %s, Stack: %s", rsc.GetName(), stack.Name)
 				}
 			}
 			continue
