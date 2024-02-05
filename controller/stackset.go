@@ -45,6 +45,8 @@ const (
 	defaultResetMinReplicasDelay = 10 * time.Minute
 )
 
+var configurationResourceNameError = "ConfigurationResource name must be prefixed by Stack name. ConfigurationResource: %s, Stack: %s"
+
 // StackSetController is the main controller. It watches for changes to
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
@@ -1511,7 +1513,9 @@ func validateAllConfigurationResourcesNames(stack *zv1.Stack) error {
 			rscName = rsc.SecretRef.Name
 		}
 
-		return validateConfigurationResourceName(stack.Name, rscName)
+		if !strings.HasPrefix(rscName, stack.Name) {
+			return fmt.Errorf(configurationResourceNameError, rscName, stack.Name)
+		}
 	}
 	return nil
 }
@@ -1520,8 +1524,7 @@ func validateAllConfigurationResourcesNames(stack *zv1.Stack) error {
 // name is not prefixed by Stack name.
 func validateConfigurationResourceName(stack string, rsc string) error {
 	if !strings.HasPrefix(rsc, stack) {
-		return fmt.Errorf("ConfigurationResource name must be prefixed by Stack name."+
-			"ConfigurationResource: %s, Stack: %s", rsc, stack)
+		return fmt.Errorf(configurationResourceNameError, rsc, stack)
 	}
 	return nil
 }
