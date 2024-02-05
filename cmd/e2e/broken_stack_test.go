@@ -110,8 +110,8 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
 	spec = factory.Create(t, unhealthyVersion)
 	for _, cr := range spec.StackTemplate.Spec.ConfigurationResources {
-		if cr.ConfigMapRef.Name != "" {
-			err := configMapInterface().Delete(context.Background(), cr.ConfigMapRef.Name, metav1.DeleteOptions{})
+		if cr.IsConfigMap() {
+			err := configMapInterface().Delete(context.Background(), cr.GetName(), metav1.DeleteOptions{})
 			require.NoError(t, err)
 		}
 	}
@@ -190,8 +190,8 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
 	spec = factory.Create(t, unhealthyVersion)
 	for _, cr := range spec.StackTemplate.Spec.ConfigurationResources {
-		if cr.SecretRef.Name != "" {
-			err := secretInterface().Delete(context.Background(), cr.SecretRef.Name, metav1.DeleteOptions{})
+		if cr.IsSecret() {
+			err := secretInterface().Delete(context.Background(), cr.GetName(), metav1.DeleteOptions{})
 			require.NoError(t, err)
 		}
 	}
