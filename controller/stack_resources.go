@@ -324,10 +324,6 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	existing []*apiv1.ConfigMap,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
-	if stack.Spec.ConfigurationResources == nil {
-		return nil
-	}
-
 	for _, rsc := range stack.Spec.ConfigurationResources {
 		if rsc.ConfigMapRef.Name == "" {
 			continue
@@ -391,10 +387,6 @@ func (c *StackSetController) ReconcileStackSecret(
 	existing []*apiv1.Secret,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
-	if stack.Spec.ConfigurationResources == nil {
-		return nil
-	}
-
 	for _, rsc := range stack.Spec.ConfigurationResources {
 		if rsc.SecretRef.Name == "" {
 			continue
