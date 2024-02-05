@@ -1265,14 +1265,14 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
 	if c.configMapSupportEnabled {
-		err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
+		err := c.ReconcileStackConfigMaps(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
 		}
 	}
 
 	if c.secretSupportEnabled {
-		err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+		err := c.ReconcileStackSecrets(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
 		}
@@ -1505,8 +1505,8 @@ func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
 // name is not prefixed by Stack name.
 func validateAllConfigurationResourcesNames(stack *zv1.Stack) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if !strings.HasPrefix(rsc.GetName(), stack.Name) {
-			return fmt.Errorf(configurationResourceNameError, rsc.GetName(), stack.Name)
+		if err := validateConfigurationResourceName(stack.Name, rsc.GetName()); err != nil {
+			return err
 		}
 	}
 	return nil
