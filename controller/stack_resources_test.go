@@ -958,238 +958,222 @@ func TestReconcileStackRouteGroup(t *testing.T) {
 }
 
 func TestReconcileStackConfigMapRefs(t *testing.T) {
-	testConfigMapStack := baseTestStack
-	testConfigMapStack.Spec = zv1.StackSpecInternal{
-		StackSpec: zv1.StackSpec{
-			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
-				{
-					ConfigMapRef: &v1.LocalObjectReference{
-						Name: "foo-v1-test-configmap",
-					},
-				},
-			},
+	// immutable is a pointer to a bool, so we need to define these as variables
+	var (
+		immutable    = true
+		notImmutable = false
+	)
+
+	// foov1FirstConfigMapRef is the configuration resource spec that the stack references
+	foov1FirstConfigMapRef := zv1.ConfigurationResourcesSpec{
+		ConfigMapRef: &v1.LocalObjectReference{
+			Name: "foo-v1-first-configmap",
 		},
 	}
 
-	multipleConfigMapsStack := baseTestStack
-	multipleConfigMapsStack.Spec = zv1.StackSpecInternal{
-		StackSpec: zv1.StackSpec{
-			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
-				{
-					ConfigMapRef: &v1.LocalObjectReference{
-						Name: "foo-v1-first-configmap",
-					},
-				},
-				{
-					ConfigMapRef: &v1.LocalObjectReference{
-						Name: "foo-v1-scnd-configmap",
-					},
-				},
-			},
-		},
-	}
-
-	baseData := map[string]string{
-		"testK": "testV",
-	}
-
-	differentData := map[string]string{
-		"testK-00": "testV-00",
-	}
-
-	testConfigMap := v1.ConfigMap{
+	// foov1FirstConfigMap is the configmap that the stack references
+	foov1FirstConfigMap := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            "foo-v1-test-configmap",
-			Namespace:       baseTestStackOwned.Namespace,
-			OwnerReferences: baseTestStackOwned.OwnerReferences,
+			Name:      "foo-v1-first-configmap",
+			Namespace: baseTestStack.Namespace,
 		},
-		Data: baseData,
+		Data: map[string]string{
+			"testK": "testV",
+		},
+		Immutable: &immutable,
 	}
 
-	firstConfigMap := v1.ConfigMap{
+	// foov1FirstConfigMapOwned is the same as foov1FirstConfigMap, but with the OwnerReferences set
+	foov1FirstConfigMapOwned := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "foo-v1-first-configmap",
 			Namespace:       baseTestStackOwned.Namespace,
 			OwnerReferences: baseTestStackOwned.OwnerReferences,
 		},
-		Data: baseData,
+		Data: map[string]string{
+			"testK": "testV",
+		},
+		Immutable: &immutable,
 	}
 
-	scndConfigMap := v1.ConfigMap{
+	// foov1ScndConfigMapRef is the configuration resource spec that the stack references
+	foov1ScndConfigMapRef := zv1.ConfigurationResourcesSpec{
+		ConfigMapRef: &v1.LocalObjectReference{
+			Name: "foo-v1-scnd-configmap",
+		},
+	}
+
+	// foov1ScndConfigMap is the configmap that the stack references
+	foov1ScndConfigMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo-v1-scnd-configmap",
+			Namespace: baseTestStack.Namespace,
+		},
+		Data: map[string]string{
+			"testK-00": "testV-00",
+		},
+		Immutable: &notImmutable,
+	}
+
+	// foov1ScndConfigMapOwned is the same as foov1ScndConfigMap, but with the OwnerReferences set
+	foov1ScndConfigMapOwned := &v1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            "foo-v1-scnd-configmap",
 			Namespace:       baseTestStackOwned.Namespace,
 			OwnerReferences: baseTestStackOwned.OwnerReferences,
 		},
-		Data: differentData,
+		Data: map[string]string{
+			"testK-00": "testV-00",
+		},
+		Immutable: &notImmutable,
 	}
 
-	immutable := true
-	notImmutable := false
+	// wronglyNamedConfigMapRef is a wrong configuration resource spec that the stack references
+	wronglyNamedConfigMapRef := zv1.ConfigurationResourcesSpec{
+		ConfigMapRef: &v1.LocalObjectReference{
+			Name: "test-configmap",
+		},
+	}
+
+	// wronglyNamedConfigMap is a wrong configmap that the stack references
+	wronglyNamedConfigMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-configmap",
+			Namespace: baseTestStack.Namespace,
+		},
+		Data: map[string]string{
+			"testK": "testV",
+		},
+	}
 
 	for _, tc := range []struct {
-		name     string
-		stack    zv1.Stack
-		existing []*v1.ConfigMap
-		template []*v1.ConfigMap
+		// short description of the test case
+		name string
+		// existing configmaps in the cluster
+		existingConfigMaps []*v1.ConfigMap
+		// stack to be reconciled
+		stack zv1.Stack
+		// stack's configuration resources
+		configurationResources []zv1.ConfigurationResourcesSpec
+		// expected configmaps after reconciliation
 		expected map[string]*v1.ConfigMap
+		// expectErr is true if the test case expects an error
+		expectErr bool
+		// errMsg is the expected error message
+		errMsg string
 	}{
 		{
-			name:     "configmap ownerReference is added to referenced configmap",
-			stack:    testConfigMapStack,
-			existing: nil,
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-test-configmap",
-						Namespace: testConfigMapStack.Namespace,
-					},
-					Data: baseData,
-				},
+			name: "configmap ownerReference is added to referenced configmap",
+			existingConfigMaps: []*v1.ConfigMap{
+				foov1FirstConfigMap,
+			},
+			stack: baseTestStack,
+			configurationResources: []zv1.ConfigurationResourcesSpec{
+				foov1FirstConfigMapRef,
 			},
 			expected: map[string]*v1.ConfigMap{
-				"foo-v1-test-configmap": &testConfigMap,
+				"foo-v1-first-configmap": foov1FirstConfigMapOwned,
 			},
 		},
 		{
-			name:  "stack already has configmap version",
-			stack: testConfigMapStack,
-			existing: []*v1.ConfigMap{
-				&testConfigMap,
+			name: "stack already has configmap version",
+			existingConfigMaps: []*v1.ConfigMap{
+				foov1FirstConfigMapOwned,
 			},
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-test-configmap",
-						Namespace: testConfigMapStack.Namespace,
-					},
-					Data: baseData,
-				},
+			stack: baseTestStack,
+			configurationResources: []zv1.ConfigurationResourcesSpec{
+				foov1FirstConfigMapRef,
 			},
 			expected: nil,
 		},
 		{
-			name:  "configmap name does not follow expected pattern",
-			stack: testConfigMapStack,
-			existing: []*v1.ConfigMap{
-				&testConfigMap,
+			name: "configmap name does not follow expected pattern",
+			existingConfigMaps: []*v1.ConfigMap{
+				wronglyNamedConfigMap,
 			},
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-configmap",
-						Namespace: testConfigMapStack.Namespace,
-					},
-					Data: baseData,
-				},
+			stack: baseTestStack,
+			configurationResources: []zv1.ConfigurationResourcesSpec{
+				wronglyNamedConfigMapRef,
 			},
-			expected: nil,
+			expectErr: true,
+			errMsg:    "ConfigurationResource name must be prefixed by Stack name. ConfigurationResource: test-configmap, Stack: foo-v1",
 		},
 		{
-			name:     "stack with multiple configmap resources",
-			stack:    multipleConfigMapsStack,
-			existing: nil,
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-first-configmap",
-						Namespace: multipleConfigMapsStack.Namespace,
-					},
-					Data: baseData,
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-scnd-configmap",
-						Namespace: multipleConfigMapsStack.Namespace,
-					},
-					Data: differentData,
-				},
+			name: "stack with multiple configmap resources",
+			existingConfigMaps: []*v1.ConfigMap{
+				foov1FirstConfigMap,
+				foov1ScndConfigMap,
+			},
+			stack: baseTestStack,
+			configurationResources: []zv1.ConfigurationResourcesSpec{
+				foov1FirstConfigMapRef,
+				foov1ScndConfigMapRef,
 			},
 			expected: map[string]*v1.ConfigMap{
-				"foo-v1-first-configmap": &firstConfigMap,
-				"foo-v1-scnd-configmap":  &scndConfigMap,
+				"foo-v1-first-configmap": foov1FirstConfigMapOwned,
+				"foo-v1-scnd-configmap":  foov1ScndConfigMapOwned,
 			},
 		},
 		{
-			name:     "configmap version doesnt have immutability changed",
-			stack:    multipleConfigMapsStack,
-			existing: nil,
-			template: []*v1.ConfigMap{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-first-configmap",
-						Namespace: multipleConfigMapsStack.Namespace,
-					},
-					Data:      baseData,
-					Immutable: &immutable,
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "foo-v1-scnd-configmap",
-						Namespace: multipleConfigMapsStack.Namespace,
-					},
-					Data:      differentData,
-					Immutable: &notImmutable,
-				},
+			name: "configmap version doesnt have immutability changed",
+			existingConfigMaps: []*v1.ConfigMap{
+				foov1FirstConfigMap,
+				foov1ScndConfigMap,
+			},
+			stack: baseTestStack,
+			configurationResources: []zv1.ConfigurationResourcesSpec{
+				foov1FirstConfigMapRef,
+				foov1ScndConfigMapRef,
 			},
 			expected: map[string]*v1.ConfigMap{
-				"foo-v1-first-configmap": {
-					ObjectMeta: firstConfigMap.ObjectMeta,
-					Data:       baseData,
-					Immutable:  &immutable,
-				},
-				"foo-v1-scnd-configmap": {
-					ObjectMeta: scndConfigMap.ObjectMeta,
-					Data:       differentData,
-					Immutable:  &notImmutable,
-				},
+				"foo-v1-first-configmap": foov1FirstConfigMapOwned,
+				"foo-v1-scnd-configmap":  foov1ScndConfigMapOwned,
 			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			env := NewTestEnvironment()
 
+			// Set the stack's configuration resources
+			tc.stack.Spec.ConfigurationResources = tc.configurationResources
+
+			// Create the stackset
 			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
 			require.NoError(t, err)
 
+			// Create the stack
 			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
 			require.NoError(t, err)
 
 			// Create case's existing resources
-			if tc.existing != nil {
-				for _, existing := range tc.existing {
-					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
-					require.NoError(t, err)
-				}
+			for _, existing := range tc.existingConfigMaps {
+				err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*existing})
+				require.NoError(t, err)
 			}
 
-			// Create case's template resources
-			if tc.template != nil {
-				for _, template := range tc.template {
-					err = env.CreateConfigMaps(context.Background(), []v1.ConfigMap{*template})
-					for _, existing := range tc.existing {
-						if existing.Name == template.Name {
-							require.Error(t, err)
-						} else {
-							require.NoError(t, err)
-						}
-					}
-				}
-			}
-
+			// Reconcile the stack's configmaps
 			err = env.controller.ReconcileStackConfigMapRefs(
 				context.Background(), &tc.stack, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
 					return &tc.expected[tmp.Name].ObjectMeta
 				})
-			require.NoError(t, err)
 
-			// Versioned ConfigMaps exist as expected
-			for _, expected := range tc.expected {
-				versioned, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
-					context.Background(), expected.Name, metav1.GetOptions{})
+			// Check the result
+			if tc.expectErr {
+				// An error is expected
+				require.Error(t, err)
+				require.Equal(t, tc.errMsg, err.Error())
+			} else {
+				// No error is expected
 				require.NoError(t, err)
-				require.Equal(t, expected, versioned)
-				require.Equal(t, versioned.OwnerReferences, baseTestStackOwned.OwnerReferences)
+
+				// Versioned ConfigMaps exist as expected
+				for _, expected := range tc.expected {
+					versioned, err := env.client.CoreV1().ConfigMaps(tc.stack.Namespace).Get(
+						context.Background(), expected.Name, metav1.GetOptions{})
+					require.NoError(t, err)
+					require.Equal(t, expected, versioned)
+					require.Equal(t, versioned.OwnerReferences, baseTestStackOwned.OwnerReferences)
+				}
 			}
 		})
 	}
