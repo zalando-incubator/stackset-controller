@@ -51,27 +51,28 @@ var configurationResourceNameError = "ConfigurationResource name must be prefixe
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
 type StackSetController struct {
-	logger                      *log.Entry
-	client                      clientset.Interface
-	namespace                   string
-	syncIngressAnnotations      []string
-	controllerID                string
-	backendWeightsAnnotationKey string
-	clusterDomains              []string
-	interval                    time.Duration
-	stacksetEvents              chan stacksetEvent
-	stacksetStore               map[types.UID]zv1.StackSet
-	recorder                    kube_record.EventRecorder
-	metricsReporter             *core.MetricsReporter
-	HealthReporter              healthcheck.Handler
-	routeGroupSupportEnabled    bool
-	trafficSegmentsEnabled      bool
-	annotatedTrafficSegments    bool
-	ingressSourceSwitchTTL      time.Duration
-	now                         func() string
-	reconcileWorkers            int
-	configMapSupportEnabled     bool
-	secretSupportEnabled        bool
+	logger                       *log.Entry
+	client                       clientset.Interface
+	namespace                    string
+	syncIngressAnnotations       []string
+	controllerID                 string
+	backendWeightsAnnotationKey  string
+	clusterDomains               []string
+	interval                     time.Duration
+	stacksetEvents               chan stacksetEvent
+	stacksetStore                map[types.UID]zv1.StackSet
+	recorder                     kube_record.EventRecorder
+	metricsReporter              *core.MetricsReporter
+	HealthReporter               healthcheck.Handler
+	routeGroupSupportEnabled     bool
+	trafficSegmentsEnabled       bool
+	annotatedTrafficSegments     bool
+	ingressSourceSwitchTTL       time.Duration
+	now                          func() string
+	reconcileWorkers             int
+	configMapSupportEnabled      bool
+	secretSupportEnabled         bool
+	deleteHPAsOfScaledDownStacks bool
 	sync.Mutex
 }
 
@@ -110,6 +111,7 @@ func NewStackSetController(
 	configMapSupportEnabled bool,
 	secretSupportEnabled bool,
 	ingressSourceSwitchTTL time.Duration,
+	deleteHPAsOfScaledDownStacks bool,
 ) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
@@ -117,27 +119,28 @@ func NewStackSetController(
 	}
 
 	return &StackSetController{
-		logger:                      log.WithFields(log.Fields{"controller": "stackset"}),
-		client:                      client,
-		namespace:                   namespace,
-		controllerID:                controllerID,
-		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
-		clusterDomains:              clusterDomains,
-		interval:                    interval,
-		stacksetEvents:              make(chan stacksetEvent, 1),
-		stacksetStore:               make(map[types.UID]zv1.StackSet),
-		recorder:                    recorder.CreateEventRecorder(client),
-		metricsReporter:             metricsReporter,
-		HealthReporter:              healthcheck.NewHandler(),
-		routeGroupSupportEnabled:    routeGroupSupportEnabled,
-		trafficSegmentsEnabled:      trafficSegmentsEnabled,
-		annotatedTrafficSegments:    annotatedTrafficSegments,
-		syncIngressAnnotations:      syncIngressAnnotations,
-		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
-		configMapSupportEnabled:     configMapSupportEnabled,
-		secretSupportEnabled:        secretSupportEnabled,
-		now:                         now,
-		reconcileWorkers:            parallelWork,
+		logger:                       log.WithFields(log.Fields{"controller": "stackset"}),
+		client:                       client,
+		namespace:                    namespace,
+		controllerID:                 controllerID,
+		backendWeightsAnnotationKey:  backendWeightsAnnotationKey,
+		clusterDomains:               clusterDomains,
+		interval:                     interval,
+		stacksetEvents:               make(chan stacksetEvent, 1),
+		stacksetStore:                make(map[types.UID]zv1.StackSet),
+		recorder:                     recorder.CreateEventRecorder(client),
+		metricsReporter:              metricsReporter,
+		HealthReporter:               healthcheck.NewHandler(),
+		routeGroupSupportEnabled:     routeGroupSupportEnabled,
+		trafficSegmentsEnabled:       trafficSegmentsEnabled,
+		annotatedTrafficSegments:     annotatedTrafficSegments,
+		syncIngressAnnotations:       syncIngressAnnotations,
+		ingressSourceSwitchTTL:       ingressSourceSwitchTTL,
+		configMapSupportEnabled:      configMapSupportEnabled,
+		secretSupportEnabled:         secretSupportEnabled,
+		deleteHPAsOfScaledDownStacks: deleteHPAsOfScaledDownStacks,
+		now:                          now,
+		reconcileWorkers:             parallelWork,
 	}, nil
 }
 
@@ -463,7 +466,8 @@ func (c *StackSetController) collectStacks(ctx context.Context, stacksets map[ty
 				fixupStackTypeMeta(&stack)
 
 				s.StackContainers[stack.UID] = &core.StackContainer{
-					Stack: &stack,
+					Stack:                        &stack,
+					DeleteHPAsOfScaledDownStacks: c.deleteHPAsOfScaledDownStacks,
 				}
 				continue
 			}

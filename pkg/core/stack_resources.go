@@ -235,6 +235,10 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 		return nil, nil
 	}
 
+	if sc.DeleteHPAsOfScaledDownStacks && sc.ScaledDown() {
+		return nil, nil
+	}
+
 	result := &autoscaling.HorizontalPodAutoscaler{
 		ObjectMeta: sc.resourceMeta(),
 		TypeMeta: metav1.TypeMeta{

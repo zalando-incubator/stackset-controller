@@ -33,23 +33,24 @@ const (
 
 var (
 	config struct {
-		Debug                       bool
-		Interval                    time.Duration
-		APIServer                   *url.URL
-		Namespace                   string
-		MetricsAddress              string
-		ClusterDomains              []string
-		NoTrafficScaledownTTL       time.Duration
-		ControllerID                string
-		BackendWeightsAnnotationKey string
-		RouteGroupSupportEnabled    bool
-		TrafficSegmentsEnabled      bool
-		AnnotatedTrafficSegments    bool
-		SyncIngressAnnotations      []string
-		IngressSourceSwitchTTL      time.Duration
-		ReconcileWorkers            int
-		ConfigMapSupportEnabled     bool
-		SecretSupportEnabled        bool
+		Debug                        bool
+		Interval                     time.Duration
+		APIServer                    *url.URL
+		Namespace                    string
+		MetricsAddress               string
+		ClusterDomains               []string
+		NoTrafficScaledownTTL        time.Duration
+		ControllerID                 string
+		BackendWeightsAnnotationKey  string
+		RouteGroupSupportEnabled     bool
+		TrafficSegmentsEnabled       bool
+		AnnotatedTrafficSegments     bool
+		SyncIngressAnnotations       []string
+		IngressSourceSwitchTTL       time.Duration
+		ReconcileWorkers             int
+		ConfigMapSupportEnabled      bool
+		SecretSupportEnabled         bool
+		DeleteHPAsOfScaledDownStacks bool
 	}
 )
 
@@ -86,6 +87,7 @@ func main() {
 		Default(defaultIngressSourceSwitchTTL).DurationVar(&config.IngressSourceSwitchTTL)
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
 	kingpin.Flag("enable-secret-support", "Enable support for Secrets on StackSets.").Default("false").BoolVar(&config.SecretSupportEnabled)
+	kingpin.Flag("delete-hpas-of-scaled-down-stacks", "Delete HPAs of scaled down stacks.").Default("false").BoolVar(&config.DeleteHPAsOfScaledDownStacks)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -119,6 +121,7 @@ func main() {
 		config.ConfigMapSupportEnabled,
 		config.SecretSupportEnabled,
 		config.IngressSourceSwitchTTL,
+		config.DeleteHPAsOfScaledDownStacks,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create Stackset controller: %v", err)

@@ -74,6 +74,7 @@ func NewTestEnvironment() *testEnvironment {
 		true,
 		true,
 		time.Minute,
+		true,
 	)
 
 	if err != nil {
