@@ -28,6 +28,10 @@ type FakeZalandoV1 struct {
 	*testing.Fake
 }
 
+func (c *FakeZalandoV1) PlatformCredentialsSets(namespace string) v1.PlatformCredentialsSetInterface {
+	return &FakePlatformCredentialsSets{c, namespace}
+}
+
 func (c *FakeZalandoV1) Stacks(namespace string) v1.StackInterface {
 	return &FakeStacks{c, namespace}
 }

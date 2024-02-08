@@ -28,6 +28,7 @@ import (
 
 type ZalandoV1Interface interface {
 	RESTClient() rest.Interface
+	PlatformCredentialsSetsGetter
 	StacksGetter
 	StackSetsGetter
 }
@@ -35,6 +36,10 @@ type ZalandoV1Interface interface {
 // ZalandoV1Client is used to interact with features provided by the zalando.org group.
 type ZalandoV1Client struct {
 	restClient rest.Interface
+}
+
+func (c *ZalandoV1Client) PlatformCredentialsSets(namespace string) PlatformCredentialsSetInterface {
+	return newPlatformCredentialsSets(c, namespace)
 }
 
 func (c *ZalandoV1Client) Stacks(namespace string) StackInterface {
