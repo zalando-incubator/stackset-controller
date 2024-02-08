@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.9.0
+    controller-gen.kubebuilder.io/version: v0.9.2
   creationTimestamp: null
   name: stacksets.zalando.org
 spec:
@@ -117,10 +117,22 @@ spec:
                     items:
                       properties:
                         address:
-                          description: Address is required for Type network
+                          description: Address is required for type `network`
                           type: string
                         algorithm:
-                          description: Algorithm is required for Type lb
+                          description: Algorithm is required for type `lb`. `roundRobin`
+                            - backend is chosen by the round robin algorithm, starting
+                            with a random selected backend to spread across all backends
+                            from the beginning. `random` - backend is chosen at random.
+                            `consistentHash` - backend is chosen by [consistent hashing](https://en.wikipedia.org/wiki/Consistent_hashing)
+                            algorithm based on the request key. The request key is
+                            derived from `X-Forwarded-For` header or request remote
+                            IP address as the fallback. Use [`consistentHashKey`](filters.md#consistenthashkey)
+                            filter to set the request key. Use [`consistentHashBalanceFactor`](filters.md#consistenthashbalancefactor)
+                            to prevent popular keys from overloading a single backend
+                            endpoint. `powerOfRandomNChoices` - backend is chosen
+                            by selecting N random endpoints and picking the one with
+                            least outstanding requests from them (see http://www.eecs.harvard.edu/~michaelm/postscripts/handbook2001.pdf).
                           enum:
                           - roundRobin
                           - random
@@ -128,7 +140,7 @@ spec:
                           - powerOfRandomNChoices
                           type: string
                         endpoints:
-                          description: Endpoints is required for Type lb
+                          description: Endpoints is required for type `lb`
                           items:
                             type: string
                           minItems: 1
@@ -138,13 +150,30 @@ spec:
                             as RouteGroupBackendReference
                           type: string
                         serviceName:
-                          description: ServiceName is required for Type service
+                          description: ServiceName is required for type `service`
                           type: string
                         servicePort:
-                          description: ServicePort is required for Type service
+                          description: ServicePort is required for type `service`
                           type: integer
                         type:
-                          description: Type is one of "service|shunt|loopback|dynamic|lb|network"
+                          description: Type of the backend. `service`- resolve Kubernetes
+                            service to the available Endpoints belonging to the Service,
+                            and generate load balanced routes using them. `shunt`
+                            - reply directly from the proxy itself. This can be used
+                            to shortcut, for example have a default that replies with
+                            404 or use skipper as a backend serving static content
+                            in demos. `loopback` - lookup again the routing table
+                            to a better matching route after processing the current
+                            route. Like this you can add some headers or change the
+                            request path for some specific matching requests. `dynamic`
+                            - use the backend provided by filters. This allows skipper
+                            as library users to do proxy calls to a certain target
+                            from their own implementation dynamically looked up by
+                            their filters. `lb` - balance the load across multiple
+                            network endpoints using specified algorithm. If algorithm
+                            is not specified it will use the default algorithm set
+                            by Skipper at start. `network` - use arbitrary HTTP or
+                            HTTPS URL.
                           enum:
                           - service
                           - shunt
@@ -168,11 +197,6 @@ spec:
                   lbAlgorithm:
                     description: The load balancing algorithm used for the generated
                       per stack backends.
-                    enum:
-                    - roundRobin
-                    - random
-                    - consistentHash
-                    - powerOfRandomNChoices
                     type: string
                   metadata:
                     description: EmbeddedObjectMetaWithAnnotations defines the metadata
@@ -201,12 +225,14 @@ spec:
                           items:
                             properties:
                               backendName:
-                                description: BackendName references the skipperBackend
-                                  by name
+                                description: BackendName references backend by name
                                 type: string
                               weight:
-                                description: Weight defines the traffic weight, if
-                                  there are 2 or more default backends
+                                description: Weight defines a portion of traffic for
+                                  the referenced backend. It equals to weight divided
+                                  by the sum of all backend weights. When all references
+                                  have zero (or unspecified) weight then traffic is
+                                  split equally between them.
                                 minimum: 0
                                 type: integer
                             required:
@@ -611,6 +637,7 @@ spec:
                                     uid?'
                                   type: string
                               type: object
+                              x-kubernetes-map-type: atomic
                             secretRef:
                               description: Secret to be owned by Stack
                               properties:
@@ -620,6 +647,7 @@ spec:
                                     uid?'
                                   type: string
                               type: object
+                              x-kubernetes-map-type: atomic
                           type: object
                         type: array
                       minReadySeconds:
@@ -788,6 +816,7 @@ spec:
                                                     type: object
                                                   type: array
                                               type: object
+                                              x-kubernetes-map-type: atomic
                                             weight:
                                               description: Weight associated with
                                                 matching the corresponding nodeSelectorTerm,
@@ -907,10 +936,12 @@ spec:
                                                     type: object
                                                   type: array
                                               type: object
+                                              x-kubernetes-map-type: atomic
                                             type: array
                                         required:
                                         - nodeSelectorTerms
                                         type: object
+                                        x-kubernetes-map-type: atomic
                                     type: object
                                   podAffinity:
                                     description: Describes pod affinity scheduling
@@ -974,17 +1005,6 @@ spec:
                                                               DoesNotExist.
                                                             type: string
                                                           values:
-                                                            description: values is
-                                                              an array of string values.
-                                                              If the operator is In
-                                                              or NotIn, the values
-                                                              array must be non-empty.
-                                                              If the operator is Exists
-                                                              or DoesNotExist, the
-                                                              values array must be
-                                                              empty. This array is
-                                                              replaced during a strategic
-                                                              merge patch.
                                                             items:
                                                               type: string
                                                             type: array
@@ -1008,6 +1028,7 @@ spec:
                                                         are ANDed.
                                                       type: object
                                                   type: object
+                                                  x-kubernetes-map-type: atomic
                                                 namespaceSelector:
                                                   description: A label query over
                                                     the set of namespaces that the
@@ -1038,25 +1059,8 @@ spec:
                                                               applies to.
                                                             type: string
                                                           operator:
-                                                            description: operator
-                                                              represents a key's relationship
-                                                              to a set of values.
-                                                              Valid operators are
-                                                              In, NotIn, Exists and
-                                                              DoesNotExist.
                                                             type: string
                                                           values:
-                                                            description: values is
-                                                              an array of string values.
-                                                              If the operator is In
-                                                              or NotIn, the values
-                                                              array must be non-empty.
-                                                              If the operator is Exists
-                                                              or DoesNotExist, the
-                                                              values array must be
-                                                              empty. This array is
-                                                              replaced during a strategic
-                                                              merge patch.
                                                             items:
                                                               type: string
                                                             type: array
@@ -1080,6 +1084,7 @@ spec:
                                                         are ANDed.
                                                       type: object
                                                   type: object
+                                                  x-kubernetes-map-type: atomic
                                                 namespaces:
                                                   description: namespaces specifies
                                                     a static list of namespace names
@@ -1204,6 +1209,7 @@ spec:
                                                     are ANDed.
                                                   type: object
                                               type: object
+                                              x-kubernetes-map-type: atomic
                                             namespaceSelector:
                                               description: A label query over the
                                                 set of namespaces that the term applies
@@ -1271,6 +1277,7 @@ spec:
                                                     are ANDed.
                                                   type: object
                                               type: object
+                                              x-kubernetes-map-type: atomic
                                             namespaces:
                                               description: namespaces specifies a
                                                 static list of namespace names that
@@ -1354,25 +1361,8 @@ spec:
                                                               applies to.
                                                             type: string
                                                           operator:
-                                                            description: operator
-                                                              represents a key's relationship
-                                                              to a set of values.
-                                                              Valid operators are
-                                                              In, NotIn, Exists and
-                                                              DoesNotExist.
                                                             type: string
                                                           values:
-                                                            description: values is
-                                                              an array of string values.
-                                                              If the operator is In
-                                                              or NotIn, the values
-                                                              array must be non-empty.
-                                                              If the operator is Exists
-                                                              or DoesNotExist, the
-                                                              values array must be
-                                                              empty. This array is
-                                                              replaced during a strategic
-                                                              merge patch.
                                                             items:
                                                               type: string
                                                             type: array
@@ -1396,6 +1386,7 @@ spec:
                                                         are ANDed.
                                                       type: object
                                                   type: object
+                                                  x-kubernetes-map-type: atomic
                                                 namespaceSelector:
                                                   description: A label query over
                                                     the set of namespaces that the
@@ -1434,17 +1425,6 @@ spec:
                                                               DoesNotExist.
                                                             type: string
                                                           values:
-                                                            description: values is
-                                                              an array of string values.
-                                                              If the operator is In
-                                                              or NotIn, the values
-                                                              array must be non-empty.
-                                                              If the operator is Exists
-                                                              or DoesNotExist, the
-                                                              values array must be
-                                                              empty. This array is
-                                                              replaced during a strategic
-                                                              merge patch.
                                                             items:
                                                               type: string
                                                             type: array
@@ -1468,6 +1448,7 @@ spec:
                                                         are ANDed.
                                                       type: object
                                                   type: object
+                                                  x-kubernetes-map-type: atomic
                                                 namespaces:
                                                   description: namespaces specifies
                                                     a static list of namespace names
@@ -1592,6 +1573,7 @@ spec:
                                                     are ANDed.
                                                   type: object
                                               type: object
+                                              x-kubernetes-map-type: atomic
                                             namespaceSelector:
                                               description: A label query over the
                                                 set of namespaces that the term applies
@@ -1659,6 +1641,7 @@ spec:
                                                     are ANDed.
                                                   type: object
                                               type: object
+                                              x-kubernetes-map-type: atomic
                                             namespaces:
                                               description: namespaces specifies a
                                                 static list of namespace names that
@@ -1788,6 +1771,7 @@ spec:
                                                 required:
                                                 - key
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               fieldRef:
                                                 description: 'Selects a field of the
                                                   pod: supports metadata.name, metadata.namespace,
@@ -1808,6 +1792,7 @@ spec:
                                                 required:
                                                 - fieldPath
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               resourceFieldRef:
                                                 description: 'Selects a resource of
                                                   the container: only resources limits
@@ -1837,6 +1822,7 @@ spec:
                                                 required:
                                                 - resource
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               secretKeyRef:
                                                 description: Selects a key of a secret
                                                   in the pod's namespace
@@ -1859,6 +1845,7 @@ spec:
                                                 required:
                                                 - key
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                             type: object
                                         required:
                                         - name
@@ -1892,6 +1879,7 @@ spec:
                                                   must be defined
                                                 type: boolean
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                           prefix:
                                             description: An optional identifier to
                                               prepend to each key in the ConfigMap.
@@ -1911,6 +1899,7 @@ spec:
                                                   must be defined
                                                 type: boolean
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                         type: object
                                       type: array
                                     image:
@@ -3302,6 +3291,7 @@ spec:
                                                 required:
                                                 - key
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               fieldRef:
                                                 description: 'Selects a field of the
                                                   pod: supports metadata.name, metadata.namespace,
@@ -3322,6 +3312,7 @@ spec:
                                                 required:
                                                 - fieldPath
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               resourceFieldRef:
                                                 description: 'Selects a resource of
                                                   the container: only resources limits
@@ -3351,6 +3342,7 @@ spec:
                                                 required:
                                                 - resource
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               secretKeyRef:
                                                 description: Selects a key of a secret
                                                   in the pod's namespace
@@ -3373,6 +3365,7 @@ spec:
                                                 required:
                                                 - key
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                             type: object
                                         required:
                                         - name
@@ -3406,6 +3399,7 @@ spec:
                                                   must be defined
                                                 type: boolean
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                           prefix:
                                             description: An optional identifier to
                                               prepend to each key in the ConfigMap.
@@ -3425,6 +3419,7 @@ spec:
                                                   must be defined
                                                 type: boolean
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                         type: object
                                       type: array
                                     image:
@@ -4698,6 +4693,7 @@ spec:
                                         kind, uid?'
                                       type: string
                                   type: object
+                                  x-kubernetes-map-type: atomic
                                 type: array
                               initContainers:
                                 description: 'List of initialization containers belonging
@@ -4805,6 +4801,7 @@ spec:
                                                 required:
                                                 - key
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               fieldRef:
                                                 description: 'Selects a field of the
                                                   pod: supports metadata.name, metadata.namespace,
@@ -4825,6 +4822,7 @@ spec:
                                                 required:
                                                 - fieldPath
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               resourceFieldRef:
                                                 description: 'Selects a resource of
                                                   the container: only resources limits
@@ -4854,6 +4852,7 @@ spec:
                                                 required:
                                                 - resource
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               secretKeyRef:
                                                 description: Selects a key of a secret
                                                   in the pod's namespace
@@ -4876,6 +4875,7 @@ spec:
                                                 required:
                                                 - key
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                             type: object
                                         required:
                                         - name
@@ -4909,6 +4909,7 @@ spec:
                                                   must be defined
                                                 type: boolean
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                           prefix:
                                             description: An optional identifier to
                                               prepend to each key in the ConfigMap.
@@ -4928,6 +4929,7 @@ spec:
                                                   must be defined
                                                 type: boolean
                                             type: object
+                                            x-kubernetes-map-type: atomic
                                         type: object
                                       type: array
                                     image:
@@ -6645,6 +6647,7 @@ spec:
                                             only "value". The requirements are ANDed.
                                           type: object
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     maxSkew:
                                       description: 'MaxSkew describes the degree to
                                         which pods may be unevenly distributed. When
@@ -6902,6 +6905,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                         user:
                                           description: 'user is optional: User is
                                             the rados user name, default is admin
@@ -6941,6 +6945,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                         volumeID:
                                           description: 'volumeID used to identify
                                             the volume in cinder. More info: https://examples.k8s.io/mysql-cinder-pd/README.md'
@@ -7028,6 +7033,7 @@ spec:
                                             ConfigMap or its keys must be defined
                                           type: boolean
                                       type: object
+                                      x-kubernetes-map-type: atomic
                                     csi:
                                       description: csi (Container Storage Interface)
                                         represents ephemeral storage that is handled
@@ -7064,6 +7070,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                         readOnly:
                                           description: readOnly specifies a read-only
                                             configuration for the volume. Defaults
@@ -7128,6 +7135,7 @@ spec:
                                                 required:
                                                 - fieldPath
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               mode:
                                                 description: 'Optional: mode bits
                                                   used to set permissions on this
@@ -7181,6 +7189,7 @@ spec:
                                                 required:
                                                 - resource
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                             required:
                                             - path
                                             type: object
@@ -7328,6 +7337,7 @@ spec:
                                                   - kind
                                                   - name
                                                   type: object
+                                                  x-kubernetes-map-type: atomic
                                                 dataSourceRef:
                                                   description: 'dataSourceRef specifies
                                                     the object from which to populate
@@ -7385,6 +7395,7 @@ spec:
                                                   - kind
                                                   - name
                                                   type: object
+                                                  x-kubernetes-map-type: atomic
                                                 resources:
                                                   description: 'resources represents
                                                     the minimum resources the volume
@@ -7449,25 +7460,8 @@ spec:
                                                               applies to.
                                                             type: string
                                                           operator:
-                                                            description: operator
-                                                              represents a key's relationship
-                                                              to a set of values.
-                                                              Valid operators are
-                                                              In, NotIn, Exists and
-                                                              DoesNotExist.
                                                             type: string
                                                           values:
-                                                            description: values is
-                                                              an array of string values.
-                                                              If the operator is In
-                                                              or NotIn, the values
-                                                              array must be non-empty.
-                                                              If the operator is Exists
-                                                              or DoesNotExist, the
-                                                              values array must be
-                                                              empty. This array is
-                                                              replaced during a strategic
-                                                              merge patch.
                                                             items:
                                                               type: string
                                                             type: array
@@ -7491,6 +7485,7 @@ spec:
                                                         are ANDed.
                                                       type: object
                                                   type: object
+                                                  x-kubernetes-map-type: atomic
                                                 storageClassName:
                                                   description: 'storageClassName is
                                                     the name of the StorageClass required
@@ -7595,6 +7590,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                       required:
                                       - driver
                                       type: object
@@ -7803,6 +7799,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                         targetPortal:
                                           description: targetPortal is iSCSI Target
                                             Portal. The Portal is either an IP or
@@ -8009,6 +8006,7 @@ spec:
                                                       keys must be defined
                                                     type: boolean
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               downwardAPI:
                                                 description: downwardAPI information
                                                   about the downwardAPI data to project
@@ -8030,21 +8028,13 @@ spec:
                                                             are supported.'
                                                           properties:
                                                             apiVersion:
-                                                              description: Version
-                                                                of the schema the
-                                                                FieldPath is written
-                                                                in terms of, defaults
-                                                                to "v1".
                                                               type: string
                                                             fieldPath:
-                                                              description: Path of
-                                                                the field to select
-                                                                in the specified API
-                                                                version.
                                                               type: string
                                                           required:
                                                           - fieldPath
                                                           type: object
+                                                          x-kubernetes-map-type: atomic
                                                         mode:
                                                           description: 'Optional:
                                                             mode bits used to set
@@ -8088,28 +8078,19 @@ spec:
                                                             currently supported.'
                                                           properties:
                                                             containerName:
-                                                              description: 'Container
-                                                                name: required for
-                                                                volumes, optional
-                                                                for env vars'
                                                               type: string
                                                             divisor:
                                                               anyOf:
                                                               - type: integer
                                                               - type: string
-                                                              description: Specifies
-                                                                the output format
-                                                                of the exposed resources,
-                                                                defaults to "1"
                                                               pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                               x-kubernetes-int-or-string: true
                                                             resource:
-                                                              description: 'Required:
-                                                                resource to select'
                                                               type: string
                                                           required:
                                                           - resource
                                                           type: object
+                                                          x-kubernetes-map-type: atomic
                                                       required:
                                                       - path
                                                       type: object
@@ -8192,6 +8173,7 @@ spec:
                                                       must be defined
                                                     type: boolean
                                                 type: object
+                                                x-kubernetes-map-type: atomic
                                               serviceAccountToken:
                                                 description: serviceAccountToken is
                                                   information about the serviceAccountToken
@@ -8327,6 +8309,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                         user:
                                           description: 'user is the rados user name.
                                             Default is admin. More info: https://examples.k8s.io/volumes/rbd/README.md#how-to-use-it'
@@ -8373,6 +8356,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                         sslEnabled:
                                           description: sslEnabled Flag enable/disable
                                             SSL communication with Gateway, default
@@ -8512,6 +8496,7 @@ spec:
                                                 kind, uid?'
                                               type: string
                                           type: object
+                                          x-kubernetes-map-type: atomic
                                         volumeName:
                                           description: volumeName is the human-readable
                                             name of the StorageOS volume.  Volume
