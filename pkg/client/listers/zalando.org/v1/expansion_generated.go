@@ -18,6 +18,14 @@ limitations under the License.
 
 package v1
 
+// PlatformCredentialsSetListerExpansion allows custom methods to be added to
+// PlatformCredentialsSetLister.
+type PlatformCredentialsSetListerExpansion interface{}
+
+// PlatformCredentialsSetNamespaceListerExpansion allows custom methods to be added to
+// PlatformCredentialsSetNamespaceLister.
+type PlatformCredentialsSetNamespaceListerExpansion interface{}
+
 // StackListerExpansion allows custom methods to be added to
 // StackLister.
 type StackListerExpansion interface{}

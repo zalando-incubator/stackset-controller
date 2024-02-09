@@ -33,6 +33,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&StackSetList{},
 		&Stack{},
 		&StackList{},
+		&PlatformCredentialsSet{},
+		&PlatformCredentialsSetList{},
 	)
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
 	return nil
