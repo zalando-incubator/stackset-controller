@@ -621,9 +621,8 @@ spec:
                         - metrics
                         type: object
                       configurationResources:
-                        description: ConfigurationResources describes the ConfigMaps
-                          that will be created. Later Secrets and PlatformCredentialSets
-                          will also be defined on ConfigurationResources
+                        description: ConfigurationResources describes the ConfigMaps,
+                          Secrets, and/or PlatformCresentialsSet that will be created.
                         items:
                           description: ConfigurationResourcesSpec makes it possible
                             to defined the config resources to be created
@@ -638,6 +637,94 @@ spec:
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
+                            platformCredentialsSet:
+                              description: PlatformCredentialsSet to be created and
+                                owned by Stack
+                              properties:
+                                apiVersion:
+                                  description: 'APIVersion defines the versioned schema
+                                    of this representation of an object. Servers should
+                                    convert recognized schemas to the latest internal
+                                    value, and may reject unrecognized values. More
+                                    info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+                                  type: string
+                                kind:
+                                  description: 'Kind is a string value representing
+                                    the REST resource this object represents. Servers
+                                    may infer this from the endpoint the client submits
+                                    requests to. Cannot be updated. In CamelCase.
+                                    More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                                  type: string
+                                metadata:
+                                  type: object
+                                spec:
+                                  description: PlatformCredentialsSpec is the spec
+                                    part of the StackSet.
+                                  properties:
+                                    application:
+                                      type: string
+                                    clients:
+                                      additionalProperties:
+                                        properties:
+                                          grant:
+                                            type: string
+                                          realm:
+                                            type: string
+                                          redirectUri:
+                                            type: string
+                                        required:
+                                        - grant
+                                        - realm
+                                        - redirectUri
+                                        type: object
+                                      type: object
+                                    token_version:
+                                      type: string
+                                    tokens:
+                                      additionalProperties:
+                                        properties:
+                                          privileges:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - privileges
+                                        type: object
+                                      type: object
+                                  required:
+                                  - application
+                                  - clients
+                                  - token_version
+                                  - tokens
+                                  type: object
+                                status:
+                                  description: PlatformCredentialsStatus is the status
+                                    part of the Stack.
+                                  properties:
+                                    clients: {}
+                                    errors:
+                                      items:
+                                        type: string
+                                      type: array
+                                    observedGeneration:
+                                      format: int64
+                                      type: integer
+                                    problems:
+                                      items:
+                                        type: string
+                                      type: array
+                                    tokens: {}
+                                  required:
+                                  - clients
+                                  - errors
+                                  - observedGeneration
+                                  - problems
+                                  - tokens
+                                  type: object
+                              required:
+                              - spec
+                              - status
+                              type: object
                             secretRef:
                               description: Secret to be owned by Stack
                               properties:
@@ -749,20 +836,6 @@ spec:
                                                           Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -793,20 +866,6 @@ spec:
                                                           Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -869,20 +928,6 @@ spec:
                                                           Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -913,20 +958,6 @@ spec:
                                                           Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -7979,8 +8010,6 @@ spec:
                                                         to a path within a volume.
                                                       properties:
                                                         key:
-                                                          description: key is the
-                                                            key to project.
                                                           type: string
                                                         mode:
                                                           format: int32
@@ -8019,11 +8048,6 @@ spec:
                                                         the pod field
                                                       properties:
                                                         fieldRef:
-                                                          description: 'Required:
-                                                            Selects a field of the
-                                                            pod: only annotations,
-                                                            labels, name and namespace
-                                                            are supported.'
                                                           properties:
                                                             apiVersion:
                                                               type: string
@@ -8039,13 +8063,6 @@ spec:
                                                         path:
                                                           type: string
                                                         resourceFieldRef:
-                                                          description: 'Selects a
-                                                            resource of the container:
-                                                            only resources limits
-                                                            and requests (limits.cpu,
-                                                            limits.memory, requests.cpu
-                                                            and requests.memory) are
-                                                            currently supported.'
                                                           properties:
                                                             containerName:
                                                               type: string
@@ -8092,21 +8109,11 @@ spec:
                                                         to a path within a volume.
                                                       properties:
                                                         key:
-                                                          description: key is the
-                                                            key to project.
                                                           type: string
                                                         mode:
                                                           format: int32
                                                           type: integer
                                                         path:
-                                                          description: path is the
-                                                            relative path of the file
-                                                            to map the key to. May
-                                                            not be an absolute path.
-                                                            May not contain the path
-                                                            element '..'. May not
-                                                            start with the string
-                                                            '..'.
                                                           type: string
                                                       required:
                                                       - key

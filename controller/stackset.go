@@ -373,6 +373,13 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 	}
 
+	// if c.pcsSupportEnabled {
+	err = c.collectPlatformCredentialsSet(ctx, stacksets)
+	if err != nil {
+		return nil, err
+	}
+	// }
+
 	return stacksets, nil
 }
 
@@ -550,7 +557,10 @@ Items:
 	return nil
 }
 
-func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+func (c *StackSetController) collectConfigMaps(
+	ctx context.Context,
+	stacksets map[types.UID]*core.StackSetContainer,
+) error {
 	configMaps, err := c.client.CoreV1().ConfigMaps(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list ConfigMaps: %v", err)
@@ -570,7 +580,10 @@ func (c *StackSetController) collectConfigMaps(ctx context.Context, stacksets ma
 	return nil
 }
 
-func (c *StackSetController) collectSecrets(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
+func (c *StackSetController) collectSecrets(
+	ctx context.Context,
+	stacksets map[types.UID]*core.StackSetContainer,
+) error {
 	secrets, err := c.client.CoreV1().Secrets(c.namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Secrets: %v", err)
@@ -582,6 +595,33 @@ func (c *StackSetController) collectSecrets(ctx context.Context, stacksets map[t
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					s.Resources.Secrets = append(s.Resources.Secrets, &secret)
+					break
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (c *StackSetController) collectPlatformCredentialsSet(
+	ctx context.Context,
+	stacksets map[types.UID]*core.StackSetContainer,
+) error {
+	platformCredentialsSets, err := c.client.ZalandoV1().PlatformCredentialsSets(c.namespace).
+		List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to list platformCredentialsSet: %v", err)
+	}
+
+	for _, platformCredentialsSet := range platformCredentialsSets.Items {
+		pcs := platformCredentialsSet
+		if uid, ok := getOwnerUID(platformCredentialsSet.ObjectMeta); ok {
+			for _, stackset := range stacksets {
+				if s, ok := stackset.StackContainers[uid]; ok {
+					s.Resources.PlatformCredentialsSets = append(
+						s.Resources.PlatformCredentialsSets,
+						&pcs,
+					)
 					break
 				}
 			}
@@ -1333,6 +1373,18 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
 		}
 	}
+
+	// if c.pcsSupportEnabled {
+	err = c.ReconcileStackPlatformCredentialsSet(
+		ctx,
+		sc.Stack,
+		sc.Resources.PlatformCredentialsSets,
+		sc.GeneratePlatformCredentialsSet,
+	)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManagePlatformCredentialsSet", err)
+	}
+	// }
 
 	err = c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {

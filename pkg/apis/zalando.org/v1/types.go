@@ -429,8 +429,8 @@ type StackSpec struct {
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 
-	// ConfigurationResources describes the ConfigMaps that will be created.
-	// Later Secrets and PlatformCredentialSets will also be defined on ConfigurationResources
+	// ConfigurationResources describes the ConfigMaps, Secrets, and/or
+	// PlatformCresentialsSet that will be created.
 	ConfigurationResources []ConfigurationResourcesSpec `json:"configurationResources,omitempty"`
 }
 
@@ -442,6 +442,9 @@ type ConfigurationResourcesSpec struct {
 
 	// Secret to be owned by Stack
 	SecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
+
+	// PlatformCredentialsSet to be created and owned by Stack
+	PlatformCredentialsSet PlatformCredentialsSet `json:"platformCredentialsSet,omitempty"`
 }
 
 // GetName returns the name of the ConfigurationResourcesSpec.
@@ -465,6 +468,11 @@ func (crs *ConfigurationResourcesSpec) IsConfigMap() bool {
 // IsSecret returns true if the ConfigurationResourcesSpec is a Secret.
 func (crs *ConfigurationResourcesSpec) IsSecret() bool {
 	return crs.SecretRef != nil
+}
+
+// IsPlatformCredentialsSet returns true if the ConfigurationResourcesSpec is a PlatformCredentialsSet.
+func (crs *ConfigurationResourcesSpec) IsPlatformCredentialsSet() bool {
+	return crs.PlatformCredentialsSet.Name != ""
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and
