@@ -147,6 +147,7 @@ func (in *ConfigurationResourcesSpec) DeepCopyInto(out *ConfigurationResourcesSp
 		*out = new(corev1.LocalObjectReference)
 		**out = **in
 	}
+	in.PlatformCredentialsSet.DeepCopyInto(&out.PlatformCredentialsSet)
 	return
 }
 
