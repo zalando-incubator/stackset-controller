@@ -1264,36 +1264,7 @@ func (c *StackSetController) ReconcileStackSetDesiredTraffic(ctx context.Context
 }
 
 func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *core.StackSetContainer, sc *core.StackContainer) error {
-	if c.configMapSupportEnabled {
-		err := c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
-		}
-	}
-
-	if c.secretSupportEnabled {
-		err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
-		}
-	}
-
-	err := c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
-	if err != nil {
-		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
-	}
-
-	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
-	if err != nil {
-		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
-	}
-
-	err = c.ReconcileStackService(ctx, sc.Stack, sc.Resources.Service, sc.GenerateService)
-	if err != nil {
-		return c.errorEventf(sc.Stack, "FailedManageService", err)
-	}
-
-	err = c.ReconcileStackIngress(ctx, sc.Stack, sc.Resources.Ingress, sc.GenerateIngress)
+	err := c.ReconcileStackIngress(ctx, sc.Stack, sc.Resources.Ingress, sc.GenerateIngress)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageIngress", err)
 	}
@@ -1333,6 +1304,35 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 				)
 			}
 		}
+	}
+
+	if c.configMapSupportEnabled {
+		err = c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
+		}
+	}
+
+	if c.secretSupportEnabled {
+		err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
+		}
+	}
+
+	err = c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
+	}
+
+	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
+	}
+
+	err = c.ReconcileStackService(ctx, sc.Stack, sc.Resources.Service, sc.GenerateService)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManageService", err)
 	}
 
 	return nil
