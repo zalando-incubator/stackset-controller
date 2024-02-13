@@ -197,15 +197,16 @@ func (sc *StackContainer) Namespace() string {
 
 // StackResources describes the resources of a stack.
 type StackResources struct {
-	Deployment        *appsv1.Deployment
-	HPA               *autoscaling.HorizontalPodAutoscaler
-	Service           *v1.Service
-	Ingress           *networking.Ingress
-	IngressSegment    *networking.Ingress
-	RouteGroup        *rgv1.RouteGroup
-	RouteGroupSegment *rgv1.RouteGroup
-	ConfigMaps        []*v1.ConfigMap
-	Secrets           []*v1.Secret
+	Deployment              *appsv1.Deployment
+	HPA                     *autoscaling.HorizontalPodAutoscaler
+	Service                 *v1.Service
+	Ingress                 *networking.Ingress
+	IngressSegment          *networking.Ingress
+	RouteGroup              *rgv1.RouteGroup
+	RouteGroupSegment       *rgv1.RouteGroup
+	ConfigMaps              []*v1.ConfigMap
+	Secrets                 []*v1.Secret
+	PlatformCredentialsSets []*zv1.PlatformCredentialsSet
 }
 
 func NewContainer(

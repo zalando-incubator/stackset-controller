@@ -658,19 +658,99 @@ spec:
                               description: PlatformCredentialsSet to be created and
                                 owned by Stack
                               properties:
-                                name:
+                                apiVersion:
+                                  description: 'APIVersion defines the versioned schema
+                                    of this representation of an object. Servers should
+                                    convert recognized schemas to the latest internal
+                                    value, and may reject unrecognized values. More
+                                    info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
                                   type: string
-                                tokens:
-                                  additionalProperties:
-                                    properties:
-                                      privileges:
-                                        items:
-                                          type: string
-                                        type: array
-                                    required:
-                                    - privileges
-                                    type: object
+                                kind:
+                                  description: 'Kind is a string value representing
+                                    the REST resource this object represents. Servers
+                                    may infer this from the endpoint the client submits
+                                    requests to. Cannot be updated. In CamelCase.
+                                    More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                                  type: string
+                                metadata:
                                   type: object
+                                spec:
+                                  description: PlatformCredentialsSpec is the spec
+                                    part of the StackSet.
+                                  properties:
+                                    application:
+                                      type: string
+                                    clients:
+                                      additionalProperties:
+                                        properties:
+                                          grant:
+                                            type: string
+                                          realm:
+                                            type: string
+                                          redirectUri:
+                                            type: string
+                                        required:
+                                        - grant
+                                        - realm
+                                        - redirectUri
+                                        type: object
+                                      type: object
+                                    token_version:
+                                      type: string
+                                    tokens:
+                                      additionalProperties:
+                                        properties:
+                                          privileges:
+                                            items:
+                                              type: string
+                                            type: array
+                                        required:
+                                        - privileges
+                                        type: object
+                                      type: object
+                                  required:
+                                  - application
+                                  - clients
+                                  - token_version
+                                  - tokens
+                                  type: object
+                                status:
+                                  description: PlatformCredentialsStatus is the status
+                                    part of the Stack.
+                                  properties:
+                                    clients:
+                                      additionalProperties:
+                                        type: object
+                                      type: object
+                                    errors:
+                                      items:
+                                        type: string
+                                      type: array
+                                    observedGeneration:
+                                      format: int64
+                                      type: integer
+                                    problems:
+                                      items:
+                                        type: string
+                                      type: array
+                                    tokens:
+                                      additionalProperties:
+                                        properties:
+                                          expiration:
+                                            format: date-time
+                                            type: string
+                                        type: object
+                                      type: object
+                                  required:
+                                  - clients
+                                  - errors
+                                  - observedGeneration
+                                  - problems
+                                  - tokens
+                                  type: object
+                              required:
+                              - spec
+                              - status
                               type: object
                             secretRef:
                               description: SecretRef is a reference to a Secret to
@@ -1533,10 +1613,6 @@ spec:
                                                     description: The key to select.
                                                     type: string
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
@@ -1608,10 +1684,6 @@ spec:
                                                       secret key.
                                                     type: string
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
@@ -3100,10 +3172,6 @@ spec:
                                                     description: The key to select.
                                                     type: string
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
@@ -3175,10 +3243,6 @@ spec:
                                                       secret key.
                                                     type: string
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
@@ -3548,11 +3612,6 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
-                                                    description: The header field
-                                                      name. This will be canonicalized
-                                                      upon output, so case-variant
-                                                      names will be understood as
-                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -3775,11 +3834,6 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
-                                                    description: The header field
-                                                      name. This will be canonicalized
-                                                      upon output, so case-variant
-                                                      names will be understood as
-                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -4658,10 +4712,6 @@ spec:
                                                     description: The key to select.
                                                     type: string
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
@@ -4733,10 +4783,6 @@ spec:
                                                       secret key.
                                                     type: string
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: Specify whether the
@@ -5112,11 +5158,6 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
-                                                    description: The header field
-                                                      name. This will be canonicalized
-                                                      upon output, so case-variant
-                                                      names will be understood as
-                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -5349,11 +5390,6 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
-                                                    description: The header field
-                                                      name. This will be canonicalized
-                                                      upon output, so case-variant
-                                                      names will be understood as
-                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -5844,11 +5880,6 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
-                                                    description: The header field
-                                                      name. This will be canonicalized
-                                                      upon output, so case-variant
-                                                      names will be understood as
-                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -7968,10 +7999,6 @@ spec:
                                                       type: object
                                                     type: array
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: optional specify
@@ -8045,10 +8072,6 @@ spec:
                                                       type: object
                                                     type: array
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: optional field specify
@@ -8063,14 +8086,6 @@ spec:
                                                   data to project
                                                 properties:
                                                   audience:
-                                                    description: audience is the intended
-                                                      audience of the token. A recipient
-                                                      of a token must identify itself
-                                                      with an identifier specified
-                                                      in the audience of the token,
-                                                      and otherwise should reject
-                                                      the token. The audience defaults
-                                                      to the identifier of the apiserver.
                                                     type: string
                                                   expirationSeconds:
                                                     format: int64

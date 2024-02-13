@@ -380,19 +380,97 @@ spec:
                       description: PlatformCredentialsSet to be created and owned
                         by Stack
                       properties:
-                        name:
+                        apiVersion:
+                          description: 'APIVersion defines the versioned schema of
+                            this representation of an object. Servers should convert
+                            recognized schemas to the latest internal value, and may
+                            reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
                           type: string
-                        tokens:
-                          additionalProperties:
-                            properties:
-                              privileges:
-                                items:
-                                  type: string
-                                type: array
-                            required:
-                            - privileges
-                            type: object
+                        kind:
+                          description: 'Kind is a string value representing the REST
+                            resource this object represents. Servers may infer this
+                            from the endpoint the client submits requests to. Cannot
+                            be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                          type: string
+                        metadata:
                           type: object
+                        spec:
+                          description: PlatformCredentialsSpec is the spec part of
+                            the StackSet.
+                          properties:
+                            application:
+                              type: string
+                            clients:
+                              additionalProperties:
+                                properties:
+                                  grant:
+                                    type: string
+                                  realm:
+                                    type: string
+                                  redirectUri:
+                                    type: string
+                                required:
+                                - grant
+                                - realm
+                                - redirectUri
+                                type: object
+                              type: object
+                            token_version:
+                              type: string
+                            tokens:
+                              additionalProperties:
+                                properties:
+                                  privileges:
+                                    items:
+                                      type: string
+                                    type: array
+                                required:
+                                - privileges
+                                type: object
+                              type: object
+                          required:
+                          - application
+                          - clients
+                          - token_version
+                          - tokens
+                          type: object
+                        status:
+                          description: PlatformCredentialsStatus is the status part
+                            of the Stack.
+                          properties:
+                            clients:
+                              additionalProperties:
+                                type: object
+                              type: object
+                            errors:
+                              items:
+                                type: string
+                              type: array
+                            observedGeneration:
+                              format: int64
+                              type: integer
+                            problems:
+                              items:
+                                type: string
+                              type: array
+                            tokens:
+                              additionalProperties:
+                                properties:
+                                  expiration:
+                                    format: date-time
+                                    type: string
+                                type: object
+                              type: object
+                          required:
+                          - clients
+                          - errors
+                          - observedGeneration
+                          - problems
+                          - tokens
+                          type: object
+                      required:
+                      - spec
+                      - status
                       type: object
                     secretRef:
                       description: SecretRef is a reference to a Secret to be owned
@@ -970,9 +1048,6 @@ spec:
                                             empty selector ({}) matches all namespaces.
                                           properties:
                                             matchExpressions:
-                                              description: matchExpressions is a list
-                                                of label selector requirements. The
-                                                requirements are ANDed.
                                               items:
                                                 properties:
                                                   key:
@@ -2737,10 +2812,6 @@ spec:
                                               key.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More
-                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion,
-                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: Specify whether the Secret
@@ -6547,12 +6618,8 @@ spec:
                                             apiGroup:
                                               type: string
                                             kind:
-                                              description: Kind is the type of resource
-                                                being referenced
                                               type: string
                                             name:
-                                              description: Name is the name of resource
-                                                being referenced
                                               type: string
                                           required:
                                           - kind
@@ -6600,12 +6667,8 @@ spec:
                                             apiGroup:
                                               type: string
                                             kind:
-                                              description: Kind is the type of resource
-                                                being referenced
                                               type: string
                                             name:
-                                              description: Name is the name of resource
-                                                being referenced
                                               type: string
                                             namespace:
                                               type: string
@@ -7089,22 +7152,7 @@ spec:
                                           configMap data to project
                                         properties:
                                           items:
-                                            description: items if unspecified, each
-                                              key-value pair in the Data field of
-                                              the referenced ConfigMap will be projected
-                                              into the volume as a file whose name
-                                              is the key and content is the value.
-                                              If specified, the listed keys will be
-                                              projected into the specified paths,
-                                              and unlisted keys will not be present.
-                                              If a key is specified which is not present
-                                              in the ConfigMap, the volume setup will
-                                              error unless it is marked optional.
-                                              Paths must be relative and may not contain
-                                              the '..' path or start with '..'.
                                             items:
-                                              description: Maps a string key to a
-                                                path within a volume.
                                               properties:
                                                 key:
                                                   type: string
@@ -7119,10 +7167,6 @@ spec:
                                               type: object
                                             type: array
                                           name:
-                                            description: 'Name of the referent. More
-                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion,
-                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: optional specify whether
@@ -7180,22 +7224,7 @@ spec:
                                           secret data to project
                                         properties:
                                           items:
-                                            description: items if unspecified, each
-                                              key-value pair in the Data field of
-                                              the referenced Secret will be projected
-                                              into the volume as a file whose name
-                                              is the key and content is the value.
-                                              If specified, the listed keys will be
-                                              projected into the specified paths,
-                                              and unlisted keys will not be present.
-                                              If a key is specified which is not present
-                                              in the Secret, the volume setup will
-                                              error unless it is marked optional.
-                                              Paths must be relative and may not contain
-                                              the '..' path or start with '..'.
                                             items:
-                                              description: Maps a string key to a
-                                                path within a volume.
                                               properties:
                                                 key:
                                                   type: string
@@ -7210,10 +7239,6 @@ spec:
                                               type: object
                                             type: array
                                           name:
-                                            description: 'Name of the referent. More
-                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion,
-                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: optional field specify whether
@@ -7226,26 +7251,8 @@ spec:
                                           about the serviceAccountToken data to project
                                         properties:
                                           audience:
-                                            description: audience is the intended
-                                              audience of the token. A recipient of
-                                              a token must identify itself with an
-                                              identifier specified in the audience
-                                              of the token, and otherwise should reject
-                                              the token. The audience defaults to
-                                              the identifier of the apiserver.
                                             type: string
                                           expirationSeconds:
-                                            description: expirationSeconds is the
-                                              requested duration of validity of the
-                                              service account token. As the token
-                                              approaches expiration, the kubelet volume
-                                              plugin will proactively rotate the service
-                                              account token. The kubelet will start
-                                              trying to rotate the token if the token
-                                              is older than 80 percent of its time
-                                              to live or if the token is older than
-                                              24 hours.Defaults to 1 hour and must
-                                              be at least 10 minutes.
                                             format: int64
                                             type: integer
                                           path:

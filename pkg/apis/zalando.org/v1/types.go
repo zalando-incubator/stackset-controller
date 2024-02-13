@@ -451,14 +451,7 @@ type ConfigurationResourcesSpec struct {
 	SecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
 
 	// PlatformCredentialsSet to be created and owned by Stack
-	PlatformCredentialsSet *PCS `json:"platformCredentialsSet,omitempty"`
-}
-
-// PCS is the PlatformCredentialsSet definition for a stack
-// +k8s:deepcopy-gen=true
-type PCS struct {
-	Name   string           `json:"name,omitempty"`
-	Tokens map[string]Token `json:"tokens,omitempty"`
+	PlatformCredentialsSet *PlatformCredentialsSet `json:"platformCredentialsSet,omitempty"`
 }
 
 // GetName returns the name of the ConfigurationResourcesSpec.

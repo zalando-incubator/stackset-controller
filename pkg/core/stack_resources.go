@@ -577,3 +577,29 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 		LabelSelector:        labels.Set(sc.selector()).String(),
 	}
 }
+
+func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationResourcesSpec) (
+	*zv1.PlatformCredentialsSet,
+	error,
+) {
+	pcsSpec := rsc.PlatformCredentialsSet.Spec
+
+	if pcsSpec.Tokens == nil {
+		return nil, nil
+	}
+
+	result := &zv1.PlatformCredentialsSet{
+		ObjectMeta: sc.resourceMeta(),
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PlatformCredentialsSet",
+			APIVersion: "zalando.org/v1",
+		},
+		Spec: zv1.PlatformCredentialsSpec{
+			Application:  pcsSpec.Application,
+			TokenVersion: "v2",
+			Tokens:       pcsSpec.Tokens,
+		},
+	}
+
+	return result, nil
+}
