@@ -1115,7 +1115,25 @@ func (c *StackSetController) convertToTrafficSegments(
 
 	var ingTimestamp, rgTimestamp *metav1.Time
 	for _, sc := range ssc.StackContainers {
-		// If we find at least one stack with a segment, we can delete the
+		if sc.Stack.Spec.Ingress != nil && sc.Resources.IngressSegment == nil {
+			c.logger.Warnf(
+				"Not deleting Ingress %s, stack %s doesn't have a segment yet.",
+				ssc.Ingress.Name,
+				sc.Name(),
+			)
+			return nil
+		}
+
+		if sc.Stack.Spec.RouteGroup != nil && sc.Resources.RouteGroupSegment == nil {
+			c.logger.Warnf(
+				"Not deleting RouteGroup %s, stack %s doesn't have a segment yet.",
+				ssc.RouteGroup.Name,
+				sc.Name(),
+			)
+			return nil
+		}
+
+		// If we find stacks with a segment, we can delete the
 		// central ingress resources.
 		if ingTimestamp == nil && sc.Resources.IngressSegment != nil {
 			ingTimestamp = &sc.Resources.IngressSegment.CreationTimestamp
@@ -1123,10 +1141,6 @@ func (c *StackSetController) convertToTrafficSegments(
 
 		if rgTimestamp == nil && sc.Resources.RouteGroupSegment != nil {
 			rgTimestamp = &sc.Resources.RouteGroupSegment.CreationTimestamp
-		}
-
-		if ingTimestamp != nil && rgTimestamp != nil {
-			break
 		}
 	}
 
