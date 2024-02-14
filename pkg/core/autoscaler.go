@@ -122,7 +122,12 @@ func (l autoscalerMetricsList) Less(i, j int) bool {
 	return false
 }
 
-func convertCustomMetrics(stacksetName, stackName, namespace string, metrics autoscalerMetricsList, trafficWeight float64) ([]autoscaling.MetricSpec, map[string]string, error) {
+func convertCustomMetrics(
+	ingressResourceName, stackName, namespace string,
+	metrics autoscalerMetricsList,
+	trafficWeight float64,
+) ([]autoscaling.MetricSpec, map[string]string, error) {
+
 	var resultMetrics []autoscaling.MetricSpec
 	resultAnnotations := make(map[string]string)
 
@@ -140,9 +145,9 @@ func convertCustomMetrics(stacksetName, stackName, namespace string, metrics aut
 		case zv1.PodJSONAutoscalerMetric:
 			generated, annotations, err = podJsonMetric(m)
 		case zv1.IngressAutoscalerMetric:
-			generated, err = ingressMetric(m, stacksetName, stackName)
+			generated, err = ingressMetric(m, ingressResourceName, stackName)
 		case zv1.RouteGroupAutoscalerMetric:
-			generated, err = routegroupMetric(m, stacksetName, stackName)
+			generated, err = routegroupMetric(m, ingressResourceName, stackName)
 		case zv1.ZMONAutoscalerMetric:
 			generated, annotations, err = zmonMetric(m, i, stackName, namespace)
 		case zv1.ScalingScheduleMetric:

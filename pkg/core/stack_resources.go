@@ -253,7 +253,21 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 	result.Spec.MinReplicas = autoscalerSpec.MinReplicas
 	result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
 
-	metrics, annotations, err := convertCustomMetrics(sc.stacksetName, sc.Name(), sc.Namespace(), autoscalerMetricsList(autoscalerSpec.Metrics), trafficWeight)
+	ingressResourceName := sc.stacksetName
+	if sc.Resources.IngressSegment != nil {
+		ingressResourceName = sc.Resources.IngressSegment.Name
+	}
+	if sc.Resources.RouteGroupSegment != nil {
+		ingressResourceName = sc.Resources.RouteGroupSegment.Name
+	}
+
+	metrics, annotations, err := convertCustomMetrics(
+		ingressResourceName,
+		sc.Name(),
+		sc.Namespace(),
+		autoscalerMetricsList(autoscalerSpec.Metrics),
+		trafficWeight,
+	)
 
 	if err != nil {
 		return nil, err
