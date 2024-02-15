@@ -387,17 +387,6 @@ spec:
                           properties:
                             application:
                               type: string
-                            clients:
-                              additionalProperties:
-                                properties:
-                                  grant:
-                                    type: string
-                                  realm:
-                                    type: string
-                                  redirectUri:
-                                    type: string
-                                type: object
-                              type: object
                             token_version:
                               type: string
                             tokens:
@@ -418,17 +407,6 @@ spec:
                           description: PlatformCredentialsStatus is the status part
                             of the Stack.
                           properties:
-                            clients:
-                              additionalProperties:
-                                properties:
-                                  grant:
-                                    type: string
-                                  realm:
-                                    type: string
-                                  redirectUri:
-                                    type: string
-                                type: object
-                              type: object
                             errors:
                               items:
                                 type: string
@@ -711,6 +689,16 @@ spec:
                                                   Gt, and Lt.
                                                 type: string
                                               values:
+                                                description: An array of string values.
+                                                  If the operator is In or NotIn,
+                                                  the values array must be non-empty.
+                                                  If the operator is Exists or DoesNotExist,
+                                                  the values array must be empty.
+                                                  If the operator is Gt or Lt, the
+                                                  values array must have a single
+                                                  element, which will be interpreted
+                                                  as an integer. This array is replaced
+                                                  during a strategic merge patch.
                                                 items:
                                                   type: string
                                                 type: array
@@ -7123,6 +7111,7 @@ spec:
                                                 path within a volume.
                                               properties:
                                                 key:
+                                                  description: key is the key to project.
                                                   type: string
                                                 mode:
                                                   format: int32
@@ -7159,6 +7148,10 @@ spec:
                                                 the pod field
                                               properties:
                                                 fieldRef:
+                                                  description: 'Required: Selects
+                                                    a field of the pod: only annotations,
+                                                    labels, name and namespace are
+                                                    supported.'
                                                   properties:
                                                     apiVersion:
                                                       type: string
@@ -7217,6 +7210,7 @@ spec:
                                                 path within a volume.
                                               properties:
                                                 key:
+                                                  description: key is the key to project.
                                                   type: string
                                                 mode:
                                                   format: int32

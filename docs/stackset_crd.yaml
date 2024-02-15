@@ -663,17 +663,6 @@ spec:
                                   properties:
                                     application:
                                       type: string
-                                    clients:
-                                      additionalProperties:
-                                        properties:
-                                          grant:
-                                            type: string
-                                          realm:
-                                            type: string
-                                          redirectUri:
-                                            type: string
-                                        type: object
-                                      type: object
                                     token_version:
                                       type: string
                                     tokens:
@@ -694,17 +683,6 @@ spec:
                                   description: PlatformCredentialsStatus is the status
                                     part of the Stack.
                                   properties:
-                                    clients:
-                                      additionalProperties:
-                                        properties:
-                                          grant:
-                                            type: string
-                                          realm:
-                                            type: string
-                                          redirectUri:
-                                            type: string
-                                        type: object
-                                      type: object
                                     errors:
                                       items:
                                         type: string
@@ -1270,6 +1248,16 @@ spec:
                                                           DoesNotExist.
                                                         type: string
                                                       values:
+                                                        description: values is an
+                                                          array of string values.
+                                                          If the operator is In or
+                                                          NotIn, the values array
+                                                          must be non-empty. If the
+                                                          operator is Exists or DoesNotExist,
+                                                          the values array must be
+                                                          empty. This array is replaced
+                                                          during a strategic merge
+                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
