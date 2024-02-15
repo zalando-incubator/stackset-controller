@@ -1339,7 +1339,11 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
 
-	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
+	hpaGenerator := sc.GenerateHPA
+	if ssc.SupportsSegmentTraffic() {
+		hpaGenerator = sc.GenerateHPAToSegment
+	}
+	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, hpaGenerator)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
 	}
