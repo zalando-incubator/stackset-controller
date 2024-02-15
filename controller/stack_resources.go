@@ -13,6 +13,7 @@ import (
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func pint32Equal(p1, p2 *int32) bool {
@@ -353,15 +354,17 @@ func (c *StackSetController) ReconcileStackConfigMap(
 		return err
 	}
 
-	if configMap.OwnerReferences != nil {
-		for _, owner := range configMap.OwnerReferences {
-			if owner.UID != stack.UID {
-				return fmt.Errorf("ConfigMap already owned by other resource. "+
-					"ConfigMap: %s, Stack: %s", rsc.GetName(), stack.Name)
-			}
+	// Check if the ConfigMap is already owned by us or another resource.
+	isOwned, owner := isOwned(configMap.OwnerReferences)
+	if isOwned {
+		// If the ConfigMap is already owned by us, we don't need to do anything.
+		if owner == stack.UID {
+			return nil
 		}
 
-		return nil
+		// If the ConfigMap is owned by another resource, we should not update it.
+		return fmt.Errorf("ConfigMap already owned by other resource. "+
+			"ConfigMap: %s, Stack: %s", rsc.GetName(), stack.Name)
 	}
 
 	objectMeta := updateObjMeta(&configMap.ObjectMeta)
@@ -430,15 +433,17 @@ func (c *StackSetController) ReconcileStackSecret(ctx context.Context,
 		return err
 	}
 
-	if secret.OwnerReferences != nil {
-		for _, owner := range secret.OwnerReferences {
-			if owner.UID != stack.UID {
-				return fmt.Errorf("Secret already owned by other resource. "+
-					"Secret: %s, Stack: %s", rsc.GetName(), stack.Name)
-			}
+	// Check if the Secret is already owned by us or another resource.
+	isOwned, owner := isOwned(secret.OwnerReferences)
+	if isOwned {
+		// If the Secret is already owned by us, we don't need to do anything.
+		if owner == stack.UID {
+			return nil
 		}
 
-		return nil
+		// If the Secret is owned by another resource, we should not update it.
+		return fmt.Errorf("Secret already owned by other resource. "+
+			"Secret: %s, Stack: %s", rsc.GetName(), stack.Name)
 	}
 
 	objectMeta := updateObjMeta(&secret.ObjectMeta)
@@ -459,4 +464,13 @@ func (c *StackSetController) ReconcileStackSecret(ctx context.Context,
 	)
 
 	return nil
+}
+
+// isOwned checks if the resource is owned and returns the UID of the owner.
+func isOwned(ownerReferences []metav1.OwnerReference) (bool, types.UID) {
+	for _, ownerRef := range ownerReferences {
+		return true, ownerRef.UID
+	}
+
+	return false, ""
 }
