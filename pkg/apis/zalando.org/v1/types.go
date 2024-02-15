@@ -444,7 +444,7 @@ type ConfigurationResourcesSpec struct {
 	SecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
 
 	// PlatformCredentialsSet to be created and owned by Stack
-	PlatformCredentialsSet PlatformCredentialsSet `json:"platformCredentialsSet,omitempty"`
+	PlatformCredentialsSet *PlatformCredentialsSet `json:"platformCredentialsSet,omitempty"`
 }
 
 // GetName returns the name of the ConfigurationResourcesSpec.

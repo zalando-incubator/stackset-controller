@@ -147,7 +147,11 @@ func (in *ConfigurationResourcesSpec) DeepCopyInto(out *ConfigurationResourcesSp
 		*out = new(corev1.LocalObjectReference)
 		**out = **in
 	}
-	in.PlatformCredentialsSet.DeepCopyInto(&out.PlatformCredentialsSet)
+	if in.PlatformCredentialsSet != nil {
+		in, out := &in.PlatformCredentialsSet, &out.PlatformCredentialsSet
+		*out = new(PlatformCredentialsSet)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
@@ -433,14 +437,14 @@ func (in *PlatformCredentialsStatus) DeepCopyInto(out *PlatformCredentialsStatus
 	}
 	if in.Tokens != nil {
 		in, out := &in.Tokens, &out.Tokens
-		*out = make(map[string]struct{}, len(*in))
+		*out = make(map[string]Token, len(*in))
 		for key, val := range *in {
-			(*out)[key] = val
+			(*out)[key] = *val.DeepCopy()
 		}
 	}
 	if in.Clients != nil {
 		in, out := &in.Clients, &out.Clients
-		*out = make(map[string]struct{}, len(*in))
+		*out = make(map[string]Client, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}
