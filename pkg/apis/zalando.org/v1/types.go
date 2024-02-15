@@ -438,10 +438,10 @@ type StackSpec struct {
 // +k8s:deepcopy-gen=true
 type ConfigurationResourcesSpec struct {
 	// ConfigMap to be owned by Stack
-	ConfigMapRef v1.LocalObjectReference `json:"configMapRef,omitempty"`
+	ConfigMapRef *v1.LocalObjectReference `json:"configMapRef,omitempty"`
 
 	// Secret to be owned by Stack
-	SecretRef v1.LocalObjectReference `json:"secretRef,omitempty"`
+	SecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // GetName returns the name of the ConfigurationResourcesSpec.
@@ -459,12 +459,12 @@ func (crs *ConfigurationResourcesSpec) GetName() string {
 
 // IsConfigMap returns true if the ConfigurationResourcesSpec is a ConfigMap.
 func (crs *ConfigurationResourcesSpec) IsConfigMap() bool {
-	return crs.ConfigMapRef.Name != ""
+	return crs.ConfigMapRef != nil
 }
 
 // IsSecret returns true if the ConfigurationResourcesSpec is a Secret.
 func (crs *ConfigurationResourcesSpec) IsSecret() bool {
-	return crs.SecretRef.Name != ""
+	return crs.SecretRef != nil
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and
