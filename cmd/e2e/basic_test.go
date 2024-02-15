@@ -167,7 +167,7 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 
 		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
 			{
-				ConfigMapRef: corev1.LocalObjectReference{
+				ConfigMapRef: &corev1.LocalObjectReference{
 					Name: configMapName,
 				},
 			},
@@ -203,7 +203,7 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 
 		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
 			{
-				SecretRef: corev1.LocalObjectReference{
+				SecretRef: &corev1.LocalObjectReference{
 					Name: secretName,
 				},
 			},
