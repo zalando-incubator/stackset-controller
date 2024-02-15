@@ -13,6 +13,7 @@ type PlatformCredentialsSet struct {
 	metav1.TypeMeta   `json:""`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	Name   string                    `json:"name,omitempty"`
 	Spec   PlatformCredentialsSpec   `json:"spec"`
 	Status PlatformCredentialsStatus `json:"status,omitempty"`
 }

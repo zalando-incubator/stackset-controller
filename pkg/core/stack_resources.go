@@ -589,8 +589,11 @@ func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationRe
 		return nil, nil
 	}
 
+	metaObj := sc.resourceMeta()
+	metaObj.Name = metaObj.Name + "-" + rsc.PlatformCredentialsSet.Name
+
 	result := &zv1.PlatformCredentialsSet{
-		ObjectMeta: sc.resourceMeta(),
+		ObjectMeta: metaObj,
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "PlatformCredentialsSet",
 			APIVersion: "zalando.org/v1",

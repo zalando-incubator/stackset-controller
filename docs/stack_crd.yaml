@@ -381,6 +381,8 @@ spec:
                           type: string
                         metadata:
                           type: object
+                        name:
+                          type: string
                         spec:
                           description: PlatformCredentialsSpec is the spec part of
                             the StackSet.
