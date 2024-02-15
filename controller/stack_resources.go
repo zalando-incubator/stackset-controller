@@ -363,14 +363,13 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	}
 
 	// Check if the ConfigMap is already owned by us or another resource.
+	// If the ConfigMap is owned by another resource, we should not update it.
 	isOwned, owner := isOwned(configMap.OwnerReferences)
 	if isOwned {
-		// If the ConfigMap is already owned by us, we don't need to do anything.
 		if owner == stack.UID {
 			return nil
 		}
 
-		// If the ConfigMap is owned by another resource, we should not update it.
 		return fmt.Errorf("ConfigMap already owned by other resource. "+
 			"ConfigMap: %s, Stack: %s", rsc.GetName(), stack.Name)
 	}
@@ -441,14 +440,13 @@ func (c *StackSetController) ReconcileStackSecret(ctx context.Context,
 	}
 
 	// Check if the Secret is already owned by us or another resource.
+	// If the Secret is owned by another resource, we should not update it.
 	isOwned, owner := isOwned(secret.OwnerReferences)
 	if isOwned {
-		// If the Secret is already owned by us, we don't need to do anything.
 		if owner == stack.UID {
 			return nil
 		}
 
-		// If the Secret is owned by another resource, we should not update it.
 		return fmt.Errorf("Secret already owned by other resource. "+
 			"Secret: %s, Stack: %s", rsc.GetName(), stack.Name)
 	}
