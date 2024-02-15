@@ -409,10 +409,6 @@ spec:
                                     type: string
                                   redirectUri:
                                     type: string
-                                required:
-                                - grant
-                                - realm
-                                - redirectUri
                                 type: object
                               type: object
                             token_version:
@@ -430,9 +426,6 @@ spec:
                               type: object
                           required:
                           - application
-                          - clients
-                          - token_version
-                          - tokens
                           type: object
                         status:
                           description: PlatformCredentialsStatus is the status part
@@ -470,7 +463,6 @@ spec:
                           type: object
                       required:
                       - spec
-                      - status
                       type: object
                     secretRef:
                       description: SecretRef is a reference to a Secret to be owned
@@ -2812,6 +2804,10 @@ spec:
                                               key.
                                             type: string
                                           name:
+                                            description: 'Name of the referent. More
+                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion,
+                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: Specify whether the Secret
@@ -4156,10 +4152,6 @@ spec:
                                             description: The key to select.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More
-                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion,
-                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap
@@ -4226,10 +4218,6 @@ spec:
                                               key.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More
-                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion,
-                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: Specify whether the Secret
@@ -7239,6 +7227,10 @@ spec:
                                               type: object
                                             type: array
                                           name:
+                                            description: 'Name of the referent. More
+                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion,
+                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: optional field specify whether

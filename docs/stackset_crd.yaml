@@ -689,10 +689,6 @@ spec:
                                             type: string
                                           redirectUri:
                                             type: string
-                                        required:
-                                        - grant
-                                        - realm
-                                        - redirectUri
                                         type: object
                                       type: object
                                     token_version:
@@ -710,9 +706,6 @@ spec:
                                       type: object
                                   required:
                                   - application
-                                  - clients
-                                  - token_version
-                                  - tokens
                                   type: object
                                 status:
                                   description: PlatformCredentialsStatus is the status
@@ -750,7 +743,6 @@ spec:
                                   type: object
                               required:
                               - spec
-                              - status
                               type: object
                             secretRef:
                               description: SecretRef is a reference to a Secret to
@@ -5158,6 +5150,11 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
+                                                    description: The header field
+                                                      name. This will be canonicalized
+                                                      upon output, so case-variant
+                                                      names will be understood as
+                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
