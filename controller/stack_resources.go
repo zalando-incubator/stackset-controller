@@ -32,6 +32,15 @@ func syncObjectMeta(target, source metav1.Object) {
 	target.SetAnnotations(source.GetAnnotations())
 }
 
+// isOwned checks if the resource is owned and returns the UID of the owner.
+func isOwned(ownerReferences []metav1.OwnerReference) (bool, types.UID) {
+	for _, ownerRef := range ownerReferences {
+		return true, ownerRef.UID
+	}
+
+	return false, ""
+}
+
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
 	deployment := generateUpdated()
 
@@ -462,13 +471,4 @@ func (c *StackSetController) ReconcileStackSecret(ctx context.Context,
 	)
 
 	return nil
-}
-
-// isOwned checks if the resource is owned and returns the UID of the owner.
-func isOwned(ownerReferences []metav1.OwnerReference) (bool, types.UID) {
-	for _, ownerRef := range ownerReferences {
-		return true, ownerRef.UID
-	}
-
-	return false, ""
 }
