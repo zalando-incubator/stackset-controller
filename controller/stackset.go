@@ -550,7 +550,7 @@ func (c *StackSetController) collectPlatformCredentialsSet(
 	platformCredentialsSets, err := c.client.ZalandoV1().PlatformCredentialsSets(c.namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to list platformCredentialsSet: %v", err)
+		return fmt.Errorf("failed to list PlatformCredentialsSet: %v", err)
 	}
 
 	for _, platformCredentialsSet := range platformCredentialsSets.Items {
@@ -1055,7 +1055,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	}
 
 	// if c.pcsSupportEnabled {
-	err = c.ReconcileStackPlatformCredentialsSet(
+	err = c.ReconcileStackPlatformCredentialsSets(
 		ctx,
 		sc.Stack,
 		sc.Resources.PlatformCredentialsSets,

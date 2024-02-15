@@ -394,23 +394,14 @@ spec:
                           type: string
                         metadata:
                           type: object
+                        name:
+                          type: string
                         spec:
                           description: PlatformCredentialsSpec is the spec part of
                             the StackSet.
                           properties:
                             application:
                               type: string
-                            clients:
-                              additionalProperties:
-                                properties:
-                                  grant:
-                                    type: string
-                                  realm:
-                                    type: string
-                                  redirectUri:
-                                    type: string
-                                type: object
-                              type: object
                             token_version:
                               type: string
                             tokens:
@@ -1305,10 +1296,6 @@ spec:
                                             description: The key to select.
                                             type: string
                                           name:
-                                            description: 'Name of the referent. More
-                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                              TODO: Add other useful fields. apiVersion,
-                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap
@@ -4152,6 +4139,10 @@ spec:
                                             description: The key to select.
                                             type: string
                                           name:
+                                            description: 'Name of the referent. More
+                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion,
+                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: Specify whether the ConfigMap
@@ -4218,6 +4209,10 @@ spec:
                                               key.
                                             type: string
                                           name:
+                                            description: 'Name of the referent. More
+                                              info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                              TODO: Add other useful fields. apiVersion,
+                                              kind, uid?'
                                             type: string
                                           optional:
                                             description: Specify whether the Secret

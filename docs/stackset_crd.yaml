@@ -674,23 +674,14 @@ spec:
                                   type: string
                                 metadata:
                                   type: object
+                                name:
+                                  type: string
                                 spec:
                                   description: PlatformCredentialsSpec is the spec
                                     part of the StackSet.
                                   properties:
                                     application:
                                       type: string
-                                    clients:
-                                      additionalProperties:
-                                        properties:
-                                          grant:
-                                            type: string
-                                          realm:
-                                            type: string
-                                          redirectUri:
-                                            type: string
-                                        type: object
-                                      type: object
                                     token_version:
                                       type: string
                                     tokens:
@@ -2783,11 +2774,6 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
-                                                    description: The header field
-                                                      name. This will be canonicalized
-                                                      upon output, so case-variant
-                                                      names will be understood as
-                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -3604,6 +3590,11 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
+                                                    description: The header field
+                                                      name. This will be canonicalized
+                                                      upon output, so case-variant
+                                                      names will be understood as
+                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -3826,6 +3817,11 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
+                                                    description: The header field
+                                                      name. This will be canonicalized
+                                                      upon output, so case-variant
+                                                      names will be understood as
+                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -4289,11 +4285,6 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
-                                                    description: The header field
-                                                      name. This will be canonicalized
-                                                      upon output, so case-variant
-                                                      names will be understood as
-                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
@@ -5877,6 +5868,11 @@ spec:
                                                   probes
                                                 properties:
                                                   name:
+                                                    description: The header field
+                                                      name. This will be canonicalized
+                                                      upon output, so case-variant
+                                                      names will be understood as
+                                                      the same header.
                                                     type: string
                                                   value:
                                                     description: The header field
