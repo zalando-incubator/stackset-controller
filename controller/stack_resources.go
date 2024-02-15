@@ -430,7 +430,7 @@ func (c *StackSetController) ReconcileStackSecret(
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackPlatformCredentialsSet(
+func (c *StackSetController) ReconcileStackPlatformCredentialsSets(
 	ctx context.Context,
 	stack *zv1.Stack,
 	existing []*zv1.PlatformCredentialsSet,
@@ -441,51 +441,65 @@ func (c *StackSetController) ReconcileStackPlatformCredentialsSet(
 			continue
 		}
 
-		pcs, err := generateUpdated(rsc)
+		if err := c.ReconcileStackPlatformCredentialsSet(
+			ctx, stack, rsc, existing, generateUpdated); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *StackSetController) ReconcileStackPlatformCredentialsSet(
+	ctx context.Context,
+	stack *zv1.Stack,
+	rsc zv1.ConfigurationResourcesSpec,
+	existing []*zv1.PlatformCredentialsSet,
+	generateUpdated func(zv1.ConfigurationResourcesSpec) (*zv1.PlatformCredentialsSet, error),
+) error {
+	pcs, err := generateUpdated(rsc)
+	if err != nil {
+		return err
+	}
+
+	// Create new PlatformCredentialsSet
+	if existing == nil {
+		_, err := c.client.ZalandoV1().PlatformCredentialsSets(pcs.Namespace).
+			Create(ctx, pcs, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"CreatedPlatformCredentialsSet",
+			"Created PlatformCredentialsSet %s",
+			pcs.Name)
+		return nil
+	}
 
-		// Create new PlatformCredentialsSet
-		if existing == nil {
-			_, err := c.client.ZalandoV1().PlatformCredentialsSets(pcs.Namespace).
-				Create(ctx, pcs, metav1.CreateOptions{})
-			if err != nil {
-				return err
-			}
-			c.recorder.Eventf(
-				stack,
-				apiv1.EventTypeNormal,
-				"CreatedPlatformCredentialsSet",
-				"Created PlatformCredentialsSet %s",
-				pcs.Name)
+	// TODO:
+	// Check if we need to update a PlatformCredentialsSet
+	for _, e := range existing {
+		if core.IsResourceUpToDate(stack, e.ObjectMeta) {
 			return nil
 		}
 
-		for _, e := range existing {
-			// Check if we need to update the PlatformCredentialsSet
-			if core.IsResourceUpToDate(stack, e.ObjectMeta) {
-				return nil
-			}
+		updated := e.DeepCopy()
+		syncObjectMeta(updated, pcs)
+		updated.Spec = pcs.Spec
 
-			updated := e.DeepCopy()
-			syncObjectMeta(updated, pcs)
-			updated.Spec = pcs.Spec
-
-			_, err = c.client.ZalandoV1().PlatformCredentialsSets(updated.Namespace).
-				Update(ctx, updated, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-			c.recorder.Eventf(
-				stack,
-				apiv1.EventTypeNormal,
-				"UpdatedPlatformCredentialsSet",
-				"Updated PlatformCredentialsSet %s",
-				pcs.Name)
-
-			return nil
+		_, err = c.client.ZalandoV1().PlatformCredentialsSets(updated.Namespace).
+			Update(ctx, updated, metav1.UpdateOptions{})
+		if err != nil {
+			return err
 		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"UpdatedPlatformCredentialsSet",
+			"Updated PlatformCredentialsSet %s",
+			pcs.Name)
 	}
 	return nil
 }

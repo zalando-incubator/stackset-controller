@@ -457,6 +457,10 @@ func (crs *ConfigurationResourcesSpec) GetName() string {
 		return crs.SecretRef.Name
 	}
 
+	if crs.IsPlatformCredentialsSet() {
+		return crs.PlatformCredentialsSet.Name
+	}
+
 	return ""
 }
 
@@ -472,7 +476,7 @@ func (crs *ConfigurationResourcesSpec) IsSecret() bool {
 
 // IsPlatformCredentialsSet returns true if the ConfigurationResourcesSpec is a PlatformCredentialsSet.
 func (crs *ConfigurationResourcesSpec) IsPlatformCredentialsSet() bool {
-	return crs.PlatformCredentialsSet.Name != ""
+	return crs.PlatformCredentialsSet != nil
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and

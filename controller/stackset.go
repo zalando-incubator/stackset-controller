@@ -1375,7 +1375,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	}
 
 	// if c.pcsSupportEnabled {
-	err = c.ReconcileStackPlatformCredentialsSet(
+	err = c.ReconcileStackPlatformCredentialsSets(
 		ctx,
 		sc.Stack,
 		sc.Resources.PlatformCredentialsSets,
