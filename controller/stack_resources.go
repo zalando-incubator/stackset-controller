@@ -322,7 +322,6 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 func (c *StackSetController) ReconcileStackConfigMaps(
 	ctx context.Context,
 	stack *zv1.Stack,
-	existing []*apiv1.ConfigMap,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
@@ -402,7 +401,6 @@ func (c *StackSetController) ReconcileStackConfigMap(
 func (c *StackSetController) ReconcileStackSecrets(
 	ctx context.Context,
 	stack *zv1.Stack,
-	existing []*apiv1.Secret,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {

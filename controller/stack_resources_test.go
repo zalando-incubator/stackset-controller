@@ -1178,7 +1178,7 @@ func TestReconcileStackConfigMaps(t *testing.T) {
 			}
 
 			err = env.controller.ReconcileStackConfigMaps(
-				context.Background(), &tc.stack, tc.existing, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
+				context.Background(), &tc.stack, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
 					return &tc.expected[tmp.Name].ObjectMeta
 				})
 			require.NoError(t, err)
@@ -1413,7 +1413,7 @@ func TestReconcileStackSecrets(t *testing.T) {
 			}
 
 			err = env.controller.ReconcileStackSecrets(
-				context.Background(), &tc.stack, tc.existing, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
+				context.Background(), &tc.stack, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
 					return &tc.expected[tmp.Name].ObjectMeta
 				})
 			require.NoError(t, err)

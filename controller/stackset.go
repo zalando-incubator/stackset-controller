@@ -1321,14 +1321,14 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	}
 
 	if c.configMapSupportEnabled {
-		err := c.ReconcileStackConfigMaps(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
+		err := c.ReconcileStackConfigMaps(ctx, sc.Stack, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
 		}
 	}
 
 	if c.secretSupportEnabled {
-		err := c.ReconcileStackSecrets(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+		err := c.ReconcileStackSecrets(ctx, sc.Stack, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
 		}
