@@ -227,7 +227,25 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	return deployment
 }
 
-func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, error) {
+func (sc *StackContainer) GenerateHPAToSegment() (
+	*autoscaling.HorizontalPodAutoscaler,
+	error,
+) {
+	return sc.generateHPA(true)
+}
+
+func (sc *StackContainer) GenerateHPA() (
+	*autoscaling.HorizontalPodAutoscaler,
+	error,
+) {
+	return sc.generateHPA(false)
+
+}
+
+func (sc *StackContainer) generateHPA(toSegment bool) (
+	*autoscaling.HorizontalPodAutoscaler,
+	error,
+) {
 	autoscalerSpec := sc.Stack.Spec.StackSpec.Autoscaler
 	trafficWeight := sc.actualTrafficWeight
 
@@ -254,11 +272,8 @@ func (sc *StackContainer) GenerateHPA() (*autoscaling.HorizontalPodAutoscaler, e
 	result.Spec.MaxReplicas = autoscalerSpec.MaxReplicas
 
 	ingressResourceName := sc.stacksetName
-	if sc.Resources.IngressSegment != nil {
-		ingressResourceName = sc.Resources.IngressSegment.Name
-	}
-	if sc.Resources.RouteGroupSegment != nil {
-		ingressResourceName = sc.Resources.RouteGroupSegment.Name
+	if toSegment {
+		ingressResourceName = sc.Name() + SegmentSuffix
 	}
 
 	metrics, annotations, err := convertCustomMetrics(

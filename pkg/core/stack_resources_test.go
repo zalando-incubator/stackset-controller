@@ -15,6 +15,7 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -1330,7 +1331,6 @@ func TestGenerateHPA(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		autoscaler          *zv1.Autoscaler
-		resources           StackResources
 		expectedMinReplicas *int32
 		expectedMaxReplicas int32
 		expectedMetrics     []autoscaling.MetricSpec
@@ -1349,122 +1349,6 @@ func TestGenerateHPA(t *testing.T) {
 					},
 				},
 				Behavior: exampleBehavior,
-			},
-			expectedMinReplicas: &min,
-			expectedMaxReplicas: max,
-			expectedMetrics: []autoscaling.MetricSpec{
-				{
-					Type: autoscaling.ResourceMetricSourceType,
-					Resource: &autoscaling.ResourceMetricSource{
-						Name: v1.ResourceCPU,
-						Target: autoscaling.MetricTarget{
-							Type:               autoscaling.UtilizationMetricType,
-							AverageUtilization: &utilization,
-						},
-					},
-				},
-			},
-			expectedBehavior: exampleBehavior,
-		},
-		{
-			name: "HPA in a Stack with ingress segment",
-			autoscaler: &zv1.Autoscaler{
-				MinReplicas: &min,
-				MaxReplicas: max,
-
-				Metrics: []zv1.AutoscalerMetrics{
-					{
-						Type:               zv1.CPUAutoscalerMetric,
-						AverageUtilization: &utilization,
-					},
-				},
-				Behavior: exampleBehavior,
-			},
-			resources: StackResources{
-				IngressSegment: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "stack-traffic-segment",
-					},
-				},
-			},
-			expectedMinReplicas: &min,
-			expectedMaxReplicas: max,
-			expectedMetrics: []autoscaling.MetricSpec{
-				{
-					Type: autoscaling.ResourceMetricSourceType,
-					Resource: &autoscaling.ResourceMetricSource{
-						Name: v1.ResourceCPU,
-						Target: autoscaling.MetricTarget{
-							Type:               autoscaling.UtilizationMetricType,
-							AverageUtilization: &utilization,
-						},
-					},
-				},
-			},
-			expectedBehavior: exampleBehavior,
-		},
-		{
-			name: "HPA in a Stack with routegroup segment",
-			autoscaler: &zv1.Autoscaler{
-				MinReplicas: &min,
-				MaxReplicas: max,
-
-				Metrics: []zv1.AutoscalerMetrics{
-					{
-						Type:               zv1.CPUAutoscalerMetric,
-						AverageUtilization: &utilization,
-					},
-				},
-				Behavior: exampleBehavior,
-			},
-			resources: StackResources{
-				RouteGroupSegment: &rgv1.RouteGroup{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "stack-traffic-segment",
-					},
-				},
-			},
-			expectedMinReplicas: &min,
-			expectedMaxReplicas: max,
-			expectedMetrics: []autoscaling.MetricSpec{
-				{
-					Type: autoscaling.ResourceMetricSourceType,
-					Resource: &autoscaling.ResourceMetricSource{
-						Name: v1.ResourceCPU,
-						Target: autoscaling.MetricTarget{
-							Type:               autoscaling.UtilizationMetricType,
-							AverageUtilization: &utilization,
-						},
-					},
-				},
-			},
-			expectedBehavior: exampleBehavior,
-		},
-		{
-			name: "HPA in a Stack with both routegroup and ingress segment",
-			autoscaler: &zv1.Autoscaler{
-				MinReplicas: &min,
-				MaxReplicas: max,
-
-				Metrics: []zv1.AutoscalerMetrics{
-					{
-						Type:               zv1.CPUAutoscalerMetric,
-						AverageUtilization: &utilization,
-					},
-				},
-				Behavior: exampleBehavior,
-			},
-			resources: StackResources{
-				IngressSegment: &networking.Ingress{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "stack-traffic-segment",
-					},
-				},
-				RouteGroupSegment: &rgv1.RouteGroup{
-					ObjectMeta: metav1.ObjectMeta{
-						Name: "stack-traffic-segment",
-					},
-				},
 			},
 			expectedMinReplicas: &min,
 			expectedMaxReplicas: max,
@@ -1509,7 +1393,6 @@ func TestGenerateHPA(t *testing.T) {
 						},
 					},
 				},
-				Resources: tc.resources,
 			}
 
 			hpa, err := autoscalerContainer.GenerateHPA()
@@ -1518,6 +1401,74 @@ func TestGenerateHPA(t *testing.T) {
 			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
 			require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
 			require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
+		})
+	}
+}
+
+func TestGenerateHPAToSegment(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		metricType  zv1.AutoscalerMetricType
+		expectedRef string
+	}{
+		{
+			name:        "HPA metric points to ingress segment",
+			metricType:  zv1.IngressAutoscalerMetric,
+			expectedRef: "foo-v1-traffic-segment",
+		},
+		{
+			name:        "HPA metric points to routeGroup segment",
+			metricType:  zv1.RouteGroupAutoscalerMetric,
+			expectedRef: "foo-v1-traffic-segment",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			metricValue := resource.NewQuantity(20, resource.DecimalSI)
+			var minReplicas int32 = 1
+
+			autoScalerContainer := &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							PodTemplate: zv1.PodTemplateSpec{
+								EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
+									Labels: map[string]string{
+										"pod-label": "pod-foo",
+									},
+								},
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Name:  "foo",
+											Image: "ghcr.io/zalando/skipper:latest",
+										},
+									},
+								},
+							},
+							Autoscaler: &zv1.Autoscaler{
+								MinReplicas: &minReplicas,
+								MaxReplicas: 2,
+								Metrics: []zv1.AutoscalerMetrics{
+									{
+										Type:    tc.metricType,
+										Average: metricValue,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			hpa, err := autoScalerContainer.GenerateHPAToSegment()
+			require.NoError(t, err)
+			require.NotEmpty(t, hpa.Spec.Metrics)
+			require.Equal(
+				t,
+				tc.expectedRef,
+				hpa.Spec.Metrics[0].Object.DescribedObject.Name,
+			)
 		})
 	}
 }
