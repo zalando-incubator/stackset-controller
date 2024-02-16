@@ -1408,34 +1408,23 @@ func TestGenerateHPA(t *testing.T) {
 func TestGenerateHPAToSegment(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
-		minReplicas int32
-		maxReplicas int32
 		metricType  zv1.AutoscalerMetricType
-		metricValue int64
 		expectedRef string
 	}{
 		{
 			name:        "HPA metric points to ingress segment",
-			minReplicas: 1,
-			maxReplicas: 2,
 			metricType:  zv1.IngressAutoscalerMetric,
-			metricValue: 20,
 			expectedRef: "foo-v1-traffic-segment",
 		},
 		{
 			name:        "HPA metric points to routeGroup segment",
-			minReplicas: 1,
-			maxReplicas: 2,
 			metricType:  zv1.RouteGroupAutoscalerMetric,
-			metricValue: 20,
 			expectedRef: "foo-v1-traffic-segment",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			metricValue := resource.NewQuantity(
-				tc.metricValue,
-				resource.DecimalSI,
-			)
+			metricValue := resource.NewQuantity(20, resource.DecimalSI)
+			var minReplicas int32 = 1
 
 			autoScalerContainer := &StackContainer{
 				Stack: &zv1.Stack{
@@ -1458,8 +1447,8 @@ func TestGenerateHPAToSegment(t *testing.T) {
 								},
 							},
 							Autoscaler: &zv1.Autoscaler{
-								MinReplicas: &tc.minReplicas,
-								MaxReplicas: tc.maxReplicas,
+								MinReplicas: &minReplicas,
+								MaxReplicas: 2,
 								Metrics: []zv1.AutoscalerMetrics{
 									{
 										Type:    tc.metricType,
