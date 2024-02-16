@@ -15,6 +15,7 @@ import (
 	autoscaling "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
 	networking "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -1400,6 +1401,85 @@ func TestGenerateHPA(t *testing.T) {
 			require.Equal(t, tc.expectedMaxReplicas, hpa.Spec.MaxReplicas)
 			require.Equal(t, tc.expectedMetrics, hpa.Spec.Metrics)
 			require.Equal(t, tc.expectedBehavior, hpa.Spec.Behavior)
+		})
+	}
+}
+
+func TestGenerateHPAToSegment(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		minReplicas int32
+		maxReplicas int32
+		metricType  zv1.AutoscalerMetricType
+		metricValue int64
+		expectedRef string
+	}{
+		{
+			name:        "HPA metric points to ingress segment",
+			minReplicas: 1,
+			maxReplicas: 2,
+			metricType:  zv1.IngressAutoscalerMetric,
+			metricValue: 20,
+			expectedRef: "foo-v1-traffic-segment",
+		},
+		{
+			name:        "HPA metric points to routeGroup segment",
+			minReplicas: 1,
+			maxReplicas: 2,
+			metricType:  zv1.RouteGroupAutoscalerMetric,
+			metricValue: 20,
+			expectedRef: "foo-v1-traffic-segment",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			metricValue := resource.NewQuantity(
+				tc.metricValue,
+				resource.DecimalSI,
+			)
+
+			autoScalerContainer := &StackContainer{
+				Stack: &zv1.Stack{
+					ObjectMeta: testStackMeta,
+					Spec: zv1.StackSpecInternal{
+						StackSpec: zv1.StackSpec{
+							PodTemplate: zv1.PodTemplateSpec{
+								EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
+									Labels: map[string]string{
+										"pod-label": "pod-foo",
+									},
+								},
+								Spec: v1.PodSpec{
+									Containers: []v1.Container{
+										{
+											Name:  "foo",
+											Image: "ghcr.io/zalando/skipper:latest",
+										},
+									},
+								},
+							},
+							Autoscaler: &zv1.Autoscaler{
+								MinReplicas: &tc.minReplicas,
+								MaxReplicas: tc.maxReplicas,
+								Metrics: []zv1.AutoscalerMetrics{
+									{
+										Type:    tc.metricType,
+										Average: metricValue,
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+
+			hpa, err := autoScalerContainer.GenerateHPAToSegment()
+			require.NoError(t, err)
+			require.NotEmpty(t, hpa.Spec.Metrics)
+			require.Equal(
+				t,
+				tc.expectedRef,
+				hpa.Spec.Metrics[0].Object.DescribedObject.Name,
+			)
 		})
 	}
 }
