@@ -459,12 +459,12 @@ func (crs *ConfigurationResourcesSpec) GetName() string {
 
 // IsConfigMap returns true if the ConfigurationResourcesSpec is a ConfigMap.
 func (crs *ConfigurationResourcesSpec) IsConfigMap() bool {
-	return crs.ConfigMapRef != nil
+	return crs.ConfigMapRef != nil && crs.ConfigMapRef.Name != ""
 }
 
 // IsSecret returns true if the ConfigurationResourcesSpec is a Secret.
 func (crs *ConfigurationResourcesSpec) IsSecret() bool {
-	return crs.SecretRef != nil
+	return crs.SecretRef != nil && crs.SecretRef.Name != ""
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and
