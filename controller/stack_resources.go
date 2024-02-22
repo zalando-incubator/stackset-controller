@@ -472,3 +472,94 @@ func (c *StackSetController) ReconcileStackSecretRef(ctx context.Context,
 
 	return nil
 }
+
+func (c *StackSetController) ReconcileStackConfigMaps(ctx context.Context, stack *zv1.Stack, existingConfigMaps []*apiv1.ConfigMap, generateUpdated func() ([]*apiv1.ConfigMap, error),
+) error {
+	desiredConfigMaps, err := generateUpdated()
+	if err != nil {
+		return err
+	}
+
+	for _, desiredConfigMap := range desiredConfigMaps {
+		existing := findConfigMap(existingConfigMaps, desiredConfigMap.Name)
+		if err := c.ReconcileStackConfigMap(ctx, stack, existing, desiredConfigMap); err != nil {
+			return err
+		}
+	}
+
+	for _, existingConfigMap := range existingConfigMaps {
+		desiredConfigMap := findConfigMap(desiredConfigMaps, existingConfigMap.Name)
+		if desiredConfigMap == nil {
+			if err := c.ReconcileStackConfigMap(ctx, stack, existingConfigMap, desiredConfigMap); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *StackSetController) ReconcileStackConfigMap(ctx context.Context, stack *zv1.Stack, existingConfigMap *apiv1.ConfigMap, desiredConfigMap *apiv1.ConfigMap,
+) error {
+	// ConfigMap removed
+	if desiredConfigMap == nil {
+		if existingConfigMap != nil {
+			err := c.client.CoreV1().ConfigMaps(existingConfigMap.Namespace).Delete(ctx, existingConfigMap.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+			c.recorder.Eventf(
+				stack,
+				apiv1.EventTypeNormal,
+				"DeletedConfigMap",
+				"Deleted ConfigMap %s",
+				existingConfigMap.Namespace)
+		}
+		return nil
+	}
+
+	// Create new ConfigMap
+	if existingConfigMap == nil {
+		_, err := c.client.CoreV1().ConfigMaps(desiredConfigMap.Namespace).Create(ctx, desiredConfigMap, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"CreatedConfigMap",
+			"Created ConfigMap %s",
+			desiredConfigMap.Name)
+		return nil
+	}
+
+	// Check if we need to update the ConfigMap
+	if core.IsResourceUpToDate(stack, existingConfigMap.ObjectMeta) {
+		return nil
+	}
+
+	updated := existingConfigMap.DeepCopy()
+	syncObjectMeta(updated, desiredConfigMap)
+	updated.Data = desiredConfigMap.Data
+
+	_, err := c.client.CoreV1().ConfigMaps(updated.Namespace).Update(ctx, updated, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+	c.recorder.Eventf(
+		stack,
+		apiv1.EventTypeNormal,
+		"UpdatedConfigMap",
+		"Updated ConfigMap %s",
+		desiredConfigMap.Name)
+	return nil
+}
+
+func findConfigMap(configMaps []*apiv1.ConfigMap, name string) *apiv1.ConfigMap {
+	for _, configMap := range configMaps {
+		if configMap.Name == name {
+			return configMap
+		}
+	}
+	return nil
+}
