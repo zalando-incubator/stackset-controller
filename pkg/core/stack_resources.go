@@ -575,6 +575,36 @@ func (sc *StackContainer) UpdateObjectMeta(objMeta *metav1.ObjectMeta) *metav1.O
 	return objMeta
 }
 
+func (sc *StackContainer) GenerateConfigMaps() ([]*v1.ConfigMap, error) {
+	result := []*v1.ConfigMap{}
+
+	for _, configResource := range sc.Stack.Spec.ConfigurationResources {
+		if !configResource.IsConfigMap() {
+			continue
+		}
+
+		metaObj := sc.resourceMeta()
+		metaObj.Name = metaObj.Name + "-" + configResource.GetName()
+		metaObj.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: APIVersion,
+				Kind:       KindStack,
+				Name:       sc.Name(),
+				UID:        sc.Stack.UID,
+			},
+		}
+
+		base := &v1.ConfigMap{
+			ObjectMeta: metaObj,
+			Data:       configResource.ConfigMap.Data,
+		}
+
+		result = append(result, base)
+	}
+
+	return result, nil
+}
+
 func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 	prescaling := zv1.PrescalingStatus{}
 	if sc.prescalingActive {

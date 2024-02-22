@@ -628,6 +628,18 @@ spec:
                           description: ConfigurationResourcesSpec makes it possible
                             to defined the config resources to be created
                           properties:
+                            configMap:
+                              description: ConfigMap to be owned by Stack
+                              properties:
+                                data:
+                                  additionalProperties:
+                                    type: string
+                                  description: Data todo
+                                  type: object
+                                name:
+                                  description: Name todo
+                                  type: string
+                              type: object
                             configMapRef:
                               description: ConfigMap to be owned by Stack
                               properties:
