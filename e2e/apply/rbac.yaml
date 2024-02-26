@@ -50,6 +50,7 @@ rules:
   - "zalando.org"
   resources:
   - routegroups
+  - platformcredentialssets
   verbs:
   - get
   - list
