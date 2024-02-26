@@ -496,6 +496,14 @@ func waitForSecret(t *testing.T, secretName string) (*corev1.Secret, error) {
 	return secretInterface().Get(context.Background(), secretName, metav1.GetOptions{})
 }
 
+func waitForPlatformCredentialsSet(t *testing.T, platformCredentialsSetName string) (*zv1.PlatformCredentialsSet, error) {
+	err := resourceCreated(t, "platformcredentialsset", platformCredentialsSetName, platformCredentialsSetInterface()).await()
+	if err != nil {
+		return nil, err
+	}
+	return platformCredentialsSetInterface().Get(context.Background(), platformCredentialsSetName, metav1.GetOptions{})
+}
+
 func waitForUpdatedRouteGroup(t *testing.T, name string, oldTimestamp string) (*rgv1.RouteGroup, error) {
 	err := newAwaiter(t, fmt.Sprintf("updated RouteGroup %s", name)).withPoll(func() (bool, error) {
 		rg, err := routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})

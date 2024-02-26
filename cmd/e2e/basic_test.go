@@ -51,6 +51,7 @@ type TestStacksetSpecFactory struct {
 	maxUnavailable                int
 	metrics                       []zv1.AutoscalerMetrics
 	subResourceAnnotations        map[string]string
+	configurationResources        []zv1.ConfigurationResourcesSpec
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
@@ -66,7 +67,16 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 		hpaMinReplicas:         1,
 		hpaMaxReplicas:         3,
 		subResourceAnnotations: map[string]string{},
+		configurationResources: []zv1.ConfigurationResourcesSpec{},
 	}
+}
+
+func (f *TestStacksetSpecFactory) AddInlinePlatformCredentialsSet(platformCredentialsSet *zv1.PlatformCredentialsSet) *TestStacksetSpecFactory {
+	f.configurationResources = append(f.configurationResources, zv1.ConfigurationResourcesSpec{
+		PlatformCredentialsSet: platformCredentialsSet,
+	})
+
+	return f
 }
 
 func (f *TestStacksetSpecFactory) ConfigMap() *TestStacksetSpecFactory {
@@ -150,6 +160,8 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 			},
 		},
 	}
+
+	result.StackTemplate.Spec.ConfigurationResources = append(result.StackTemplate.Spec.ConfigurationResources, f.configurationResources...)
 
 	if f.configMap {
 		configMapName := fmt.Sprintf("%s-%s-configmap", f.stacksetName, stackVersion)
