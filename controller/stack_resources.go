@@ -306,7 +306,7 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	return nil
 }
 
-// ReconcileStackConfigMap will update the named user-provided ConfigMap to be
+// ReconcileStackConfigMapRefs will update the named user-provided ConfigMap to be
 // attached to the Stack by ownerReferences, when a list of Configuration
 // Resources are defined on the Stack template.
 //
@@ -318,14 +318,14 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 // running resources is also allowed, so the method checks for changes on the
 // ConfigurationResources to ensure all listed ConfigMaps are properly linked
 // to the Stack.
-func (c *StackSetController) ReconcileStackConfigMap(
+func (c *StackSetController) ReconcileStackConfigMapRefs(
 	ctx context.Context,
 	stack *zv1.Stack,
 	existing []*apiv1.ConfigMap,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if !rsc.IsConfigMap() {
+		if !rsc.IsConfigMapRef() {
 			continue
 		}
 
@@ -368,7 +368,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	return nil
 }
 
-// ReconcileStackSecret will update the named user-provided Secret to be
+// ReconcileStackSecretRefs will update the named user-provided Secret to be
 // attached to the Stack by ownerReferences, when a list of Configuration
 // Resources are defined on the Stack template.
 //
@@ -380,14 +380,14 @@ func (c *StackSetController) ReconcileStackConfigMap(
 // running resources is also allowed, so the method checks for changes on the
 // ConfigurationResources to ensure all listed Secrets are properly linked
 // to the Stack.
-func (c *StackSetController) ReconcileStackSecret(
+func (c *StackSetController) ReconcileStackSecretRefs(
 	ctx context.Context,
 	stack *zv1.Stack,
 	existing []*apiv1.Secret,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if !rsc.IsSecret() {
+		if !rsc.IsSecretRef() {
 			continue
 		}
 
