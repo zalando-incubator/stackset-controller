@@ -622,7 +622,7 @@ spec:
                         type: object
                       configurationResources:
                         description: ConfigurationResources describes the ConfigMaps,
-                          Secrets, and/or PlatformCresentialsSet that will be created.
+                          Secrets, and/or PlatformCredentialsSet that will be created.
                         items:
                           description: ConfigurationResourcesSpec makes it possible
                             to defined the config resources to be created

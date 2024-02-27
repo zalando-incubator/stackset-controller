@@ -430,7 +430,7 @@ type StackSpec struct {
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 
 	// ConfigurationResources describes the ConfigMaps, Secrets, and/or
-	// PlatformCresentialsSet that will be created.
+	// PlatformCredentialsSet that will be created.
 	ConfigurationResources []ConfigurationResourcesSpec `json:"configurationResources,omitempty"`
 }
 
