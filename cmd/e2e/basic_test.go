@@ -102,6 +102,32 @@ func (f *TestStacksetSpecFactory) AddReferencedSecret(secretName string) *TestSt
 	return f
 }
 
+func (f *TestStacksetSpecFactory) AddPlatformCredentialsSetDefinition(pcsName string) *TestStacksetSpecFactory {
+	f.configurationResources = append(f.configurationResources, zv1.ConfigurationResourcesSpec{
+		PlatformCredentialsSet: &zv1.PCS{
+			Name: pcsName,
+			Tokens: map[string]zv1.Token{
+				"token-example": {
+					Privileges: []string{
+						"read",
+					},
+				},
+			},
+		},
+	})
+
+	f.volumes = append(f.volumes, corev1.Volume{
+		Name: pcsName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: pcsName,
+			},
+		},
+	})
+
+	return f
+}
+
 func (f *TestStacksetSpecFactory) Behavior(stabilizationWindowSeconds int32) *TestStacksetSpecFactory {
 	f.hpaBehavior = true
 	f.hpaStabilizationWindowSeconds = stabilizationWindowSeconds

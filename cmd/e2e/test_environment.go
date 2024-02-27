@@ -105,6 +105,10 @@ func secretInterface() corev1typed.SecretInterface {
 	return kubernetesClient.CoreV1().Secrets(namespace)
 }
 
+func platformCredentialsSetInterface() zv1client.PlatformCredentialsSetInterface {
+	return stacksetClient.ZalandoV1().PlatformCredentialsSets(namespace)
+}
+
 func requiredEnvar(envar string) string {
 	namespace := os.Getenv(envar)
 	if namespace == "" {

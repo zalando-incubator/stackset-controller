@@ -46,6 +46,7 @@ var (
 		ReconcileWorkers            int
 		ConfigMapSupportEnabled     bool
 		SecretSupportEnabled        bool
+		PCSSupportEnabled           bool
 	}
 )
 
@@ -68,6 +69,7 @@ func main() {
 	).StringsVar(&config.SyncIngressAnnotations)
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
 	kingpin.Flag("enable-secret-support", "Enable support for Secrets on StackSets.").Default("false").BoolVar(&config.SecretSupportEnabled)
+	kingpin.Flag("enable-pcs-support", "Enable support for PlatformCredentialsSet on StackSets.").Default("false").BoolVar(&config.PCSSupportEnabled)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -98,6 +100,7 @@ func main() {
 		config.SyncIngressAnnotations,
 		config.ConfigMapSupportEnabled,
 		config.SecretSupportEnabled,
+		config.PCSSupportEnabled,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create Stackset controller: %v", err)

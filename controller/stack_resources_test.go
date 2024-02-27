@@ -1413,3 +1413,150 @@ func TestReconcileStackSecretRefs(t *testing.T) {
 		})
 	}
 }
+
+func TestReconcileStackPCS(t *testing.T) {
+	testPCSStack := baseTestStack
+	testPCSStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					PlatformCredentialsSet: &zv1.PCS{
+						Name: "foo-v1-test-pcs",
+					},
+				},
+			},
+		},
+	}
+
+	testPCS := zv1.PlatformCredentialsSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-test-pcs",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Spec: zv1.PlatformCredentialsSpec{
+			Tokens: map[string]zv1.Token{
+				"token01": {
+					Privileges: []string{
+						"read-write",
+					},
+				},
+			},
+		},
+	}
+
+	updatePCSStack := baseTestStack
+	updatePCSStack.Spec = zv1.StackSpecInternal{
+		StackSpec: zv1.StackSpec{
+			ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+				{
+					PlatformCredentialsSet: &zv1.PCS{
+						Name: "foo-v1-exist-pcs",
+					},
+				},
+			},
+		},
+	}
+
+	existingPCS := zv1.PlatformCredentialsSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "foo-v1-exist-pcs",
+			Namespace:       baseTestStackOwned.Namespace,
+			OwnerReferences: baseTestStackOwned.OwnerReferences,
+		},
+		Spec: zv1.PlatformCredentialsSpec{
+			Tokens: map[string]zv1.Token{
+				"token02": {
+					Privileges: []string{
+						"write",
+					},
+				},
+			},
+		},
+	}
+
+	updatedPCS := existingPCS
+	updatedPCS.Spec = zv1.PlatformCredentialsSpec{
+		Tokens: map[string]zv1.Token{
+			"token02": {
+				Privileges: []string{
+					"read",
+				},
+			},
+		},
+	}
+
+	for _, tc := range []struct {
+		name     string
+		stack    zv1.Stack
+		existing []*zv1.PlatformCredentialsSet
+		expected map[string]*zv1.PlatformCredentialsSet
+	}{
+		{
+			name:     "pcs is created if none exist",
+			stack:    testPCSStack,
+			existing: nil,
+			expected: map[string]*zv1.PlatformCredentialsSet{
+				"expected-pcs": &testPCS,
+			},
+		},
+		{
+			name:  "pcs is created when another already exists",
+			stack: testPCSStack,
+			existing: []*zv1.PlatformCredentialsSet{
+				&existingPCS,
+			},
+			expected: map[string]*zv1.PlatformCredentialsSet{
+				"expected-pcs": &testPCS,
+			},
+		},
+		{
+			name:  "pcs is updated if the stack changes",
+			stack: updatePCSStack,
+			existing: []*zv1.PlatformCredentialsSet{
+				&existingPCS,
+			},
+			expected: map[string]*zv1.PlatformCredentialsSet{
+				"expected-pcs": &updatedPCS,
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := NewTestEnvironment()
+
+			err := env.CreateStacksets(context.Background(), []zv1.StackSet{testStackSet})
+			require.NoError(t, err)
+
+			err = env.CreateStacks(context.Background(), []zv1.Stack{tc.stack})
+			require.NoError(t, err)
+
+			// Create case's existing resources
+			for _, existing := range tc.existing {
+				err = env.CreatePCS(
+					context.Background(),
+					[]zv1.PlatformCredentialsSet{*existing},
+				)
+				require.NoError(t, err)
+			}
+
+			err = env.controller.ReconcileStackPlatformCredentialsSets(
+				context.Background(),
+				&tc.stack,
+				tc.existing,
+				func(tmp *zv1.PCS) (*zv1.PlatformCredentialsSet, error) {
+					return tc.expected["expected-pcs"], nil
+				},
+			)
+			require.NoError(t, err)
+
+			// Versioned PlatformCredentialSets exist as expected
+			for _, expected := range tc.expected {
+				versioned, err := env.client.ZalandoV1().PlatformCredentialsSets(tc.stack.Namespace).Get(
+					context.Background(), expected.Name, metav1.GetOptions{})
+				require.NoError(t, err)
+				require.Equal(t, expected, versioned)
+				require.Equal(t, versioned.OwnerReferences, baseTestStackOwned.OwnerReferences)
+			}
+		})
+	}
+}

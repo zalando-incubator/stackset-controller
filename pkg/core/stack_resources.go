@@ -578,18 +578,16 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 	}
 }
 
-func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationResourcesSpec) (
-	*zv1.PlatformCredentialsSet,
-	error,
-) {
-	pcsSpec := rsc.PlatformCredentialsSet.Spec
-
-	if pcsSpec.Tokens == nil {
-		return nil, nil
+func (sc *StackContainer) GeneratePlatformCredentialsSet(pcs *zv1.PCS) (*zv1.PlatformCredentialsSet, error) {
+	if pcs.Tokens == nil {
+		return nil, fmt.Errorf("platformCredentialsSet has no tokens")
 	}
 
 	metaObj := sc.resourceMeta()
-	metaObj.Name = metaObj.Name + "-" + rsc.PlatformCredentialsSet.Name
+	if _, ok := sc.Stack.Labels["application"]; !ok {
+		return nil, fmt.Errorf("stack has no label application")
+	}
+	metaObj.Name = pcs.Name
 
 	result := &zv1.PlatformCredentialsSet{
 		ObjectMeta: metaObj,
@@ -598,9 +596,9 @@ func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationRe
 			APIVersion: "zalando.org/v1",
 		},
 		Spec: zv1.PlatformCredentialsSpec{
-			Application:  pcsSpec.Application,
+			Application:  metaObj.Labels["application"],
 			TokenVersion: "v2",
-			Tokens:       pcsSpec.Tokens,
+			Tokens:       pcs.Tokens,
 		},
 	}
 

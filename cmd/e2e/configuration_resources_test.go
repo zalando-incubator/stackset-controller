@@ -99,3 +99,41 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedSecrets() {
 		},
 	}, secret.OwnerReferences)
 }
+
+// TestGeneratedPCS tests that PlatformCredentialsSets defined in the StackSet are
+// correctly created and owned by the Stack.
+func (suite *ConfigurationResourcesTestSuite) TestGeneratedPCS() {
+	// Add the PlatformCredentialsSet reference to the StackSet spec
+	pcsName := "stackset-cr-v1-my-pcs"
+	suite.stacksetSpecFactory.AddPlatformCredentialsSetDefinition(pcsName)
+
+	// Generate the StackSet spec
+	stacksetSpec := suite.stacksetSpecFactory.Create(suite.T(), suite.stackVersion)
+
+	// Create the StackSet in the cluster
+	err := createStackSet(suite.stacksetName, 0, stacksetSpec)
+	suite.Require().NoError(err)
+
+	// Wait for the first Stack to be created
+	stack, err := waitForStack(suite.T(), suite.stacksetName, suite.stackVersion)
+	stack.Labels["application"] = "my-test-app"
+	suite.Require().NoError(err)
+
+	// Fetch the latest version of the PlatformCredentialsSet
+	pcs, err := waitForPlatformCredentialsSet(suite.T(), pcsName)
+	suite.Require().NoError(err)
+
+	// Ensure that the PlatformCredentialsSet is owned by the Stack
+	suite.Equal([]metav1.OwnerReference{
+		{
+			APIVersion: core.APIVersion,
+			Kind:       core.KindStack,
+			Name:       stack.Name,
+			UID:        stack.UID,
+		},
+	}, pcs.OwnerReferences)
+
+	suite.Equal(stack.Labels["application"], pcs.Spec.Application)
+	suite.Equal("v2", pcs.Spec.TokenVersion)
+	suite.Equal([]string{"read"}, pcs.Spec.Tokens["token-example"].Privileges)
+}

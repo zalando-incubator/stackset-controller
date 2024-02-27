@@ -68,6 +68,7 @@ type StackSetController struct {
 	reconcileWorkers            int
 	configMapSupportEnabled     bool
 	secretSupportEnabled        bool
+	pcsSupportEnabled           bool
 	sync.Mutex
 }
 
@@ -103,6 +104,7 @@ func NewStackSetController(
 	syncIngressAnnotations []string,
 	configMapSupportEnabled bool,
 	secretSupportEnabled bool,
+	pcsSupportEnabled bool,
 ) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
@@ -126,6 +128,7 @@ func NewStackSetController(
 		syncIngressAnnotations:      syncIngressAnnotations,
 		configMapSupportEnabled:     configMapSupportEnabled,
 		secretSupportEnabled:        secretSupportEnabled,
+		pcsSupportEnabled:           pcsSupportEnabled,
 		now:                         now,
 		reconcileWorkers:            parallelWork,
 	}, nil
@@ -313,12 +316,12 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		}
 	}
 
-	// if c.pcsSupportEnabled {
-	err = c.collectPlatformCredentialsSet(ctx, stacksets)
-	if err != nil {
-		return nil, err
+	if c.pcsSupportEnabled {
+		err = c.collectPlatformCredentialsSet(ctx, stacksets)
+		if err != nil {
+			return nil, err
+		}
 	}
-	// }
 
 	return stacksets, nil
 }
@@ -1054,17 +1057,17 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		}
 	}
 
-	// if c.pcsSupportEnabled {
-	err = c.ReconcileStackPlatformCredentialsSets(
-		ctx,
-		sc.Stack,
-		sc.Resources.PlatformCredentialsSets,
-		sc.GeneratePlatformCredentialsSet,
-	)
-	if err != nil {
-		return c.errorEventf(sc.Stack, "FailedManagePlatformCredentialsSet", err)
+	if c.pcsSupportEnabled {
+		err = c.ReconcileStackPlatformCredentialsSets(
+			ctx,
+			sc.Stack,
+			sc.Resources.PlatformCredentialsSets,
+			sc.GeneratePlatformCredentialsSet,
+		)
+		if err != nil {
+			return c.errorEventf(sc.Stack, "FailedManagePlatformCredentialsSet", err)
+		}
 	}
-	// }
 
 	err = c.ReconcileStackDeployment(ctx, sc.Stack, sc.Resources.Deployment, sc.GenerateDeployment)
 	if err != nil {

@@ -66,6 +66,9 @@ spec:
             - name: my-reference-secret
               mountPath: /etc/my-reference-secret
               readOnly: true
+            - name: my-pcs
+              mountPath: /etc/my-pcs
+              readOnly: true
           volumes:
           - name: my-reference-config
             configMap:
@@ -73,6 +76,9 @@ spec:
           - name: my-reference-secret
             secret:
               secretName: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-secret
+          - name: my-pcs
+            secret:
+              secretName: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-pcs
 
 ---
 

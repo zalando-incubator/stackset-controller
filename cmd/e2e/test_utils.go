@@ -492,6 +492,14 @@ func waitForSecret(t *testing.T, secretName string) (*corev1.Secret, error) {
 	return secretInterface().Get(context.Background(), secretName, metav1.GetOptions{})
 }
 
+func waitForPlatformCredentialsSet(t *testing.T, pcsName string) (*zv1.PlatformCredentialsSet, error) {
+	err := resourceCreated(t, "platformCredentialsSet", pcsName, platformCredentialsSetInterface()).await()
+	if err != nil {
+		return nil, err
+	}
+	return platformCredentialsSetInterface().Get(context.Background(), pcsName, metav1.GetOptions{})
+}
+
 func getStacksetTrafficWeights(stackset *zv1.StackSet, kind weightKind) map[string]float64 {
 	result := make(map[string]float64)
 
