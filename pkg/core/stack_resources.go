@@ -602,14 +602,16 @@ func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationRe
 	*zv1.PlatformCredentialsSet,
 	error,
 ) {
-	pcsSpec := rsc.PlatformCredentialsSet.Spec
-
-	if pcsSpec.Tokens == nil {
+	pcs := rsc.PlatformCredentialsSet
+	if pcs.Tokens == nil {
 		return nil, nil
 	}
 
 	metaObj := sc.resourceMeta()
-	metaObj.Name = metaObj.Name + "-" + rsc.PlatformCredentialsSet.Name
+	if _, ok := metaObj.Labels["application"]; !ok {
+		return nil, nil
+	}
+	metaObj.Name = metaObj.Name + "-" + pcs.Name
 
 	result := &zv1.PlatformCredentialsSet{
 		ObjectMeta: metaObj,
@@ -618,9 +620,9 @@ func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationRe
 			APIVersion: "zalando.org/v1",
 		},
 		Spec: zv1.PlatformCredentialsSpec{
-			Application:  pcsSpec.Application,
+			Application:  metaObj.Labels["application"],
 			TokenVersion: "v2",
-			Tokens:       pcsSpec.Tokens,
+			Tokens:       pcs.Tokens,
 		},
 	}
 
