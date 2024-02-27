@@ -957,7 +957,7 @@ func TestReconcileStackRouteGroup(t *testing.T) {
 	}
 }
 
-func TestReconcileStackConfigMaps(t *testing.T) {
+func TestReconcileStackConfigMapRefs(t *testing.T) {
 	testConfigMapStack := baseTestStack
 	testConfigMapStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
@@ -1177,7 +1177,7 @@ func TestReconcileStackConfigMaps(t *testing.T) {
 				}
 			}
 
-			err = env.controller.ReconcileStackConfigMaps(
+			err = env.controller.ReconcileStackConfigMapRefs(
 				context.Background(), &tc.stack, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
 					return &tc.expected[tmp.Name].ObjectMeta
 				})
@@ -1195,7 +1195,7 @@ func TestReconcileStackConfigMaps(t *testing.T) {
 	}
 }
 
-func TestReconcileStackSecrets(t *testing.T) {
+func TestReconcileStackSecretRefs(t *testing.T) {
 	testSecretStack := baseTestStack
 	testSecretStack.Spec = zv1.StackSpecInternal{
 		StackSpec: zv1.StackSpec{
@@ -1412,7 +1412,7 @@ func TestReconcileStackSecrets(t *testing.T) {
 				}
 			}
 
-			err = env.controller.ReconcileStackSecrets(
+			err = env.controller.ReconcileStackSecretRefs(
 				context.Background(), &tc.stack, func(tmp *metav1.ObjectMeta) *metav1.ObjectMeta {
 					return &tc.expected[tmp.Name].ObjectMeta
 				})

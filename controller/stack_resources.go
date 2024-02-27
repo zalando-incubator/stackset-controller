@@ -316,7 +316,7 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	return nil
 }
 
-// ReconcileStackConfigMaps will update the named user-provided ConfigMaps to be
+// ReconcileStackConfigMapRefs will update the named user-provided ConfigMaps to be
 // attached to the Stack by ownerReferences, when a list of Configuration
 // Resources are defined on the Stack template.
 //
@@ -328,13 +328,13 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 // running resources is also allowed, so the method checks for changes on the
 // ConfigurationResources to ensure all listed ConfigMaps are properly linked
 // to the Stack.
-func (c *StackSetController) ReconcileStackConfigMaps(
+func (c *StackSetController) ReconcileStackConfigMapRefs(
 	ctx context.Context,
 	stack *zv1.Stack,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if !rsc.IsConfigMap() {
+		if !rsc.IsConfigMapRef() {
 			continue
 		}
 
@@ -342,7 +342,7 @@ func (c *StackSetController) ReconcileStackConfigMaps(
 			return err
 		}
 
-		if err := c.ReconcileStackConfigMap(ctx, stack, rsc, updateObjMeta); err != nil {
+		if err := c.ReconcileStackConfigMapRef(ctx, stack, rsc, updateObjMeta); err != nil {
 			return err
 		}
 	}
@@ -350,7 +350,7 @@ func (c *StackSetController) ReconcileStackConfigMaps(
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackConfigMap(
+func (c *StackSetController) ReconcileStackConfigMapRef(
 	ctx context.Context,
 	stack *zv1.Stack,
 	rsc zv1.ConfigurationResourcesSpec,
@@ -394,7 +394,7 @@ func (c *StackSetController) ReconcileStackConfigMap(
 	return nil
 }
 
-// ReconcileStackSecrets will update the named user-provided Secrets to be
+// ReconcileStackSecretRefs will update the named user-provided Secrets to be
 // attached to the Stack by ownerReferences, when a list of Configuration
 // Resources are defined on the Stack template.
 //
@@ -406,13 +406,13 @@ func (c *StackSetController) ReconcileStackConfigMap(
 // running resources is also allowed, so the method checks for changes on the
 // ConfigurationResources to ensure all listed Secrets are properly linked
 // to the Stack.
-func (c *StackSetController) ReconcileStackSecrets(
+func (c *StackSetController) ReconcileStackSecretRefs(
 	ctx context.Context,
 	stack *zv1.Stack,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if !rsc.IsSecret() {
+		if !rsc.IsSecretRef() {
 			continue
 		}
 
@@ -420,7 +420,7 @@ func (c *StackSetController) ReconcileStackSecrets(
 			return err
 		}
 
-		if err := c.ReconcileStackSecret(ctx, stack, rsc, updateObjMeta); err != nil {
+		if err := c.ReconcileStackSecretRef(ctx, stack, rsc, updateObjMeta); err != nil {
 			return err
 		}
 	}
@@ -428,7 +428,7 @@ func (c *StackSetController) ReconcileStackSecrets(
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackSecret(ctx context.Context,
+func (c *StackSetController) ReconcileStackSecretRef(ctx context.Context,
 	stack *zv1.Stack,
 	rsc zv1.ConfigurationResourcesSpec,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,

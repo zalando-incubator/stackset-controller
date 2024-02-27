@@ -15,8 +15,8 @@ func TestConfigureAutoscaling(t *testing.T) {
 	var stabilizationWindow int32 = 60
 	metrics := []zv1.AutoscalerMetrics{
 		makeCPUAutoscalerMetrics(50),
-		makeExternalAutoscalerMetrics("test", "eu-central-1", 10),
-		makeObjectAutoscalerMetrics(20),
+		makeAmazonSQSAutoscalerMetrics("test", "eu-central-1", 10),
+		makeIngressAutoscalerMetrics(20),
 	}
 	require.Len(t, metrics, 3)
 
