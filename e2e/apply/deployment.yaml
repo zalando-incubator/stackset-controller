@@ -29,6 +29,7 @@ spec:
           - "--cluster-domain={{{CLUSTER_DOMAIN_INTERNAL}}}"
           - "--enable-configmap-support"
           - "--enable-secret-support"
+          - "--delete-hpas-of-scaled-down-stacks"
           - "--enable-routegroup-support"
           - "--annotated-traffic-segments"
           - "--sync-ingress-annotation=example.org/i-haz-synchronize"
