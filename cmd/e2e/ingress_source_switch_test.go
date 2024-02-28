@@ -222,7 +222,7 @@ func TestShallowStackSetConvertToSegmentIngress(t *testing.T) {
 
 	time.Sleep(time.Second * 20)
 
-	// make sure controller DOES delete ingress IngressSourceSwitchTTL
+	// make sure controller DOES delete the ingress
 	err = resourceDeleted(
 		t,
 		"ingress",
