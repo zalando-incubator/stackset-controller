@@ -187,23 +187,26 @@ func TestStackTTLConvertToSegmentIngress(t *testing.T) {
 func TestShallowStackSetConvertToSegmentIngress(t *testing.T) {
 	t.Parallel()
 	stacksetName := "stackset-shallow-convert-segment"
+	stackVersion := "v1"
 	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress()
 
 	// create stackset with central ingress
-	spec := specFactory.Create(t, "v1")
+	spec := specFactory.Create(t, stackVersion)
 	err := createStackSet(stacksetName, 1, spec)
 	require.NoError(t, err)
+
 	_, err = waitForIngress(t, stacksetName)
 	require.NoError(t, err)
+	stack, err := waitForStack(t, stacksetName, stackVersion)
+	require.NoError(t, err)
 
-	stackName := stacksetName + "-v1"
-	err = deleteStack(stackName)
+	err = deleteStack(stack.Name)
 	require.NoError(t, err)
 
 	err = resourceDeleted(
 		t,
 		"stack",
-		stackName,
+		stack.Name,
 		stackInterface(),
 	).withTimeout(time.Second * 60).await()
 	require.NoError(t, err)
