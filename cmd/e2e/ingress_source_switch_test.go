@@ -192,7 +192,7 @@ func TestShallowStackSetConvertToSegmentIngress(t *testing.T) {
 
 	// create stackset with central ingress
 	spec := specFactory.Create(t, stackVersion)
-	err := createStackSet(stacksetName, 1, spec)
+	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
 
 	_, err = waitForIngress(t, stacksetName)
