@@ -143,7 +143,7 @@ func TestStackTTLConvertToSegmentIngress(t *testing.T) {
 
 	// create stackset with central ingress
 	spec := specFactory.Create(t, "v1")
-	err := createStackSet(stacksetName, 1, spec)
+	err := createStackSet(stacksetName, 0, spec)
 	require.NoError(t, err)
 	_, err = waitForIngress(t, stacksetName)
 	require.NoError(t, err)
