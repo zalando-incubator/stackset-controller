@@ -25,6 +25,8 @@ spec:
         metrics:
         - type: CPU
           averageUtilization: 50
+        - type: Ingress
+          average: 20000m
       podTemplate:
         metadata:
           labels:

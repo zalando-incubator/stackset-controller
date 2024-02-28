@@ -1325,16 +1325,16 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	}
 
 	if c.configMapSupportEnabled {
-		err = c.ReconcileStackConfigMap(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
+		err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
 		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageConfigMap", err)
+			return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
 		}
 	}
 
 	if c.secretSupportEnabled {
-		err := c.ReconcileStackSecret(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+		err := c.ReconcileStackSecretRefs(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
 		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageSecret", err)
+			return c.errorEventf(sc.Stack, "FailedManageSecretRefs", err)
 		}
 	}
 
@@ -1343,7 +1343,11 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
 
-	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, sc.GenerateHPA)
+	hpaGenerator := sc.GenerateHPA
+	if ssc.SupportsSegmentTraffic() {
+		hpaGenerator = sc.GenerateHPAToSegment
+	}
+	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, hpaGenerator)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
 	}
