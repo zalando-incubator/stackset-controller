@@ -183,3 +183,48 @@ func TestStackTTLConvertToSegmentIngress(t *testing.T) {
 	).await()
 	require.NoError(t, err)
 }
+
+func TestShallowStackSetConvertToSegmentIngress(t *testing.T) {
+	t.Parallel()
+	stacksetName := "stackset-shallow-convert-segment"
+	specFactory := NewTestStacksetSpecFactory(stacksetName).Ingress()
+
+	// create stackset with central ingress
+	spec := specFactory.Create(t, "v1")
+	err := createStackSet(stacksetName, 1, spec)
+	require.NoError(t, err)
+	_, err = waitForIngress(t, stacksetName)
+	require.NoError(t, err)
+
+	stackName := stacksetName + "-v1"
+	err = deleteStack(stackName)
+	require.NoError(t, err)
+
+	err = resourceDeleted(
+		t,
+		"stack",
+		stackName,
+		stackInterface(),
+	).withTimeout(time.Second * 60).await()
+	require.NoError(t, err)
+
+	// Add the annotation to convert to segment ingresses but DON'T increase the
+	// StackSet version.
+	err = updateStackSetWithAnnotations(
+		stacksetName,
+		spec,
+		map[string]string{controller.TrafficSegmentsAnnotationKey: "true"},
+	)
+	require.NoError(t, err)
+
+	time.Sleep(time.Second * 20)
+
+	// make sure controller DOES delete ingress IngressSourceSwitchTTL
+	err = resourceDeleted(
+		t,
+		"ingress",
+		stacksetName,
+		ingressInterface(),
+	).await()
+	require.NoError(t, err)
+}
