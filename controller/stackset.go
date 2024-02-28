@@ -1144,6 +1144,22 @@ func (c *StackSetController) convertToTrafficSegments(
 		}
 	}
 
+	if len(ssc.StackContainers) == 0 {
+		c.logger.Infof(
+			"No stacks found for StackSet %s, safe to delete central "+
+			"ingress/routegroup",
+			ssc.StackSet.Name,
+		)
+
+		// If we don't have any stacks, we can delete the central ingress
+		// resources
+		oldEnough := metav1.NewTime(
+			time.Now().Add(-c.ingressSourceSwitchTTL-time.Minute),
+		)
+		ingTimestamp = &oldEnough
+		rgTimestamp = &oldEnough
+	}
+
 	if ingTimestamp != nil && ssc.Ingress != nil {
 		if !resourceReadyTime(ingTimestamp.Time, c.ingressSourceSwitchTTL) {
 			c.logger.Infof(
