@@ -1321,14 +1321,14 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	}
 
 	if c.configMapSupportEnabled {
-		err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.UpdateObjectMeta)
+		err := c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
 		}
 	}
 
 	if c.secretSupportEnabled {
-		err := c.ReconcileStackSecretRefs(ctx, sc.Stack, sc.Resources.Secrets, sc.UpdateObjectMeta)
+		err := c.ReconcileStackSecretRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageSecretRefs", err)
 		}
@@ -1523,8 +1523,8 @@ func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
 // name is not prefixed by Stack name.
 func validateAllConfigurationResourcesNames(stack *zv1.Stack) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		if !strings.HasPrefix(rsc.GetName(), stack.Name) {
-			return fmt.Errorf(configurationResourceNameError, rsc.GetName(), stack.Name)
+		if err := validateConfigurationResourceName(stack.Name, rsc.GetName()); err != nil {
+			return err
 		}
 	}
 	return nil

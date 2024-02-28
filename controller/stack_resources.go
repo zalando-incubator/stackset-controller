@@ -13,6 +13,7 @@ import (
 	networking "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 func pint32Equal(p1, p2 *int32) bool {
@@ -29,6 +30,15 @@ func pint32Equal(p1, p2 *int32) bool {
 func syncObjectMeta(target, source metav1.Object) {
 	target.SetLabels(source.GetLabels())
 	target.SetAnnotations(source.GetAnnotations())
+}
+
+// isOwned checks if the resource is owned and returns the UID of the owner.
+func isOwned(ownerReferences []metav1.OwnerReference) (bool, types.UID) {
+	for _, ownerRef := range ownerReferences {
+		return true, ownerRef.UID
+	}
+
+	return false, ""
 }
 
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
@@ -306,7 +316,7 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 	return nil
 }
 
-// ReconcileStackConfigMapRefs will update the named user-provided ConfigMap to be
+// ReconcileStackConfigMapRefs will update the named user-provided ConfigMaps to be
 // attached to the Stack by ownerReferences, when a list of Configuration
 // Resources are defined on the Stack template.
 //
@@ -321,7 +331,6 @@ func (c *StackSetController) ReconcileStackRouteGroup(ctx context.Context, stack
 func (c *StackSetController) ReconcileStackConfigMapRefs(
 	ctx context.Context,
 	stack *zv1.Stack,
-	existing []*apiv1.ConfigMap,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
@@ -333,42 +342,59 @@ func (c *StackSetController) ReconcileStackConfigMapRefs(
 			return err
 		}
 
-		configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
-			Get(ctx, rsc.GetName(), metav1.GetOptions{})
-		if err != nil {
+		if err := c.ReconcileStackConfigMapRef(ctx, stack, rsc, updateObjMeta); err != nil {
 			return err
 		}
-
-		if configMap.OwnerReferences != nil {
-			for _, owner := range configMap.OwnerReferences {
-				if owner.UID != stack.UID {
-					return fmt.Errorf("ConfigMap already owned by other resource. "+
-						"ConfigMap: %s, Stack: %s", rsc.GetName(), stack.Name)
-				}
-			}
-			continue
-		}
-
-		objectMeta := updateObjMeta(&configMap.ObjectMeta)
-		configMap.ObjectMeta = *objectMeta
-
-		_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).
-			Update(ctx, configMap, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-		c.recorder.Eventf(
-			stack,
-			apiv1.EventTypeNormal,
-			"UpdatedConfigMap",
-			"Updated ConfigMap %s",
-			configMap.Name,
-		)
 	}
+
 	return nil
 }
 
-// ReconcileStackSecretRefs will update the named user-provided Secret to be
+func (c *StackSetController) ReconcileStackConfigMapRef(
+	ctx context.Context,
+	stack *zv1.Stack,
+	rsc zv1.ConfigurationResourcesSpec,
+	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
+) error {
+	configMap, err := c.client.CoreV1().ConfigMaps(stack.Namespace).
+		Get(ctx, rsc.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Check if the ConfigMap is already owned by us or another resource.
+	// If the ConfigMap is owned by another resource, we should not update it.
+	isOwned, owner := isOwned(configMap.OwnerReferences)
+	if isOwned {
+		if owner == stack.UID {
+			return nil
+		}
+
+		return fmt.Errorf("ConfigMap already owned by other resource. "+
+			"ConfigMap: %s, Stack: %s", rsc.GetName(), stack.Name)
+	}
+
+	objectMeta := updateObjMeta(&configMap.ObjectMeta)
+	configMap.ObjectMeta = *objectMeta
+
+	_, err = c.client.CoreV1().ConfigMaps(configMap.Namespace).
+		Update(ctx, configMap, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	c.recorder.Eventf(
+		stack,
+		apiv1.EventTypeNormal,
+		"UpdatedConfigMap",
+		"Updated ConfigMap %s",
+		configMap.Name,
+	)
+
+	return nil
+}
+
+// ReconcileStackSecretRefs will update the named user-provided Secrets to be
 // attached to the Stack by ownerReferences, when a list of Configuration
 // Resources are defined on the Stack template.
 //
@@ -383,7 +409,6 @@ func (c *StackSetController) ReconcileStackConfigMapRefs(
 func (c *StackSetController) ReconcileStackSecretRefs(
 	ctx context.Context,
 	stack *zv1.Stack,
-	existing []*apiv1.Secret,
 	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
 ) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
@@ -395,37 +420,53 @@ func (c *StackSetController) ReconcileStackSecretRefs(
 			return err
 		}
 
-		secret, err := c.client.CoreV1().Secrets(stack.Namespace).
-			Get(ctx, rsc.GetName(), metav1.GetOptions{})
-		if err != nil {
+		if err := c.ReconcileStackSecretRef(ctx, stack, rsc, updateObjMeta); err != nil {
 			return err
 		}
-
-		if secret.OwnerReferences != nil {
-			for _, owner := range secret.OwnerReferences {
-				if owner.UID != stack.UID {
-					return fmt.Errorf("Secret already owned by other resource. "+
-						"Secret: %s, Stack: %s", rsc.GetName(), stack.Name)
-				}
-			}
-			continue
-		}
-
-		objectMeta := updateObjMeta(&secret.ObjectMeta)
-		secret.ObjectMeta = *objectMeta
-
-		_, err = c.client.CoreV1().Secrets(secret.Namespace).
-			Update(ctx, secret, metav1.UpdateOptions{})
-		if err != nil {
-			return err
-		}
-		c.recorder.Eventf(
-			stack,
-			apiv1.EventTypeNormal,
-			"UpdatedSecret",
-			"Updated Secret %s",
-			secret.Name,
-		)
 	}
+
+	return nil
+}
+
+func (c *StackSetController) ReconcileStackSecretRef(ctx context.Context,
+	stack *zv1.Stack,
+	rsc zv1.ConfigurationResourcesSpec,
+	updateObjMeta func(*metav1.ObjectMeta) *metav1.ObjectMeta,
+) error {
+	secret, err := c.client.CoreV1().Secrets(stack.Namespace).
+		Get(ctx, rsc.GetName(), metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	// Check if the Secret is already owned by us or another resource.
+	// If the Secret is owned by another resource, we should not update it.
+	isOwned, owner := isOwned(secret.OwnerReferences)
+	if isOwned {
+		if owner == stack.UID {
+			return nil
+		}
+
+		return fmt.Errorf("Secret already owned by other resource. "+
+			"Secret: %s, Stack: %s", rsc.GetName(), stack.Name)
+	}
+
+	objectMeta := updateObjMeta(&secret.ObjectMeta)
+	secret.ObjectMeta = *objectMeta
+
+	_, err = c.client.CoreV1().Secrets(secret.Namespace).
+		Update(ctx, secret, metav1.UpdateOptions{})
+	if err != nil {
+		return err
+	}
+
+	c.recorder.Eventf(
+		stack,
+		apiv1.EventTypeNormal,
+		"UpdatedSecret",
+		"Updated Secret %s",
+		secret.Name,
+	)
+
 	return nil
 }
