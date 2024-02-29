@@ -360,6 +360,22 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	require.NoError(t, err)
 
 	// Verify the HPA
+	verifyStackHPA(t, stacksetSpec, stack, stackResourceLabels, deployment)
+	// Verify ConfigMaps
+	verifyStackConfigMaps(t, stacksetSpec, stack, stackResourceLabels)
+	// Verify Secrets
+	verifyStackSecrets(t, stacksetSpec, stack, stackResourceLabels)
+
+	verifyStackIngressSources(
+		t,
+		stack,
+		subResourceAnnotations,
+		stackResourceLabels,
+		false,
+	)
+}
+
+func verifyStackHPA(t *testing.T, stacksetSpec zv1.StackSetSpec, stack *zv1.Stack, stackResourceLabels map[string]string, deployment *apps.Deployment) {
 	if stacksetSpec.StackTemplate.Spec.Autoscaler != nil {
 		hpa, err := waitForHPA(t, stack.Name)
 		require.NoError(t, err)
@@ -373,9 +389,10 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		}
 		require.EqualValues(t, expectedRef, hpa.Spec.ScaleTargetRef)
 	}
+}
 
+func verifyStackConfigMaps(t *testing.T, stacksetSpec zv1.StackSetSpec, stack *zv1.Stack, stackResourceLabels map[string]string) {
 	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
-		// Verify ConfigMapRefs
 		if rsc.IsConfigMapRef() {
 			configMap, err := waitForConfigMap(t, rsc.GetName())
 			require.NoError(t, err)
@@ -391,8 +408,11 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 				},
 			}, configMap.OwnerReferences)
 		}
+	}
+}
 
-		// Verify SecretRefs
+func verifyStackSecrets(t *testing.T, stacksetSpec zv1.StackSetSpec, stack *zv1.Stack, stackResourceLabels map[string]string) {
+	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
 		if rsc.IsSecretRef() {
 			secret, err := waitForSecret(t, rsc.GetName())
 			require.NoError(t, err)
@@ -409,14 +429,6 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 			}, secret.OwnerReferences)
 		}
 	}
-
-	verifyStackIngressSources(
-		t,
-		stack,
-		subResourceAnnotations,
-		stackResourceLabels,
-		false,
-	)
 }
 
 func verifyStackSegments(
