@@ -96,7 +96,7 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 	t.Parallel()
 
 	stacksetName := "stackset-broken-stacks-with-configmap"
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().ConfigMap().StackGC(1, 30)
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().ConfigMapRef().StackGC(1, 30)
 
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
@@ -110,7 +110,7 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
 	spec = factory.Create(t, unhealthyVersion)
 	for _, cr := range spec.StackTemplate.Spec.ConfigurationResources {
-		if cr.IsConfigMap() {
+		if cr.IsConfigMapRef() {
 			err := configMapInterface().Delete(context.Background(), cr.GetName(), metav1.DeleteOptions{})
 			require.NoError(t, err)
 		}
@@ -176,7 +176,7 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	t.Parallel()
 
 	stacksetName := "stackset-broken-stacks-with-secret"
-	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().Secret().StackGC(1, 30)
+	factory := NewTestStacksetSpecFactory(stacksetName).Ingress().SecretRef().StackGC(1, 30)
 
 	firstVersion := "v1"
 	firstStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
@@ -190,7 +190,7 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
 	spec = factory.Create(t, unhealthyVersion)
 	for _, cr := range spec.StackTemplate.Spec.ConfigurationResources {
-		if cr.IsSecret() {
+		if cr.IsSecretRef() {
 			err := secretInterface().Delete(context.Background(), cr.GetName(), metav1.DeleteOptions{})
 			require.NoError(t, err)
 		}

@@ -446,24 +446,24 @@ type ConfigurationResourcesSpec struct {
 
 // GetName returns the name of the ConfigurationResourcesSpec.
 func (crs *ConfigurationResourcesSpec) GetName() string {
-	if crs.IsConfigMap() {
+	if crs.IsConfigMapRef() {
 		return crs.ConfigMapRef.Name
 	}
 
-	if crs.IsSecret() {
+	if crs.IsSecretRef() {
 		return crs.SecretRef.Name
 	}
 
 	return ""
 }
 
-// IsConfigMap returns true if the ConfigurationResourcesSpec is a ConfigMap.
-func (crs *ConfigurationResourcesSpec) IsConfigMap() bool {
+// IsConfigMapRef returns true if the ConfigurationResourcesSpec is a ConfigMapRef.
+func (crs *ConfigurationResourcesSpec) IsConfigMapRef() bool {
 	return crs.ConfigMapRef != nil && crs.ConfigMapRef.Name != ""
 }
 
-// IsSecret returns true if the ConfigurationResourcesSpec is a Secret.
-func (crs *ConfigurationResourcesSpec) IsSecret() bool {
+// IsSecretRef returns true if the ConfigurationResourcesSpec is a SecretRef.
+func (crs *ConfigurationResourcesSpec) IsSecretRef() bool {
 	return crs.SecretRef != nil && crs.SecretRef.Name != ""
 }
 

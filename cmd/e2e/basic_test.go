@@ -38,8 +38,8 @@ type TestStacksetSpecFactory struct {
 	ingress                       bool
 	routegroup                    bool
 	externalIngress               bool
-	configMap                     bool
-	secret                        bool
+	configMapRef                  bool
+	secretRef                     bool
 	limit                         int32
 	scaleDownTTL                  int64
 	replicas                      int32
@@ -56,8 +56,8 @@ type TestStacksetSpecFactory struct {
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	return &TestStacksetSpecFactory{
 		stacksetName:           stacksetName,
-		configMap:              false,
-		secret:                 false,
+		configMapRef:           false,
+		secretRef:              false,
 		ingress:                false,
 		externalIngress:        false,
 		limit:                  4,
@@ -69,13 +69,13 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	}
 }
 
-func (f *TestStacksetSpecFactory) ConfigMap() *TestStacksetSpecFactory {
-	f.configMap = true
+func (f *TestStacksetSpecFactory) ConfigMapRef() *TestStacksetSpecFactory {
+	f.configMapRef = true
 	return f
 }
 
-func (f *TestStacksetSpecFactory) Secret() *TestStacksetSpecFactory {
-	f.secret = true
+func (f *TestStacksetSpecFactory) SecretRef() *TestStacksetSpecFactory {
+	f.secretRef = true
 	return f
 }
 
@@ -151,7 +151,7 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 		},
 	}
 
-	if f.configMap {
+	if f.configMapRef {
 		configMapName := fmt.Sprintf("%s-%s-configmap", f.stacksetName, stackVersion)
 		configMap := &corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
@@ -187,7 +187,7 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 		}
 	}
 
-	if f.secret {
+	if f.secretRef {
 		secretName := fmt.Sprintf("%s-%s-secret", f.stacksetName, stackVersion)
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
@@ -361,7 +361,6 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 
 	// Verify the HPA
 	verifyStackHPA(t, stacksetSpec, stack, stackResourceLabels, deployment)
-
 	// Verify ConfigMaps
 	verifyStackConfigMaps(t, stacksetSpec, stack, stackResourceLabels)
 	// Verify Secrets
@@ -394,7 +393,7 @@ func verifyStackHPA(t *testing.T, stacksetSpec zv1.StackSetSpec, stack *zv1.Stac
 
 func verifyStackConfigMaps(t *testing.T, stacksetSpec zv1.StackSetSpec, stack *zv1.Stack, stackResourceLabels map[string]string) {
 	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
-		if rsc.IsConfigMap() {
+		if rsc.IsConfigMapRef() {
 			configMap, err := waitForConfigMap(t, rsc.GetName())
 			require.NoError(t, err)
 			assert.EqualValues(t, stackResourceLabels, configMap.Labels)
@@ -414,7 +413,7 @@ func verifyStackConfigMaps(t *testing.T, stacksetSpec zv1.StackSetSpec, stack *z
 
 func verifyStackSecrets(t *testing.T, stacksetSpec zv1.StackSetSpec, stack *zv1.Stack, stackResourceLabels map[string]string) {
 	for _, rsc := range stacksetSpec.StackTemplate.Spec.ConfigurationResources {
-		if rsc.IsSecret() {
+		if rsc.IsSecretRef() {
 			secret, err := waitForSecret(t, rsc.GetName())
 			require.NoError(t, err)
 			assert.EqualValues(t, stackResourceLabels, secret.Labels)
@@ -712,8 +711,8 @@ func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv
 func testStacksetCreate(
 	t *testing.T,
 	testName string,
-	configmap bool,
-	secret bool,
+	configmapRef bool,
+	secretRef bool,
 	hpa,
 	ingress,
 	routegroup,
@@ -727,11 +726,11 @@ func testStacksetCreate(
 		stacksetName := fmt.Sprintf("stackset-create-%s-%s", ingType, testName)
 		stackVersion := "v1"
 		stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
-		if configmap {
-			stacksetSpecFactory.ConfigMap()
+		if configmapRef {
+			stacksetSpecFactory.ConfigMapRef()
 		}
-		if secret {
-			stacksetSpecFactory.Secret()
+		if secretRef {
+			stacksetSpecFactory.SecretRef()
 		}
 		if hpa {
 			stacksetSpecFactory.Autoscaler(
