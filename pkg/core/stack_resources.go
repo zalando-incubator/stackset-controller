@@ -253,7 +253,7 @@ func (sc *StackContainer) generateHPA(toSegment bool) (
 		return nil, nil
 	}
 
-	if sc.DeleteHPAsOfScaledDownStacks && sc.ScaledDown() {
+	if sc.ScaledDown() {
 		return nil, nil
 	}
 

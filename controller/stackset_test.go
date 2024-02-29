@@ -107,12 +107,10 @@ func TestCollectResources(t *testing.T) {
 					StackSet: &testStacksetA,
 					StackContainers: map[types.UID]*core.StackContainer{
 						testStackA1.UID: {
-							Stack:                        &testStackA1,
-							DeleteHPAsOfScaledDownStacks: true,
+							Stack: &testStackA1,
 						},
 						testStackA2.UID: {
-							Stack:                        &testStackA2,
-							DeleteHPAsOfScaledDownStacks: true,
+							Stack: &testStackA2,
 						},
 					},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},
@@ -121,8 +119,7 @@ func TestCollectResources(t *testing.T) {
 					StackSet: &testStacksetB,
 					StackContainers: map[types.UID]*core.StackContainer{
 						testStackB1.UID: {
-							Stack:                        &testStackB1,
-							DeleteHPAsOfScaledDownStacks: true,
+							Stack: &testStackB1,
 						},
 					},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},
@@ -147,7 +144,6 @@ func TestCollectResources(t *testing.T) {
 									ObjectMeta: segmentStackOwned(testStackA1),
 								},
 							},
-							DeleteHPAsOfScaledDownStacks: true,
 						},
 					},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},
@@ -172,7 +168,6 @@ func TestCollectResources(t *testing.T) {
 									ObjectMeta: segmentStackOwned(testStackA1),
 								},
 							},
-							DeleteHPAsOfScaledDownStacks: true,
 						},
 					},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},
@@ -227,8 +222,7 @@ func TestCollectResources(t *testing.T) {
 					StackSet: &testStacksetA,
 					StackContainers: map[types.UID]*core.StackContainer{
 						testStackA1.UID: {
-							Stack:                        &testStackA1,
-							DeleteHPAsOfScaledDownStacks: true,
+							Stack: &testStackA1,
 						},
 						testStackA2.UID: {
 							Stack: &testStackA2,
@@ -241,7 +235,6 @@ func TestCollectResources(t *testing.T) {
 								ConfigMaps: []*v1.ConfigMap{{ObjectMeta: stackOwned(testStackA2)}},
 								Secrets:    []*v1.Secret{{ObjectMeta: stackOwned(testStackA2)}},
 							},
-							DeleteHPAsOfScaledDownStacks: true,
 						},
 					},
 					Ingress:           &networking.Ingress{ObjectMeta: stacksetOwned(testStacksetA)},
@@ -252,8 +245,7 @@ func TestCollectResources(t *testing.T) {
 					StackSet: &testStacksetB,
 					StackContainers: map[types.UID]*core.StackContainer{
 						testStackB1.UID: {
-							Stack:                        &testStackB1,
-							DeleteHPAsOfScaledDownStacks: true,
+							Stack: &testStackB1,
 						},
 					},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},
@@ -290,7 +282,6 @@ func TestCollectResources(t *testing.T) {
 								HPA:        &autoscaling.HorizontalPodAutoscaler{ObjectMeta: deploymentOwned(testDeploymentA2)},
 								Service:    &v1.Service{ObjectMeta: deploymentOwned(testDeploymentA2)},
 							},
-							DeleteHPAsOfScaledDownStacks: true,
 						},
 					},
 					TrafficReconciler: &core.SimpleTrafficReconciler{},

@@ -1412,9 +1412,8 @@ func TestGenerateHPA(t *testing.T) {
 						},
 					},
 				},
-				noTrafficSince:               tc.noTrafficSince,
-				scaledownTTL:                 time.Minute,
-				DeleteHPAsOfScaledDownStacks: true,
+				noTrafficSince: tc.noTrafficSince,
+				scaledownTTL:   time.Minute,
 			}
 
 			hpa, err := autoscalerContainer.GenerateHPA()

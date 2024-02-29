@@ -57,7 +57,6 @@ command $sscPath --apiserver=http://127.0.0.1:8001 \
   --sync-ingress-annotation=teapot.org/the-best \
   --enable-configmap-support \
   --enable-routegroup-support \
-  --delete-hpas-of-scaled-down-stacks \
   --cluster-domain=${CLUSTER_DOMAIN} \
   --cluster-domain=${CLUSTER_DOMAIN_INTERNAL} \
   --controller-id=$CONTROLLER_ID 2>$controllerLog&
