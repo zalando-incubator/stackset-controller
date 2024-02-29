@@ -422,6 +422,10 @@ func updateStackSetWithAnnotations(
 		// Keep the desired traffic
 		spec.Traffic = stackSet.Spec.Traffic
 		stackSet.Spec = spec
+
+		if stackSet.Annotations == nil {
+			stackSet.Annotations = make(map[string]string)
+		}
 		for k, v := range annotations {
 			stackSet.Annotations[k] = v
 		}
