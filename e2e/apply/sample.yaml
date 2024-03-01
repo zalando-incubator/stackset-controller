@@ -59,3 +59,14 @@ spec:
           - name: my-config
             configMap:
               name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
+  labels:
+    application: "e2e-deploy-sample"
+data:
+  something_is: configured
