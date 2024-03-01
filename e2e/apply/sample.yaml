@@ -18,6 +18,9 @@ spec:
     spec:
       version: "{{{CDP_BUILD_VERSION}}}"
       replicas: 2
+      configurationResources:
+      - configMapRef:
+          name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
       autoscaler:
         minReplicas: 2
         maxReplicas: 2
@@ -48,3 +51,22 @@ spec:
               limits:
                 cpu: 1m
                 memory: 100Mi
+            volumeMounts:
+            - name: my-config
+              mountPath: /etc/my-config
+              readOnly: true
+          volumes:
+          - name: my-config
+            configMap:
+              name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
+
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
+  labels:
+    application: "e2e-deploy-sample"
+data:
+  something_is: configured
