@@ -434,6 +434,22 @@ func TestStackGenerateIngressSegment(t *testing.T) {
 			expectedPredicate: "TrafficSegment(0.10, 0.30) && Method(\"GET\")",
 			expectedHosts:     []string{"example.teapot.zalan.do"},
 		},
+		{
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{
+						IngressPredicateKey: "",
+					},
+				},
+				Hosts: []string{"example.teapot.zalan.do"},
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30)",
+			expectedHosts:     []string{"example.teapot.zalan.do"},
+		},
 	} {
 		backendPort := intstr.FromInt(int(80))
 		c := &StackContainer{

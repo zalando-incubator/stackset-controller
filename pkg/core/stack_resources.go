@@ -378,7 +378,7 @@ func (sc *StackContainer) GenerateIngressSegment() (
 		sc.ingressAnnotationsToSync,
 	)
 
-	if predVal, ok := res.Annotations[IngressPredicateKey]; !ok {
+	if predVal, ok := res.Annotations[IngressPredicateKey]; !ok || predVal == "" {
 		res.Annotations = mergeLabels(
 			res.Annotations,
 			map[string]string{IngressPredicateKey: sc.trafficSegment()},
