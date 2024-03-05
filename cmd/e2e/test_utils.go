@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
@@ -589,6 +590,32 @@ func setDesiredTrafficWeightsStackset(stacksetName string, weights map[string]fl
 		}
 		return err
 	}
+}
+
+func createConfigMap(t *testing.T, name string) {
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Data: map[string]string{
+			"key": "value",
+		},
+	}
+	_, err := configMapInterface().Create(context.Background(), configMap, metav1.CreateOptions{})
+	require.NoError(t, err)
+}
+
+func createSecret(t *testing.T, name string) {
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Data: map[string][]byte{
+			"key": []byte("value"),
+		},
+	}
+	_, err := secretInterface().Create(context.Background(), secret, metav1.CreateOptions{})
+	require.NoError(t, err)
 }
 
 func pint32(i int32) *int32 {

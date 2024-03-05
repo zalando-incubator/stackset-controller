@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"sort"
@@ -38,8 +37,6 @@ type TestStacksetSpecFactory struct {
 	ingress                       bool
 	routegroup                    bool
 	externalIngress               bool
-	configMapRef                  bool
-	secretRef                     bool
 	limit                         int32
 	scaleDownTTL                  int64
 	replicas                      int32
@@ -51,13 +48,13 @@ type TestStacksetSpecFactory struct {
 	maxUnavailable                int
 	metrics                       []zv1.AutoscalerMetrics
 	subResourceAnnotations        map[string]string
+	configurationResources        []zv1.ConfigurationResourcesSpec
+	volumes                       []corev1.Volume
 }
 
 func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	return &TestStacksetSpecFactory{
 		stacksetName:           stacksetName,
-		configMapRef:           false,
-		secretRef:              false,
 		ingress:                false,
 		externalIngress:        false,
 		limit:                  4,
@@ -66,16 +63,44 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 		hpaMinReplicas:         1,
 		hpaMaxReplicas:         3,
 		subResourceAnnotations: map[string]string{},
+		configurationResources: []zv1.ConfigurationResourcesSpec{},
+		volumes:                []corev1.Volume{},
 	}
 }
 
-func (f *TestStacksetSpecFactory) ConfigMapRef() *TestStacksetSpecFactory {
-	f.configMapRef = true
+func (f *TestStacksetSpecFactory) AddReferencedConfigMap(configMapName string) *TestStacksetSpecFactory {
+	f.configurationResources = append(f.configurationResources, zv1.ConfigurationResourcesSpec{
+		ConfigMapRef: &corev1.LocalObjectReference{Name: configMapName},
+	})
+
+	f.volumes = append(f.volumes, corev1.Volume{
+		Name: configMapName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	})
+
 	return f
 }
 
-func (f *TestStacksetSpecFactory) SecretRef() *TestStacksetSpecFactory {
-	f.secretRef = true
+func (f *TestStacksetSpecFactory) AddReferencedSecret(secretName string) *TestStacksetSpecFactory {
+	f.configurationResources = append(f.configurationResources, zv1.ConfigurationResourcesSpec{
+		SecretRef: &corev1.LocalObjectReference{Name: secretName},
+	})
+
+	f.volumes = append(f.volumes, corev1.Volume{
+		Name: secretName,
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretName,
+			},
+		},
+	})
+
 	return f
 }
 
@@ -151,74 +176,12 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 		},
 	}
 
-	if f.configMapRef {
-		configMapName := fmt.Sprintf("%s-%s-configmap", f.stacksetName, stackVersion)
-		configMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: configMapName,
-			},
-			Data: map[string]string{
-				"key": "value",
-			},
-		}
-
-		_, err := configMapInterface().Create(context.Background(), configMap, metav1.CreateOptions{})
-		require.NoError(t, err)
-
-		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
-			{
-				ConfigMapRef: &corev1.LocalObjectReference{
-					Name: configMapName,
-				},
-			},
-		}
-
-		result.StackTemplate.Spec.PodTemplate.Spec.Volumes = []corev1.Volume{
-			{
-				Name: "config-volume",
-				VolumeSource: corev1.VolumeSource{
-					ConfigMap: &corev1.ConfigMapVolumeSource{
-						LocalObjectReference: corev1.LocalObjectReference{
-							Name: configMapName,
-						},
-					},
-				},
-			},
-		}
+	if len(f.configurationResources) > 0 {
+		result.StackTemplate.Spec.ConfigurationResources = f.configurationResources
 	}
 
-	if f.secretRef {
-		secretName := fmt.Sprintf("%s-%s-secret", f.stacksetName, stackVersion)
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: secretName,
-			},
-			Data: map[string][]byte{
-				"key": []byte("value"),
-			},
-		}
-
-		_, err := secretInterface().Create(context.Background(), secret, metav1.CreateOptions{})
-		require.NoError(t, err)
-
-		result.StackTemplate.Spec.ConfigurationResources = []zv1.ConfigurationResourcesSpec{
-			{
-				SecretRef: &corev1.LocalObjectReference{
-					Name: secretName,
-				},
-			},
-		}
-
-		result.StackTemplate.Spec.PodTemplate.Spec.Volumes = []corev1.Volume{
-			{
-				Name: "secret-volume",
-				VolumeSource: corev1.VolumeSource{
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: secretName,
-					},
-				},
-			},
-		}
+	if len(f.volumes) > 0 {
+		result.StackTemplate.Spec.PodTemplate.Spec.Volumes = f.volumes
 	}
 
 	if f.autoscaler {
@@ -727,10 +690,14 @@ func testStacksetCreate(
 		stackVersion := "v1"
 		stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
 		if configmapRef {
-			stacksetSpecFactory.ConfigMapRef()
+			configMapName := fmt.Sprintf("%s-%s-configmap", stacksetName, stackVersion)
+			createConfigMap(t, configMapName)
+			stacksetSpecFactory.AddReferencedConfigMap(configMapName)
 		}
 		if secretRef {
-			stacksetSpecFactory.SecretRef()
+			secretName := fmt.Sprintf("%s-%s-secret", stacksetName, stackVersion)
+			createSecret(t, secretName)
+			stacksetSpecFactory.AddReferencedSecret(secretName)
 		}
 		if hpa {
 			stacksetSpecFactory.Autoscaler(
