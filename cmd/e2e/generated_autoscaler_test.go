@@ -79,6 +79,8 @@ func TestGenerateAutoscaler(t *testing.T) {
 
 func TestAutoscalerWithoutTraffic(t *testing.T) {
 	t.Parallel()
+
+	// Create a stackset with two stacks and an autoscaler for each stack
 	stacksetName := "autoscaler-without-traffic"
 	metrics := []zv1.AutoscalerMetrics{
 		makeCPUAutoscalerMetrics(50),
@@ -104,35 +106,51 @@ func TestAutoscalerWithoutTraffic(t *testing.T) {
 	_, err = waitForHPA(t, fullSecondStack)
 	require.NoError(t, err)
 
+	// Switch traffic 100% to the first stack
 	desiredTraffic := map[string]float64{
 		fullFirstStack:  100,
 		fullSecondStack: 0,
 	}
-
 	err = setDesiredTrafficWeightsStackset(stacksetName, desiredTraffic)
 	require.NoError(t, err)
 	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 1).await()
 	require.NoError(t, err)
 
+	// ensure that the HPA for the first stack is still there and that the HPA for the second stack is deleted
 	err = resourceDeleted(t, "hpa", fullSecondStack, hpaInterface()).withTimeout(time.Minute * 1).await()
 	require.NoError(t, err)
-
 	_, err = waitForHPA(t, fullFirstStack)
 	require.NoError(t, err)
 
-	// Switch traffic to 50 - 50
+	// Switch traffic 50% to each stack
 	desiredTraffic = map[string]float64{
 		fullFirstStack:  50,
 		fullSecondStack: 50,
 	}
-
 	err = setDesiredTrafficWeightsStackset(stacksetName, desiredTraffic)
 	require.NoError(t, err)
 	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 1).await()
 	require.NoError(t, err)
+
+	// ensure that the HPAs for both stacks are still there
 	_, err = waitForHPA(t, fullFirstStack)
 	require.NoError(t, err)
+	_, err = waitForHPA(t, fullSecondStack)
+	require.NoError(t, err)
 
+	// Switch traffic 100% to the second stack
+	desiredTraffic = map[string]float64{
+		fullFirstStack:  0,
+		fullSecondStack: 100,
+	}
+	err = setDesiredTrafficWeightsStackset(stacksetName, desiredTraffic)
+	require.NoError(t, err)
+	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, desiredTraffic, nil).withTimeout(time.Minute * 1).await()
+	require.NoError(t, err)
+
+	// ensure that the HPA for the first stack is deleted and that the HPA for the second stack is still there
+	err = resourceDeleted(t, "hpa", fullFirstStack, hpaInterface()).withTimeout(time.Minute * 1).await()
+	require.NoError(t, err)
 	_, err = waitForHPA(t, fullSecondStack)
 	require.NoError(t, err)
 }
