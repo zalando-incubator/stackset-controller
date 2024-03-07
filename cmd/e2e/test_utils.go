@@ -383,6 +383,14 @@ func createStackSetWithAnnotations(
 	return err
 }
 
+func deleteStackset(stacksetName string) error {
+	return stacksetInterface().Delete(
+		context.Background(),
+		stacksetName,
+		metav1.DeleteOptions{},
+	)
+}
+
 func deleteStack(stackName string) error {
 	return stackInterface().Delete(
 		context.Background(),

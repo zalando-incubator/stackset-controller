@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -26,10 +25,9 @@ func (suite *ConfigurationResourcesTestSuite) SetupTest() {
 	suite.stacksetName = "stackset-cr"
 	suite.stackVersion = "v1"
 
-	// TODO: The cleanup should be done automatically but without being too magical
-	suite.cleanUpStackSet(suite.stacksetName)
-
 	suite.stacksetSpecFactory = NewTestStacksetSpecFactory(suite.stacksetName)
+
+	_ = deleteStackset(suite.stacksetName)
 }
 
 // TestReferencedConfigMaps tests that ConfigMaps referenced in the StackSet spec are owned by the Stack.
@@ -100,13 +98,4 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedSecrets() {
 			UID:        stack.UID,
 		},
 	}, secret.OwnerReferences)
-}
-
-//
-// HELPER FUNCTIONS
-//
-
-// cleanUpStackSet deletes the StackSet with the given name.
-func (suite *ConfigurationResourcesTestSuite) cleanUpStackSet(name string) {
-	_ = stacksetInterface().Delete(context.Background(), name, metav1.DeleteOptions{})
 }
