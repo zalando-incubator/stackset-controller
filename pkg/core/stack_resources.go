@@ -598,18 +598,15 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 	}
 }
 
-func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationResourcesSpec) (
-	*zv1.PlatformCredentialsSet,
-	error,
-) {
+func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationResourcesSpec) *zv1.PlatformCredentialsSet {
 	pcs := rsc.PlatformCredentialsSet
 	if pcs.Tokens == nil {
-		return nil, nil
+		return nil
 	}
 
 	metaObj := sc.resourceMeta()
 	if _, ok := metaObj.Labels["application"]; !ok {
-		return nil, nil
+		return nil
 	}
 	metaObj.Name = metaObj.Name + "-" + pcs.Name
 
@@ -626,5 +623,5 @@ func (sc *StackContainer) GeneratePlatformCredentialsSet(rsc zv1.ConfigurationRe
 		},
 	}
 
-	return result, nil
+	return result
 }

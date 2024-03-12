@@ -102,6 +102,17 @@ rules:
   - patch
   - delete
 - apiGroups:
+  - "zalando.org"
+  resources:
+  - platformcredentialssets
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
   - ""
   resources:
   - events
