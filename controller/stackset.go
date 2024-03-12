@@ -634,7 +634,7 @@ func (c *StackSetController) startWatch(ctx context.Context) {
 		cache.Indexers{},
 	)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.add,
 		UpdateFunc: c.update,
 		DeleteFunc: c.del,
@@ -1147,14 +1147,14 @@ func (c *StackSetController) convertToTrafficSegments(
 	if len(ssc.StackContainers) == 0 {
 		c.logger.Infof(
 			"No stacks found for StackSet %s, safe to delete central "+
-			"ingress/routegroup",
+				"ingress/routegroup",
 			ssc.StackSet.Name,
 		)
 
 		// If we don't have any stacks, we can delete the central ingress
 		// resources
 		oldEnough := metav1.NewTime(
-			time.Now().Add(-c.ingressSourceSwitchTTL-time.Minute),
+			time.Now().Add(-c.ingressSourceSwitchTTL - time.Minute),
 		)
 		ingTimestamp = &oldEnough
 		rgTimestamp = &oldEnough
