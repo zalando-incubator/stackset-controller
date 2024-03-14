@@ -126,7 +126,11 @@ func main() {
 
 	go handleSigterm(cancel)
 	go serveMetrics(config.MetricsAddress)
-	controller.Run(ctx)
+	err = controller.Run(ctx)
+	if err != nil {
+		cancel()
+		log.Fatalf("Failed to run controller: %v", err)
+	}
 }
 
 // handleSigterm handles SIGTERM signal sent to the process.
