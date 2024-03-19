@@ -590,8 +590,8 @@ func (sc *StackContainer) GenerateConfigMaps(ctx context.Context, client clients
 			metaObj := sc.resourceMeta()
 
 			configMap.ObjectMeta.OwnerReferences = metaObj.OwnerReferences
-			// configMap.ObjectMeta.Labels = mergeLabels(metaObj.Labels, configMap.ObjectMeta.Labels)
-			// configMap.ObjectMeta.Annotations = mergeLabels(metaObj.Annotations, configMap.ObjectMeta.Annotations)
+			configMap.ObjectMeta.Labels = mergeLabels(metaObj.Labels, configMap.ObjectMeta.Labels)
+			configMap.ObjectMeta.Annotations = mergeLabels(metaObj.Annotations, configMap.ObjectMeta.Annotations)
 
 			result = append(result, configMap)
 		}
