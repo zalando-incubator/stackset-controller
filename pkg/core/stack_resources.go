@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscaling "k8s.io/api/autoscaling/v2"
 	v1 "k8s.io/api/core/v1"
@@ -555,31 +557,44 @@ func (sc *StackContainer) UpdateObjectMeta(objMeta *metav1.ObjectMeta) *metav1.O
 	return objMeta
 }
 
-func (sc *StackContainer) GenerateConfigMaps() ([]*v1.ConfigMap, error) {
+func (sc *StackContainer) GenerateConfigMaps(ctx context.Context, client clientset.Interface) ([]*v1.ConfigMap, error) {
 	result := []*v1.ConfigMap{}
 
 	for _, configResource := range sc.Stack.Spec.ConfigurationResources {
-		if !configResource.IsConfigMap() {
-			continue
+		if configResource.IsConfigMap() {
+			metaObj := sc.resourceMeta()
+			metaObj.Name = metaObj.Name + "-" + configResource.GetName()
+			metaObj.OwnerReferences = []metav1.OwnerReference{ // maybe that should be metaObj.OwnerReferences instead
+				{
+					APIVersion: APIVersion,
+					Kind:       KindStack,
+					Name:       sc.Name(),
+					UID:        sc.Stack.UID,
+				},
+			}
+
+			base := &v1.ConfigMap{
+				ObjectMeta: metaObj,
+				Data:       configResource.ConfigMap.Data,
+			}
+
+			result = append(result, base)
 		}
 
-		metaObj := sc.resourceMeta()
-		metaObj.Name = metaObj.Name + "-" + configResource.GetName()
-		metaObj.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion: APIVersion,
-				Kind:       KindStack,
-				Name:       sc.Name(),
-				UID:        sc.Stack.UID,
-			},
-		}
+		if configResource.IsConfigMapRef() {
+			configMap, err := client.CoreV1().ConfigMaps(sc.Namespace()).Get(ctx, configResource.GetName(), metav1.GetOptions{})
+			if err != nil {
+				return nil, err
+			}
 
-		base := &v1.ConfigMap{
-			ObjectMeta: metaObj,
-			Data:       configResource.ConfigMap.Data,
-		}
+			metaObj := sc.resourceMeta()
 
-		result = append(result, base)
+			configMap.ObjectMeta.OwnerReferences = metaObj.OwnerReferences
+			// configMap.ObjectMeta.Labels = mergeLabels(metaObj.Labels, configMap.ObjectMeta.Labels)
+			// configMap.ObjectMeta.Annotations = mergeLabels(metaObj.Annotations, configMap.ObjectMeta.Annotations)
+
+			result = append(result, configMap)
+		}
 	}
 
 	return result, nil

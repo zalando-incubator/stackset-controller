@@ -1006,10 +1006,10 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			return c.errorEventf(sc.Stack, "FailedManageConfigMaps", err)
 		}
 
-		err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
-		}
+		// err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
+		// if err != nil {
+		// 	return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
+		// }
 	}
 
 	if c.secretSupportEnabled {

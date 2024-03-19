@@ -6,6 +6,7 @@ import (
 
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/clientset"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
 	v2 "k8s.io/api/autoscaling/v2"
@@ -473,9 +474,9 @@ func (c *StackSetController) ReconcileStackSecretRef(ctx context.Context,
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackConfigMaps(ctx context.Context, stack *zv1.Stack, existingConfigMaps []*apiv1.ConfigMap, generateUpdated func() ([]*apiv1.ConfigMap, error),
+func (c *StackSetController) ReconcileStackConfigMaps(ctx context.Context, stack *zv1.Stack, existingConfigMaps []*apiv1.ConfigMap, generateUpdated func(ctx context.Context, client clientset.Interface) ([]*apiv1.ConfigMap, error),
 ) error {
-	desiredConfigMaps, err := generateUpdated()
+	desiredConfigMaps, err := generateUpdated(ctx, c.client)
 	if err != nil {
 		return err
 	}
