@@ -20,7 +20,9 @@ spec:
       replicas: 2
       configurationResources:
       - configMapRef:
-          name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
+          name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-config
+      - secretRef:
+          name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-secret
       autoscaler:
         minReplicas: 2
         maxReplicas: 2
@@ -52,21 +54,38 @@ spec:
                 cpu: 1m
                 memory: 100Mi
             volumeMounts:
-            - name: my-config
-              mountPath: /etc/my-config
+            - name: my-reference-config
+              mountPath: /etc/my-reference-config
+              readOnly: true
+            - name: my-reference-secret
+              mountPath: /etc/my-reference-secret
               readOnly: true
           volumes:
-          - name: my-config
+          - name: my-reference-config
             configMap:
-              name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
+              name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-config
+          - name: my-reference-secret
+            secret:
+              secretName: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-secret
 
 ---
 
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-config
+  name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-config
   labels:
     application: "e2e-deploy-sample"
 data:
-  something_is: configured
+  something_is: configured_by_reference
+
+---
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-secret
+  labels:
+    application: "e2e-deploy-sample"
+data:
+  something_is: c2VjcmV0bHlfY29uZmlndXJlZF9ieV9yZWZlcmVuY2U=
