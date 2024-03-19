@@ -539,6 +539,7 @@ func (c *StackSetController) ReconcileStackConfigMap(ctx context.Context, stack 
 		if err != nil {
 			return err
 		}
+		existingConfigMap.OwnerReferences = desiredConfigMap.OwnerReferences
 	}
 
 	// Check if we need to update the ConfigMap
