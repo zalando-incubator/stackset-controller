@@ -522,16 +522,23 @@ func (c *StackSetController) ReconcileStackConfigMap(ctx context.Context, stack 
 	// Create new ConfigMap
 	if existingConfigMap == nil {
 		_, err := c.client.CoreV1().ConfigMaps(desiredConfigMap.Namespace).Create(ctx, desiredConfigMap, metav1.CreateOptions{})
+		if err == nil {
+			c.recorder.Eventf(
+				stack,
+				apiv1.EventTypeNormal,
+				"CreatedConfigMap",
+				"Created ConfigMap %s",
+				desiredConfigMap.Name)
+
+			return nil
+		}
+
+		// TODO: check error
+		// configmap already exists but doesn't have _our_owner yet.
+		existingConfigMap, err = c.client.CoreV1().ConfigMaps(desiredConfigMap.Namespace).Get(ctx, desiredConfigMap.Name, metav1.GetOptions{})
 		if err != nil {
 			return err
 		}
-		c.recorder.Eventf(
-			stack,
-			apiv1.EventTypeNormal,
-			"CreatedConfigMap",
-			"Created ConfigMap %s",
-			desiredConfigMap.Name)
-		return nil
 	}
 
 	// Check if we need to update the ConfigMap
