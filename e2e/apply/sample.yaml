@@ -19,6 +19,10 @@ spec:
       version: "{{{CDP_BUILD_VERSION}}}"
       replicas: 2
       configurationResources:
+      - configMap:
+          name: my-inline-config
+          data:
+            something_is: configured_inline
       - configMapRef:
           name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-config
       - secretRef:
@@ -54,6 +58,9 @@ spec:
                 cpu: 1m
                 memory: 100Mi
             volumeMounts:
+            - name: my-inline-config
+              mountPath: /etc/my-inline-config
+              readOnly: true
             - name: my-reference-config
               mountPath: /etc/my-reference-config
               readOnly: true
@@ -61,6 +68,10 @@ spec:
               mountPath: /etc/my-reference-secret
               readOnly: true
           volumes:
+          - name: my-inline-config
+            configMap:
+              # TODO: rewrite
+              name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-inline-config
           - name: my-reference-config
             configMap:
               name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-config
