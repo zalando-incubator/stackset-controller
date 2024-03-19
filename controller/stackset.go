@@ -1147,14 +1147,14 @@ func (c *StackSetController) convertToTrafficSegments(
 	if len(ssc.StackContainers) == 0 {
 		c.logger.Infof(
 			"No stacks found for StackSet %s, safe to delete central "+
-			"ingress/routegroup",
+				"ingress/routegroup",
 			ssc.StackSet.Name,
 		)
 
 		// If we don't have any stacks, we can delete the central ingress
 		// resources
 		oldEnough := metav1.NewTime(
-			time.Now().Add(-c.ingressSourceSwitchTTL-time.Minute),
+			time.Now().Add(-c.ingressSourceSwitchTTL - time.Minute),
 		)
 		ingTimestamp = &oldEnough
 		rgTimestamp = &oldEnough
@@ -1342,10 +1342,10 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			return c.errorEventf(sc.Stack, "FailedManageConfigMaps", err)
 		}
 
-		err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
-		}
+		// err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
+		// if err != nil {
+		// 	return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
+		// }
 	}
 
 	if c.secretSupportEnabled {
