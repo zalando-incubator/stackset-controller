@@ -44,6 +44,7 @@ var (
 		RouteGroupSupportEnabled    bool
 		SyncIngressAnnotations      []string
 		ReconcileWorkers            int
+		InlineConfigMapEnabled      bool
 		ConfigMapSupportEnabled     bool
 		SecretSupportEnabled        bool
 	}
@@ -66,6 +67,7 @@ func main() {
 		"sync-ingress-annotation",
 		"Ingress/RouteGroup annotation to propagate to all traffic segments.",
 	).StringsVar(&config.SyncIngressAnnotations)
+	kingpin.Flag("enable-inline-configmap-support", "Enable support for inline ConfigMaps on StackSets.").Default("false").BoolVar(&config.InlineConfigMapEnabled)
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
 	kingpin.Flag("enable-secret-support", "Enable support for Secrets on StackSets.").Default("false").BoolVar(&config.SecretSupportEnabled)
 	kingpin.Parse()
@@ -96,6 +98,7 @@ func main() {
 		config.Interval,
 		config.RouteGroupSupportEnabled,
 		config.SyncIngressAnnotations,
+		config.InlineConfigMapEnabled,
 		config.ConfigMapSupportEnabled,
 		config.SecretSupportEnabled,
 	)

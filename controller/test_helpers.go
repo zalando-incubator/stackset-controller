@@ -68,6 +68,7 @@ func NewTestEnvironment() *testEnvironment {
 		nil,
 		true,
 		true,
+		true,
 	)
 
 	if err != nil {

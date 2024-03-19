@@ -52,6 +52,7 @@ sscPath=$(find build/ -name "stackset-controller" | head -n 1)
 command $sscPath --apiserver=http://127.0.0.1:8001 \
   --sync-ingress-annotation=example.org/i-haz-synchronize \
   --sync-ingress-annotation=teapot.org/the-best \
+  --enable-inline-configmap-support \
   --enable-configmap-support \
   --enable-routegroup-support \
   --cluster-domain=${CLUSTER_DOMAIN} \

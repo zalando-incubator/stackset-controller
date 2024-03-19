@@ -66,6 +66,7 @@ type StackSetController struct {
 	routeGroupSupportEnabled    bool
 	now                         func() string
 	reconcileWorkers            int
+	inlineConfigMapEnabled      bool
 	configMapSupportEnabled     bool
 	secretSupportEnabled        bool
 	sync.Mutex
@@ -101,6 +102,7 @@ func NewStackSetController(
 	interval time.Duration,
 	routeGroupSupportEnabled bool,
 	syncIngressAnnotations []string,
+	inlineConfigMapEnabled bool,
 	configMapSupportEnabled bool,
 	secretSupportEnabled bool,
 ) (*StackSetController, error) {
@@ -124,6 +126,7 @@ func NewStackSetController(
 		HealthReporter:              healthcheck.NewHandler(),
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
 		syncIngressAnnotations:      syncIngressAnnotations,
+		inlineConfigMapEnabled:      inlineConfigMapEnabled,
 		configMapSupportEnabled:     configMapSupportEnabled,
 		secretSupportEnabled:        secretSupportEnabled,
 		now:                         now,
@@ -299,7 +302,7 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		return nil, err
 	}
 
-	if c.configMapSupportEnabled {
+	if c.inlineConfigMapEnabled || c.configMapSupportEnabled {
 		err = c.collectConfigMaps(ctx, stacksets)
 		if err != nil {
 			return nil, err
@@ -1000,17 +1003,19 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		}
 	}
 
-	if c.configMapSupportEnabled {
-		err = c.ReconcileStackConfigMaps(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.GenerateConfigMaps)
+	if c.inlineConfigMapEnabled {
+		err := c.ReconcileStackConfigMaps(ctx, sc.Stack, sc.Resources.ConfigMaps, sc.GenerateConfigMaps)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageConfigMaps", err)
 		}
-
-		// err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
-		// if err != nil {
-		// 	return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
-		// }
 	}
+
+	// if c.configMapSupportEnabled {
+	// 	err = c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
+	// 	if err != nil {
+	// 		return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
+	// 	}
+	// }
 
 	if c.secretSupportEnabled {
 		err := c.ReconcileStackSecretRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
@@ -1178,11 +1183,10 @@ func fixupStackTypeMeta(stack *zv1.Stack) {
 // name is not prefixed by Stack name.
 func validateAllConfigurationResourcesNames(stack *zv1.Stack) error {
 	for _, rsc := range stack.Spec.ConfigurationResources {
-		// TODO: no need to enforce naming scheme for inline definitions
+		// There's no need to enforce naming scheme for inline definitions.
 		if rsc.IsConfigMap() {
 			continue
 		}
-
 		if err := validateConfigurationResourceName(stack.Name, rsc.GetName()); err != nil {
 			return err
 		}
