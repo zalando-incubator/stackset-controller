@@ -2,8 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.11.4
   name: stacksets.zalando.org
 spec:
   group: zalando.org
@@ -737,32 +736,10 @@ spec:
                                                       that relates the key and values.
                                                     properties:
                                                       key:
-                                                        description: The label key
-                                                          that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: Represents a
-                                                          key's relationship to a
-                                                          set of values. Valid operators
-                                                          are In, NotIn, Exists, DoesNotExist.
-                                                          Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -781,32 +758,10 @@ spec:
                                                       that relates the key and values.
                                                     properties:
                                                       key:
-                                                        description: The label key
-                                                          that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: Represents a
-                                                          key's relationship to a
-                                                          set of values. Valid operators
-                                                          are In, NotIn, Exists, DoesNotExist.
-                                                          Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -857,32 +812,10 @@ spec:
                                                       that relates the key and values.
                                                     properties:
                                                       key:
-                                                        description: The label key
-                                                          that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: Represents a
-                                                          key's relationship to a
-                                                          set of values. Valid operators
-                                                          are In, NotIn, Exists, DoesNotExist.
-                                                          Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -901,32 +834,10 @@ spec:
                                                       that relates the key and values.
                                                     properties:
                                                       key:
-                                                        description: The label key
-                                                          that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: Represents a
-                                                          key's relationship to a
-                                                          set of values. Valid operators
-                                                          are In, NotIn, Exists, DoesNotExist.
-                                                          Gt, and Lt.
                                                         type: string
                                                       values:
-                                                        description: An array of string
-                                                          values. If the operator
-                                                          is In or NotIn, the values
-                                                          array must be non-empty.
-                                                          If the operator is Exists
-                                                          or DoesNotExist, the values
-                                                          array must be empty. If
-                                                          the operator is Gt or Lt,
-                                                          the values array must have
-                                                          a single element, which
-                                                          will be interpreted as an
-                                                          integer. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -985,11 +896,6 @@ spec:
                                                         requirements. The requirements
                                                         are ANDed.
                                                       items:
-                                                        description: A label selector
-                                                          requirement is a selector
-                                                          that contains values, a
-                                                          key, and an operator that
-                                                          relates the key and values.
                                                         properties:
                                                           key:
                                                             type: string
@@ -1038,11 +944,6 @@ spec:
                                                         requirements. The requirements
                                                         are ANDed.
                                                       items:
-                                                        description: A label selector
-                                                          requirement is a selector
-                                                          that contains values, a
-                                                          key, and an operator that
-                                                          relates the key and values.
                                                         properties:
                                                           key:
                                                             type: string
@@ -1153,28 +1054,10 @@ spec:
                                                       key and values.
                                                     properties:
                                                       key:
-                                                        description: key is the label
-                                                          key that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: operator represents
-                                                          a key's relationship to
-                                                          a set of values. Valid operators
-                                                          are In, NotIn, Exists and
-                                                          DoesNotExist.
                                                         type: string
                                                       values:
-                                                        description: values is an
-                                                          array of string values.
-                                                          If the operator is In or
-                                                          NotIn, the values array
-                                                          must be non-empty. If the
-                                                          operator is Exists or DoesNotExist,
-                                                          the values array must be
-                                                          empty. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -1221,28 +1104,10 @@ spec:
                                                       key and values.
                                                     properties:
                                                       key:
-                                                        description: key is the label
-                                                          key that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: operator represents
-                                                          a key's relationship to
-                                                          a set of values. Valid operators
-                                                          are In, NotIn, Exists and
-                                                          DoesNotExist.
                                                         type: string
                                                       values:
-                                                        description: values is an
-                                                          array of string values.
-                                                          If the operator is In or
-                                                          NotIn, the values array
-                                                          must be non-empty. If the
-                                                          operator is Exists or DoesNotExist,
-                                                          the values array must be
-                                                          empty. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -1337,11 +1202,6 @@ spec:
                                                         requirements. The requirements
                                                         are ANDed.
                                                       items:
-                                                        description: A label selector
-                                                          requirement is a selector
-                                                          that contains values, a
-                                                          key, and an operator that
-                                                          relates the key and values.
                                                         properties:
                                                           key:
                                                             type: string
@@ -1390,11 +1250,6 @@ spec:
                                                         requirements. The requirements
                                                         are ANDed.
                                                       items:
-                                                        description: A label selector
-                                                          requirement is a selector
-                                                          that contains values, a
-                                                          key, and an operator that
-                                                          relates the key and values.
                                                         properties:
                                                           key:
                                                             type: string
@@ -1412,16 +1267,6 @@ spec:
                                                     matchLabels:
                                                       additionalProperties:
                                                         type: string
-                                                      description: matchLabels is
-                                                        a map of {key,value} pairs.
-                                                        A single {key,value} in the
-                                                        matchLabels map is equivalent
-                                                        to an element of matchExpressions,
-                                                        whose key field is "key",
-                                                        the operator is "In", and
-                                                        the values array contains
-                                                        only "value". The requirements
-                                                        are ANDed.
                                                       type: object
                                                   type: object
                                                   x-kubernetes-map-type: atomic
@@ -1505,28 +1350,10 @@ spec:
                                                       key and values.
                                                     properties:
                                                       key:
-                                                        description: key is the label
-                                                          key that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: operator represents
-                                                          a key's relationship to
-                                                          a set of values. Valid operators
-                                                          are In, NotIn, Exists and
-                                                          DoesNotExist.
                                                         type: string
                                                       values:
-                                                        description: values is an
-                                                          array of string values.
-                                                          If the operator is In or
-                                                          NotIn, the values array
-                                                          must be non-empty. If the
-                                                          operator is Exists or DoesNotExist,
-                                                          the values array must be
-                                                          empty. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -1573,28 +1400,10 @@ spec:
                                                       key and values.
                                                     properties:
                                                       key:
-                                                        description: key is the label
-                                                          key that the selector applies
-                                                          to.
                                                         type: string
                                                       operator:
-                                                        description: operator represents
-                                                          a key's relationship to
-                                                          a set of values. Valid operators
-                                                          are In, NotIn, Exists and
-                                                          DoesNotExist.
                                                         type: string
                                                       values:
-                                                        description: values is an
-                                                          array of string values.
-                                                          If the operator is In or
-                                                          NotIn, the values array
-                                                          must be non-empty. If the
-                                                          operator is Exists or DoesNotExist,
-                                                          the values array must be
-                                                          empty. This array is replaced
-                                                          during a strategic merge
-                                                          patch.
                                                         items:
                                                           type: string
                                                         type: array
@@ -1947,15 +1756,8 @@ spec:
                                                       HTTP probes
                                                     properties:
                                                       name:
-                                                        description: The header field
-                                                          name. This will be canonicalized
-                                                          upon output, so case-variant
-                                                          names will be understood
-                                                          as the same header.
                                                         type: string
                                                       value:
-                                                        description: The header field
-                                                          value
                                                         type: string
                                                     required:
                                                     - name
@@ -2068,15 +1870,8 @@ spec:
                                                       HTTP probes
                                                     properties:
                                                       name:
-                                                        description: The header field
-                                                          name. This will be canonicalized
-                                                          upon output, so case-variant
-                                                          names will be understood
-                                                          as the same header.
                                                         type: string
                                                       value:
-                                                        description: The header field
-                                                          value
                                                         type: string
                                                     required:
                                                     - name
@@ -2552,6 +2347,32 @@ spec:
                                         this container. Cannot be updated. More info:
                                         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                       properties:
+                                        claims:
+                                          description: "Claims lists the names of
+                                            resources, defined in spec.resourceClaims,
+                                            that are used by this container. \n This
+                                            is an alpha field and requires enabling
+                                            the DynamicResourceAllocation feature
+                                            gate. \n This field is immutable. It can
+                                            only be set for containers."
+                                          items:
+                                            description: ResourceClaim references
+                                              one entry in PodSpec.ResourceClaims.
+                                            properties:
+                                              name:
+                                                description: Name must match the name
+                                                  of one entry in pod.spec.resourceClaims
+                                                  of the Pod where this field is used.
+                                                  It makes that resource available
+                                                  inside a container.
+                                                type: string
+                                            required:
+                                            - name
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-map-keys:
+                                          - name
+                                          x-kubernetes-list-type: map
                                         limits:
                                           additionalProperties:
                                             anyOf:
@@ -3457,15 +3278,8 @@ spec:
                                                       HTTP probes
                                                     properties:
                                                       name:
-                                                        description: The header field
-                                                          name. This will be canonicalized
-                                                          upon output, so case-variant
-                                                          names will be understood
-                                                          as the same header.
                                                         type: string
                                                       value:
-                                                        description: The header field
-                                                          value
                                                         type: string
                                                     required:
                                                     - name
@@ -3578,15 +3392,8 @@ spec:
                                                       HTTP probes
                                                     properties:
                                                       name:
-                                                        description: The header field
-                                                          name. This will be canonicalized
-                                                          upon output, so case-variant
-                                                          names will be understood
-                                                          as the same header.
                                                         type: string
                                                       value:
-                                                        description: The header field
-                                                          value
                                                         type: string
                                                     required:
                                                     - name
@@ -4051,6 +3858,32 @@ spec:
                                         containers. Ephemeral containers use spare
                                         resources already allocated to the pod.
                                       properties:
+                                        claims:
+                                          description: "Claims lists the names of
+                                            resources, defined in spec.resourceClaims,
+                                            that are used by this container. \n This
+                                            is an alpha field and requires enabling
+                                            the DynamicResourceAllocation feature
+                                            gate. \n This field is immutable. It can
+                                            only be set for containers."
+                                          items:
+                                            description: ResourceClaim references
+                                              one entry in PodSpec.ResourceClaims.
+                                            properties:
+                                              name:
+                                                description: Name must match the name
+                                                  of one entry in pod.spec.resourceClaims
+                                                  of the Pod where this field is used.
+                                                  It makes that resource available
+                                                  inside a container.
+                                                type: string
+                                            required:
+                                            - name
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-map-keys:
+                                          - name
+                                          x-kubernetes-list-type: map
                                         limits:
                                           additionalProperties:
                                             anyOf:
@@ -4986,15 +4819,8 @@ spec:
                                                       HTTP probes
                                                     properties:
                                                       name:
-                                                        description: The header field
-                                                          name. This will be canonicalized
-                                                          upon output, so case-variant
-                                                          names will be understood
-                                                          as the same header.
                                                         type: string
                                                       value:
-                                                        description: The header field
-                                                          value
                                                         type: string
                                                     required:
                                                     - name
@@ -5107,15 +4933,8 @@ spec:
                                                       HTTP probes
                                                     properties:
                                                       name:
-                                                        description: The header field
-                                                          name. This will be canonicalized
-                                                          upon output, so case-variant
-                                                          names will be understood
-                                                          as the same header.
                                                         type: string
                                                       value:
-                                                        description: The header field
-                                                          value
                                                         type: string
                                                     required:
                                                     - name
@@ -5591,6 +5410,32 @@ spec:
                                         this container. Cannot be updated. More info:
                                         https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                       properties:
+                                        claims:
+                                          description: "Claims lists the names of
+                                            resources, defined in spec.resourceClaims,
+                                            that are used by this container. \n This
+                                            is an alpha field and requires enabling
+                                            the DynamicResourceAllocation feature
+                                            gate. \n This field is immutable. It can
+                                            only be set for containers."
+                                          items:
+                                            description: ResourceClaim references
+                                              one entry in PodSpec.ResourceClaims.
+                                            properties:
+                                              name:
+                                                description: Name must match the name
+                                                  of one entry in pod.spec.resourceClaims
+                                                  of the Pod where this field is used.
+                                                  It makes that resource available
+                                                  inside a container.
+                                                type: string
+                                            required:
+                                            - name
+                                            type: object
+                                          type: array
+                                          x-kubernetes-list-map-keys:
+                                          - name
+                                          x-kubernetes-list-type: map
                                         limits:
                                           additionalProperties:
                                             anyOf:
@@ -6253,6 +6098,66 @@ spec:
                                   - conditionType
                                   type: object
                                 type: array
+                              resourceClaims:
+                                description: "ResourceClaims defines which ResourceClaims
+                                  must be allocated and reserved before the Pod is
+                                  allowed to start. The resources will be made available
+                                  to those containers which consume them by name.
+                                  \n This is an alpha field and requires enabling
+                                  the DynamicResourceAllocation feature gate. \n This
+                                  field is immutable."
+                                items:
+                                  description: PodResourceClaim references exactly
+                                    one ResourceClaim through a ClaimSource. It adds
+                                    a name to it that uniquely identifies the ResourceClaim
+                                    inside the Pod. Containers that need access to
+                                    the ResourceClaim reference it with this name.
+                                  properties:
+                                    name:
+                                      description: Name uniquely identifies this resource
+                                        claim inside the pod. This must be a DNS_LABEL.
+                                      type: string
+                                    source:
+                                      description: Source describes where to find
+                                        the ResourceClaim.
+                                      properties:
+                                        resourceClaimName:
+                                          description: ResourceClaimName is the name
+                                            of a ResourceClaim object in the same
+                                            namespace as this pod.
+                                          type: string
+                                        resourceClaimTemplateName:
+                                          description: "ResourceClaimTemplateName
+                                            is the name of a ResourceClaimTemplate
+                                            object in the same namespace as this pod.
+                                            \n The template will be used to create
+                                            a new ResourceClaim, which will be bound
+                                            to this pod. When this pod is deleted,
+                                            the ResourceClaim will also be deleted.
+                                            The name of the ResourceClaim will be
+                                            <pod name>-<resource name>, where <resource
+                                            name> is the PodResourceClaim.Name. Pod
+                                            validation will reject the pod if the
+                                            concatenated name is not valid for a ResourceClaim
+                                            (e.g. too long). \n An existing ResourceClaim
+                                            with that name that is not owned by the
+                                            pod will not be used for the pod to avoid
+                                            using an unrelated resource by mistake.
+                                            Scheduling and pod startup are then blocked
+                                            until the unrelated ResourceClaim is removed.
+                                            \n This field is immutable and no changes
+                                            will be made to the corresponding ResourceClaim
+                                            by the control plane after creating the
+                                            ResourceClaim."
+                                          type: string
+                                      type: object
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
                               restartPolicy:
                                 description: 'Restart policy for all containers within
                                   the pod. One of Always, OnFailure, Never. Default
@@ -6273,6 +6178,27 @@ spec:
                                   by specified scheduler. If not specified, the pod
                                   will be dispatched by default scheduler.
                                 type: string
+                              schedulingGates:
+                                description: "SchedulingGates is an opaque list of
+                                  values that if specified will block scheduling the
+                                  pod. More info:  https://git.k8s.io/enhancements/keps/sig-scheduling/3521-pod-scheduling-readiness.
+                                  \n This is an alpha-level feature enabled by PodSchedulingReadiness
+                                  feature gate."
+                                items:
+                                  description: PodSchedulingGate is associated to
+                                    a Pod to guard its scheduling.
+                                  properties:
+                                    name:
+                                      description: Name of the scheduling gate. Each
+                                        scheduling gate must have a unique name field.
+                                      type: string
+                                  required:
+                                  - name
+                                  type: object
+                                type: array
+                                x-kubernetes-list-map-keys:
+                                - name
+                                x-kubernetes-list-type: map
                               securityContext:
                                 description: 'SecurityContext holds pod-level security
                                   attributes and common container settings. Optional:
@@ -6394,9 +6320,15 @@ spec:
                                   supplementalGroups:
                                     description: A list of groups applied to the first
                                       process run in each container, in addition to
-                                      the container's primary GID.  If unspecified,
-                                      no groups will be added to any container. Note
-                                      that this field cannot be set when spec.os.name
+                                      the container's primary GID, the fsGroup (if
+                                      specified), and group memberships defined in
+                                      the container image for the uid of the container
+                                      process. If unspecified, no additional groups
+                                      are added to any container. Note that group
+                                      memberships defined in the container image for
+                                      the uid of the container process are still effective,
+                                      even if they are not included in this list.
+                                      Note that this field cannot be set when spec.os.name
                                       is windows.
                                     items:
                                       format: int64
@@ -6714,9 +6646,9 @@ spec:
                                         are ignored. All nodes are included in the
                                         calculations. \n If this value is nil, the
                                         behavior is equivalent to the Honor policy.
-                                        This is a alpha-level feature enabled by the
-                                        NodeInclusionPolicyInPodTopologySpread feature
-                                        flag."
+                                        This is a beta-level feature default enabled
+                                        by the NodeInclusionPolicyInPodTopologySpread
+                                        feature flag."
                                       type: string
                                     nodeTaintsPolicy:
                                       description: "NodeTaintsPolicy indicates how
@@ -6727,8 +6659,8 @@ spec:
                                         are included. - Ignore: node taints are ignored.
                                         All nodes are included. \n If this value is
                                         nil, the behavior is equivalent to the Ignore
-                                        policy. This is a alpha-level feature enabled
-                                        by the NodeInclusionPolicyInPodTopologySpread
+                                        policy. This is a beta-level feature default
+                                        enabled by the NodeInclusionPolicyInPodTopologySpread
                                         feature flag."
                                       type: string
                                     topologyKey:
@@ -7338,10 +7270,14 @@ spec:
                                                     data source, it will create a
                                                     new volume based on the contents
                                                     of the specified data source.
-                                                    If the AnyVolumeDataSource feature
-                                                    gate is enabled, this field will
-                                                    always have the same contents
-                                                    as the DataSourceRef field.'
+                                                    When the AnyVolumeDataSource feature
+                                                    gate is enabled, dataSource contents
+                                                    will be copied to dataSourceRef,
+                                                    and dataSourceRef contents will
+                                                    be copied to dataSource when dataSourceRef.namespace
+                                                    is not specified. If the namespace
+                                                    is specified, then dataSourceRef
+                                                    will not be copied to dataSource.'
                                                   properties:
                                                     apiGroup:
                                                       description: APIGroup is the
@@ -7370,35 +7306,45 @@ spec:
                                                     the object from which to populate
                                                     the volume with data, if a non-empty
                                                     volume is desired. This may be
-                                                    any local object from a non-empty
-                                                    API group (non core object) or
-                                                    a PersistentVolumeClaim object.
-                                                    When this field is specified,
+                                                    any object from a non-empty API
+                                                    group (non core object) or a PersistentVolumeClaim
+                                                    object. When this field is specified,
                                                     volume binding will only succeed
                                                     if the type of the specified object
                                                     matches some installed volume
                                                     populator or dynamic provisioner.
                                                     This field will replace the functionality
-                                                    of the DataSource field and as
+                                                    of the dataSource field and as
                                                     such if both fields are non-empty,
                                                     they must have the same value.
-                                                    For backwards compatibility, both
-                                                    fields (DataSource and DataSourceRef)
-                                                    will be set to the same value
-                                                    automatically if one of them is
-                                                    empty and the other is non-empty.
-                                                    There are two important differences
-                                                    between DataSource and DataSourceRef:
-                                                    * While DataSource only allows
+                                                    For backwards compatibility, when
+                                                    namespace isn''t specified in
+                                                    dataSourceRef, both fields (dataSource
+                                                    and dataSourceRef) will be set
+                                                    to the same value automatically
+                                                    if one of them is empty and the
+                                                    other is non-empty. When namespace
+                                                    is specified in dataSourceRef,
+                                                    dataSource isn''t set to the same
+                                                    value and must be empty. There
+                                                    are three important differences
+                                                    between dataSource and dataSourceRef:
+                                                    * While dataSource only allows
                                                     two specific types of objects,
-                                                    DataSourceRef allows any non-core
+                                                    dataSourceRef allows any non-core
                                                     object, as well as PersistentVolumeClaim
-                                                    objects. * While DataSource ignores
+                                                    objects. * While dataSource ignores
                                                     disallowed values (dropping them),
-                                                    DataSourceRef preserves all values,
+                                                    dataSourceRef preserves all values,
                                                     and generates an error if a disallowed
-                                                    value is specified. (Beta) Using
-                                                    this field requires the AnyVolumeDataSource
+                                                    value is specified. * While dataSource
+                                                    only allows local objects, dataSourceRef
+                                                    allows objects in any namespaces.
+                                                    (Beta) Using this field requires
+                                                    the AnyVolumeDataSource feature
+                                                    gate to be enabled. (Alpha) Using
+                                                    the namespace field of dataSourceRef
+                                                    requires the CrossNamespaceVolumeDataSource
                                                     feature gate to be enabled.'
                                                   properties:
                                                     apiGroup:
@@ -7418,11 +7364,12 @@ spec:
                                                       description: Name is the name
                                                         of resource being referenced
                                                       type: string
+                                                    namespace:
+                                                      type: string
                                                   required:
                                                   - kind
                                                   - name
                                                   type: object
-                                                  x-kubernetes-map-type: atomic
                                                 resources:
                                                   description: 'resources represents
                                                     the minimum resources the volume
@@ -7435,6 +7382,28 @@ spec:
                                                     field of the claim. More info:
                                                     https://kubernetes.io/docs/concepts/storage/persistent-volumes#resources'
                                                   properties:
+                                                    claims:
+                                                      description: "Claims lists the
+                                                        names of resources, defined
+                                                        in spec.resourceClaims, that
+                                                        are used by this container.
+                                                        \n This is an alpha field
+                                                        and requires enabling the
+                                                        DynamicResourceAllocation
+                                                        feature gate. \n This field
+                                                        is immutable. It can only
+                                                        be set for containers."
+                                                      items:
+                                                        properties:
+                                                          name:
+                                                            type: string
+                                                        required:
+                                                        - name
+                                                        type: object
+                                                      type: array
+                                                      x-kubernetes-list-map-keys:
+                                                      - name
+                                                      x-kubernetes-list-type: map
                                                     limits:
                                                       additionalProperties:
                                                         anyOf:
@@ -7454,14 +7423,6 @@ spec:
                                                         - type: string
                                                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                                         x-kubernetes-int-or-string: true
-                                                      description: 'Requests describes
-                                                        the minimum amount of compute
-                                                        resources required. If Requests
-                                                        is omitted for a container,
-                                                        it defaults to Limits if that
-                                                        is explicitly specified, otherwise
-                                                        to an implementation-defined
-                                                        value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
                                                       type: object
                                                   type: object
                                                 selector:
@@ -7475,11 +7436,6 @@ spec:
                                                         requirements. The requirements
                                                         are ANDed.
                                                       items:
-                                                        description: A label selector
-                                                          requirement is a selector
-                                                          that contains values, a
-                                                          key, and an operator that
-                                                          relates the key and values.
                                                         properties:
                                                           key:
                                                             type: string
@@ -7497,16 +7453,6 @@ spec:
                                                     matchLabels:
                                                       additionalProperties:
                                                         type: string
-                                                      description: matchLabels is
-                                                        a map of {key,value} pairs.
-                                                        A single {key,value} in the
-                                                        matchLabels map is equivalent
-                                                        to an element of matchExpressions,
-                                                        whose key field is "key",
-                                                        the operator is "In", and
-                                                        the values array contains
-                                                        only "value". The requirements
-                                                        are ANDed.
                                                       type: object
                                                   type: object
                                                   x-kubernetes-map-type: atomic
@@ -7979,21 +7925,11 @@ spec:
                                                         to a path within a volume.
                                                       properties:
                                                         key:
-                                                          description: key is the
-                                                            key to project.
                                                           type: string
                                                         mode:
                                                           format: int32
                                                           type: integer
                                                         path:
-                                                          description: path is the
-                                                            relative path of the file
-                                                            to map the key to. May
-                                                            not be an absolute path.
-                                                            May not contain the path
-                                                            element '..'. May not
-                                                            start with the string
-                                                            '..'.
                                                           type: string
                                                       required:
                                                       - key
@@ -8027,11 +7963,6 @@ spec:
                                                         the pod field
                                                       properties:
                                                         fieldRef:
-                                                          description: 'Required:
-                                                            Selects a field of the
-                                                            pod: only annotations,
-                                                            labels, name and namespace
-                                                            are supported.'
                                                           properties:
                                                             apiVersion:
                                                               type: string
@@ -8047,13 +7978,6 @@ spec:
                                                         path:
                                                           type: string
                                                         resourceFieldRef:
-                                                          description: 'Selects a
-                                                            resource of the container:
-                                                            only resources limits
-                                                            and requests (limits.cpu,
-                                                            limits.memory, requests.cpu
-                                                            and requests.memory) are
-                                                            currently supported.'
                                                           properties:
                                                             containerName:
                                                               type: string
@@ -8100,8 +8024,6 @@ spec:
                                                         to a path within a volume.
                                                       properties:
                                                         key:
-                                                          description: key is the
-                                                            key to project.
                                                           type: string
                                                         mode:
                                                           format: int32

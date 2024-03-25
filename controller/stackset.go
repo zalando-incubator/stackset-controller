@@ -159,7 +159,7 @@ func (c *StackSetController) stackLogger(ssc *core.StackSetContainer, sc *core.S
 // Run runs the main loop of the StackSetController. Before the loops it
 // sets up a watcher to watch StackSet resources. The watch will send
 // changes over a channel which is polled from the main loop.
-func (c *StackSetController) Run(ctx context.Context) {
+func (c *StackSetController) Run(ctx context.Context) error {
 	var nextCheck time.Time
 
 	// We're not alive if nextCheck is too far in the past
@@ -170,7 +170,10 @@ func (c *StackSetController) Run(ctx context.Context) {
 		return nil
 	})
 
-	c.startWatch(ctx)
+	err := c.startWatch(ctx)
+	if err != nil {
+		return err
+	}
 
 	http.HandleFunc("/healthz", c.HealthReporter.LiveEndpoint)
 
@@ -239,7 +242,7 @@ func (c *StackSetController) Run(ctx context.Context) {
 			c.stacksetStore[stackset.UID] = stackset
 		case <-ctx.Done():
 			c.logger.Info("Terminating main controller loop.")
-			return
+			return nil
 		}
 	}
 }
@@ -626,7 +629,7 @@ func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 	return c.controllerID == ""
 }
 
-func (c *StackSetController) startWatch(ctx context.Context) {
+func (c *StackSetController) startWatch(ctx context.Context) error {
 	informer := cache.NewSharedIndexInformer(
 		cache.NewListWatchFromClient(c.client.ZalandoV1().RESTClient(), "stacksets", c.namespace, fields.Everything()),
 		&zv1.StackSet{},
@@ -634,17 +637,22 @@ func (c *StackSetController) startWatch(ctx context.Context) {
 		cache.Indexers{},
 	)
 
-	informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    c.add,
 		UpdateFunc: c.update,
 		DeleteFunc: c.del,
 	})
+	if err != nil {
+		return fmt.Errorf("failed to add event handler: %w", err)
+	}
+
 	go informer.Run(ctx.Done())
 	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-		c.logger.Errorf("Timed out waiting for caches to sync")
-		return
+		return fmt.Errorf("timed out waiting for caches to sync")
 	}
 	c.logger.Info("Synced StackSet watcher")
+
+	return nil
 }
 
 func (c *StackSetController) add(obj interface{}) {
@@ -1147,14 +1155,14 @@ func (c *StackSetController) convertToTrafficSegments(
 	if len(ssc.StackContainers) == 0 {
 		c.logger.Infof(
 			"No stacks found for StackSet %s, safe to delete central "+
-			"ingress/routegroup",
+				"ingress/routegroup",
 			ssc.StackSet.Name,
 		)
 
 		// If we don't have any stacks, we can delete the central ingress
 		// resources
 		oldEnough := metav1.NewTime(
-			time.Now().Add(-c.ingressSourceSwitchTTL-time.Minute),
+			time.Now().Add(-c.ingressSourceSwitchTTL - time.Minute),
 		)
 		ingTimestamp = &oldEnough
 		rgTimestamp = &oldEnough
