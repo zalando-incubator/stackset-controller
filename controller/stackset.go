@@ -643,12 +643,12 @@ func (c *StackSetController) startWatch(ctx context.Context) error {
 		DeleteFunc: c.del,
 	})
 	if err != nil {
-		return fmt.Errorf("Failed to add event handler: %w", err)
+		return fmt.Errorf("failed to add event handler: %w", err)
 	}
 
 	go informer.Run(ctx.Done())
 	if !cache.WaitForCacheSync(ctx.Done(), informer.HasSynced) {
-		return fmt.Errorf("Timed out waiting for caches to sync")
+		return fmt.Errorf("timed out waiting for caches to sync")
 	}
 	c.logger.Info("Synced StackSet watcher")
 
