@@ -183,6 +183,16 @@ func (f *testEnvironment) CreateSecrets(ctx context.Context, secrets []v1.Secret
 	return nil
 }
 
+func (f *testEnvironment) CreatePCS(ctx context.Context, pcss []zv1.PlatformCredentialsSet) error {
+	for _, pcs := range pcss {
+		_, err := f.client.ZalandoV1().PlatformCredentialsSets(pcs.Namespace).Create(ctx, &pcs, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func testStackset(name, namespace string, uid types.UID) zv1.StackSet {
 	return zv1.StackSet{
 		ObjectMeta: metav1.ObjectMeta{

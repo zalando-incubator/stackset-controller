@@ -472,3 +472,80 @@ func (c *StackSetController) ReconcileStackSecretRef(ctx context.Context,
 
 	return nil
 }
+
+func (c *StackSetController) ReconcileStackPlatformCredentialsSets(
+	ctx context.Context,
+	stack *zv1.Stack,
+	existing []*zv1.PlatformCredentialsSet,
+	generateUpdated func(zv1.ConfigurationResourcesSpec) *zv1.PlatformCredentialsSet,
+) error {
+	for _, rsc := range stack.Spec.ConfigurationResources {
+		if !rsc.IsPlatformCredentialsSet() {
+			continue
+		}
+
+		if err := c.ReconcileStackPlatformCredentialsSet(
+			ctx, stack, rsc, existing, generateUpdated); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (c *StackSetController) ReconcileStackPlatformCredentialsSet(
+	ctx context.Context,
+	stack *zv1.Stack,
+	rsc zv1.ConfigurationResourcesSpec,
+	existing []*zv1.PlatformCredentialsSet,
+	generateUpdated func(zv1.ConfigurationResourcesSpec) *zv1.PlatformCredentialsSet,
+) error {
+	pcs := generateUpdated(rsc)
+
+	// Check if a PlatformCredentialsSet needs update
+	for _, e := range existing {
+		if pcs.Name != e.Name {
+			continue
+		}
+
+		if core.IsResourceUpToDate(stack, e.ObjectMeta) &&
+			equality.Semantic.DeepEqual(pcs.Spec, e.Spec) &&
+			core.AreAnnotationsUpToDate(pcs.ObjectMeta, e.ObjectMeta) {
+			return nil
+		}
+
+		updated := e.DeepCopy()
+		syncObjectMeta(updated, pcs)
+		updated.Spec = pcs.Spec
+
+		_, err := c.client.ZalandoV1().PlatformCredentialsSets(updated.Namespace).
+			Update(ctx, updated, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+		c.recorder.Eventf(
+			stack,
+			apiv1.EventTypeNormal,
+			"UpdatedPlatformCredentialsSet",
+			"Updated PlatformCredentialsSet %s",
+			pcs.Name,
+		)
+		return nil
+	}
+
+	// Create new PlatformCredentialsSet
+	_, err := c.client.ZalandoV1().PlatformCredentialsSets(pcs.Namespace).
+		Create(ctx, pcs, metav1.CreateOptions{})
+	if err != nil {
+		return err
+	}
+	c.recorder.Eventf(
+		stack,
+		apiv1.EventTypeNormal,
+		"CreatedPlatformCredentialsSet",
+		"Created PlatformCredentialsSet %s",
+		pcs.Name,
+	)
+
+	return nil
+}
