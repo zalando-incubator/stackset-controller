@@ -21,10 +21,9 @@ package fake
 import (
 	"context"
 
-	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,25 +35,25 @@ type FakeStackSets struct {
 	ns   string
 }
 
-var stacksetsResource = schema.GroupVersionResource{Group: "zalando.org", Version: "v1", Resource: "stacksets"}
+var stacksetsResource = v1.SchemeGroupVersion.WithResource("stacksets")
 
-var stacksetsKind = schema.GroupVersionKind{Group: "zalando.org", Version: "v1", Kind: "StackSet"}
+var stacksetsKind = v1.SchemeGroupVersion.WithKind("StackSet")
 
 // Get takes name of the stackSet, and returns the corresponding stackSet object, and an error if there is any.
-func (c *FakeStackSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *zalandoorgv1.StackSet, err error) {
+func (c *FakeStackSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(stacksetsResource, c.ns, name), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewGetAction(stacksetsResource, c.ns, name), &v1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.StackSet), err
+	return obj.(*v1.StackSet), err
 }
 
 // List takes label and field selectors, and returns the list of StackSets that match those selectors.
-func (c *FakeStackSets) List(ctx context.Context, opts v1.ListOptions) (result *zalandoorgv1.StackSetList, err error) {
+func (c *FakeStackSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.StackSetList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(stacksetsResource, stacksetsKind, c.ns, opts), &zalandoorgv1.StackSetList{})
+		Invokes(testing.NewListAction(stacksetsResource, stacksetsKind, c.ns, opts), &v1.StackSetList{})
 
 	if obj == nil {
 		return nil, err
@@ -64,8 +63,8 @@ func (c *FakeStackSets) List(ctx context.Context, opts v1.ListOptions) (result *
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &zalandoorgv1.StackSetList{ListMeta: obj.(*zalandoorgv1.StackSetList).ListMeta}
-	for _, item := range obj.(*zalandoorgv1.StackSetList).Items {
+	list := &v1.StackSetList{ListMeta: obj.(*v1.StackSetList).ListMeta}
+	for _, item := range obj.(*v1.StackSetList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -74,69 +73,69 @@ func (c *FakeStackSets) List(ctx context.Context, opts v1.ListOptions) (result *
 }
 
 // Watch returns a watch.Interface that watches the requested stackSets.
-func (c *FakeStackSets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeStackSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(stacksetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a stackSet and creates it.  Returns the server's representation of the stackSet, and an error, if there is any.
-func (c *FakeStackSets) Create(ctx context.Context, stackSet *zalandoorgv1.StackSet, opts v1.CreateOptions) (result *zalandoorgv1.StackSet, err error) {
+func (c *FakeStackSets) Create(ctx context.Context, stackSet *v1.StackSet, opts metav1.CreateOptions) (result *v1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(stacksetsResource, c.ns, stackSet), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewCreateAction(stacksetsResource, c.ns, stackSet), &v1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.StackSet), err
+	return obj.(*v1.StackSet), err
 }
 
 // Update takes the representation of a stackSet and updates it. Returns the server's representation of the stackSet, and an error, if there is any.
-func (c *FakeStackSets) Update(ctx context.Context, stackSet *zalandoorgv1.StackSet, opts v1.UpdateOptions) (result *zalandoorgv1.StackSet, err error) {
+func (c *FakeStackSets) Update(ctx context.Context, stackSet *v1.StackSet, opts metav1.UpdateOptions) (result *v1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(stacksetsResource, c.ns, stackSet), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewUpdateAction(stacksetsResource, c.ns, stackSet), &v1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.StackSet), err
+	return obj.(*v1.StackSet), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStackSets) UpdateStatus(ctx context.Context, stackSet *zalandoorgv1.StackSet, opts v1.UpdateOptions) (*zalandoorgv1.StackSet, error) {
+func (c *FakeStackSets) UpdateStatus(ctx context.Context, stackSet *v1.StackSet, opts metav1.UpdateOptions) (*v1.StackSet, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(stacksetsResource, "status", c.ns, stackSet), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewUpdateSubresourceAction(stacksetsResource, "status", c.ns, stackSet), &v1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.StackSet), err
+	return obj.(*v1.StackSet), err
 }
 
 // Delete takes name of the stackSet and deletes it. Returns an error if one occurs.
-func (c *FakeStackSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakeStackSets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(stacksetsResource, c.ns, name, opts), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewDeleteActionWithOptions(stacksetsResource, c.ns, name, opts), &v1.StackSet{})
 
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeStackSets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+func (c *FakeStackSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(stacksetsResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &zalandoorgv1.StackSetList{})
+	_, err := c.Fake.Invokes(action, &v1.StackSetList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched stackSet.
-func (c *FakeStackSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *zalandoorgv1.StackSet, err error) {
+func (c *FakeStackSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.StackSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(stacksetsResource, c.ns, name, pt, data, subresources...), &zalandoorgv1.StackSet{})
+		Invokes(testing.NewPatchSubresourceAction(stacksetsResource, c.ns, name, pt, data, subresources...), &v1.StackSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.StackSet), err
+	return obj.(*v1.StackSet), err
 }

@@ -21,10 +21,9 @@ package fake
 import (
 	"context"
 
-	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -36,25 +35,25 @@ type FakePlatformCredentialsSets struct {
 	ns   string
 }
 
-var platformcredentialssetsResource = schema.GroupVersionResource{Group: "zalando.org", Version: "v1", Resource: "platformcredentialssets"}
+var platformcredentialssetsResource = v1.SchemeGroupVersion.WithResource("platformcredentialssets")
 
-var platformcredentialssetsKind = schema.GroupVersionKind{Group: "zalando.org", Version: "v1", Kind: "PlatformCredentialsSet"}
+var platformcredentialssetsKind = v1.SchemeGroupVersion.WithKind("PlatformCredentialsSet")
 
 // Get takes name of the platformCredentialsSet, and returns the corresponding platformCredentialsSet object, and an error if there is any.
-func (c *FakePlatformCredentialsSets) Get(ctx context.Context, name string, options v1.GetOptions) (result *zalandoorgv1.PlatformCredentialsSet, err error) {
+func (c *FakePlatformCredentialsSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.PlatformCredentialsSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(platformcredentialssetsResource, c.ns, name), &zalandoorgv1.PlatformCredentialsSet{})
+		Invokes(testing.NewGetAction(platformcredentialssetsResource, c.ns, name), &v1.PlatformCredentialsSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.PlatformCredentialsSet), err
+	return obj.(*v1.PlatformCredentialsSet), err
 }
 
 // List takes label and field selectors, and returns the list of PlatformCredentialsSets that match those selectors.
-func (c *FakePlatformCredentialsSets) List(ctx context.Context, opts v1.ListOptions) (result *zalandoorgv1.PlatformCredentialsSetList, err error) {
+func (c *FakePlatformCredentialsSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.PlatformCredentialsSetList, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(platformcredentialssetsResource, platformcredentialssetsKind, c.ns, opts), &zalandoorgv1.PlatformCredentialsSetList{})
+		Invokes(testing.NewListAction(platformcredentialssetsResource, platformcredentialssetsKind, c.ns, opts), &v1.PlatformCredentialsSetList{})
 
 	if obj == nil {
 		return nil, err
@@ -64,8 +63,8 @@ func (c *FakePlatformCredentialsSets) List(ctx context.Context, opts v1.ListOpti
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &zalandoorgv1.PlatformCredentialsSetList{ListMeta: obj.(*zalandoorgv1.PlatformCredentialsSetList).ListMeta}
-	for _, item := range obj.(*zalandoorgv1.PlatformCredentialsSetList).Items {
+	list := &v1.PlatformCredentialsSetList{ListMeta: obj.(*v1.PlatformCredentialsSetList).ListMeta}
+	for _, item := range obj.(*v1.PlatformCredentialsSetList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
 		}
@@ -74,69 +73,69 @@ func (c *FakePlatformCredentialsSets) List(ctx context.Context, opts v1.ListOpti
 }
 
 // Watch returns a watch.Interface that watches the requested platformCredentialsSets.
-func (c *FakePlatformCredentialsSets) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakePlatformCredentialsSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(platformcredentialssetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a platformCredentialsSet and creates it.  Returns the server's representation of the platformCredentialsSet, and an error, if there is any.
-func (c *FakePlatformCredentialsSets) Create(ctx context.Context, platformCredentialsSet *zalandoorgv1.PlatformCredentialsSet, opts v1.CreateOptions) (result *zalandoorgv1.PlatformCredentialsSet, err error) {
+func (c *FakePlatformCredentialsSets) Create(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.CreateOptions) (result *v1.PlatformCredentialsSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(platformcredentialssetsResource, c.ns, platformCredentialsSet), &zalandoorgv1.PlatformCredentialsSet{})
+		Invokes(testing.NewCreateAction(platformcredentialssetsResource, c.ns, platformCredentialsSet), &v1.PlatformCredentialsSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.PlatformCredentialsSet), err
+	return obj.(*v1.PlatformCredentialsSet), err
 }
 
 // Update takes the representation of a platformCredentialsSet and updates it. Returns the server's representation of the platformCredentialsSet, and an error, if there is any.
-func (c *FakePlatformCredentialsSets) Update(ctx context.Context, platformCredentialsSet *zalandoorgv1.PlatformCredentialsSet, opts v1.UpdateOptions) (result *zalandoorgv1.PlatformCredentialsSet, err error) {
+func (c *FakePlatformCredentialsSets) Update(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (result *v1.PlatformCredentialsSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(platformcredentialssetsResource, c.ns, platformCredentialsSet), &zalandoorgv1.PlatformCredentialsSet{})
+		Invokes(testing.NewUpdateAction(platformcredentialssetsResource, c.ns, platformCredentialsSet), &v1.PlatformCredentialsSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.PlatformCredentialsSet), err
+	return obj.(*v1.PlatformCredentialsSet), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePlatformCredentialsSets) UpdateStatus(ctx context.Context, platformCredentialsSet *zalandoorgv1.PlatformCredentialsSet, opts v1.UpdateOptions) (*zalandoorgv1.PlatformCredentialsSet, error) {
+func (c *FakePlatformCredentialsSets) UpdateStatus(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (*v1.PlatformCredentialsSet, error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(platformcredentialssetsResource, "status", c.ns, platformCredentialsSet), &zalandoorgv1.PlatformCredentialsSet{})
+		Invokes(testing.NewUpdateSubresourceAction(platformcredentialssetsResource, "status", c.ns, platformCredentialsSet), &v1.PlatformCredentialsSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.PlatformCredentialsSet), err
+	return obj.(*v1.PlatformCredentialsSet), err
 }
 
 // Delete takes name of the platformCredentialsSet and deletes it. Returns an error if one occurs.
-func (c *FakePlatformCredentialsSets) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
+func (c *FakePlatformCredentialsSets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(platformcredentialssetsResource, c.ns, name, opts), &zalandoorgv1.PlatformCredentialsSet{})
+		Invokes(testing.NewDeleteActionWithOptions(platformcredentialssetsResource, c.ns, name, opts), &v1.PlatformCredentialsSet{})
 
 	return err
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakePlatformCredentialsSets) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+func (c *FakePlatformCredentialsSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
 	action := testing.NewDeleteCollectionAction(platformcredentialssetsResource, c.ns, listOpts)
 
-	_, err := c.Fake.Invokes(action, &zalandoorgv1.PlatformCredentialsSetList{})
+	_, err := c.Fake.Invokes(action, &v1.PlatformCredentialsSetList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched platformCredentialsSet.
-func (c *FakePlatformCredentialsSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *zalandoorgv1.PlatformCredentialsSet, err error) {
+func (c *FakePlatformCredentialsSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.PlatformCredentialsSet, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(platformcredentialssetsResource, c.ns, name, pt, data, subresources...), &zalandoorgv1.PlatformCredentialsSet{})
+		Invokes(testing.NewPatchSubresourceAction(platformcredentialssetsResource, c.ns, name, pt, data, subresources...), &v1.PlatformCredentialsSet{})
 
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*zalandoorgv1.PlatformCredentialsSet), err
+	return obj.(*v1.PlatformCredentialsSet), err
 }
