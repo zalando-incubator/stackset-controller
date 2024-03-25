@@ -438,6 +438,9 @@ type StackSpec struct {
 // +k8s:deepcopy-gen=true
 type ConfigurationResourcesSpec struct {
 	// ConfigMap to be owned by Stack
+	ConfigMap *ConfigMap `json:"configMap,omitempty"`
+
+	// ConfigMap to be owned by Stack
 	ConfigMapRef *v1.LocalObjectReference `json:"configMapRef,omitempty"`
 
 	// Secret to be owned by Stack
@@ -446,6 +449,10 @@ type ConfigurationResourcesSpec struct {
 
 // GetName returns the name of the ConfigurationResourcesSpec.
 func (crs *ConfigurationResourcesSpec) GetName() string {
+	if crs.IsConfigMap() {
+		return crs.ConfigMap.Name
+	}
+
 	if crs.IsConfigMapRef() {
 		return crs.ConfigMapRef.Name
 	}
@@ -457,6 +464,11 @@ func (crs *ConfigurationResourcesSpec) GetName() string {
 	return ""
 }
 
+// IsConfigMap returns true if the ConfigurationResourcesSpec is a ConfigMap.
+func (crs *ConfigurationResourcesSpec) IsConfigMap() bool {
+	return crs.ConfigMap != nil && crs.ConfigMap.Name != ""
+}
+
 // IsConfigMapRef returns true if the ConfigurationResourcesSpec is a ConfigMapRef.
 func (crs *ConfigurationResourcesSpec) IsConfigMapRef() bool {
 	return crs.ConfigMapRef != nil && crs.ConfigMapRef.Name != ""
@@ -465,6 +477,16 @@ func (crs *ConfigurationResourcesSpec) IsConfigMapRef() bool {
 // IsSecretRef returns true if the ConfigurationResourcesSpec is a SecretRef.
 func (crs *ConfigurationResourcesSpec) IsSecretRef() bool {
 	return crs.SecretRef != nil && crs.SecretRef.Name != ""
+}
+
+// ConfigMap todo
+// +k8s:deepcopy-gen=true
+type ConfigMap struct {
+	// Name todo
+	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+
+	// Data todo
+	Data map[string]string `json:"data,omitempty" protobuf:"bytes,2,rep,name=data"`
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and
