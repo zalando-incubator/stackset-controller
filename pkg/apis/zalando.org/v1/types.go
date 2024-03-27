@@ -103,8 +103,10 @@ type EmbeddedObjectMeta struct {
 // +k8s:deepcopy-gen=true
 type StackSetIngressSpec struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
-	Hosts                             []string           `json:"hosts"`
-	BackendPort                       intstr.IntOrString `json:"backendPort"`
+	// +kubebuilder:validation:MinItems=1
+	// +listType=set
+	Hosts       []string           `json:"hosts"`
+	BackendPort intstr.IntOrString `json:"backendPort"`
 
 	// +optional
 	Path string `json:"path"`
@@ -131,6 +133,8 @@ type StackSetExternalIngressSpec struct {
 type RouteGroupSpec struct {
 	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
 	// Hosts is the list of hostnames to add to the routegroup.
+	// +kubebuilder:validation:MinItems=1
+	// +listType=set
 	Hosts []string `json:"hosts"`
 	// AdditionalBackends is the list of additional backends to use for
 	// routing.
