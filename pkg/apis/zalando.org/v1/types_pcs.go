@@ -41,11 +41,20 @@ type Token struct {
 // PlatformCredentialsStatus is the status part of the Stack.
 // +k8s:deepcopy-gen=true
 type PlatformCredentialsStatus struct {
-	ObservedGeneration int64               `json:"observedGeneration"`
-	Errors             []string            `json:"errors"`
-	Problems           []string            `json:"problems"`
-	Tokens             map[string]struct{} `json:"tokens"`
-	Clients            map[string]struct{} `json:"clients"`
+	ObservedGeneration int64                   `json:"observedGeneration"`
+	Errors             []string                `json:"errors"`
+	Problems           []string                `json:"problems"`
+	Tokens             map[string]TokenStatus  `json:"tokens"`
+	Clients            map[string]ClientStatus `json:"clients"`
+}
+
+// +k8s:deepcopy-gen=true
+type ClientStatus struct{}
+
+// +k8s:deepcopy-gen=true
+type TokenStatus struct {
+	// +optional
+	Expiration *metav1.Time `json:"expiration,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
