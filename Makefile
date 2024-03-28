@@ -35,10 +35,11 @@ $(GENERATED): go.mod $(CRD_TYPE_SOURCE)
 	./hack/update-codegen.sh
 
 $(GENERATED_CRDS): $(GENERATED) $(CRD_SOURCES)
-	go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1,allowDangerousTypes=true paths=./pkg/apis/... output:crd:dir=docs || /bin/true || true
+	go run sigs.k8s.io/controller-tools/cmd/controller-gen crd:crdVersions=v1,allowDangerousTypes=true paths=./pkg/apis/... output:crd:dir=docs
 	go run hack/crd/trim.go < docs/zalando.org_stacksets.yaml > docs/stackset_crd.yaml
 	go run hack/crd/trim.go < docs/zalando.org_stacks.yaml > docs/stack_crd.yaml
 	rm docs/zalando.org_stacksets.yaml docs/zalando.org_stacks.yaml
+	rm -f docs/zalando.org_platformcredentialssets.yaml
 
 build.local: $(LOCAL_BINARIES) $(GENERATED_CRDS)
 build.linux: $(LINUX_BINARIES)
