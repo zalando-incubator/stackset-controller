@@ -10,12 +10,12 @@ require (
 	github.com/prometheus/client_golang v1.19.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.9.0
-	github.com/szuecs/routegroup-client v0.25.2
+	github.com/szuecs/routegroup-client v0.28.0
 	golang.org/x/sync v0.6.0
-	k8s.io/api v0.27.12
-	k8s.io/apimachinery v0.27.12
-	k8s.io/client-go v0.27.12
-	k8s.io/code-generator v0.27.12
+	k8s.io/api v0.28.7
+	k8s.io/apimachinery v0.28.7
+	k8s.io/client-go v0.28.7
+	k8s.io/code-generator v0.28.7
 	sigs.k8s.io/controller-tools v0.11.4
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -37,7 +37,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/google/gnostic v0.7.0 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
