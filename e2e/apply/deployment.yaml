@@ -30,7 +30,7 @@ spec:
           - "--enable-configmap-support"
           - "--enable-secret-support"
           - "--enable-routegroup-support"
-          - "--annotated-traffic-segments"
+          - "--enable-traffic-segments"
           - "--sync-ingress-annotation=example.org/i-haz-synchronize"
           - "--sync-ingress-annotation=teapot.org/the-best"
           - "--ingress-source-switch-ttl=1m"
