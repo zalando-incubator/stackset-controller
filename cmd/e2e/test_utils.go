@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"testing"
@@ -380,14 +379,6 @@ func deleteStackset(stacksetName string) error {
 	)
 }
 
-func deleteStack(stackName string) error {
-	return stackInterface().Delete(
-		context.Background(),
-		stackName,
-		metav1.DeleteOptions{},
-	)
-}
-
 func stacksetExists(stacksetName string) bool {
 	_, err := stacksetInterface().Get(context.Background(), stacksetName, metav1.GetOptions{})
 	return err == nil
@@ -532,48 +523,6 @@ func waitForSecret(t *testing.T, secretName string) (*corev1.Secret, error) {
 		return nil, err
 	}
 	return secretInterface().Get(context.Background(), secretName, metav1.GetOptions{})
-}
-
-func waitForUpdatedRouteGroup(t *testing.T, name string, oldTimestamp string) (*rgv1.RouteGroup, error) {
-	err := newAwaiter(t, fmt.Sprintf("updated RouteGroup %s", name)).withPoll(func() (bool, error) {
-		rg, err := routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
-		if err != nil {
-			return apiErrors.IsNotFound(err), err
-		}
-		return rg.Annotations[controller.ControllerLastUpdatedAnnotationKey] != oldTimestamp, nil
-	}).await()
-	if err != nil {
-		return nil, err
-	}
-	return routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
-}
-
-func waitForUpdatedIngress(t *testing.T, name string, oldTimestamp string) (*networkingv1.Ingress, error) {
-	err := newAwaiter(t, fmt.Sprintf("updated Ingress %s", name)).withPoll(func() (bool, error) {
-		ing, err := ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
-		if err != nil {
-			return apiErrors.IsNotFound(err), err
-		}
-		return ing.Annotations[controller.ControllerLastUpdatedAnnotationKey] != oldTimestamp, nil
-	}).await()
-	if err != nil {
-		return nil, err
-	}
-	return ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
-}
-
-func getIngressTrafficWeights(ingress *networkingv1.Ingress, kind weightKind) map[string]float64 {
-	weights := ingress.Annotations[string(kind)]
-	if weights == "" {
-		return nil
-	}
-
-	var result map[string]float64
-	err := json.Unmarshal([]byte(weights), &result)
-	if err != nil {
-		return nil
-	}
-	return result
 }
 
 func getStacksetTrafficWeights(stackset *zv1.StackSet, kind weightKind) map[string]float64 {
