@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
