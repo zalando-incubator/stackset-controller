@@ -418,7 +418,11 @@ func verifyStackSegments(
 
 	resourceName := stack.Name + core.SegmentSuffix
 	if stack.Spec.Ingress != nil {
-		segmentIngress, err := waitForIngress(t, resourceName)
+		segmentIngress, err := waitForIngressSegment(
+			t,
+			stacksetName,
+			currentVersion,
+		)
 		require.NoError(t, err)
 		require.Contains(
 			t,

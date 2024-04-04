@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -178,19 +178,32 @@ func removeZeroWeights(weights map[string]float64) {
 // will never be retried
 type trafficAsserter func(map[string]float64) error
 
-func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
+func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
 	removeZeroWeights(expectedWeights)
-	timeout := waitTimeout
-	if kind == weightKindActual {
-		timeout = trafficSwitchWaitTimeout
-	}
 	return newAwaiter(t, fmt.Sprintf("update of traffic weights in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
-		ingress, err := ingressInterface().Get(context.Background(), ingressName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
+		predicates := map[string]string{}
+		for stack := range expectedWeights {
+			ingSeg, err := ingressInterface().Get(
+				context.Background(),
+				fmt.Sprintf("%s-traffic-segment", stack),
+				metav1.GetOptions{},
+			)
+
+			if err != nil {
+				return true, err
+			}
+
+			predicates[stack] = ingSeg.Annotations[core.IngressPredicateKey]
 		}
 
-		actualWeights := getIngressTrafficWeights(ingress, kind)
+		actualWeights := map[string]float64{}
+		for version, predicate := range predicates {
+			lower, upper, err := core.GetSegmentLimits(predicate)
+			if err != nil {
+				return false, err
+			}
+			actualWeights[version] = (upper - lower) * 100
+		}
 
 		if asserter != nil {
 			err = asserter(actualWeights)
@@ -205,31 +218,7 @@ func trafficWeightsUpdatedIngress(t *testing.T, ingressName string, kind weightK
 			return true, fmt.Errorf("%s: weights %v != expected %v", ingressName, actualWeights, expectedWeights)
 		}
 		return false, nil
-	}).withTimeout(timeout)
-}
-
-func ingressTrafficAuthoritative(t *testing.T, ingressName string, expectedAuthoritative bool) *awaiter {
-	return newAwaiter(t, fmt.Sprintf("update of traffic authoritative annotation in ingress %s", ingressName)).withPoll(func() (retry bool, err error) {
-		ingress, err := ingressInterface().Get(context.Background(), ingressName, metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-
-		authoritativeStr, ok := ingress.Annotations["zalando.org/traffic-authoritative"]
-		if !ok {
-			return true, fmt.Errorf("missing traffic authoritative annotation in ingress %s", ingressName)
-		}
-		authoritative, err := strconv.ParseBool(authoritativeStr)
-		if !ok {
-			return false, fmt.Errorf("invalid value for authoritative annotation in ingress %s: %v", ingressName, err)
-		}
-
-		if authoritative != expectedAuthoritative {
-			return true, fmt.Errorf("%s: authoritative %v != expected %v", ingressName, authoritative, expectedAuthoritative)
-		}
-
-		return false, nil
-	}).withTimeout(waitTimeout)
+	}).withTimeout(trafficSwitchWaitTimeout)
 }
 
 func trafficWeightsUpdatedStackset(t *testing.T, stacksetName string, kind weightKind, expectedWeights map[string]float64, asserter trafficAsserter) *awaiter {
@@ -493,12 +482,40 @@ func waitForIngress(t *testing.T, name string) (*networkingv1.Ingress, error) {
 	return ingressInterface().Get(context.Background(), name, metav1.GetOptions{})
 }
 
+func waitForIngressSegment(t *testing.T, name, version string) (
+	*networkingv1.Ingress,
+	error,
+) {
+	return waitForIngress(
+		t,
+		fmt.Sprintf(
+			"%s-%s-traffic-segment",
+			name,
+			version,
+		),
+	)
+}
+
 func waitForRouteGroup(t *testing.T, name string) (*rgv1.RouteGroup, error) {
 	err := resourceCreated(t, "routegroup", name, routegroupInterface()).await()
 	if err != nil {
 		return nil, err
 	}
 	return routegroupInterface().Get(context.Background(), name, metav1.GetOptions{})
+}
+
+func waitForRouteGroupSegment(t *testing.T, name, version string) (
+	*rgv1.RouteGroup,
+	error,
+) {
+	return waitForRouteGroup(
+		t,
+		fmt.Sprintf(
+			"%s-%s-traffic-segment",
+			name,
+			version,
+		),
+	)
 }
 
 func waitForConfigMap(t *testing.T, configMapName string) (*corev1.ConfigMap, error) {

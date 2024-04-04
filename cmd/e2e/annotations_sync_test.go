@@ -134,16 +134,10 @@ func TestSyncAnnotationsPropagateToSegments(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			_, err = waitForIngress(
-				t,
-				stacksetName+"-"+version+"-traffic-segment",
-			)
+			_, err = waitForIngressSegment(t, stacksetName, version)
 			require.NoError(t, err)
 
-			_, err = waitForRouteGroup(
-				t,
-				stacksetName+"-"+version+"-traffic-segment",
-			)
+			_, err = waitForRouteGroupSegment(t, stacksetName, version)
 			require.NoError(t, err)
 		}
 
@@ -152,10 +146,7 @@ func TestSyncAnnotationsPropagateToSegments(t *testing.T) {
 
 		for i := 0; i < len(tc.annotationsIng); i++ {
 			version := fmt.Sprintf("v%d", i)
-			ingress, err := waitForIngress(
-				t,
-				stacksetName+"-"+version+"-traffic-segment",
-			)
+			ingress, err := waitForIngressSegment(t, stacksetName, version)
 			require.NoError(t, err)
 
 			delete(
@@ -176,9 +167,10 @@ func TestSyncAnnotationsPropagateToSegments(t *testing.T) {
 				)
 			}
 
-			routeGroup, err := waitForRouteGroup(
+			routeGroup, err := waitForRouteGroupSegment(
 				t,
-				stacksetName+"-"+version+"-traffic-segment",
+				stacksetName,
+				version,
 			)
 			require.NoError(t, err)
 

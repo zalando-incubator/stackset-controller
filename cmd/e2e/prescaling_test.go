@@ -21,6 +21,8 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstStack)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, firstStack)
+	require.NoError(t, err)
 
 	// create second stack with 3 replicas
 	secondStack := "v2"
@@ -29,12 +31,12 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, secondStack)
+	require.NoError(t, err)
 
 	// switch traffic so that both stacks are receiving equal traffic and verify traffic has actually switched
 	fullFirstStack := fmt.Sprintf("%s-%s", stacksetName, firstStack)
 	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, secondStack)
-	_, err = waitForIngress(t, stacksetName)
-	require.NoError(t, err)
 	desiredTraffic := map[string]float64{
 		fullFirstStack:  50,
 		fullSecondStack: 50,
@@ -92,6 +94,8 @@ func TestPrescalingWithHPA(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstStack)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, firstStack)
+	require.NoError(t, err)
 
 	// create second stack with 3 replicas
 	secondStack := "v2"
@@ -100,12 +104,12 @@ func TestPrescalingWithHPA(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, secondStack)
+	require.NoError(t, err)
 
 	// switch traffic so that both stacks are receiving equal traffic
 	fullFirstStack := fmt.Sprintf("%s-%s", stacksetName, firstStack)
 	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, secondStack)
-	_, err = waitForIngress(t, stacksetName)
-	require.NoError(t, err)
 	desiredTraffic := map[string]float64{
 		fullFirstStack:  50,
 		fullSecondStack: 50,
@@ -244,6 +248,8 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstStack)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, firstStack)
+	require.NoError(t, err)
 
 	// create second stack with 3 replicas
 	secondStack := "v2"
@@ -251,6 +257,8 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	err = updateStackset(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
+	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, secondStack)
 	require.NoError(t, err)
 
 	// create third stack with 3 replicas
@@ -260,8 +268,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, thirdStack)
 	require.NoError(t, err)
-
-	_, err = waitForIngress(t, stacksetName)
+	_, err = waitForIngressSegment(t, stacksetName, thirdStack)
 	require.NoError(t, err)
 
 	// switch traffic so that all three stacks are receiving 0%, 50% & 50% traffic and verify traffic has actually switched
