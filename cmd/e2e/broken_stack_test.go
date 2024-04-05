@@ -23,6 +23,8 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstVersion)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, firstVersion)
+	require.NoError(t, err)
 
 	unhealthyVersion := "v2"
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
@@ -37,8 +39,7 @@ func TestBrokenStacks(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
-
-	_, err = waitForIngress(t, stacksetName)
+	_, err = waitForIngressSegment(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
 
 	initialWeights := map[string]float64{firstStack: 100}
@@ -107,6 +108,8 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstVersion)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, firstVersion)
+	require.NoError(t, err)
 
 	unhealthyVersion := "v2"
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
@@ -119,8 +122,7 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
-
-	_, err = waitForIngress(t, stacksetName)
+	_, err = waitForIngressSegment(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
 
 	initialWeights := map[string]float64{firstStack: 100}
@@ -198,6 +200,8 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, firstVersion)
 	require.NoError(t, err)
+	_, err = waitForIngressSegment(t, stacksetName, firstVersion)
+	require.NoError(t, err)
 
 	unhealthyVersion := "v2"
 
@@ -210,8 +214,7 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
-
-	_, err = waitForIngress(t, stacksetName)
+	_, err = waitForIngressSegment(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
 
 	initialWeights := map[string]float64{firstStack: 100}

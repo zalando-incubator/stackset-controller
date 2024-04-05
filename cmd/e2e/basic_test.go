@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -419,7 +418,11 @@ func verifyStackSegments(
 
 	resourceName := stack.Name + core.SegmentSuffix
 	if stack.Spec.Ingress != nil {
-		segmentIngress, err := waitForIngress(t, resourceName)
+		segmentIngress, err := waitForIngressSegment(
+			t,
+			stacksetName,
+			currentVersion,
+		)
 		require.NoError(t, err)
 		require.Contains(
 			t,
@@ -553,124 +556,6 @@ func verifyStacksetExternalIngress(t *testing.T, stacksetName string, stacksetSp
 	require.NoError(t, err)
 }
 
-func verifyStacksetIngress(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
-	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
-
-	expectedWeights := make(map[string]float64)
-
-	var expectedPaths []v1.HTTPIngressPath
-	for stack, weight := range stackWeights {
-		serviceName := fmt.Sprintf("%s-%s", stacksetName, stack)
-		expectedWeights[serviceName] = weight
-
-		if weight == 0.0 {
-			continue
-		}
-
-		expectedPaths = append(expectedPaths, v1.HTTPIngressPath{
-			PathType: &pathType,
-			Backend: v1.IngressBackend{
-				Service: &v1.IngressServiceBackend{
-					Name: serviceName,
-					Port: v1.ServiceBackendPort{
-						Number: 80,
-					},
-				},
-			},
-		})
-		sort.Slice(expectedPaths, func(i, j int) bool {
-			return strings.Compare(expectedPaths[i].Backend.Service.Name, expectedPaths[j].Backend.Service.Name) < 0
-		})
-	}
-
-	globalIngress, err := waitForIngress(t, stacksetName)
-	require.NoError(t, err)
-	require.EqualValues(t, stacksetResourceLabels, globalIngress.Labels)
-	for k, v := range annotations {
-		require.Contains(t, globalIngress.Annotations, k)
-		require.Equal(t, v, globalIngress.Annotations[k])
-	}
-	globalIngressRules := make([]v1.IngressRule, 0, len(stacksetSpec.Ingress.Hosts))
-	for _, host := range stacksetSpec.Ingress.Hosts {
-		globalIngressRules = append(globalIngressRules, v1.IngressRule{
-			Host: host,
-			IngressRuleValue: v1.IngressRuleValue{
-				HTTP: &v1.HTTPIngressRuleValue{
-					Paths: expectedPaths,
-				},
-			},
-		})
-	}
-	// sort rules by hostname for a stable order
-	sort.Slice(globalIngressRules, func(i, j int) bool {
-		return globalIngressRules[i].Host < globalIngressRules[j].Host
-	})
-	require.EqualValues(t, globalIngressRules, globalIngress.Spec.Rules)
-
-	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
-	require.NoError(t, err)
-	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, expectedWeights, nil).await()
-	require.NoError(t, err)
-}
-
-func verifyStacksetRouteGroup(t *testing.T, stacksetName string, stacksetSpec zv1.StackSetSpec, stackWeights map[string]float64, annotations map[string]string) {
-	stacksetResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName}
-
-	expectedWeights := make(map[string]float64)
-
-	var expectedDefaultBackends []rgv1.RouteGroupBackendReference
-	var expectedBackends []rgv1.RouteGroupBackend
-	for stack, weight := range stackWeights {
-		serviceName := fmt.Sprintf("%s-%s", stacksetName, stack)
-		expectedWeights[serviceName] = weight
-
-		expectedBackends = append(expectedBackends, rgv1.RouteGroupBackend{
-			Name:        serviceName,
-			Type:        rgv1.ServiceRouteGroupBackend,
-			ServiceName: serviceName,
-			ServicePort: 80,
-		})
-
-		if weight == 0.0 {
-			continue
-		}
-
-		expectedDefaultBackends = append(expectedDefaultBackends, rgv1.RouteGroupBackendReference{
-			BackendName: serviceName,
-			Weight:      int(weight),
-		})
-	}
-
-	sort.Slice(expectedDefaultBackends, func(i, j int) bool {
-		return strings.Compare(expectedDefaultBackends[i].BackendName, expectedDefaultBackends[j].BackendName) < 0
-	})
-	sort.Slice(expectedBackends, func(i, j int) bool {
-		return strings.Compare(expectedBackends[i].Name, expectedBackends[j].Name) < 0
-	})
-
-	globalRouteGroup, err := waitForRouteGroup(t, stacksetName)
-	require.NoError(t, err)
-	require.EqualValues(t, stacksetResourceLabels, globalRouteGroup.Labels)
-	for k, v := range annotations {
-		require.Contains(t, globalRouteGroup.Annotations, k)
-		require.Equal(t, v, globalRouteGroup.Annotations[k])
-	}
-
-	sort.Slice(globalRouteGroup.Spec.DefaultBackends, func(i, j int) bool {
-		return strings.Compare(globalRouteGroup.Spec.DefaultBackends[i].BackendName, globalRouteGroup.Spec.DefaultBackends[j].BackendName) < 0
-	})
-	sort.Slice(globalRouteGroup.Spec.Backends, func(i, j int) bool {
-		return strings.Compare(globalRouteGroup.Spec.Backends[i].Name, globalRouteGroup.Spec.Backends[j].Name) < 0
-	})
-	require.EqualValues(t, expectedDefaultBackends, globalRouteGroup.Spec.DefaultBackends)
-	require.EqualValues(t, expectedBackends, globalRouteGroup.Spec.Backends)
-
-	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindDesired, expectedWeights, nil).await()
-	require.NoError(t, err)
-	err = trafficWeightsUpdatedStackset(t, stacksetName, weightKindActual, expectedWeights, nil).await()
-	require.NoError(t, err)
-}
-
 func testStacksetCreate(
 	t *testing.T,
 	testName string,
@@ -685,106 +570,76 @@ func testStacksetCreate(
 ) {
 	t.Parallel()
 
-	for _, ingType := range []string{"central", "segment"} {
-		stacksetName := fmt.Sprintf("stackset-create-%s-%s", ingType, testName)
-		stackVersion := "v1"
-		stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
-		if configmapRef {
-			configMapName := fmt.Sprintf("%s-%s-configmap", stacksetName, stackVersion)
-			createConfigMap(t, configMapName)
-			stacksetSpecFactory.AddReferencedConfigMap(configMapName)
-		}
-		if secretRef {
-			secretName := fmt.Sprintf("%s-%s-secret", stacksetName, stackVersion)
-			createSecret(t, secretName)
-			stacksetSpecFactory.AddReferencedSecret(secretName)
-		}
-		if hpa {
-			stacksetSpecFactory.Autoscaler(
-				1,
-				3,
-				[]zv1.AutoscalerMetrics{makeCPUAutoscalerMetrics(50)},
-			)
-		}
-		if ingress {
-			stacksetSpecFactory.Ingress()
-		}
-		if routegroup {
-			stacksetSpecFactory.RouteGroup()
-		}
-		if externalIngress {
-			stacksetSpecFactory.ExternalIngress()
-		}
-		if updateStrategy {
-			stacksetSpecFactory.UpdateMaxSurge(10).UpdateMaxUnavailable(100)
-		}
-		if len(subResourceAnnotations) > 0 {
-			stacksetSpecFactory.SubResourceAnnotations(subResourceAnnotations)
-		}
-		stacksetSpec := stacksetSpecFactory.Create(t, stackVersion)
+	stacksetName := fmt.Sprintf("stackset-create-%s", testName)
+	stackVersion := "v1"
+	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
+	if configmapRef {
+		configMapName := fmt.Sprintf("%s-%s-configmap", stacksetName, stackVersion)
+		createConfigMap(t, configMapName)
+		stacksetSpecFactory.AddReferencedConfigMap(configMapName)
+	}
+	if secretRef {
+		secretName := fmt.Sprintf("%s-%s-secret", stacksetName, stackVersion)
+		createSecret(t, secretName)
+		stacksetSpecFactory.AddReferencedSecret(secretName)
+	}
+	if hpa {
+		stacksetSpecFactory.Autoscaler(
+			1,
+			3,
+			[]zv1.AutoscalerMetrics{makeCPUAutoscalerMetrics(50)},
+		)
+	}
+	if ingress {
+		stacksetSpecFactory.Ingress()
+	}
+	if routegroup {
+		stacksetSpecFactory.RouteGroup()
+	}
+	if externalIngress {
+		stacksetSpecFactory.ExternalIngress()
+	}
+	if updateStrategy {
+		stacksetSpecFactory.UpdateMaxSurge(10).UpdateMaxUnavailable(100)
+	}
+	if len(subResourceAnnotations) > 0 {
+		stacksetSpecFactory.SubResourceAnnotations(subResourceAnnotations)
+	}
+	stacksetSpec := stacksetSpecFactory.Create(t, stackVersion)
 
-		var err error
-		switch ingType {
-		case "segment":
-			err = createStackSetWithAnnotations(
-				stacksetName,
-				0,
-				stacksetSpec,
-				map[string]string{
-					controller.TrafficSegmentsAnnotationKey: "true",
-				},
-			)
-		default:
-			err = createStackSet(stacksetName, 0, stacksetSpec)
-		}
-		require.NoError(t, err)
+	err := createStackSetWithAnnotations(
+		stacksetName,
+		0,
+		stacksetSpec,
+		map[string]string{
+			controller.TrafficSegmentsAnnotationKey: "true",
+		},
+	)
+	require.NoError(t, err)
 
-		verifyStack(
+	verifyStack(
+		t,
+		stacksetName,
+		stackVersion,
+		stacksetSpec,
+		subResourceAnnotations,
+	)
+
+	verifyStackSegments(
+		t,
+		stacksetName,
+		stackVersion,
+		"TrafficSegment(0.00, 1.00)",
+		subResourceAnnotations,
+	)
+
+	if externalIngress {
+		verifyStacksetExternalIngress(
 			t,
 			stacksetName,
-			stackVersion,
 			stacksetSpec,
-			subResourceAnnotations,
+			map[string]float64{stackVersion: 100},
 		)
-
-		switch ingType {
-		case "segment":
-			verifyStackSegments(
-				t,
-				stacksetName,
-				stackVersion,
-				"TrafficSegment(0.00, 1.00)",
-				subResourceAnnotations,
-			)
-		default:
-			if ingress {
-				verifyStacksetIngress(
-					t,
-					stacksetName,
-					stacksetSpec,
-					map[string]float64{stackVersion: 100},
-					subResourceAnnotations,
-				)
-			}
-			if routegroup {
-				verifyStacksetRouteGroup(
-					t,
-					stacksetName,
-					stacksetSpec,
-					map[string]float64{stackVersion: 100},
-					subResourceAnnotations,
-				)
-			}
-		}
-
-		if externalIngress {
-			verifyStacksetExternalIngress(
-				t,
-				stacksetName,
-				stacksetSpec,
-				map[string]float64{stackVersion: 100},
-			)
-		}
 	}
 }
 
@@ -804,249 +659,157 @@ func testStacksetUpdate(
 ) {
 	t.Parallel()
 
-	for _, ingType := range []string{"central", "segment"} {
-		var actualTraffic []*zv1.ActualTraffic
+	var actualTraffic []*zv1.ActualTraffic
 
-		stacksetName := fmt.Sprintf("stackset-update-%s-%s", ingType, testName)
-		initialVersion := "v1"
-		stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
-		if oldHpa {
-			stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{
-				makeCPUAutoscalerMetrics(50),
-			})
-		}
-		if oldIngress {
-			stacksetSpecFactory.Ingress()
-		}
-		if oldRouteGroup {
-			stacksetSpecFactory.RouteGroup()
-		}
-		if oldExternalIngress {
-			stacksetSpecFactory.ExternalIngress()
-		}
+	stacksetName := fmt.Sprintf("stackset-update-%s", testName)
+	initialVersion := "v1"
+	stacksetSpecFactory := NewTestStacksetSpecFactory(stacksetName)
+	if oldHpa {
+		stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{
+			makeCPUAutoscalerMetrics(50),
+		})
+	}
+	if oldIngress {
+		stacksetSpecFactory.Ingress()
+	}
+	if oldRouteGroup {
+		stacksetSpecFactory.RouteGroup()
+	}
+	if oldExternalIngress {
+		stacksetSpecFactory.ExternalIngress()
+	}
 
-		if oldIngress || oldRouteGroup || oldExternalIngress {
-			actualTraffic = []*zv1.ActualTraffic{
-				{
-					StackName:   stacksetName + "-" + initialVersion,
-					ServiceName: stacksetName + "-" + initialVersion,
-					ServicePort: intstr.FromInt(80),
-					Weight:      100.0,
-				},
-			}
+	if oldIngress || oldRouteGroup || oldExternalIngress {
+		actualTraffic = []*zv1.ActualTraffic{
+			{
+				StackName:   stacksetName + "-" + initialVersion,
+				ServiceName: stacksetName + "-" + initialVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      100.0,
+			},
 		}
-		if len(oldSubResourceAnnotations) > 0 {
-			stacksetSpecFactory.SubResourceAnnotations(
-				oldSubResourceAnnotations,
-			)
-		}
-		stacksetSpec := stacksetSpecFactory.Create(t, initialVersion)
-
-		var err error
-		switch ingType {
-		case "segment":
-			err = createStackSetWithAnnotations(
-				stacksetName,
-				0,
-				stacksetSpec,
-				map[string]string{
-					controller.TrafficSegmentsAnnotationKey: "true",
-				},
-			)
-		default:
-			err = createStackSet(stacksetName, 0, stacksetSpec)
-		}
-		require.NoError(t, err)
-
-		verifyStack(
-			t,
-			stacksetName,
-			initialVersion,
-			stacksetSpec,
+	}
+	if len(oldSubResourceAnnotations) > 0 {
+		stacksetSpecFactory.SubResourceAnnotations(
 			oldSubResourceAnnotations,
 		)
+	}
+	stacksetSpec := stacksetSpecFactory.Create(t, initialVersion)
 
-		switch ingType {
-		case "segment":
-			verifyStackSegments(
-				t,
-				stacksetName,
-				initialVersion,
-				"TrafficSegment(0.00, 1.00)",
-				oldSubResourceAnnotations,
-			)
-		default:
-			if oldIngress {
-				verifyStacksetIngress(
-					t,
-					stacksetName,
-					stacksetSpec,
-					map[string]float64{initialVersion: 100},
-					oldSubResourceAnnotations,
-				)
-			}
-			if oldRouteGroup {
-				verifyStacksetRouteGroup(
-					t,
-					stacksetName,
-					stacksetSpec,
-					map[string]float64{initialVersion: 100},
-					oldSubResourceAnnotations,
-				)
-			}
-		}
+	err := createStackSetWithAnnotations(
+		stacksetName,
+		0,
+		stacksetSpec,
+		map[string]string{
+			controller.TrafficSegmentsAnnotationKey: "true",
+		},
+	)
+	require.NoError(t, err)
 
-		if oldExternalIngress {
-			verifyStacksetExternalIngress(
-				t,
-				stacksetName,
-				stacksetSpec,
-				map[string]float64{initialVersion: 100},
-			)
-		}
+	verifyStack(
+		t,
+		stacksetName,
+		initialVersion,
+		stacksetSpec,
+		oldSubResourceAnnotations,
+	)
 
-		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
-			observedStackVersion: initialVersion,
-			actualTraffic:        actualTraffic,
-		})
+	verifyStackSegments(
+		t,
+		stacksetName,
+		initialVersion,
+		"TrafficSegment(0.00, 1.00)",
+		oldSubResourceAnnotations,
+	)
 
-		stacksetSpecFactory = NewTestStacksetSpecFactory(stacksetName)
-		updatedVersion := "v2"
-		if newHpa {
-			stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{
-				makeCPUAutoscalerMetrics(50),
-			})
-		}
-		if newIngress {
-			stacksetSpecFactory.Ingress()
-		} else if newRouteGroup {
-			stacksetSpecFactory.RouteGroup()
-		} else if newExternalIngress {
-			stacksetSpecFactory.ExternalIngress()
-		} else if oldIngress || oldRouteGroup || oldExternalIngress {
-			actualTraffic = nil
-		}
-
-		if newIngress || newRouteGroup || newExternalIngress {
-			actualTraffic = []*zv1.ActualTraffic{
-				{
-					StackName:   stacksetName + "-" + initialVersion,
-					ServiceName: stacksetName + "-" + initialVersion,
-					ServicePort: intstr.FromInt(80),
-					Weight:      100.0,
-				},
-				{
-					StackName:   stacksetName + "-" + updatedVersion,
-					ServiceName: stacksetName + "-" + updatedVersion,
-					ServicePort: intstr.FromInt(80),
-					Weight:      0.0,
-				},
-			}
-		}
-
-		if len(newSubResourceAnnotations) > 0 {
-			stacksetSpecFactory.SubResourceAnnotations(
-				newSubResourceAnnotations,
-			)
-		}
-
-		updatedSpec := stacksetSpecFactory.Create(t, updatedVersion)
-		err = updateStackset(stacksetName, updatedSpec)
-		require.NoError(t, err)
-
-		verifyStack(
+	if oldExternalIngress {
+		verifyStacksetExternalIngress(
 			t,
 			stacksetName,
-			updatedVersion,
-			updatedSpec,
+			stacksetSpec,
+			map[string]float64{initialVersion: 100},
+		)
+	}
+
+	verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+		observedStackVersion: initialVersion,
+		actualTraffic:        actualTraffic,
+	})
+
+	stacksetSpecFactory = NewTestStacksetSpecFactory(stacksetName)
+	updatedVersion := "v2"
+	if newHpa {
+		stacksetSpecFactory.Autoscaler(1, 3, []zv1.AutoscalerMetrics{
+			makeCPUAutoscalerMetrics(50),
+		})
+	}
+	if newIngress {
+		stacksetSpecFactory.Ingress()
+	} else if newRouteGroup {
+		stacksetSpecFactory.RouteGroup()
+	} else if newExternalIngress {
+		stacksetSpecFactory.ExternalIngress()
+	} else if oldIngress || oldRouteGroup || oldExternalIngress {
+		actualTraffic = nil
+	}
+
+	if newIngress || newRouteGroup || newExternalIngress {
+		actualTraffic = []*zv1.ActualTraffic{
+			{
+				StackName:   stacksetName + "-" + initialVersion,
+				ServiceName: stacksetName + "-" + initialVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      100.0,
+			},
+			{
+				StackName:   stacksetName + "-" + updatedVersion,
+				ServiceName: stacksetName + "-" + updatedVersion,
+				ServicePort: intstr.FromInt(80),
+				Weight:      0.0,
+			},
+		}
+	}
+
+	if len(newSubResourceAnnotations) > 0 {
+		stacksetSpecFactory.SubResourceAnnotations(
 			newSubResourceAnnotations,
 		)
+	}
+
+	updatedSpec := stacksetSpecFactory.Create(t, updatedVersion)
+	err = updateStackset(stacksetName, updatedSpec)
+	require.NoError(t, err)
+
+	verifyStack(
+		t,
+		stacksetName,
+		updatedVersion,
+		updatedSpec,
+		newSubResourceAnnotations,
+	)
+	verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+		observedStackVersion: updatedVersion,
+		actualTraffic:        actualTraffic,
+	})
+
+	verifyStackSegments(
+		t,
+		stacksetName,
+		updatedVersion,
+		"TrafficSegment(0.00, 0.00)",
+		newSubResourceAnnotations,
+	)
+
+	if newExternalIngress {
 		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
 			observedStackVersion: updatedVersion,
 			actualTraffic:        actualTraffic,
 		})
-
-		switch ingType {
-		case "segment":
-			verifyStackSegments(
-				t,
-				stacksetName,
-				updatedVersion,
-				"TrafficSegment(0.00, 0.00)",
-				newSubResourceAnnotations,
-			)
-		default:
-			if newIngress {
-				verifyStacksetIngress(
-					t,
-					stacksetName,
-					updatedSpec,
-					map[string]float64{initialVersion: 100, updatedVersion: 0},
-					newSubResourceAnnotations,
-				)
-				// no traffic switch here
-				verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
-					observedStackVersion: updatedVersion,
-					actualTraffic:        actualTraffic,
-				})
-			} else if oldIngress {
-				err = resourceDeleted(
-					t,
-					"ingress",
-					stacksetName,
-					ingressInterface(),
-				).await()
-				require.NoError(t, err)
-				verifyStackSetStatus(
-					t,
-					stacksetName,
-					expectedStackSetStatus{
-						observedStackVersion: updatedVersion,
-						actualTraffic:        nil,
-					},
-				)
-			} else if newRouteGroup {
-				verifyStacksetRouteGroup(
-					t,
-					stacksetName,
-					updatedSpec,
-					map[string]float64{
-						initialVersion: 100,
-						updatedVersion: 0,
-					},
-					newSubResourceAnnotations,
-				)
-				// no traffic switch here
-				verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
-					observedStackVersion: updatedVersion,
-					actualTraffic:        actualTraffic,
-				})
-			} else if oldRouteGroup {
-				err = resourceDeleted(
-					t,
-					"routegroup",
-					stacksetName,
-					routegroupInterface(),
-				).await()
-				require.NoError(t, err)
-				verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
-					observedStackVersion: updatedVersion,
-					actualTraffic:        nil,
-				})
-			}
-		}
-
-		if newExternalIngress {
-			verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
-				observedStackVersion: updatedVersion,
-				actualTraffic:        actualTraffic,
-			})
-		} else if oldExternalIngress {
-			verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
-				observedStackVersion: updatedVersion,
-				actualTraffic:        nil,
-			})
-		}
+	} else if oldExternalIngress {
+		verifyStackSetStatus(t, stacksetName, expectedStackSetStatus{
+			observedStackVersion: updatedVersion,
+			actualTraffic:        nil,
+		})
 	}
 }
 

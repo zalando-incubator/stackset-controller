@@ -57,7 +57,7 @@ func newTrafficSegment(id types.UID, sc *StackContainer) (
 	if sc.ingressSpec != nil {
 		if sc.Resources.IngressSegment != nil {
 			predicates := sc.Resources.IngressSegment.Annotations[IngressPredicateKey]
-			lowerLimit, upperLimit, err := getSegmentLimits(predicates)
+			lowerLimit, upperLimit, err := GetSegmentLimits(predicates)
 			if err != nil {
 				return nil, err
 			}
@@ -67,7 +67,7 @@ func newTrafficSegment(id types.UID, sc *StackContainer) (
 
 	if sc.routeGroupSpec != nil {
 		if sc.Resources.RouteGroupSegment != nil {
-			lowerLimit, upperLimit, err := getSegmentLimits(
+			lowerLimit, upperLimit, err := GetSegmentLimits(
 				sc.Resources.RouteGroupSegment.Spec.Routes[0].Predicates...,
 			)
 			if err != nil {
@@ -147,11 +147,11 @@ func (l segmentList) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 
-// getSegmentLimits returns the lower and upper limit of the TrafficSegment
+// GetSegmentLimits returns the lower and upper limit of the TrafficSegment
 // predicate.
 //
 // Returns an error if it fails to parse.
-func getSegmentLimits(predicates ...string) (float64, float64, error) {
+func GetSegmentLimits(predicates ...string) (float64, float64, error) {
 	for _, p := range predicates {
 		segmentParams := segmentRe.FindStringSubmatch(p)
 		if len(segmentParams) != 3 {

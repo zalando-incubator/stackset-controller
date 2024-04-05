@@ -33,9 +33,9 @@ kubectl delete namespace foo; kubectl create namespace foo
 make
 ./build/stackset-controller --apiserver=http://127.0.0.1:8001 \
 --enable-configmap-support --enable-secret-support --enable-routegroup-support \
---enable-traffic-segments --annotated-traffic-segments \
+--enable-traffic-segments --controller-id=foo \
 --sync-ingress-annotation=example.org/i-haz-synchronize \
---sync-ingress-annotation=teapot.org/the-best --controller-id=foo \
+--sync-ingress-annotation=teapot.org/the-best \
 --cluster-domain=${CLUSTER_DOMAIN} --cluster-domain=${CLUSTER_DOMAIN_INTERNAL}
 ```
 4. rebuild e2e test and run e2e tests in `foo` namespace
