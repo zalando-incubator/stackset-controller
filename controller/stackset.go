@@ -265,6 +265,10 @@ func (c *StackSetController) injectSegmentAnnotation(
 		return false
 	}
 
+	if stackSet.Annotations == nil {
+		stackSet.Annotations = make(map[string]string)
+	}
+
 	if stackSet.Annotations[TrafficSegmentsAnnotationKey] == "true" {
 		return false
 	}
