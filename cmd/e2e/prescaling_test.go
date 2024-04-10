@@ -27,7 +27,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	// create second stack with 3 replicas
 	secondStack := "v2"
 	spec = specFactory.Create(t, secondStack)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
 	require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestPrescalingWithoutHPA(t *testing.T) {
 	thirdStack := "v3"
 	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, thirdStack)
 	spec = specFactory.Replicas(1).Create(t, thirdStack)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	deployment, err := waitForDeployment(t, fullThirdStack)
 	require.NoError(t, err)
@@ -100,7 +100,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 	// create second stack with 3 replicas
 	secondStack := "v2"
 	spec = specFactory.Create(t, secondStack)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
 	require.NoError(t, err)
@@ -123,7 +123,7 @@ func TestPrescalingWithHPA(t *testing.T) {
 	thirdStack := "v3"
 	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, thirdStack)
 	spec = specFactory.Replicas(1).Create(t, thirdStack)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	deployment, err := waitForDeployment(t, fullThirdStack)
 	require.NoError(t, err)
@@ -175,7 +175,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	secondVersion := "v2"
 	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	secondCreateTimestamp := time.Now()
-	err = updateStackset(stacksetName, factory.Create(t, secondVersion))
+	err = updateStackSet(stacksetName, factory.Create(t, secondVersion))
 	require.NoError(t, err)
 	_, err = waitForDeployment(t, fullSecondStack)
 	require.NoError(t, err)
@@ -195,7 +195,7 @@ func TestPrescalingPreventDelete(t *testing.T) {
 	thirdVersion := "v3"
 	fullThirdStack := fmt.Sprintf("%s-%s", stacksetName, firstVersion)
 	thirdCreateTimestamp := time.Now()
-	err = updateStackset(stacksetName, factory.Create(t, thirdVersion))
+	err = updateStackSet(stacksetName, factory.Create(t, thirdVersion))
 	require.NoError(t, err)
 	_, err = waitForDeployment(t, fullThirdStack)
 	require.NoError(t, err)
@@ -254,7 +254,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	// create second stack with 3 replicas
 	secondStack := "v2"
 	spec = specFactory.Create(t, secondStack)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
 	require.NoError(t, err)
@@ -264,7 +264,7 @@ func TestPrescalingWaitsForBackends(t *testing.T) {
 	// create third stack with 3 replicas
 	thirdStack := "v3"
 	spec = specFactory.Create(t, thirdStack)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, thirdStack)
 	require.NoError(t, err)

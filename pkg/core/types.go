@@ -66,11 +66,6 @@ type StackSetContainer struct {
 	// per-stack ingress hostnames are not generated for names outside of them
 	clusterDomains []string
 
-	// segmentTraffic controls support of managing traffic weight by using
-	// dedicated Ingress and RouteGroup resources with Skipper's TrafficSegment
-	// predicate.
-	segmentTraffic bool
-
 	// ingressAnnotationsToSync is a list of ingress annotations that should be
 	// synchronized across all existing stacks.
 	ingressAnnotationsToSync []string
@@ -213,26 +208,21 @@ type StackResources struct {
 	Secrets           []*v1.Secret
 }
 
-func NewContainer(stackset *zv1.StackSet, reconciler TrafficReconciler, backendWeightsAnnotationKey string, clusterDomains []string) *StackSetContainer {
+func NewContainer(
+	stackset *zv1.StackSet,
+	reconciler TrafficReconciler,
+	backendWeightsAnnotationKey string,
+	clusterDomains []string,
+	syncIngressAnnotations []string,
+) *StackSetContainer {
 	return &StackSetContainer{
 		StackSet:                    stackset,
 		StackContainers:             map[types.UID]*StackContainer{},
 		TrafficReconciler:           reconciler,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
 		clusterDomains:              clusterDomains,
+		ingressAnnotationsToSync:    syncIngressAnnotations,
 	}
-}
-
-// SynchronizeIngressAnnotations ensures that the container propagates the
-// specified annotations to all segment Ingress or Routegroups, when they are
-// present in the StackSet's Ingress or RouteGroup definition.
-//
-// This synchronization is only relevant when  the container supports traffic
-// segments.
-func (ssc *StackSetContainer) SynchronizeIngressAnnotations(
-	annotations []string,
-) {
-	ssc.ingressAnnotationsToSync = annotations
 }
 
 func (ssc *StackSetContainer) stackByName(name string) *StackContainer {
@@ -366,10 +356,6 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		}
 
 		sc.updateFromResources()
-		// This is to support both central and segment-based traffic.
-		if ssc.SupportsSegmentTraffic() {
-			sc.updateFromSegmentResources()
-		}
 	}
 
 	// only populate traffic if traffic management is enabled
@@ -435,6 +421,7 @@ func (sc *StackContainer) updateFromResources() {
 	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
 
 	var deploymentUpdated, serviceUpdated, ingressUpdated, routeGroupUpdated, hpaUpdated bool
+	var ingressSegmentUpdated, routeGroupSegmentUpdated bool
 
 	// deployment
 	if sc.Resources.Deployment != nil {
@@ -452,17 +439,26 @@ func (sc *StackContainer) updateFromResources() {
 	// ingress: ignore if ingress is not set or check if we are up to date
 	if sc.ingressSpec != nil {
 		ingressUpdated = sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
+		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
+			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
+		ingressSegmentUpdated = sc.Resources.Ingress == nil
 	}
 
 	// routegroup: ignore if routegroup is not set or check if we are up to date
 	if sc.routeGroupSpec != nil {
 		routeGroupUpdated = sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
+			IsResourceUpToDate(
+				sc.Stack,
+				sc.Resources.RouteGroupSegment.ObjectMeta,
+			)
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
+		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
 	}
 
 	// hpa
@@ -477,7 +473,9 @@ func (sc *StackContainer) updateFromResources() {
 		serviceUpdated &&
 		ingressUpdated &&
 		routeGroupUpdated &&
-		hpaUpdated
+		hpaUpdated &&
+		ingressSegmentUpdated &&
+		routeGroupSegmentUpdated
 
 	status := sc.Stack.Status
 	sc.noTrafficSince = unwrapTime(status.NoTrafficSince)
@@ -487,33 +485,4 @@ func (sc *StackContainer) updateFromResources() {
 		sc.prescalingDesiredTrafficWeight = status.Prescaling.DesiredTrafficWeight
 		sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
 	}
-}
-
-func (sc *StackContainer) updateFromSegmentResources() {
-	var ingressSegmentUpdated, routeGroupSegmentUpdated bool
-
-	// ingress: ignore if ingress is not set or check if we are up to date
-	if sc.ingressSpec != nil {
-		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
-			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
-	} else {
-		// ignore if ingress is not set
-		ingressSegmentUpdated = sc.Resources.Ingress == nil
-	}
-
-	// routegroup: ignore if routegroup is not set or check if we are up to date
-	if sc.routeGroupSpec != nil {
-		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
-			IsResourceUpToDate(
-				sc.Stack,
-				sc.Resources.RouteGroupSegment.ObjectMeta,
-			)
-	} else {
-		// ignore if route group is not set
-		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
-	}
-
-	sc.resourcesUpdated = sc.resourcesUpdated &&
-		ingressSegmentUpdated &&
-		routeGroupSegmentUpdated
 }

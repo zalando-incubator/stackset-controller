@@ -684,9 +684,6 @@ spec:
                                             empty selector ({}) matches all namespaces.
                                           properties:
                                             matchExpressions:
-                                              description: matchExpressions is a list
-                                                of label selector requirements. The
-                                                requirements are ANDed.
                                               items:
                                                 properties:
                                                   key:
@@ -939,6 +936,9 @@ spec:
                                             empty selector ({}) matches all namespaces.
                                           properties:
                                             matchExpressions:
+                                              description: matchExpressions is a list
+                                                of label selector requirements. The
+                                                requirements are ANDed.
                                               items:
                                                 properties:
                                                   key:

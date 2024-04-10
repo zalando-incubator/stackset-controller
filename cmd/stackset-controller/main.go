@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -43,10 +42,7 @@ var (
 		ControllerID                string
 		BackendWeightsAnnotationKey string
 		RouteGroupSupportEnabled    bool
-		TrafficSegmentsEnabled      bool
-		AnnotatedTrafficSegments    bool
 		SyncIngressAnnotations      []string
-		IngressSourceSwitchTTL      time.Duration
 		ReconcileWorkers            int
 		ConfigMapSupportEnabled     bool
 		SecretSupportEnabled        bool
@@ -67,23 +63,9 @@ func main() {
 	kingpin.Flag("cluster-domain", "Main domains of the cluster, used for generating Stack Ingress hostnames").Envar("CLUSTER_DOMAIN").Required().StringsVar(&config.ClusterDomains)
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
 	kingpin.Flag(
-		"enable-traffic-segments",
-		"Support traffic segments by default. "+
-			"Ignored when also setting --annotated-traffic-segments.",
-	).Default("false").BoolVar(&config.TrafficSegmentsEnabled)
-	kingpin.Flag(
-		"annotated-traffic-segments",
-		fmt.Sprintf(
-			"Support traffic segments annotated with %q.",
-			controller.TrafficSegmentsAnnotationKey,
-		),
-	).Default("false").BoolVar(&config.AnnotatedTrafficSegments)
-	kingpin.Flag(
 		"sync-ingress-annotation",
 		"Ingress/RouteGroup annotation to propagate to all traffic segments.",
 	).StringsVar(&config.SyncIngressAnnotations)
-	kingpin.Flag("ingress-source-switch-ttl", "The ttl before an ingress source is deleted when replaced with another one e.g. switching from RouteGroup to Ingress or vice versa.").
-		Default(defaultIngressSourceSwitchTTL).DurationVar(&config.IngressSourceSwitchTTL)
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
 	kingpin.Flag("enable-secret-support", "Enable support for Secrets on StackSets.").Default("false").BoolVar(&config.SecretSupportEnabled)
 	kingpin.Parse()
@@ -113,12 +95,9 @@ func main() {
 		prometheus.DefaultRegisterer,
 		config.Interval,
 		config.RouteGroupSupportEnabled,
-		config.TrafficSegmentsEnabled,
-		config.AnnotatedTrafficSegments,
 		config.SyncIngressAnnotations,
 		config.ConfigMapSupportEnabled,
 		config.SecretSupportEnabled,
-		config.IngressSourceSwitchTTL,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create Stackset controller: %v", err)

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/zalando-incubator/stackset-controller/controller"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 )
 
@@ -115,22 +114,9 @@ func TestSyncAnnotationsPropagateToSegments(t *testing.T) {
 
 			var err error
 			if i == 0 {
-				err = createStackSetWithAnnotations(
-					stacksetName,
-					1,
-					spec,
-					map[string]string{
-						controller.TrafficSegmentsAnnotationKey: "true",
-					},
-				)
+				err = createStackSet(stacksetName, 1, spec)
 			} else {
-				err = updateStackSetWithAnnotations(
-					stacksetName,
-					spec,
-					map[string]string{
-						controller.TrafficSegmentsAnnotationKey: "true",
-					},
-				)
+				err = updateStackSet(stacksetName, spec)
 			}
 			require.NoError(t, err)
 

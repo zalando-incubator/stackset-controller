@@ -35,7 +35,7 @@ func TestBrokenStacks(t *testing.T) {
 			TargetPort: intstr.FromString("foobar"),
 		},
 	}
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestBrokenStacks(t *testing.T) {
 	healthyVersion := "v3"
 	healthyStack := fmt.Sprintf("%s-%s", stacksetName, healthyVersion)
 	spec = factory.Create(t, healthyVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, healthyVersion)
 	require.NoError(t, err)
@@ -72,7 +72,7 @@ func TestBrokenStacks(t *testing.T) {
 	finalVersion := "v4"
 	finalStack := fmt.Sprintf("%s-%s", stacksetName, finalVersion)
 	spec = factory.Create(t, finalVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, finalVersion)
 	require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 
 	factory = NewTestStacksetSpecFactory(stacksetName).Ingress().AddReferencedConfigMap(configMapName).StackGC(1, 30)
 	spec = factory.Create(t, unhealthyVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
@@ -145,7 +145,7 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 
 	factory = NewTestStacksetSpecFactory(stacksetName).Ingress().AddReferencedConfigMap(configMapName).StackGC(1, 30)
 	spec = factory.Create(t, healthyVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, healthyVersion)
 	require.NoError(t, err)
@@ -165,7 +165,7 @@ func TestBrokenStackWithConfigMaps(t *testing.T) {
 
 	factory = NewTestStacksetSpecFactory(stacksetName).Ingress().AddReferencedConfigMap(configMapName).StackGC(1, 30)
 	spec = factory.Create(t, finalVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, finalVersion)
 	require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	factory = NewTestStacksetSpecFactory(stacksetName).Ingress().AddReferencedSecret(secretName).StackGC(1, 30)
 	unhealthyStack := fmt.Sprintf("%s-%s", stacksetName, unhealthyVersion)
 	spec = factory.Create(t, unhealthyVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, unhealthyVersion)
 	require.NoError(t, err)
@@ -237,7 +237,7 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	factory = NewTestStacksetSpecFactory(stacksetName).Ingress().AddReferencedSecret(secretName).StackGC(1, 30)
 	healthyStack := fmt.Sprintf("%s-%s", stacksetName, healthyVersion)
 	spec = factory.Create(t, healthyVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, healthyVersion)
 	require.NoError(t, err)
@@ -257,7 +257,7 @@ func TestBrokenStackWithSecrets(t *testing.T) {
 	factory = NewTestStacksetSpecFactory(stacksetName).Ingress().AddReferencedSecret(secretName).StackGC(1, 30)
 	finalStack := fmt.Sprintf("%s-%s", stacksetName, finalVersion)
 	spec = factory.Create(t, finalVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, finalVersion)
 	require.NoError(t, err)
