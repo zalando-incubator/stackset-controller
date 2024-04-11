@@ -441,15 +441,22 @@ type StackSpec struct {
 // ConfigurationResourcesSpec makes it possible to defined the config resources to be created
 // +k8s:deepcopy-gen=true
 type ConfigurationResourcesSpec struct {
-	// ConfigMap to be owned by Stack
+	// ConfigMap is an inline ConfigMap to be owned by Stack
+	ConfigMap *ConfigMap `json:"configMap,omitempty"`
+
+	// ConfigMapRef is a reference to a ConfigMap to be owned by Stack
 	ConfigMapRef *v1.LocalObjectReference `json:"configMapRef,omitempty"`
 
-	// Secret to be owned by Stack
+	// SecretRef is a reference to a Secret to be owned by Stack
 	SecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
 }
 
 // GetName returns the name of the ConfigurationResourcesSpec.
 func (crs *ConfigurationResourcesSpec) GetName() string {
+	if crs.IsConfigMap() {
+		return crs.ConfigMap.Name
+	}
+
 	if crs.IsConfigMapRef() {
 		return crs.ConfigMapRef.Name
 	}
@@ -461,14 +468,29 @@ func (crs *ConfigurationResourcesSpec) GetName() string {
 	return ""
 }
 
-// IsConfigMapRef returns true if the ConfigurationResourcesSpec is a ConfigMapRef.
+// IsConfigMap returns true if the ConfigurationResourcesSpec is an inline ConfigMap.
+func (crs *ConfigurationResourcesSpec) IsConfigMap() bool {
+	return crs.ConfigMap != nil && crs.ConfigMap.Name != ""
+}
+
+// IsConfigMapRef returns true if the ConfigurationResourcesSpec is a referenced ConfigMap.
 func (crs *ConfigurationResourcesSpec) IsConfigMapRef() bool {
 	return crs.ConfigMapRef != nil && crs.ConfigMapRef.Name != ""
 }
 
-// IsSecretRef returns true if the ConfigurationResourcesSpec is a SecretRef.
+// IsSecretRef returns true if the ConfigurationResourcesSpec is a referenced Secret.
 func (crs *ConfigurationResourcesSpec) IsSecretRef() bool {
 	return crs.SecretRef != nil && crs.SecretRef.Name != ""
+}
+
+// ConfigMap holds the name and data of an inline ConfigMap.
+// +k8s:deepcopy-gen=true
+type ConfigMap struct {
+	// Name is the name of the ConfigMap.
+	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+
+	// Data is the data of the ConfigMap.
+	Data map[string]string `json:"data,omitempty" protobuf:"bytes,2,rep,name=data"`
 }
 
 // StackSpecInternal is the spec part of the Stack, including `ingress` and
