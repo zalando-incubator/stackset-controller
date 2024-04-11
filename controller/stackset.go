@@ -919,13 +919,9 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 	return createdRg, nil
 }
 
-// ReconcileStackSetResources reconciles the central Ingress and/or RouteGroup
-// of the specified StackSet.
-//
-// If the StackSet supports traffic segments, the controller won't reconcile the
-// central ingress resources. This method is deprecated and will be removed in
-// the future.
-func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
+// RecordTrafficSwitch records an event detailing when switches in traffic to
+// Stacks, only when there are changes to record.
+func (c *StackSetController) RecordTrafficSwitch(ctx context.Context, ssc *core.StackSetContainer) error {
 	trafficChanges := ssc.TrafficChanges()
 	if len(trafficChanges) != 0 {
 		var changeMessages []string
@@ -1023,7 +1019,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		return c.errorEventf(sc.Stack, "FailedManageDeployment", err)
 	}
 
-	hpaGenerator := sc.GenerateHPAToSegment
+	hpaGenerator := sc.GenerateHPA
 	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, hpaGenerator)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
@@ -1116,7 +1112,7 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 	}
 
 	// Reconcile stackset resources (update ingress and/or routegroups). Proceed on errors.
-	err = c.ReconcileStackSetResources(ctx, container)
+	err = c.RecordTrafficSwitch(ctx, container)
 	if err != nil {
 		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 		c.stacksetLogger(container).Errorf("Unable to reconcile stackset resources: %v", err)
