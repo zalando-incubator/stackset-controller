@@ -27,8 +27,6 @@ import (
 
 var (
 	timeNow = time.Now().Format(time.RFC3339)
-	// ttl for the test environment is time.Minute, here
-	// timeOldEnough is set to twice this value.
 )
 
 type testClient struct {
