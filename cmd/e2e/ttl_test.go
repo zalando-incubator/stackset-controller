@@ -21,7 +21,7 @@ func TestStackTTLWithoutIngress(t *testing.T) {
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {
-			err = updateStackset(stacksetName, spec)
+			err = updateStackSet(stacksetName, spec)
 		}
 		require.NoError(t, err)
 		_, err = waitForStack(t, stacksetName, stackVersion)
@@ -57,7 +57,7 @@ func TestStackTTLWithIngress(t *testing.T) {
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {
-			err = updateStackset(stacksetName, spec)
+			err = updateStackSet(stacksetName, spec)
 		}
 		require.NoError(t, err)
 		_, err = waitForStack(t, stacksetName, stackVersion)
@@ -104,7 +104,7 @@ func TestStackTTLWithExternalIngress(t *testing.T) {
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {
-			err = updateStackset(stacksetName, spec)
+			err = updateStackSet(stacksetName, spec)
 		}
 		require.NoError(t, err)
 		_, err = waitForStack(t, stacksetName, stackVersion)
@@ -150,7 +150,7 @@ func TestStackTTLForLatestStack(t *testing.T) {
 		if !stacksetExists(stacksetName) {
 			err = createStackSet(stacksetName, 1, spec)
 		} else {
-			err = updateStackset(stacksetName, spec)
+			err = updateStackSet(stacksetName, spec)
 		}
 		require.NoError(t, err)
 

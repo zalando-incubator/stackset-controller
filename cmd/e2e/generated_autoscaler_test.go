@@ -99,7 +99,7 @@ func TestAutoscalerWithoutTraffic(t *testing.T) {
 	secondStack := "v2"
 	fullSecondStack := fmt.Sprintf("%s-%s", stacksetName, secondStack)
 	spec = factory.Create(t, secondStack)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, secondStack)
 	require.NoError(t, err)

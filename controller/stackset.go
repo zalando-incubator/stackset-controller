@@ -38,7 +38,6 @@ const (
 	ResetHPAMinReplicasDelayAnnotationKey     = "alpha.stackset-controller.zalando.org/reset-hpa-min-replicas-delay"
 	StacksetControllerControllerAnnotationKey = "stackset-controller.zalando.org/controller"
 	ControllerLastUpdatedAnnotationKey        = "stackset-controller.zalando.org/updated-timestamp"
-	TrafficSegmentsAnnotationKey              = "stackset-controller.zalando.org/use-traffic-segments"
 
 	reasonFailedManageStackSet = "FailedManageStackSet"
 
@@ -65,9 +64,6 @@ type StackSetController struct {
 	metricsReporter             *core.MetricsReporter
 	HealthReporter              healthcheck.Handler
 	routeGroupSupportEnabled    bool
-	trafficSegmentsEnabled      bool
-	annotatedTrafficSegments    bool
-	ingressSourceSwitchTTL      time.Duration
 	now                         func() string
 	reconcileWorkers            int
 	configMapSupportEnabled     bool
@@ -104,12 +100,9 @@ func NewStackSetController(
 	registry prometheus.Registerer,
 	interval time.Duration,
 	routeGroupSupportEnabled bool,
-	trafficSegmentsEnabled bool,
-	annotatedTrafficSegments bool,
 	syncIngressAnnotations []string,
 	configMapSupportEnabled bool,
 	secretSupportEnabled bool,
-	ingressSourceSwitchTTL time.Duration,
 ) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
@@ -130,10 +123,7 @@ func NewStackSetController(
 		metricsReporter:             metricsReporter,
 		HealthReporter:              healthcheck.NewHandler(),
 		routeGroupSupportEnabled:    routeGroupSupportEnabled,
-		trafficSegmentsEnabled:      trafficSegmentsEnabled,
-		annotatedTrafficSegments:    annotatedTrafficSegments,
 		syncIngressAnnotations:      syncIngressAnnotations,
-		ingressSourceSwitchTTL:      ingressSourceSwitchTTL,
 		configMapSupportEnabled:     configMapSupportEnabled,
 		secretSupportEnabled:        secretSupportEnabled,
 		now:                         now,
@@ -247,60 +237,6 @@ func (c *StackSetController) Run(ctx context.Context) error {
 	}
 }
 
-// injectSegmentAnnotation injects the traffic segment annotation if it's not
-// already present.
-//
-// Only inject the traffic segment annotation if the controller has traffic
-// segments enabled by default, i.e. doesn't matter if the StackSet has the
-// segment annotation.
-func (c *StackSetController) injectSegmentAnnotation(
-	ctx context.Context,
-	stackSet *zv1.StackSet,
-) bool {
-	if c.annotatedTrafficSegments {
-		return false
-	}
-
-	if !c.trafficSegmentsEnabled {
-		return false
-	}
-
-	if stackSet.Annotations == nil {
-		stackSet.Annotations = make(map[string]string)
-	}
-
-	if stackSet.Annotations[TrafficSegmentsAnnotationKey] == "true" {
-		return false
-	}
-
-	stackSet.Annotations[TrafficSegmentsAnnotationKey] = "true"
-
-	_, err := c.client.ZalandoV1().StackSets(
-		stackSet.Namespace,
-	).Update(
-		ctx,
-		stackSet,
-		metav1.UpdateOptions{},
-	)
-	if err != nil {
-		c.logger.Errorf(
-			"Failed injecting segment annotation: %v",
-			err,
-		)
-		return false
-	}
-	c.recorder.Eventf(
-		stackSet,
-		v1.EventTypeNormal,
-		"UpdatedStackSet",
-		"Updated StackSet %s. Injected %s annotation",
-		stackSet.Name,
-		TrafficSegmentsAnnotationKey,
-	)
-
-	return true
-}
-
 // collectResources collects resources for all stacksets at once and stores them per StackSet/Stack so that we don't
 // overload the API requests with unnecessary requests
 func (c *StackSetController) collectResources(ctx context.Context) (map[types.UID]*core.StackSetContainer, error) {
@@ -321,16 +257,13 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 			}
 		}
 
-		stacksetContainer := core.NewContainer(&stackset, reconciler, c.backendWeightsAnnotationKey, c.clusterDomains)
-		if c.trafficSegmentsEnabled || c.annotatedTrafficSegments {
-
-			if stackset.Annotations[TrafficSegmentsAnnotationKey] == "true" {
-				stacksetContainer.EnableSegmentTraffic()
-				stacksetContainer.SynchronizeIngressAnnotations(
-					c.syncIngressAnnotations,
-				)
-			}
-		}
+		stacksetContainer := core.NewContainer(
+			&stackset,
+			reconciler,
+			c.backendWeightsAnnotationKey,
+			c.clusterDomains,
+			c.syncIngressAnnotations,
+		)
 		stacksets[uid] = stacksetContainer
 	}
 
@@ -921,43 +854,6 @@ func (c *StackSetController) AddUpdateStackSetIngress(ctx context.Context, stack
 	return createdIngress, nil
 }
 
-func (c *StackSetController) deleteIngress(ctx context.Context, stackset *zv1.StackSet, existing *networking.Ingress, routegroup *rgv1.RouteGroup) error {
-	// Check if a routegroup exists and if so only delete if it has existed for more than ingressSourceWithTTL time.
-	if stackset.Spec.RouteGroup != nil && c.routeGroupSupportEnabled {
-		if routegroup == nil {
-			c.logger.Infof("Not deleting Ingress %s yet, RouteGroup missing", existing.Name)
-			return nil
-		}
-		timestamp, ok := routegroup.Annotations[ControllerLastUpdatedAnnotationKey]
-		// The only scenario version we could think of for this is
-		//  if the RouteGroup was created by an older version of StackSet Controller
-		//  in that case, just wait until the RouteGroup has the annotation
-		if !ok {
-			c.logger.Infof("Not deleting Ingress %s yet, RouteGroup %s does not have the %s annotation yet", existing.Name, routegroup.Name, ControllerLastUpdatedAnnotationKey)
-			return nil
-		}
-
-		if ready, err := resourceReady(timestamp, c.ingressSourceSwitchTTL); err != nil {
-			c.logger.Infof("Not deleting Ingress %s yet, RouteGroup %s does not have a valid %s annotation yet", existing.Name, routegroup.Name, ControllerLastUpdatedAnnotationKey)
-			return nil
-		} else if !ready {
-			c.logger.Infof("Not deleting Ingress %s yet, RouteGroup %s updated less than %s ago", existing.Name, routegroup.Name, c.ingressSourceSwitchTTL)
-			return nil
-		}
-	}
-	err := c.client.NetworkingV1().Ingresses(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-	c.recorder.Eventf(
-		stackset,
-		v1.EventTypeNormal,
-		"DeletedIngress",
-		"Deleted Ingress %s",
-		existing.Namespace)
-	return nil
-}
-
 // AddUpdateStackSetRouteGroup reconciles the RouteGroup but never deletes it, it returns the existing/new RouteGroup
 func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, stackset *zv1.StackSet, existing *rgv1.RouteGroup, ingress *networking.Ingress, rg *rgv1.RouteGroup) (*rgv1.RouteGroup, error) {
 	// RouteGroup removed, handled outside
@@ -1023,247 +919,9 @@ func (c *StackSetController) AddUpdateStackSetRouteGroup(ctx context.Context, st
 	return createdRg, nil
 }
 
-func (c *StackSetController) deleteRouteGroup(ctx context.Context, stackset *zv1.StackSet, rg *rgv1.RouteGroup, ingress *networking.Ingress) error {
-	// Check if an ingress exists and if so only delete if it has existed for more than ingressSourceWithTTL time.
-	if stackset.Spec.Ingress != nil {
-		if ingress == nil {
-			c.logger.Infof("Not deleting RouteGroup %s yet, Ingress missing", rg.Name)
-			return nil
-		}
-		timestamp, ok := ingress.Annotations[ControllerLastUpdatedAnnotationKey]
-		// The only scenario version we could think of for this is
-		//  if the RouteGroup was created by an older version of StackSet Controller
-		//  in that case, just wait until the RouteGroup has the annotation
-		if !ok {
-			c.logger.Infof("Not deleting RouteGroup %s yet, Ingress %s does not have the %s annotation yet", rg.Name, ingress.Name, ControllerLastUpdatedAnnotationKey)
-			return nil
-		}
-
-		if ready, err := resourceReady(timestamp, c.ingressSourceSwitchTTL); err != nil {
-			c.logger.Infof("Not deleting RouteGroup %s yet, Ingress %s does not have a valid %s annotation yet", rg.Name, ingress.Name, ControllerLastUpdatedAnnotationKey)
-			return nil
-		} else if !ready {
-			c.logger.Infof("Not deleting RouteGroup %s yet, Ingress %s updated less than %s ago", rg.Name, ingress.Name, c.ingressSourceSwitchTTL)
-			return nil
-		}
-	}
-	err := c.client.RouteGroupV1().RouteGroups(rg.Namespace).Delete(ctx, rg.Name, metav1.DeleteOptions{})
-	if err != nil {
-		return err
-	}
-	c.recorder.Eventf(
-		stackset,
-		v1.EventTypeNormal,
-		"DeletedRouteGroup",
-		"Deleted RouteGroup %s",
-		rg.Namespace)
-	return nil
-}
-
-func (c *StackSetController) ReconcileStackSetIngressSources(
-	ctx context.Context,
-	stackset *zv1.StackSet,
-	existingIng *networking.Ingress,
-	existingRg *rgv1.RouteGroup,
-	generateIng func() (*networking.Ingress, error),
-	generateRg func() (*rgv1.RouteGroup, error),
-) error {
-	ingress, err := generateIng()
-	if err != nil {
-		return c.errorEventf(stackset, "FailedManageIngress", err)
-	}
-
-	// opt-out existingIng creation in case we have an external entity creating existingIng
-	appliedIng, err := c.AddUpdateStackSetIngress(ctx, stackset, existingIng, existingRg, ingress)
-	if err != nil {
-		return c.errorEventf(stackset, "FailedManageIngress", err)
-	}
-
-	rg, err := generateRg()
-	if err != nil {
-		return c.errorEventf(stackset, "FailedManageRouteGroup", err)
-	}
-
-	var appliedRg *rgv1.RouteGroup
-	if c.routeGroupSupportEnabled {
-		appliedRg, err = c.AddUpdateStackSetRouteGroup(ctx, stackset, existingRg, appliedIng, rg)
-		if err != nil {
-			return c.errorEventf(stackset, "FailedManageRouteGroup", err)
-		}
-	}
-
-	// Ingress removed
-	if ingress == nil {
-		if existingIng != nil {
-			err := c.deleteIngress(ctx, stackset, existingIng, appliedRg)
-			if err != nil {
-				return c.errorEventf(stackset, "FailedManageIngress", err)
-			}
-		}
-	}
-
-	// RouteGroup removed
-	if rg == nil {
-		if existingRg != nil {
-			err := c.deleteRouteGroup(ctx, stackset, existingRg, appliedIng)
-			if err != nil {
-				return c.errorEventf(stackset, "FailedManageRouteGroup", err)
-			}
-		}
-	}
-
-	return nil
-}
-
-// convertToTrafficSegments removes the central ingress component of the
-// StackSet, if and only if the StackSet already has traffic segments.
-func (c *StackSetController) convertToTrafficSegments(
-	ctx context.Context,
-	ssc *core.StackSetContainer,
-) error {
-	if ssc.Ingress == nil && ssc.RouteGroup == nil {
-		return nil
-	}
-
-	var ingTimestamp, rgTimestamp *metav1.Time
-	for _, sc := range ssc.StackContainers {
-		if sc.Stack.Spec.Ingress != nil && sc.Resources.IngressSegment == nil {
-			c.logger.Warnf(
-				"Not deleting Ingress %s, stack %s doesn't have a segment yet.",
-				ssc.Ingress.Name,
-				sc.Name(),
-			)
-			return nil
-		}
-
-		if sc.Stack.Spec.RouteGroup != nil && sc.Resources.RouteGroupSegment == nil {
-			c.logger.Warnf(
-				"Not deleting RouteGroup %s, stack %s doesn't have a segment yet.",
-				ssc.RouteGroup.Name,
-				sc.Name(),
-			)
-			return nil
-		}
-
-		// If we find stacks with a segment, we can delete the
-		// central ingress resources.
-		if ingTimestamp == nil && sc.Resources.IngressSegment != nil {
-			ingTimestamp = &sc.Resources.IngressSegment.CreationTimestamp
-		}
-
-		if rgTimestamp == nil && sc.Resources.RouteGroupSegment != nil {
-			rgTimestamp = &sc.Resources.RouteGroupSegment.CreationTimestamp
-		}
-	}
-
-	if len(ssc.StackContainers) == 0 {
-		c.logger.Infof(
-			"No stacks found for StackSet %s, safe to delete central "+
-				"ingress/routegroup",
-			ssc.StackSet.Name,
-		)
-
-		// If we don't have any stacks, we can delete the central ingress
-		// resources
-		oldEnough := metav1.NewTime(
-			time.Now().Add(-c.ingressSourceSwitchTTL - time.Minute),
-		)
-		ingTimestamp = &oldEnough
-		rgTimestamp = &oldEnough
-	}
-
-	if ingTimestamp != nil && ssc.Ingress != nil {
-		if !resourceReadyTime(ingTimestamp.Time, c.ingressSourceSwitchTTL) {
-			c.logger.Infof(
-				"Not deleting Ingress %s, segments created less than %s ago",
-				ssc.Ingress.Name,
-				c.ingressSourceSwitchTTL,
-			)
-			return nil
-		}
-
-		err := c.client.NetworkingV1().Ingresses(ssc.Ingress.Namespace).Delete(
-			ctx,
-			ssc.Ingress.Name,
-			metav1.DeleteOptions{},
-		)
-		if err != nil {
-			return err
-		}
-
-		c.recorder.Eventf(
-			ssc.StackSet,
-			v1.EventTypeNormal,
-			"DeletedIngress",
-			"Deleted Ingress %s, StackSet conversion to traffic segments complete",
-			ssc.Ingress.Namespace,
-		)
-
-		ssc.Ingress = nil
-	}
-
-	if rgTimestamp != nil && ssc.RouteGroup != nil {
-		if !resourceReadyTime(rgTimestamp.Time, c.ingressSourceSwitchTTL) {
-			c.logger.Infof(
-				"Not deleting RouteGroup %s, segments created less than %s ago",
-				ssc.RouteGroup.Name,
-				c.ingressSourceSwitchTTL,
-			)
-			return nil
-		}
-
-		err := c.client.RouteGroupV1().RouteGroups(
-			ssc.RouteGroup.Namespace,
-		).Delete(
-			ctx,
-			ssc.RouteGroup.Name,
-			metav1.DeleteOptions{},
-		)
-		if err != nil {
-			return err
-		}
-
-		c.recorder.Eventf(
-			ssc.RouteGroup,
-			v1.EventTypeNormal,
-			"DeletedRouteGroup",
-			"Deleted RouteGroup %s, StackSet conversion to traffic segments complete",
-			ssc.RouteGroup.Namespace,
-		)
-
-		ssc.RouteGroup = nil
-	}
-
-	return nil
-}
-
-// ReconcileStackSetResources reconciles the central Ingress and/or RouteGroup
-// of the specified StackSet.
-//
-// If the StackSet supports traffic segments, the controller won't reconcile the
-// central ingress resources. This method is deprecated and will be removed in
-// the future.
-func (c *StackSetController) ReconcileStackSetResources(ctx context.Context, ssc *core.StackSetContainer) error {
-	if !ssc.SupportsSegmentTraffic() {
-		err := c.ReconcileStackSetIngressSources(
-			ctx,
-			ssc.StackSet,
-			ssc.Ingress,
-			ssc.RouteGroup,
-			ssc.GenerateIngress,
-			ssc.GenerateRouteGroup,
-		)
-		if err != nil {
-			return err
-		}
-	} else {
-		// Convert StackSet to traffic segments, if needed
-		err := c.convertToTrafficSegments(ctx, ssc)
-		if err != nil {
-			return err
-		}
-	}
-
+// RecordTrafficSwitch records an event detailing when switches in traffic to
+// Stacks, only when there are changes to record.
+func (c *StackSetController) RecordTrafficSwitch(ctx context.Context, ssc *core.StackSetContainer) error {
 	trafficChanges := ssc.TrafficChanges()
 	if len(trafficChanges) != 0 {
 		var changeMessages []string
@@ -1311,17 +969,14 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		return c.errorEventf(sc.Stack, "FailedManageIngress", err)
 	}
 
-	// This is to support both central and segment-based traffic.
-	if ssc.SupportsSegmentTraffic() {
-		err = c.ReconcileStackIngress(
-			ctx,
-			sc.Stack,
-			sc.Resources.IngressSegment,
-			sc.GenerateIngressSegment,
-		)
-		if err != nil {
-			return c.errorEventf(sc.Stack, "FailedManageIngressSegment", err)
-		}
+	err = c.ReconcileStackIngress(
+		ctx,
+		sc.Stack,
+		sc.Resources.IngressSegment,
+		sc.GenerateIngressSegment,
+	)
+	if err != nil {
+		return c.errorEventf(sc.Stack, "FailedManageIngressSegment", err)
 	}
 
 	if c.routeGroupSupportEnabled {
@@ -1330,21 +985,18 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
 		}
 
-		// This is to support both central and segment-based traffic.
-		if ssc.SupportsSegmentTraffic() {
-			err = c.ReconcileStackRouteGroup(
-				ctx,
+		err = c.ReconcileStackRouteGroup(
+			ctx,
+			sc.Stack,
+			sc.Resources.RouteGroupSegment,
+			sc.GenerateRouteGroupSegment,
+		)
+		if err != nil {
+			return c.errorEventf(
 				sc.Stack,
-				sc.Resources.RouteGroupSegment,
-				sc.GenerateRouteGroupSegment,
+				"FailedManageRouteGroupSegment",
+				err,
 			)
-			if err != nil {
-				return c.errorEventf(
-					sc.Stack,
-					"FailedManageRouteGroupSegment",
-					err,
-				)
-			}
 		}
 	}
 
@@ -1368,9 +1020,6 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 	}
 
 	hpaGenerator := sc.GenerateHPA
-	if ssc.SupportsSegmentTraffic() {
-		hpaGenerator = sc.GenerateHPAToSegment
-	}
 	err = c.ReconcileStackHPA(ctx, sc.Stack, sc.Resources.HPA, hpaGenerator)
 	if err != nil {
 		return c.errorEventf(sc.Stack, "FailedManageHPA", err)
@@ -1393,11 +1042,6 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 			err = fmt.Errorf("panic: %v", r)
 		}
 	}()
-
-	if c.injectSegmentAnnotation(ctx, container.StackSet) {
-		// Reconciler handles StackSet in the next loop
-		return nil
-	}
 
 	// Create current stack, if needed. Proceed on errors.
 	err = c.CreateCurrentStack(ctx, container)
@@ -1426,22 +1070,18 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 	// Mark stacks that should be removed
 	container.MarkExpiredStacks()
 
-	segsInOrder := []types.UID{}
-	// This is to support both central and segment-based traffic.
-	if container.SupportsSegmentTraffic() {
-		// Update traffic segments. Proceed on errors.
-		segsInOrder, err = c.ReconcileTrafficSegments(ctx, container)
-		if err != nil {
-			err = c.errorEventf(
-				container.StackSet,
-				reasonFailedManageStackSet,
-				err,
-			)
-			c.stacksetLogger(container).Errorf(
-				"Unable to reconcile traffic segments: %v",
-				err,
-			)
-		}
+	// Update traffic segments. Proceed on errors.
+	segsInOrder, err := c.ReconcileTrafficSegments(ctx, container)
+	if err != nil {
+		err = c.errorEventf(
+			container.StackSet,
+			reasonFailedManageStackSet,
+			err,
+		)
+		c.stacksetLogger(container).Errorf(
+			"Unable to reconcile traffic segments: %v",
+			err,
+		)
 	}
 
 	// Reconcile stack resources. Proceed on errors.
@@ -1472,7 +1112,7 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 	}
 
 	// Reconcile stackset resources (update ingress and/or routegroups). Proceed on errors.
-	err = c.ReconcileStackSetResources(ctx, container)
+	err = c.RecordTrafficSwitch(ctx, container)
 	if err != nil {
 		err = c.errorEventf(container.StackSet, reasonFailedManageStackSet, err)
 		c.stacksetLogger(container).Errorf("Unable to reconcile stackset resources: %v", err)
@@ -1527,24 +1167,6 @@ func fixupStackTypeMeta(stack *zv1.Stack) {
 	// https://github.com/kubernetes/client-go/issues/308
 	stack.APIVersion = core.APIVersion
 	stack.Kind = core.KindStack
-}
-
-func resourceReady(timestamp string, ttl time.Duration) (bool, error) {
-	resourceLastUpdated, err := time.Parse(time.RFC3339, timestamp)
-	if err != nil {
-		// wait until there's a valid timestamp on the annotation
-		return false, err
-	}
-
-	return resourceReadyTime(resourceLastUpdated, ttl), nil
-}
-
-func resourceReadyTime(timestamp time.Time, ttl time.Duration) bool {
-	if !timestamp.IsZero() && time.Since(timestamp) > ttl {
-		return true
-	}
-
-	return false
 }
 
 // validateConfigurationResourcesNames returns an error if any ConfigurationResource

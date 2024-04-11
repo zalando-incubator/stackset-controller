@@ -449,7 +449,7 @@ func (c *StackSetController) ReconcileStackSecretRef(ctx context.Context,
 		}
 
 		// If the Secret is owned by another resource, we should not update it.
-		return fmt.Errorf("Secret already owned by other resource. "+
+		return fmt.Errorf("secret already owned by other resource. "+
 			"Secret: %s, Stack: %s", rsc.GetName(), stack.Name)
 	}
 

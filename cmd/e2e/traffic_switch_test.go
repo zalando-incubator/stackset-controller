@@ -43,7 +43,7 @@ func TestTrafficSwitchStackset(t *testing.T) {
 	require.NoError(t, err)
 
 	spec = factory.Create(t, updatedVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, updatedVersion)
 	require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestTrafficSwitchStacksetExternalIngress(t *testing.T) {
 	_, err = waitForStack(t, stacksetName, firstVersion)
 	require.NoError(t, err)
 	spec = factory.Create(t, updatedVersion)
-	err = updateStackset(stacksetName, spec)
+	err = updateStackSet(stacksetName, spec)
 	require.NoError(t, err)
 	_, err = waitForStack(t, stacksetName, updatedVersion)
 	require.NoError(t, err)

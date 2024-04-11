@@ -27,9 +27,6 @@ import (
 
 var (
 	timeNow = time.Now().Format(time.RFC3339)
-	// ttl for the test environment is time.Minute, here
-	// timeOldEnough is set to twice this value.
-	timeOldEnough = time.Now().Add(-2 * time.Minute).Format(time.RFC3339)
 )
 
 type testClient struct {
@@ -68,12 +65,9 @@ func NewTestEnvironment() *testEnvironment {
 		prometheus.NewPedanticRegistry(),
 		time.Minute,
 		true,
+		nil,
 		true,
 		true,
-		[]string{},
-		true,
-		true,
-		time.Minute,
 	)
 
 	if err != nil {
@@ -191,12 +185,6 @@ func testStackset(name, namespace string, uid types.UID) zv1.StackSet {
 			UID:       uid,
 		},
 	}
-}
-
-func testStacksetAnnotatedSegment(name, namespace string, uid types.UID) zv1.StackSet {
-	res := testStackset(name, namespace, uid)
-	res.Annotations = map[string]string{TrafficSegmentsAnnotationKey: "true"}
-	return res
 }
 
 func testStack(name, namespace string, uid types.UID, ownerStack zv1.StackSet) zv1.Stack {

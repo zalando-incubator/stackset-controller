@@ -344,27 +344,9 @@ func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 }
 
 func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSetSpec) error {
-	return createStackSetWithAnnotations(
-		stacksetName,
-		prescalingTimeout,
-		spec,
-		nil,
-	)
-}
-
-func createStackSetWithAnnotations(
-	stacksetName string,
-	prescalingTimeout int,
-	spec zv1.StackSetSpec,
-	annotations map[string]string,
-) error {
 	stackSet := &zv1.StackSet{
 		ObjectMeta: stackObjectMeta(stacksetName, prescalingTimeout),
 		Spec:       spec,
-	}
-
-	for k, v := range annotations {
-		stackSet.Annotations[k] = v
 	}
 
 	_, err := stacksetInterface().Create(context.Background(), stackSet, metav1.CreateOptions{})
@@ -390,15 +372,7 @@ func stackExists(stacksetName, stackVersion string) bool {
 	return err == nil
 }
 
-func updateStackset(stacksetName string, spec zv1.StackSetSpec) error {
-	return updateStackSetWithAnnotations(stacksetName, spec, nil)
-}
-
-func updateStackSetWithAnnotations(
-	stacksetName string,
-	spec zv1.StackSetSpec,
-	annotations map[string]string,
-) error {
+func updateStackSet(stacksetName string, spec zv1.StackSetSpec) error {
 	for {
 		stackSet, err := stacksetInterface().Get(
 			context.Background(),
@@ -411,13 +385,6 @@ func updateStackSetWithAnnotations(
 		// Keep the desired traffic
 		spec.Traffic = stackSet.Spec.Traffic
 		stackSet.Spec = spec
-
-		if stackSet.Annotations == nil {
-			stackSet.Annotations = make(map[string]string)
-		}
-		for k, v := range annotations {
-			stackSet.Annotations[k] = v
-		}
 
 		_, err = stacksetInterface().Update(
 			context.Background(),

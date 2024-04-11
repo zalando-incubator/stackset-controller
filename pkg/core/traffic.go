@@ -288,17 +288,6 @@ func roundWeights(weights map[string]float64) {
 	}
 }
 
-// EnableSegmentTraffic enables managing traffic weight by using dedicated
-// Ingress and RouteGroup resources with Skipper's TrafficSegment predicate.
-func (ssc *StackSetContainer) EnableSegmentTraffic() {
-	ssc.segmentTraffic = true
-}
-
-// SupportsSegmentTraffic returns if the StackSet has segmented traffic enabled.
-func (ssc *StackSetContainer) SupportsSegmentTraffic() bool {
-	return ssc.segmentTraffic
-}
-
 // ManageTraffic handles the traffic reconciler logic
 func (ssc *StackSetContainer) ManageTraffic(currentTimestamp time.Time) error {
 	// No ingress -> no traffic management required

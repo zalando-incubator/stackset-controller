@@ -1502,7 +1502,7 @@ func TestGenerateHPAToSegment(t *testing.T) {
 				},
 			}
 
-			hpa, err := autoScalerContainer.GenerateHPAToSegment()
+			hpa, err := autoScalerContainer.GenerateHPA()
 			require.NoError(t, err)
 			require.NotEmpty(t, hpa.Spec.Metrics)
 			require.Equal(

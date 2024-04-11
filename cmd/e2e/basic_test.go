@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	rgv1 "github.com/szuecs/routegroup-client/apis/zalando.org/v1"
-	"github.com/zalando-incubator/stackset-controller/controller"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	"github.com/zalando-incubator/stackset-controller/pkg/core"
 	apps "k8s.io/api/apps/v1"
@@ -607,14 +606,7 @@ func testStacksetCreate(
 	}
 	stacksetSpec := stacksetSpecFactory.Create(t, stackVersion)
 
-	err := createStackSetWithAnnotations(
-		stacksetName,
-		0,
-		stacksetSpec,
-		map[string]string{
-			controller.TrafficSegmentsAnnotationKey: "true",
-		},
-	)
+	err := createStackSet(stacksetName, 0, stacksetSpec)
 	require.NoError(t, err)
 
 	verifyStack(
@@ -696,14 +688,7 @@ func testStacksetUpdate(
 	}
 	stacksetSpec := stacksetSpecFactory.Create(t, initialVersion)
 
-	err := createStackSetWithAnnotations(
-		stacksetName,
-		0,
-		stacksetSpec,
-		map[string]string{
-			controller.TrafficSegmentsAnnotationKey: "true",
-		},
-	)
+	err := createStackSet(stacksetName, 0, stacksetSpec)
 	require.NoError(t, err)
 
 	verifyStack(
@@ -777,7 +762,7 @@ func testStacksetUpdate(
 	}
 
 	updatedSpec := stacksetSpecFactory.Create(t, updatedVersion)
-	err = updateStackset(stacksetName, updatedSpec)
+	err = updateStackSet(stacksetName, updatedSpec)
 	require.NoError(t, err)
 
 	verifyStack(

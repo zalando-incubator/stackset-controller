@@ -940,7 +940,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 				DescribedObject: autoscaling.CrossVersionObjectReference{
 					APIVersion: "networking.k8s.io/v1",
 					Kind:       "Ingress",
-					Name:       container.stacksetName,
+					Name:       container.Name() + "-traffic-segment",
 				},
 				Target: autoscaling.MetricTarget{
 					Type:         autoscaling.AverageValueMetricType,
@@ -957,7 +957,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 				DescribedObject: autoscaling.CrossVersionObjectReference{
 					APIVersion: "networking.k8s.io/v1",
 					Kind:       "Ingress",
-					Name:       container.stacksetName,
+					Name:       container.Name() + "-traffic-segment",
 				},
 				Target: autoscaling.MetricTarget{
 					Type:         autoscaling.AverageValueMetricType,
@@ -1057,7 +1057,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 				DescribedObject: autoscaling.CrossVersionObjectReference{
 					APIVersion: "zalando.org/v1",
 					Kind:       "RouteGroup",
-					Name:       container.stacksetName,
+					Name:       container.Name() + "-traffic-segment",
 				},
 				Target: autoscaling.MetricTarget{
 					Type:         autoscaling.AverageValueMetricType,
@@ -1079,7 +1079,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 				DescribedObject: autoscaling.CrossVersionObjectReference{
 					APIVersion: "zalando.org/v1",
 					Kind:       "RouteGroup",
-					Name:       container.stacksetName,
+					Name:       container.Name() + "-traffic-segment",
 				},
 				Target: autoscaling.MetricTarget{
 					Type:         autoscaling.AverageValueMetricType,

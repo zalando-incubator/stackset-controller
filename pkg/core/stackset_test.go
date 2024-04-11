@@ -687,9 +687,9 @@ func TestStackSetUpdateFromResourcesSynchronizedIngressAnnotations(
 		},
 	} {
 		c := dummyStacksetContainer()
+		c.ingressAnnotationsToSync = tc.ingressAnnotationsToSync
 		c.StackSet.Spec = tc.stackSet
 
-		c.SynchronizeIngressAnnotations(tc.ingressAnnotationsToSync)
 		err := c.UpdateFromResources()
 		require.NoError(t, err)
 

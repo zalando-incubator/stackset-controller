@@ -50,8 +50,6 @@ echo ">>> Writing controller logs in $controllerLog"
 # Find and run the controller locally.
 sscPath=$(find build/ -name "stackset-controller" | head -n 1)
 command $sscPath --apiserver=http://127.0.0.1:8001 \
-  --ingress-source-switch-ttl="1m" \
-  --enable-traffic-segments \
   --sync-ingress-annotation=example.org/i-haz-synchronize \
   --sync-ingress-annotation=teapot.org/the-best \
   --enable-configmap-support \
