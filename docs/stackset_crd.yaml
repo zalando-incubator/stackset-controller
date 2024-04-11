@@ -631,8 +631,22 @@ spec:
                           description: ConfigurationResourcesSpec makes it possible
                             to defined the config resources to be created
                           properties:
+                            configMap:
+                              description: ConfigMap is an inline ConfigMap to be
+                                owned by Stack
+                              properties:
+                                data:
+                                  additionalProperties:
+                                    type: string
+                                  description: Data is the data of the ConfigMap.
+                                  type: object
+                                name:
+                                  description: Name is the name of the ConfigMap.
+                                  type: string
+                              type: object
                             configMapRef:
-                              description: ConfigMap to be owned by Stack
+                              description: ConfigMapRef is a reference to a ConfigMap
+                                to be owned by Stack
                               properties:
                                 name:
                                   description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
@@ -642,7 +656,8 @@ spec:
                               type: object
                               x-kubernetes-map-type: atomic
                             secretRef:
-                              description: Secret to be owned by Stack
+                              description: SecretRef is a reference to a Secret to
+                                be owned by Stack
                               properties:
                                 name:
                                   description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
