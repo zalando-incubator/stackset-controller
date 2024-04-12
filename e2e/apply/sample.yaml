@@ -23,6 +23,12 @@ spec:
           name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-config
       - secretRef:
           name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-reference-secret
+      - platformCredentialsSet:
+          name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-pcs
+          tokens:
+            sample-token:
+              privileges:
+              - com.zalando::foobar.read
       autoscaler:
         minReplicas: 2
         maxReplicas: 2
