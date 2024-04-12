@@ -433,8 +433,8 @@ type StackSpec struct {
 	// Strategy describe the rollout strategy for the underlying deployment
 	Strategy *appsv1.DeploymentStrategy `json:"strategy,omitempty"`
 
-	// ConfigurationResources describes the ConfigMaps that will be created.
-	// Later Secrets and PlatformCredentialSets will also be defined on ConfigurationResources
+	// ConfigurationResources describes the ConfigMaps, Secrets, and/or
+	// PlatformCredentialsSet that will be created.
 	ConfigurationResources []ConfigurationResourcesSpec `json:"configurationResources,omitempty"`
 }
 
@@ -449,6 +449,16 @@ type ConfigurationResourcesSpec struct {
 
 	// SecretRef is a reference to a Secret to be owned by Stack
 	SecretRef *v1.LocalObjectReference `json:"secretRef,omitempty"`
+
+	// PlatformCredentialsSet to be created and owned by Stack
+	PlatformCredentialsSet *PCS `json:"platformCredentialsSet,omitempty"`
+}
+
+// PCS is the PlatformCredentialsSet definition for a stack
+// +k8s:deepcopy-gen=true
+type PCS struct {
+	Name   string           `json:"name,omitempty"`
+	Tokens map[string]Token `json:"tokens,omitempty"`
 }
 
 // GetName returns the name of the ConfigurationResourcesSpec.
@@ -463,6 +473,10 @@ func (crs *ConfigurationResourcesSpec) GetName() string {
 
 	if crs.IsSecretRef() {
 		return crs.SecretRef.Name
+	}
+
+	if crs.IsPlatformCredentialsSet() {
+		return crs.PlatformCredentialsSet.Name
 	}
 
 	return ""
@@ -481,6 +495,11 @@ func (crs *ConfigurationResourcesSpec) IsConfigMapRef() bool {
 // IsSecretRef returns true if the ConfigurationResourcesSpec is a referenced Secret.
 func (crs *ConfigurationResourcesSpec) IsSecretRef() bool {
 	return crs.SecretRef != nil && crs.SecretRef.Name != ""
+}
+
+// IsPlatformCredentialsSet returns true if the ConfigurationResourcesSpec is an inline PlatformCredentialsSet.
+func (crs *ConfigurationResourcesSpec) IsPlatformCredentialsSet() bool {
+	return crs.PlatformCredentialsSet != nil && crs.PlatformCredentialsSet.Name != ""
 }
 
 // ConfigMap holds the name and data of an inline ConfigMap.
