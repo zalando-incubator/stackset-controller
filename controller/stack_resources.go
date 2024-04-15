@@ -489,7 +489,6 @@ func (c *StackSetController) ReconcileStackPlatformCredentialsSets(
 			return err
 		}
 	}
-
 	return nil
 }
 
@@ -514,7 +513,7 @@ func (c *StackSetController) ReconcileStackPlatformCredentialsSet(
 		if core.IsResourceUpToDate(stack, e.ObjectMeta) &&
 			equality.Semantic.DeepEqual(pcs.Spec, e.Spec) &&
 			core.AreAnnotationsUpToDate(pcs.ObjectMeta, e.ObjectMeta) {
-			continue
+			return nil
 		}
 
 		updated := e.DeepCopy()

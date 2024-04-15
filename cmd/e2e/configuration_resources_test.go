@@ -26,8 +26,13 @@ func (suite *ConfigurationResourcesTestSuite) SetupTest() {
 	suite.stackVersion = "v1"
 
 	suite.stacksetSpecFactory = NewTestStacksetSpecFactory(suite.stacksetName)
+}
 
-	_ = deleteStackset(suite.stacksetName)
+func (suite *ConfigurationResourcesTestSuite) TearDownTest() {
+	err := deleteStackset(suite.stacksetName)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // TestReferencedConfigMaps tests that ConfigMaps referenced in the StackSet spec are owned by the Stack.
@@ -104,7 +109,7 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedSecrets() {
 // correctly created and owned by the Stack.
 func (suite *ConfigurationResourcesTestSuite) TestGeneratedPCS() {
 	// Add the PlatformCredentialsSet reference to the StackSet spec
-	pcsName := "stackset-cr-v1-my-pcs"
+	pcsName := suite.stacksetName + "-" + suite.stackVersion + "-my-pcs"
 	suite.stacksetSpecFactory.AddPlatformCredentialsSetDefinition(pcsName)
 
 	// Generate the StackSet spec
@@ -116,7 +121,6 @@ func (suite *ConfigurationResourcesTestSuite) TestGeneratedPCS() {
 
 	// Wait for the first Stack to be created
 	stack, err := waitForStack(suite.T(), suite.stacksetName, suite.stackVersion)
-	stack.Labels["application"] = "my-test-app"
 	suite.Require().NoError(err)
 
 	// Fetch the latest version of the PlatformCredentialsSet
