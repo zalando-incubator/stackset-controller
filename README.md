@@ -39,26 +39,10 @@ spanning all stacks of the stackset which makes it possible to switch
 traffic to different stacks at the load balancer (for example Ingress) level.
 
 ```mermaid
-graph TD;
-  A-->B
-```
-
-```
-                                 +-----------------------+
-                                 |                       |
-                                 |     Load Balancer     |
-                                 | (for example Ingress) |
-                                 |                       |
-                                 +--+--------+--------+--+
-                                    | 0%     | 20%    | 80%
-                      +-------------+        |        +------------+
-                      |                      |                     |
-            +---------v---------+  +---------v---------+  +--------v----------+
-            |                   |  |                   |  |                   |
-            |       Stack       |  |       Stack       |  |      Stack        |
-            |     Version 1     |  |     Version 2     |  |     Version 3     |
-            |                   |  |                   |  |                   |
-            +-------------------+  +-------------------+  +-------------------+
+flowchart
+  A[Ingress Controller] -->|0%| B[Stack\nVersion 1]
+  A[Ingress Controller] -->|20%| C[Stack\nVersion 2]
+  A[Ingress Controller] -->|80%| D[Stack\nVersion 3]
 ```
 
 The `StackSet` and `Stack` resources are implemented as
@@ -133,6 +117,9 @@ metadata:
     stackset: my-app
     stackset-version: v1
 spec:
+  ingress:
+    hosts: [my-app.example.org, alt.name.org]
+    backendPort: 80
   replicas: 3
   autoscaler:
     minReplicas: 3
@@ -161,15 +148,14 @@ spec:
             memory: 50Mi
 ```
 
-For each `Stack` a `Service` and `Deployment` resource will be created
-automatically with the right labels. The service will also be attached to the
-"global" Ingress if the stack is configured to get traffic. An optional
-`autoscaler` resource can also be created per stack for
+For each `Stack`, the StackSet controller creates a `Service`, a `Deployment`,
+and an optional `Ingress` resource automatically with the right labels. An
+optional `autoscaler` resource can also be created per stack for
 horizontally scaling the deployment.
 
 For the most part the `Stacks` will be dynamically managed by the
-system and the users don't have to touch them. You can think of this similar to
-the relationship between `Deployments` and `ReplicaSets`.
+controller and the users don't have to touch them. You can think of this similar
+to the relationship between `Deployments` and `ReplicaSets`.
 
 If the `Stack` is deleted the related resources like `Service` and
 `Deployment` will be automatically cleaned up.
@@ -235,9 +221,10 @@ The controller watches for `StackSet` resources and creates `Stack` resources
 whenever the version is updated in the `StackSet` `stackTemplate`. For each
 `StackSet` it will create an optional "main" `Ingress` resource and keep it up
 to date when new `Stacks` are created for the `StackSet`. For each `Stack` it
-will create a `Deployment`, a `Service` and optionally an
-`HorizontalPodAutoscaler` for the `Deployment`. These resources are all owned
-by the `Stack` and will be cleaned up if the stack is deleted.
+will create a `Deployment`, a `Service`. When specified in the parent
+`StackSet`, the controller will create also for each `Stack` an `Ingress` and/or
+a `HorizontalPodAutoscaler` for the `Deployment`. The corresponding `Stack` owns
+these resources, which are cleaned up if the stack is deleted.
 
 ## Setup
 
@@ -313,9 +300,9 @@ It will also create `Ingress`, `Service`, `Deployment` and
 
 ```bash
 $ kubectl get ingress,service,deployment.apps,hpa -l stackset=my-app
-NAME                           HOSTS                   ADDRESS                                  PORTS     AGE
-ingress.extensions/my-app      my-app.example.org      kube-ing-lb-3es9a....elb.amazonaws.com   80        7m
-ingress.extensions/my-app-v1   my-app-v1.example.org   kube-ing-lb-3es9a....elb.amazonaws.com   80        7m
+NAME                                                     HOSTS                   ADDRESS                                  PORTS     AGE
+ingress.networking.k8s.io/my-app-v1-traffic-segment      my-app.example.org      kube-ing-lb-3es9a....elb.amazonaws.com   80        7m
+ingress.networking.k8s.io/my-app-v1                      my-app-v1.example.org   kube-ing-lb-3es9a....elb.amazonaws.com   80        7m
 
 NAME                TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)  AGE
 service/my-app-v1   ClusterIP   10.3.204.136   <none>        80/TCP   7m
@@ -370,14 +357,14 @@ after some time and eventually deleted.
 If you want to delete it manually, you can simply do:
 
 ```bash
-$ kubectl delete appstack my-app-v1
-stacksetstack.zalando.org "my-app-v1" deleted
+$ kubectl delete stack my-app-v1
+stack.zalando.org "my-app-v1" deleted
 ```
 
 And all the related resources will be gone shortly after:
 
 ```bash
-$ kubectl get ingress,service,deployment.apps,hpa -l stackset=my-app,stackset-version=v1
+$ kubectl get ingress,service,deployment.apps,hpa -l stackset=my-app,stack-version=v1
 No resources found.
 ```
 
