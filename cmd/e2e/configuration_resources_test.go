@@ -30,9 +30,7 @@ func (suite *ConfigurationResourcesTestSuite) SetupTest() {
 
 func (suite *ConfigurationResourcesTestSuite) TearDownTest() {
 	err := deleteStackset(suite.stacksetName)
-	if err != nil {
-		panic(err)
-	}
+	suite.Require().NoError(err)
 }
 
 // TestReferencedConfigMaps tests that ConfigMaps referenced in the StackSet spec are owned by the Stack.
