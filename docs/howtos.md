@@ -51,7 +51,7 @@ This will result in an `Ingress` resource where the `service.port.number` value 
 apiVersion: networking/v1
 kind: Ingress
 metadata:
-  name: my-app
+  name: my-app-v1-traffic-segment
 spec:
   rules:
   - host: my-app.example.org
@@ -391,7 +391,7 @@ set to 40, stack size will be set to `40`.
 
 ## Traffic Switch resources controlled by External Controllers
 
-External controllers could create routes based on multiple Ingress,
+External controllers can create routes based on multiple Ingress,
 [FabricGateway](https://github.com/zalando-incubator/fabric-gateway/blob/master/deploy/operator/apply/01_FabricGatewayCRD.yaml)
 [RouteGroup](https://opensource.zalando.com/skipper/kubernetes/routegroup-crd/)
 [SMI](https://smi-spec.io/),
@@ -448,6 +448,10 @@ status:
     servicePort: 8080
     weight: 0
 ```
+
+**Important**: with `externalIngress` set the StackSet Controller won't create
+Ingress resources. Therefore  The External Controller is also responsible for
+versioning external Ingress.
 
 ## Using RouteGroups
 
