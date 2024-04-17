@@ -332,7 +332,7 @@ func stackObjectMeta(name string, prescalingTimeout int) metav1.ObjectMeta {
 		Name:        name,
 		Namespace:   namespace,
 		Annotations: map[string]string{},
-		Labels:      map[string]string{},
+		Labels:      map[string]string{"application": name},
 	}
 	if controllerId != "" {
 		meta.Annotations[controller.StacksetControllerControllerAnnotationKey] = controllerId
@@ -348,12 +348,6 @@ func createStackSet(stacksetName string, prescalingTimeout int, spec zv1.StackSe
 	stackSet := &zv1.StackSet{
 		ObjectMeta: stackObjectMeta(stacksetName, prescalingTimeout),
 		Spec:       spec,
-	}
-
-	for _, rsc := range spec.StackTemplate.Spec.ConfigurationResources {
-		if rsc.IsPlatformCredentialsSet() {
-			stackSet.Labels["application"] = stacksetName
-		}
 	}
 
 	_, err := stacksetInterface().Create(context.Background(), stackSet, metav1.CreateOptions{})
