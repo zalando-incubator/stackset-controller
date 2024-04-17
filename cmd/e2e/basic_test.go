@@ -303,7 +303,16 @@ func replicas(value *int32) int32 {
 }
 
 func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec zv1.StackSetSpec, subResourceAnnotations map[string]string) {
-	stackResourceLabels := map[string]string{stacksetHeritageLabelKey: stacksetName, stackVersionLabelKey: currentVersion}
+	stackResourceLabels := map[string]string{
+		stacksetHeritageLabelKey:    stacksetName,
+		stackVersionLabelKey:        currentVersion,
+		stacksetApplicationLabelKey: stacksetName,
+	}
+
+	selectorLabels := map[string]string{
+		stacksetHeritageLabelKey: stacksetName,
+		stackVersionLabelKey:     currentVersion,
+	}
 
 	// Verify stack
 	stack, err := waitForStack(t, stacksetName, currentVersion)
@@ -336,7 +345,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 		require.Equal(t, v, service.Annotations[k])
 	}
 	require.EqualValues(t, stackResourceLabels, service.Labels)
-	require.EqualValues(t, stackResourceLabels, service.Spec.Selector)
+	require.EqualValues(t, selectorLabels, service.Spec.Selector)
 
 	// Verify that the stack status is updated successfully
 	err = stackStatusMatches(t, stack.Name, expectedStackStatus{
@@ -426,8 +435,9 @@ func verifyStackSegments(
 	subResourceAnnotations map[string]string,
 ) {
 	stackResourceLabels := map[string]string{
-		stacksetHeritageLabelKey: stacksetName,
-		stackVersionLabelKey:     currentVersion,
+		stacksetHeritageLabelKey:    stacksetName,
+		stackVersionLabelKey:        currentVersion,
+		stacksetApplicationLabelKey: stacksetName,
 	}
 
 	stack, err := waitForStack(t, stacksetName, currentVersion)

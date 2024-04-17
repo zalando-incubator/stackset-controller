@@ -26,8 +26,9 @@ import (
 type weightKind string
 
 const (
-	stacksetHeritageLabelKey = "stackset"
-	stackVersionLabelKey     = "stack-version"
+	stacksetHeritageLabelKey    = "stackset"
+	stacksetApplicationLabelKey = "application"
+	stackVersionLabelKey        = "stack-version"
 
 	weightKindDesired weightKind = "zalando.org/stack-traffic-weights"
 	weightKindActual  weightKind = "zalando.org/backend-weights"
