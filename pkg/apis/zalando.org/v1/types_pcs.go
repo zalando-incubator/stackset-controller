@@ -14,23 +14,23 @@ type PlatformCredentialsSet struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Spec   PlatformCredentialsSpec   `json:"spec"`
-	Status PlatformCredentialsStatus `json:"status,omitempty"`
+	Status PlatformCredentialsStatus `json:"status"`
 }
 
 // PlatformCredentialsSpec is the spec part of the StackSet.
 // +k8s:deepcopy-gen=true
 type PlatformCredentialsSpec struct {
 	Application  string            `json:"application"`
-	Clients      map[string]Client `json:"clients,omitempty"`
-	Tokens       map[string]Token  `json:"tokens,omitempty"`
-	TokenVersion string            `json:"token_version,omitempty"`
+	Clients      map[string]Client `json:"clients"`
+	Tokens       map[string]Token  `json:"tokens"`
+	TokenVersion string            `json:"token_version"`
 }
 
 // +k8s:deepcopy-gen=true
 type Client struct {
-	Realm       string `json:"realm,omitempty"`
-	Grant       string `json:"grant,omitempty"`
-	RedirectURI string `json:"redirectUri,omitempty"`
+	Realm       string `json:"realm"`
+	Grant       string `json:"grant"`
+	RedirectURI string `json:"redirectUri"`
 }
 
 // +k8s:deepcopy-gen=true
