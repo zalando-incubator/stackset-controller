@@ -38,6 +38,10 @@ application. The `StackSet` also allows defining a "global" load balancer
 spanning all stacks of the stackset which makes it possible to switch
 traffic to different stacks at the load balancer (for example Ingress) level.
 
+```mermaid
+graph TD;
+  A-->B
+```
 
 ```
                                  +-----------------------+
@@ -188,13 +192,12 @@ behavior for the `StackSet`:
 
 * Automatically create new Stacks when the `StackSet` is updated with a new
   version in the `stackTemplate`.
-* Do traffic switching between Stacks at the Ingress layer, if you
-  have the ingress definition in the spec. Ingress
-  resources are automatically updated when new stacks are created. (This
-  require that your ingress controller implements the annotation
-  `zalando.org/backend-weights: {"my-app-1": 80, "my-app-2": 20}`, for
-  example use [skipper](https://github.com/zalando/skipper) for
-  Ingress) or read the information from stackset `status.traffic`.
+* Traffic switch between Stacks: The controller creates a new Ingress and/or
+  RouteGroup per Stack for StackSets with a `routegroup` or `ingress` specified
+  in the `spec`. The controller automatically updates each Stacks'
+  Ingress/RouteGroup when updating the main StackSet's `traffic` weights. The
+  ingress controller must implement the `TrafficSegment` predicate to
+  effectively switch traffic. For example, [Skipper] implements this predicate. 
 * Safely switch traffic to scaled down stacks. If a stack is scaled down, it
   will be scaled up automatically before traffic is directed to it.
 * Dynamically provision Ingresses per stack, with per stack host names. I.e.
@@ -215,6 +218,8 @@ behavior for the `StackSet`:
 * You can use skipper's
   [RouteGroups](https://opensource.zalando.com/skipper/kubernetes/routegroups)
   to configure more complex routing rules.
+
+[Skipper]: https://opensource.zalando.com/skipper/reference/predicates/#trafficsegment
 
 ## Docs
 
