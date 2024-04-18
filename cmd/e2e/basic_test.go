@@ -66,6 +66,25 @@ func NewTestStacksetSpecFactory(stacksetName string) *TestStacksetSpecFactory {
 	}
 }
 
+func (f *TestStacksetSpecFactory) AddInlineConfigMap(configMap *zv1.ConfigMap) *TestStacksetSpecFactory {
+	f.configurationResources = append(f.configurationResources, zv1.ConfigurationResourcesSpec{
+		ConfigMap: configMap,
+	})
+
+	f.volumes = append(f.volumes, corev1.Volume{
+		Name: configMap.Name,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: configMap.Name,
+				},
+			},
+		},
+	})
+
+	return f
+}
+
 func (f *TestStacksetSpecFactory) AddReferencedConfigMap(configMapName string) *TestStacksetSpecFactory {
 	f.configurationResources = append(f.configurationResources, zv1.ConfigurationResourcesSpec{
 		ConfigMapRef: &corev1.LocalObjectReference{Name: configMapName},
