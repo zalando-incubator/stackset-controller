@@ -30,6 +30,7 @@ spec:
           - "--enable-configmap-support"
           - "--enable-secret-support"
           - "--enable-routegroup-support"
+          - "--enable-pcs-support"
           - "--sync-ingress-annotation=example.org/i-haz-synchronize"
           - "--sync-ingress-annotation=teapot.org/the-best"
         resources:

@@ -68,6 +68,7 @@ func NewTestEnvironment() *testEnvironment {
 		nil,
 		true,
 		true,
+		true,
 	)
 
 	if err != nil {
@@ -170,6 +171,16 @@ func (f *testEnvironment) CreateConfigMaps(ctx context.Context, configMaps []v1.
 func (f *testEnvironment) CreateSecrets(ctx context.Context, secrets []v1.Secret) error {
 	for _, secret := range secrets {
 		_, err := f.client.CoreV1().Secrets(secret.Namespace).Create(ctx, &secret, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f *testEnvironment) CreatePCS(ctx context.Context, pcss []zv1.PlatformCredentialsSet) error {
+	for _, pcs := range pcss {
+		_, err := f.client.ZalandoV1().PlatformCredentialsSets(pcs.Namespace).Create(ctx, &pcs, metav1.CreateOptions{})
 		if err != nil {
 			return err
 		}

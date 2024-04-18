@@ -1748,3 +1748,80 @@ func TestOwnSecret(t *testing.T) {
 		})
 	}
 }
+
+func TestGeneratePCS(t *testing.T) {
+	sc := &StackContainer{
+		Stack: &zv1.Stack{
+			ObjectMeta: testStackMeta,
+			Spec: zv1.StackSpecInternal{
+				StackSpec: zv1.StackSpec{
+					ConfigurationResources: []zv1.ConfigurationResourcesSpec{
+						{
+							PlatformCredentialsSet: &zv1.PCS{
+								Name: "foo-v1-pcs-test",
+								Tokens: map[string]zv1.Token{
+									"token01": {
+										Privileges: []string{
+											"read-write",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	sc.Stack.Labels["application"] = "pcs-app"
+	expectedAnn := map[string]string{
+		stackGenerationAnnotationKey: strconv.FormatInt(sc.Stack.Generation, 10),
+	}
+
+	for _, tc := range []struct {
+		name     string
+		template *zv1.PCS
+		result   *zv1.PlatformCredentialsSet
+	}{
+		{
+			name:     "platformCredentialsSet is created from Stack data",
+			template: sc.Stack.Spec.ConfigurationResources[0].PlatformCredentialsSet,
+			result: &zv1.PlatformCredentialsSet{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "foo-v1-pcs-test",
+					Namespace:   testStackMeta.Namespace,
+					Labels:      sc.Stack.Labels,
+					Annotations: expectedAnn,
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: APIVersion,
+							Kind:       KindStack,
+							Name:       sc.Name(),
+							UID:        sc.Stack.UID,
+						},
+					},
+				},
+				Spec: zv1.PlatformCredentialsSpec{
+					Application:  sc.Stack.Labels["application"],
+					TokenVersion: "v2",
+					Tokens: map[string]zv1.Token{
+						"token01": {
+							Privileges: []string{
+								"read-write",
+							},
+						},
+					},
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pcs, _ := sc.GeneratePlatformCredentialsSet(tc.template)
+			require.Equal(t, tc.result.Name, pcs.Name)
+			require.Equal(t, tc.result.Labels, pcs.Labels)
+			require.Equal(t, tc.result.Annotations, pcs.Annotations)
+			require.Equal(t, tc.result.OwnerReferences, pcs.OwnerReferences)
+			require.Equal(t, tc.result.Spec, pcs.Spec)
+		})
+	}
+}

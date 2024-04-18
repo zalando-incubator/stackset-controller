@@ -577,3 +577,30 @@ func (sc *StackContainer) GenerateStackStatus() *zv1.StackStatus {
 		LabelSelector:        labels.Set(sc.selector()).String(),
 	}
 }
+
+func (sc *StackContainer) GeneratePlatformCredentialsSet(pcs *zv1.PCS) (*zv1.PlatformCredentialsSet, error) {
+	if pcs.Tokens == nil {
+		return nil, fmt.Errorf("platformCredentialsSet has no tokens")
+	}
+
+	metaObj := sc.resourceMeta()
+	if _, ok := sc.Stack.Labels["application"]; !ok {
+		return nil, fmt.Errorf("stack has no label application")
+	}
+	metaObj.Name = pcs.Name
+
+	result := &zv1.PlatformCredentialsSet{
+		ObjectMeta: metaObj,
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PlatformCredentialsSet",
+			APIVersion: "zalando.org/v1",
+		},
+		Spec: zv1.PlatformCredentialsSpec{
+			Application:  metaObj.Labels["application"],
+			TokenVersion: "v2",
+			Tokens:       pcs.Tokens,
+		},
+	}
+
+	return result, nil
+}

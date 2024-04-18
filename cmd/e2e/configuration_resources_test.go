@@ -26,8 +26,11 @@ func (suite *ConfigurationResourcesTestSuite) SetupTest() {
 	suite.stackVersion = "v1"
 
 	suite.stacksetSpecFactory = NewTestStacksetSpecFactory(suite.stacksetName)
+}
 
-	_ = deleteStackset(suite.stacksetName)
+func (suite *ConfigurationResourcesTestSuite) TearDownTest() {
+	err := deleteStackset(suite.stacksetName)
+	suite.Require().NoError(err)
 }
 
 // TestReferencedConfigMaps tests that ConfigMaps referenced in the StackSet spec are owned by the Stack.
@@ -98,4 +101,41 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedSecrets() {
 			UID:        stack.UID,
 		},
 	}, secret.OwnerReferences)
+}
+
+// TestGeneratedPCS tests that PlatformCredentialsSets defined in the StackSet are
+// correctly created and owned by the Stack.
+func (suite *ConfigurationResourcesTestSuite) TestGeneratedPCS() {
+	// Add the PlatformCredentialsSet reference to the StackSet spec
+	pcsName := suite.stacksetName + "-" + suite.stackVersion + "-my-pcs"
+	suite.stacksetSpecFactory.AddPlatformCredentialsSetDefinition(pcsName)
+
+	// Generate the StackSet spec
+	stacksetSpec := suite.stacksetSpecFactory.Create(suite.T(), suite.stackVersion)
+
+	// Create the StackSet in the cluster
+	err := createStackSet(suite.stacksetName, 0, stacksetSpec)
+	suite.Require().NoError(err)
+
+	// Wait for the first Stack to be created
+	stack, err := waitForStack(suite.T(), suite.stacksetName, suite.stackVersion)
+	suite.Require().NoError(err)
+
+	// Fetch the latest version of the PlatformCredentialsSet
+	pcs, err := waitForPlatformCredentialsSet(suite.T(), pcsName)
+	suite.Require().NoError(err)
+
+	// Ensure that the PlatformCredentialsSet is owned by the Stack
+	suite.Equal([]metav1.OwnerReference{
+		{
+			APIVersion: core.APIVersion,
+			Kind:       core.KindStack,
+			Name:       stack.Name,
+			UID:        stack.UID,
+		},
+	}, pcs.OwnerReferences)
+
+	suite.Equal(stack.Labels["application"], pcs.Spec.Application)
+	suite.Equal("v2", pcs.Spec.TokenVersion)
+	suite.Equal([]string{"read"}, pcs.Spec.Tokens["token-example"].Privileges)
 }

@@ -7968,10 +7968,6 @@ spec:
                                                       type: object
                                                     type: array
                                                   name:
-                                                    description: 'Name of the referent.
-                                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                                      TODO: Add other useful fields.
-                                                      apiVersion, kind, uid?'
                                                     type: string
                                                   optional:
                                                     description: optional specify
@@ -8063,14 +8059,6 @@ spec:
                                                   data to project
                                                 properties:
                                                   audience:
-                                                    description: audience is the intended
-                                                      audience of the token. A recipient
-                                                      of a token must identify itself
-                                                      with an identifier specified
-                                                      in the audience of the token,
-                                                      and otherwise should reject
-                                                      the token. The audience defaults
-                                                      to the identifier of the apiserver.
                                                     type: string
                                                   expirationSeconds:
                                                     format: int64
