@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	zv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	v2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -56,25 +55,9 @@ func TestGenerateAutoscaler(t *testing.T) {
 	require.EqualValues(t, 10, hpa.Spec.MaxReplicas)
 	require.Len(t, hpa.Spec.Metrics, 3)
 
-	// we intentionally don't care about the order of the metrics because
-	// it's not guaranteed in Kubernetes versions below v1.28
-	// See https://github.com/zalando-incubator/stackset-controller/pull/591#issuecomment-1959751276
-	metricTypes := map[v2.MetricSourceType]int64{
-		v2.ExternalMetricSourceType: 10,
-		v2.ResourceMetricSourceType: 50,
-		v2.ObjectMetricSourceType:   20,
-	}
-
-	for _, metric := range hpa.Spec.Metrics {
-		switch metric.Type {
-		case v2.ExternalMetricSourceType:
-			require.EqualValues(t, metricTypes[metric.Type], metric.External.Target.AverageValue.Value())
-		case v2.ResourceMetricSourceType:
-			require.EqualValues(t, metricTypes[metric.Type], *metric.Resource.Target.AverageUtilization)
-		case v2.ObjectMetricSourceType:
-			require.EqualValues(t, metricTypes[metric.Type], metric.Object.Target.AverageValue.Value())
-		}
-	}
+	require.EqualValues(t, 10, hpa.Spec.Metrics[0].External.Target.AverageValue.Value())
+	require.EqualValues(t, 50, *hpa.Spec.Metrics[1].Resource.Target.AverageUtilization)
+	require.EqualValues(t, 20, hpa.Spec.Metrics[2].Object.Target.AverageValue.Value())
 }
 
 func TestAutoscalerWithoutTraffic(t *testing.T) {
