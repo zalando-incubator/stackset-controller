@@ -486,12 +486,38 @@ func waitForConfigMap(t *testing.T, configMapName string) (*corev1.ConfigMap, er
 	return configMapInterface().Get(context.Background(), configMapName, metav1.GetOptions{})
 }
 
+func waitForConfigMapOwnerReferences(t *testing.T, configMapName string, expectedOwnerReferences []metav1.OwnerReference) *awaiter {
+	return newAwaiter(t, fmt.Sprintf("configmap %s to reach desired ownerReferences", configMapName)).withPoll(func() (retry bool, err error) {
+		configMap, err := configMapInterface().Get(context.Background(), configMapName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		if !reflect.DeepEqual(expectedOwnerReferences, configMap.OwnerReferences) {
+			return true, fmt.Errorf("%s: actual ownerReferences: %+v, expected: %+v, diff:\n%v", configMapName, configMap.OwnerReferences, expectedOwnerReferences, cmp.Diff(configMap.OwnerReferences, expectedOwnerReferences))
+		}
+		return true, nil
+	})
+}
+
 func waitForSecret(t *testing.T, secretName string) (*corev1.Secret, error) {
 	err := resourceCreated(t, "secret", secretName, secretInterface()).await()
 	if err != nil {
 		return nil, err
 	}
 	return secretInterface().Get(context.Background(), secretName, metav1.GetOptions{})
+}
+
+func waitForSecretOwnerReferences(t *testing.T, secretName string, expectedOwnerReferences []metav1.OwnerReference) *awaiter {
+	return newAwaiter(t, fmt.Sprintf("secret %s to reach desired ownerReferences", secretName)).withPoll(func() (retry bool, err error) {
+		secret, err := secretInterface().Get(context.Background(), secretName, metav1.GetOptions{})
+		if err != nil {
+			return false, err
+		}
+		if !reflect.DeepEqual(expectedOwnerReferences, secret.OwnerReferences) {
+			return true, fmt.Errorf("%s: actual ownerReferences: %+v, expected: %+v, diff:\n%v", secretName, secret.OwnerReferences, expectedOwnerReferences, cmp.Diff(secret.OwnerReferences, expectedOwnerReferences))
+		}
+		return true, nil
+	})
 }
 
 func waitForPlatformCredentialsSet(t *testing.T, pcsName string) (*zv1.PlatformCredentialsSet, error) {

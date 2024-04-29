@@ -53,19 +53,21 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedConfigMaps() {
 	stack, err := waitForStack(suite.T(), suite.stacksetName, suite.stackVersion)
 	suite.Require().NoError(err)
 
-	// Fetch the latest version of the ConfigMap
-	configMap, err := waitForConfigMap(suite.T(), configMapName)
+	// Ensure that the ConfigMap exists in the cluster
+	_, err = waitForConfigMap(suite.T(), configMapName)
 	suite.Require().NoError(err)
 
 	// Ensure that the ConfigMap is owned by the Stack
-	suite.Equal([]metav1.OwnerReference{
+	ownerReferences := []metav1.OwnerReference{
 		{
 			APIVersion: core.APIVersion,
 			Kind:       core.KindStack,
 			Name:       stack.Name,
 			UID:        stack.UID,
 		},
-	}, configMap.OwnerReferences)
+	}
+	err = waitForConfigMapOwnerReferences(suite.T(), configMapName, ownerReferences).await()
+	suite.Require().NoError(err)
 }
 
 // TestReferencedSecrets tests that Secrets referenced in the StackSet spec are owned by the Stack.
@@ -88,19 +90,21 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedSecrets() {
 	stack, err := waitForStack(suite.T(), suite.stacksetName, suite.stackVersion)
 	suite.Require().NoError(err)
 
-	// Fetch the latest version of the Secret
-	secret, err := waitForSecret(suite.T(), secretName)
+	// Ensure that the Secret exists in the cluster
+	_, err = waitForSecret(suite.T(), secretName)
 	suite.Require().NoError(err)
 
 	// Ensure that the Secret is owned by the Stack
-	suite.Equal([]metav1.OwnerReference{
+	ownerReferences := []metav1.OwnerReference{
 		{
 			APIVersion: core.APIVersion,
 			Kind:       core.KindStack,
 			Name:       stack.Name,
 			UID:        stack.UID,
 		},
-	}, secret.OwnerReferences)
+	}
+	err = waitForSecretOwnerReferences(suite.T(), secretName, ownerReferences).await()
+	suite.Require().NoError(err)
 }
 
 // TestGeneratedPCS tests that PlatformCredentialsSets defined in the StackSet are
