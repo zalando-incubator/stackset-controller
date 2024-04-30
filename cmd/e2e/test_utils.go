@@ -495,7 +495,7 @@ func waitForConfigMapOwnerReferences(t *testing.T, configMapName string, expecte
 		if !reflect.DeepEqual(expectedOwnerReferences, configMap.OwnerReferences) {
 			return true, fmt.Errorf("%s: actual ownerReferences: %+v, expected: %+v, diff:\n%v", configMapName, configMap.OwnerReferences, expectedOwnerReferences, cmp.Diff(configMap.OwnerReferences, expectedOwnerReferences))
 		}
-		return true, nil
+		return false, nil
 	})
 }
 
@@ -516,7 +516,7 @@ func waitForSecretOwnerReferences(t *testing.T, secretName string, expectedOwner
 		if !reflect.DeepEqual(expectedOwnerReferences, secret.OwnerReferences) {
 			return true, fmt.Errorf("%s: actual ownerReferences: %+v, expected: %+v, diff:\n%v", secretName, secret.OwnerReferences, expectedOwnerReferences, cmp.Diff(secret.OwnerReferences, expectedOwnerReferences))
 		}
-		return true, nil
+		return false, nil
 	})
 }
 
