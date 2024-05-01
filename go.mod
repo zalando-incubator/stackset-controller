@@ -1,6 +1,7 @@
 module github.com/zalando-incubator/stackset-controller
 
 go 1.22
+toolchain go1.22.2
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
@@ -12,9 +13,9 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/szuecs/routegroup-client v0.28.0
 	golang.org/x/sync v0.6.0
-	k8s.io/api v0.29.4
-	k8s.io/apimachinery v0.29.4
-	k8s.io/client-go v0.29.4
+	k8s.io/api v0.30.0
+	k8s.io/apimachinery v0.30.0
+	k8s.io/client-go v0.30.0
 	k8s.io/code-generator v0.29.4
 	sigs.k8s.io/controller-tools v0.14.0
 	sigs.k8s.io/yaml v1.4.0
