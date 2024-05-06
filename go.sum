@@ -216,8 +216,8 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.8.2/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/szuecs/routegroup-client v0.28.0 h1:PoCLCTi9QT/qaaylIe7u65bJ75X58Wp7pDkUXPwsoJ4=
-github.com/szuecs/routegroup-client v0.28.0/go.mod h1:QpI/XGdncIAYIE03Nwjq0w+NXlIfV/n56BI1uR2a2Do=
+github.com/szuecs/routegroup-client v0.28.2 h1:Dk9D6VqhtYM0IVRkik0fpZ5IbVrf1mHssYmAyRrwehU=
+github.com/szuecs/routegroup-client v0.28.2/go.mod h1:QpI/XGdncIAYIE03Nwjq0w+NXlIfV/n56BI1uR2a2Do=
 github.com/xhit/go-str2duration/v2 v2.1.0 h1:lxklc02Drh6ynqX+DdPyp5pCKLUQpRT8bp8Ydu2Bstc=
 github.com/xhit/go-str2duration/v2 v2.1.0/go.mod h1:ohY8p+0f07DiV6Em5LKB0s2YpLtXVyJfNt1+BlmyAsU=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
