@@ -9,7 +9,9 @@ import (
 )
 
 func TestConfigurationResources(t *testing.T) {
-	suite.Run(t, new(ConfigurationResourcesTestSuite))
+	suite.Run(t, new(ConfigurationResourcesConfigMapsTestSuite))
+	suite.Run(t, new(ConfigurationResourcesSecretsTestSuite))
+	suite.Run(t, new(ConfigurationResourcesPlatformCredentialsSetTestSuite))
 }
 
 type ConfigurationResourcesTestSuite struct {
@@ -21,22 +23,26 @@ type ConfigurationResourcesTestSuite struct {
 	stackVersion string
 }
 
-func (suite *ConfigurationResourcesTestSuite) SetupTest() {
-	suite.stacksetName = "stackset-cr"
+type ConfigurationResourcesConfigMapsTestSuite struct {
+	ConfigurationResourcesTestSuite
+}
+
+func (suite *ConfigurationResourcesConfigMapsTestSuite) SetupTest() {
+	suite.stacksetName = "stackset-cr-cm"
 	suite.stackVersion = "v1"
 
 	suite.stacksetSpecFactory = NewTestStacksetSpecFactory(suite.stacksetName)
 }
 
-func (suite *ConfigurationResourcesTestSuite) TearDownTest() {
+func (suite *ConfigurationResourcesConfigMapsTestSuite) TearDownTest() {
 	err := deleteStackset(suite.stacksetName)
 	suite.Require().NoError(err)
 }
 
 // TestReferencedConfigMaps tests that ConfigMaps referenced in the StackSet spec are owned by the Stack.
-func (suite *ConfigurationResourcesTestSuite) TestReferencedConfigMaps() {
+func (suite *ConfigurationResourcesConfigMapsTestSuite) TestReferencedConfigMaps() {
 	// Create a ConfigMap in the cluster following the naming convention
-	configMapName := "stackset-cr-v1-my-configmap"
+	configMapName := "stackset-cr-cm-v1-my-configmap"
 	createConfigMap(suite.T(), configMapName)
 
 	// Add the ConfigMap reference to the StackSet spec
@@ -70,10 +76,26 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedConfigMaps() {
 	suite.Require().NoError(err)
 }
 
+func (suite *ConfigurationResourcesSecretsTestSuite) SetupTest() {
+	suite.stacksetName = "stackset-cr-sec"
+	suite.stackVersion = "v1"
+
+	suite.stacksetSpecFactory = NewTestStacksetSpecFactory(suite.stacksetName)
+}
+
+func (suite *ConfigurationResourcesSecretsTestSuite) TearDownTest() {
+	err := deleteStackset(suite.stacksetName)
+	suite.Require().NoError(err)
+}
+
+type ConfigurationResourcesSecretsTestSuite struct {
+	ConfigurationResourcesTestSuite
+}
+
 // TestReferencedSecrets tests that Secrets referenced in the StackSet spec are owned by the Stack.
-func (suite *ConfigurationResourcesTestSuite) TestReferencedSecrets() {
+func (suite *ConfigurationResourcesSecretsTestSuite) TestReferencedSecrets() {
 	// Create a Secret in the cluster following the naming convention
-	secretName := "stackset-cr-v1-my-secret"
+	secretName := "stackset-cr-sec-v1-my-secret"
 	createSecret(suite.T(), secretName)
 
 	// Add the Secret reference to the StackSet spec
@@ -107,9 +129,25 @@ func (suite *ConfigurationResourcesTestSuite) TestReferencedSecrets() {
 	suite.Require().NoError(err)
 }
 
+type ConfigurationResourcesPlatformCredentialsSetTestSuite struct {
+	ConfigurationResourcesTestSuite
+}
+
+func (suite *ConfigurationResourcesPlatformCredentialsSetTestSuite) SetupTest() {
+	suite.stacksetName = "stackset-cr-pcs"
+	suite.stackVersion = "v1"
+
+	suite.stacksetSpecFactory = NewTestStacksetSpecFactory(suite.stacksetName)
+}
+
+func (suite *ConfigurationResourcesPlatformCredentialsSetTestSuite) TearDownTest() {
+	err := deleteStackset(suite.stacksetName)
+	suite.Require().NoError(err)
+}
+
 // TestGeneratedPCS tests that PlatformCredentialsSets defined in the StackSet are
 // correctly created and owned by the Stack.
-func (suite *ConfigurationResourcesTestSuite) TestGeneratedPCS() {
+func (suite *ConfigurationResourcesPlatformCredentialsSetTestSuite) TestGeneratedPCS() {
 	// Add the PlatformCredentialsSet reference to the StackSet spec
 	pcsName := suite.stacksetName + "-" + suite.stackVersion + "-my-pcs"
 	suite.stacksetSpecFactory.AddPlatformCredentialsSetDefinition(pcsName)
