@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=registry.opensource.zalan.do/library/alpine-3:latest
+ARG BASE_IMAGE=registry.opensource.zalan.do/library/static:latest
 FROM ${BASE_IMAGE}
 LABEL maintainer="Team Teapot @ Zalando SE <team-teapot@zalando.de>"
 
