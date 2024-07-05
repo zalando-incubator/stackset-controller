@@ -1853,6 +1853,32 @@ func TestComputeTrafficSegments(t *testing.T) {
 			},
 			expectErr: false,
 		},
+		{
+			actualTrafficWeights: map[types.UID]float64{
+				"v1": 50.0,
+				"v2": 50.0,
+			},
+			ingressSegments: map[types.UID]string{
+				"v1": "TrafficSegment(0.0, 0.26)",
+				"v2": "TrafficSegment(0.24, 0.50)",
+				"v3": "TrafficSegment(0.50, 0.75)",
+				"v4": "TrafficSegment(0.75, 1.0)",
+			},
+			routeGroupSegments: map[types.UID]string{
+				"v1": "",
+				"v2": "",
+			},
+			expected: []types.UID{"v1", "v2"},
+			expectedLowerLimits: map[types.UID]float64{
+				"v2": 0.5,
+				"v1": 0.0,
+			},
+			expectedUpperLimits: map[types.UID]float64{
+				"v2": 1.0,
+				"v1": 0.5,
+			},
+			expectErr: false,
+		},
 	} {
 		stackContainers := map[types.UID]*StackContainer{}
 		for k, v := range tc.actualTrafficWeights {
