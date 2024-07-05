@@ -1860,7 +1860,7 @@ func TestComputeTrafficSegments(t *testing.T) {
 			},
 			ingressSegments: map[types.UID]string{
 				"v1": "TrafficSegment(0.0, 0.26)",
-				"v2": "TrafficSegment(0.24, 0.50)",
+				"v2": "TrafficSegment(0.26, 0.50)",
 				"v3": "TrafficSegment(0.50, 0.75)",
 				"v4": "TrafficSegment(0.75, 1.0)",
 			},
