@@ -1,6 +1,8 @@
 package core
 
 import (
+	"context"
+
 	"github.com/prometheus/client_golang/prometheus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -109,9 +111,12 @@ func NewMetricsReporter(registry prometheus.Registerer) (*MetricsReporter, error
 	}
 
 	// expose Kubernetes errors as metric
-	utilruntime.ErrorHandlers = append(utilruntime.ErrorHandlers, func(_ error) {
-		result.ReportError()
-	})
+	utilruntime.ErrorHandlers = append(
+		utilruntime.ErrorHandlers,
+		func(_ context.Context, _ error, _ string, _ ...interface{}) {
+			result.ReportError()
+		},
+	)
 
 	return result, nil
 }
