@@ -895,7 +895,7 @@ func TestStacksetUpdateRouteGroup(t *testing.T) {
 }
 
 func TestStacksetUpdateAddRouteGroup(t *testing.T) {
-	testStacksetUpdate(t, "add-rotuegroup", false, false, false, false, false, true, false, false, testAnnotationsCreate, testAnnotationsUpdate)
+	testStacksetUpdate(t, "add-routegroup", false, false, false, false, false, true, false, false, testAnnotationsCreate, testAnnotationsUpdate)
 }
 
 func TestStacksetUpdateDeleteRouteGroup(t *testing.T) {
