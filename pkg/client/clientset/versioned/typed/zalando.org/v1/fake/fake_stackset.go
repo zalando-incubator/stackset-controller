@@ -41,22 +41,24 @@ var stacksetsKind = v1.SchemeGroupVersion.WithKind("StackSet")
 
 // Get takes name of the stackSet, and returns the corresponding stackSet object, and an error if there is any.
 func (c *FakeStackSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.StackSet, err error) {
+	emptyResult := &v1.StackSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(stacksetsResource, c.ns, name), &v1.StackSet{})
+		Invokes(testing.NewGetActionWithOptions(stacksetsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StackSet), err
 }
 
 // List takes label and field selectors, and returns the list of StackSets that match those selectors.
 func (c *FakeStackSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.StackSetList, err error) {
+	emptyResult := &v1.StackSetList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(stacksetsResource, stacksetsKind, c.ns, opts), &v1.StackSetList{})
+		Invokes(testing.NewListActionWithOptions(stacksetsResource, stacksetsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeStackSets) List(ctx context.Context, opts metav1.ListOptions) (resu
 // Watch returns a watch.Interface that watches the requested stackSets.
 func (c *FakeStackSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(stacksetsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(stacksetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a stackSet and creates it.  Returns the server's representation of the stackSet, and an error, if there is any.
 func (c *FakeStackSets) Create(ctx context.Context, stackSet *v1.StackSet, opts metav1.CreateOptions) (result *v1.StackSet, err error) {
+	emptyResult := &v1.StackSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(stacksetsResource, c.ns, stackSet), &v1.StackSet{})
+		Invokes(testing.NewCreateActionWithOptions(stacksetsResource, c.ns, stackSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StackSet), err
 }
 
 // Update takes the representation of a stackSet and updates it. Returns the server's representation of the stackSet, and an error, if there is any.
 func (c *FakeStackSets) Update(ctx context.Context, stackSet *v1.StackSet, opts metav1.UpdateOptions) (result *v1.StackSet, err error) {
+	emptyResult := &v1.StackSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(stacksetsResource, c.ns, stackSet), &v1.StackSet{})
+		Invokes(testing.NewUpdateActionWithOptions(stacksetsResource, c.ns, stackSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StackSet), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStackSets) UpdateStatus(ctx context.Context, stackSet *v1.StackSet, opts metav1.UpdateOptions) (*v1.StackSet, error) {
+func (c *FakeStackSets) UpdateStatus(ctx context.Context, stackSet *v1.StackSet, opts metav1.UpdateOptions) (result *v1.StackSet, err error) {
+	emptyResult := &v1.StackSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(stacksetsResource, "status", c.ns, stackSet), &v1.StackSet{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(stacksetsResource, "status", c.ns, stackSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StackSet), err
 }
@@ -123,7 +128,7 @@ func (c *FakeStackSets) Delete(ctx context.Context, name string, opts metav1.Del
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeStackSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(stacksetsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(stacksetsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1.StackSetList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeStackSets) DeleteCollection(ctx context.Context, opts metav1.Delete
 
 // Patch applies the patch and returns the patched stackSet.
 func (c *FakeStackSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.StackSet, err error) {
+	emptyResult := &v1.StackSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(stacksetsResource, c.ns, name, pt, data, subresources...), &v1.StackSet{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(stacksetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.StackSet), err
 }

@@ -20,8 +20,8 @@ package v1
 
 import (
 	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type StackLister interface {
 
 // stackLister implements the StackLister interface.
 type stackLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.Stack]
 }
 
 // NewStackLister returns a new StackLister.
 func NewStackLister(indexer cache.Indexer) StackLister {
-	return &stackLister{indexer: indexer}
-}
-
-// List lists all Stacks in the indexer.
-func (s *stackLister) List(selector labels.Selector) (ret []*v1.Stack, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.Stack))
-	})
-	return ret, err
+	return &stackLister{listers.New[*v1.Stack](indexer, v1.Resource("stack"))}
 }
 
 // Stacks returns an object that can list and get Stacks.
 func (s *stackLister) Stacks(namespace string) StackNamespaceLister {
-	return stackNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return stackNamespaceLister{listers.NewNamespaced[*v1.Stack](s.ResourceIndexer, namespace)}
 }
 
 // StackNamespaceLister helps list and get Stacks.
@@ -74,26 +66,5 @@ type StackNamespaceLister interface {
 // stackNamespaceLister implements the StackNamespaceLister
 // interface.
 type stackNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all Stacks in the indexer for a given namespace.
-func (s stackNamespaceLister) List(selector labels.Selector) (ret []*v1.Stack, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.Stack))
-	})
-	return ret, err
-}
-
-// Get retrieves the Stack from the indexer for a given namespace and name.
-func (s stackNamespaceLister) Get(name string) (*v1.Stack, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("stack"), name)
-	}
-	return obj.(*v1.Stack), nil
+	listers.ResourceIndexer[*v1.Stack]
 }
