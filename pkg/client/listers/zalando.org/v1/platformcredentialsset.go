@@ -20,8 +20,8 @@ package v1
 
 import (
 	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type PlatformCredentialsSetLister interface {
 
 // platformCredentialsSetLister implements the PlatformCredentialsSetLister interface.
 type platformCredentialsSetLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.PlatformCredentialsSet]
 }
 
 // NewPlatformCredentialsSetLister returns a new PlatformCredentialsSetLister.
 func NewPlatformCredentialsSetLister(indexer cache.Indexer) PlatformCredentialsSetLister {
-	return &platformCredentialsSetLister{indexer: indexer}
-}
-
-// List lists all PlatformCredentialsSets in the indexer.
-func (s *platformCredentialsSetLister) List(selector labels.Selector) (ret []*v1.PlatformCredentialsSet, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.PlatformCredentialsSet))
-	})
-	return ret, err
+	return &platformCredentialsSetLister{listers.New[*v1.PlatformCredentialsSet](indexer, v1.Resource("platformcredentialsset"))}
 }
 
 // PlatformCredentialsSets returns an object that can list and get PlatformCredentialsSets.
 func (s *platformCredentialsSetLister) PlatformCredentialsSets(namespace string) PlatformCredentialsSetNamespaceLister {
-	return platformCredentialsSetNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return platformCredentialsSetNamespaceLister{listers.NewNamespaced[*v1.PlatformCredentialsSet](s.ResourceIndexer, namespace)}
 }
 
 // PlatformCredentialsSetNamespaceLister helps list and get PlatformCredentialsSets.
@@ -74,26 +66,5 @@ type PlatformCredentialsSetNamespaceLister interface {
 // platformCredentialsSetNamespaceLister implements the PlatformCredentialsSetNamespaceLister
 // interface.
 type platformCredentialsSetNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all PlatformCredentialsSets in the indexer for a given namespace.
-func (s platformCredentialsSetNamespaceLister) List(selector labels.Selector) (ret []*v1.PlatformCredentialsSet, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.PlatformCredentialsSet))
-	})
-	return ret, err
-}
-
-// Get retrieves the PlatformCredentialsSet from the indexer for a given namespace and name.
-func (s platformCredentialsSetNamespaceLister) Get(name string) (*v1.PlatformCredentialsSet, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("platformcredentialsset"), name)
-	}
-	return obj.(*v1.PlatformCredentialsSet), nil
+	listers.ResourceIndexer[*v1.PlatformCredentialsSet]
 }

@@ -20,8 +20,8 @@ package v1
 
 import (
 	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/listers"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -38,25 +38,17 @@ type StackSetLister interface {
 
 // stackSetLister implements the StackSetLister interface.
 type stackSetLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*v1.StackSet]
 }
 
 // NewStackSetLister returns a new StackSetLister.
 func NewStackSetLister(indexer cache.Indexer) StackSetLister {
-	return &stackSetLister{indexer: indexer}
-}
-
-// List lists all StackSets in the indexer.
-func (s *stackSetLister) List(selector labels.Selector) (ret []*v1.StackSet, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.StackSet))
-	})
-	return ret, err
+	return &stackSetLister{listers.New[*v1.StackSet](indexer, v1.Resource("stackset"))}
 }
 
 // StackSets returns an object that can list and get StackSets.
 func (s *stackSetLister) StackSets(namespace string) StackSetNamespaceLister {
-	return stackSetNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return stackSetNamespaceLister{listers.NewNamespaced[*v1.StackSet](s.ResourceIndexer, namespace)}
 }
 
 // StackSetNamespaceLister helps list and get StackSets.
@@ -74,26 +66,5 @@ type StackSetNamespaceLister interface {
 // stackSetNamespaceLister implements the StackSetNamespaceLister
 // interface.
 type stackSetNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all StackSets in the indexer for a given namespace.
-func (s stackSetNamespaceLister) List(selector labels.Selector) (ret []*v1.StackSet, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1.StackSet))
-	})
-	return ret, err
-}
-
-// Get retrieves the StackSet from the indexer for a given namespace and name.
-func (s stackSetNamespaceLister) Get(name string) (*v1.StackSet, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1.Resource("stackset"), name)
-	}
-	return obj.(*v1.StackSet), nil
+	listers.ResourceIndexer[*v1.StackSet]
 }

@@ -41,22 +41,24 @@ var platformcredentialssetsKind = v1.SchemeGroupVersion.WithKind("PlatformCreden
 
 // Get takes name of the platformCredentialsSet, and returns the corresponding platformCredentialsSet object, and an error if there is any.
 func (c *FakePlatformCredentialsSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.PlatformCredentialsSet, err error) {
+	emptyResult := &v1.PlatformCredentialsSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(platformcredentialssetsResource, c.ns, name), &v1.PlatformCredentialsSet{})
+		Invokes(testing.NewGetActionWithOptions(platformcredentialssetsResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.PlatformCredentialsSet), err
 }
 
 // List takes label and field selectors, and returns the list of PlatformCredentialsSets that match those selectors.
 func (c *FakePlatformCredentialsSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.PlatformCredentialsSetList, err error) {
+	emptyResult := &v1.PlatformCredentialsSetList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(platformcredentialssetsResource, platformcredentialssetsKind, c.ns, opts), &v1.PlatformCredentialsSetList{})
+		Invokes(testing.NewListActionWithOptions(platformcredentialssetsResource, platformcredentialssetsKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakePlatformCredentialsSets) List(ctx context.Context, opts metav1.List
 // Watch returns a watch.Interface that watches the requested platformCredentialsSets.
 func (c *FakePlatformCredentialsSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(platformcredentialssetsResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(platformcredentialssetsResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a platformCredentialsSet and creates it.  Returns the server's representation of the platformCredentialsSet, and an error, if there is any.
 func (c *FakePlatformCredentialsSets) Create(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.CreateOptions) (result *v1.PlatformCredentialsSet, err error) {
+	emptyResult := &v1.PlatformCredentialsSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(platformcredentialssetsResource, c.ns, platformCredentialsSet), &v1.PlatformCredentialsSet{})
+		Invokes(testing.NewCreateActionWithOptions(platformcredentialssetsResource, c.ns, platformCredentialsSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.PlatformCredentialsSet), err
 }
 
 // Update takes the representation of a platformCredentialsSet and updates it. Returns the server's representation of the platformCredentialsSet, and an error, if there is any.
 func (c *FakePlatformCredentialsSets) Update(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (result *v1.PlatformCredentialsSet, err error) {
+	emptyResult := &v1.PlatformCredentialsSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(platformcredentialssetsResource, c.ns, platformCredentialsSet), &v1.PlatformCredentialsSet{})
+		Invokes(testing.NewUpdateActionWithOptions(platformcredentialssetsResource, c.ns, platformCredentialsSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.PlatformCredentialsSet), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePlatformCredentialsSets) UpdateStatus(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (*v1.PlatformCredentialsSet, error) {
+func (c *FakePlatformCredentialsSets) UpdateStatus(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (result *v1.PlatformCredentialsSet, err error) {
+	emptyResult := &v1.PlatformCredentialsSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(platformcredentialssetsResource, "status", c.ns, platformCredentialsSet), &v1.PlatformCredentialsSet{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(platformcredentialssetsResource, "status", c.ns, platformCredentialsSet, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.PlatformCredentialsSet), err
 }
@@ -123,7 +128,7 @@ func (c *FakePlatformCredentialsSets) Delete(ctx context.Context, name string, o
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakePlatformCredentialsSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(platformcredentialssetsResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(platformcredentialssetsResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1.PlatformCredentialsSetList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakePlatformCredentialsSets) DeleteCollection(ctx context.Context, opts
 
 // Patch applies the patch and returns the patched platformCredentialsSet.
 func (c *FakePlatformCredentialsSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.PlatformCredentialsSet, err error) {
+	emptyResult := &v1.PlatformCredentialsSet{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(platformcredentialssetsResource, c.ns, name, pt, data, subresources...), &v1.PlatformCredentialsSet{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(platformcredentialssetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.PlatformCredentialsSet), err
 }

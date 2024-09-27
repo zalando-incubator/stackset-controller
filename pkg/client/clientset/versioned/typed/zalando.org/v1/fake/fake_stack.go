@@ -41,22 +41,24 @@ var stacksKind = v1.SchemeGroupVersion.WithKind("Stack")
 
 // Get takes name of the stack, and returns the corresponding stack object, and an error if there is any.
 func (c *FakeStacks) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.Stack, err error) {
+	emptyResult := &v1.Stack{}
 	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(stacksResource, c.ns, name), &v1.Stack{})
+		Invokes(testing.NewGetActionWithOptions(stacksResource, c.ns, name, options), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Stack), err
 }
 
 // List takes label and field selectors, and returns the list of Stacks that match those selectors.
 func (c *FakeStacks) List(ctx context.Context, opts metav1.ListOptions) (result *v1.StackList, err error) {
+	emptyResult := &v1.StackList{}
 	obj, err := c.Fake.
-		Invokes(testing.NewListAction(stacksResource, stacksKind, c.ns, opts), &v1.StackList{})
+		Invokes(testing.NewListActionWithOptions(stacksResource, stacksKind, c.ns, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 
 	label, _, _ := testing.ExtractFromListOptions(opts)
@@ -75,40 +77,43 @@ func (c *FakeStacks) List(ctx context.Context, opts metav1.ListOptions) (result 
 // Watch returns a watch.Interface that watches the requested stacks.
 func (c *FakeStacks) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(stacksResource, c.ns, opts))
+		InvokesWatch(testing.NewWatchActionWithOptions(stacksResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a stack and creates it.  Returns the server's representation of the stack, and an error, if there is any.
 func (c *FakeStacks) Create(ctx context.Context, stack *v1.Stack, opts metav1.CreateOptions) (result *v1.Stack, err error) {
+	emptyResult := &v1.Stack{}
 	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(stacksResource, c.ns, stack), &v1.Stack{})
+		Invokes(testing.NewCreateActionWithOptions(stacksResource, c.ns, stack, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Stack), err
 }
 
 // Update takes the representation of a stack and updates it. Returns the server's representation of the stack, and an error, if there is any.
 func (c *FakeStacks) Update(ctx context.Context, stack *v1.Stack, opts metav1.UpdateOptions) (result *v1.Stack, err error) {
+	emptyResult := &v1.Stack{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(stacksResource, c.ns, stack), &v1.Stack{})
+		Invokes(testing.NewUpdateActionWithOptions(stacksResource, c.ns, stack, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Stack), err
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStacks) UpdateStatus(ctx context.Context, stack *v1.Stack, opts metav1.UpdateOptions) (*v1.Stack, error) {
+func (c *FakeStacks) UpdateStatus(ctx context.Context, stack *v1.Stack, opts metav1.UpdateOptions) (result *v1.Stack, err error) {
+	emptyResult := &v1.Stack{}
 	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(stacksResource, "status", c.ns, stack), &v1.Stack{})
+		Invokes(testing.NewUpdateSubresourceActionWithOptions(stacksResource, "status", c.ns, stack, opts), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Stack), err
 }
@@ -123,7 +128,7 @@ func (c *FakeStacks) Delete(ctx context.Context, name string, opts metav1.Delete
 
 // DeleteCollection deletes a collection of objects.
 func (c *FakeStacks) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(stacksResource, c.ns, listOpts)
+	action := testing.NewDeleteCollectionActionWithOptions(stacksResource, c.ns, opts, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v1.StackList{})
 	return err
@@ -131,11 +136,12 @@ func (c *FakeStacks) DeleteCollection(ctx context.Context, opts metav1.DeleteOpt
 
 // Patch applies the patch and returns the patched stack.
 func (c *FakeStacks) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Stack, err error) {
+	emptyResult := &v1.Stack{}
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(stacksResource, c.ns, name, pt, data, subresources...), &v1.Stack{})
+		Invokes(testing.NewPatchSubresourceActionWithOptions(stacksResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
 
 	if obj == nil {
-		return nil, err
+		return emptyResult, err
 	}
 	return obj.(*v1.Stack), err
 }
