@@ -3,7 +3,8 @@ kind: StackSet
 metadata:
   name: e2e-deploy-sample
   labels:
-    application: "e2e-deploy-sample"
+    application: "kubernetes"
+    component: "e2e-deploy-sample"
   annotations:
     "stackset-controller.zalando.org/controller": "{{{CONTROLLER_ID}}}"
 spec:
@@ -27,8 +28,7 @@ spec:
           name: e2e-deploy-sample-{{{CDP_BUILD_VERSION}}}-my-pcs
           tokens:
             sample-token:
-              privileges:
-              - com.zalando::foobar.read
+              privileges: []
       autoscaler:
         minReplicas: 2
         maxReplicas: 2
@@ -38,9 +38,6 @@ spec:
         - type: Ingress
           average: 20000m
       podTemplate:
-        metadata:
-          labels:
-            application: "e2e-deploy-sample"
         spec:
           containers:
           - name: skipper
