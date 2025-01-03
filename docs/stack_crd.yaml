@@ -2,7 +2,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.16.1
+    controller-gen.kubebuilder.io/version: v0.16.5
   name: stacks.zalando.org
 spec:
   group: zalando.org
@@ -3255,6 +3255,10 @@ spec:
                                       in PodSpec.ResourceClaims.
                                     properties:
                                       name:
+                                        description: |-
+                                          Name must match the name of one entry in pod.spec.resourceClaims of
+                                          the Pod where this field is used. It makes that resource available
+                                          inside a container.
                                         type: string
                                       request:
                                         type: string
@@ -4643,10 +4647,6 @@ spec:
                                       in PodSpec.ResourceClaims.
                                     properties:
                                       name:
-                                        description: |-
-                                          Name must match the name of one entry in pod.spec.resourceClaims of
-                                          the Pod where this field is used. It makes that resource available
-                                          inside a container.
                                         type: string
                                       request:
                                         type: string
