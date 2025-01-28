@@ -1,7 +1,8 @@
 module github.com/zalando-incubator/stackset-controller
 
-go 1.23
-toolchain go1.23.1
+go 1.23.0
+
+toolchain go1.23.5
 
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
