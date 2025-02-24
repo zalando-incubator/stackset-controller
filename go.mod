@@ -7,7 +7,7 @@ toolchain go1.23.5
 require (
 	github.com/alecthomas/kingpin v2.2.6+incompatible
 	github.com/alecthomas/kingpin/v2 v2.4.0
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/heptiolabs/healthcheck v0.0.0-20211123025425-613501dd5deb
 	github.com/prometheus/client_golang v1.21.0
 	github.com/sirupsen/logrus v1.9.3
