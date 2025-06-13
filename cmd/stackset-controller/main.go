@@ -76,6 +76,23 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
+	stackSetConfig := controller.StackSetConfig{
+		Namespace:    config.Namespace,
+		ControllerID: config.ControllerID,
+
+		ClusterDomains:              config.ClusterDomains,
+		BackendWeightsAnnotationKey: config.BackendWeightsAnnotationKey,
+		SyncIngressAnnotations:      config.SyncIngressAnnotations,
+
+		ReconcileWorkers: config.ReconcileWorkers,
+		Interval:         config.Interval,
+
+		RouteGroupSupportEnabled: config.RouteGroupSupportEnabled,
+		ConfigMapSupportEnabled:  config.ConfigMapSupportEnabled,
+		SecretSupportEnabled:     config.SecretSupportEnabled,
+		PcsSupportEnabled:        config.PCSSupportEnabled,
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	kubeConfig, err := configureKubeConfig(config.APIServer, defaultClientGOTimeout, ctx.Done())
 	if err != nil {
@@ -89,18 +106,8 @@ func main() {
 
 	controller, err := controller.NewStackSetController(
 		client,
-		config.Namespace,
-		config.ControllerID,
-		config.ReconcileWorkers,
-		config.BackendWeightsAnnotationKey,
-		config.ClusterDomains,
 		prometheus.DefaultRegisterer,
-		config.Interval,
-		config.RouteGroupSupportEnabled,
-		config.SyncIngressAnnotations,
-		config.ConfigMapSupportEnabled,
-		config.SecretSupportEnabled,
-		config.PCSSupportEnabled,
+		stackSetConfig,
 	)
 	if err != nil {
 		log.Fatalf("Failed to create Stackset controller: %v", err)
