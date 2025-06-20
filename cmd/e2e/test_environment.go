@@ -120,7 +120,7 @@ func requiredEnvar(envar string) string {
 func hostnames(stacksetName string) []string {
 	names := make([]string, 0, len(clusterDomains))
 	for _, domain := range clusterDomains {
-		names = append(names, fmt.Sprintf("%s-%s.%s", namespace, stacksetName, domain))
+		names = append(names, fmt.Sprintf("%s.%s.%s", namespace, stacksetName, domain))
 	}
 	return names
 }
