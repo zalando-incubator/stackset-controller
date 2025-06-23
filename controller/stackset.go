@@ -50,26 +50,33 @@ var configurationResourceNameError = "ConfigurationResource name must be prefixe
 // stackset resources and starts and maintains other controllers per
 // stackset resource.
 type StackSetController struct {
-	logger                      *log.Entry
-	client                      clientset.Interface
-	namespace                   string
-	syncIngressAnnotations      []string
-	controllerID                string
-	backendWeightsAnnotationKey string
-	clusterDomains              []string
-	interval                    time.Duration
-	stacksetEvents              chan stacksetEvent
-	stacksetStore               map[types.UID]zv1.StackSet
-	recorder                    kube_record.EventRecorder
-	metricsReporter             *core.MetricsReporter
-	HealthReporter              healthcheck.Handler
-	routeGroupSupportEnabled    bool
-	now                         func() string
-	reconcileWorkers            int
-	configMapSupportEnabled     bool
-	secretSupportEnabled        bool
-	pcsSupportEnabled           bool
+	logger          *log.Entry
+	client          clientset.Interface
+	config          StackSetConfig
+	stacksetEvents  chan stacksetEvent
+	stacksetStore   map[types.UID]zv1.StackSet
+	recorder        kube_record.EventRecorder
+	metricsReporter *core.MetricsReporter
+	HealthReporter  healthcheck.Handler
+	now             func() string
 	sync.Mutex
+}
+
+type StackSetConfig struct {
+	Namespace    string
+	ControllerID string
+
+	ClusterDomains              []string
+	BackendWeightsAnnotationKey string
+	SyncIngressAnnotations      []string
+
+	ReconcileWorkers int
+	Interval         time.Duration
+
+	RouteGroupSupportEnabled bool
+	ConfigMapSupportEnabled  bool
+	SecretSupportEnabled     bool
+	PcsSupportEnabled        bool
 }
 
 type stacksetEvent struct {
@@ -93,18 +100,8 @@ func now() string {
 // NewStackSetController initializes a new StackSetController.
 func NewStackSetController(
 	client clientset.Interface,
-	namespace string,
-	controllerID string,
-	parallelWork int,
-	backendWeightsAnnotationKey string,
-	clusterDomains []string,
 	registry prometheus.Registerer,
-	interval time.Duration,
-	routeGroupSupportEnabled bool,
-	syncIngressAnnotations []string,
-	configMapSupportEnabled bool,
-	secretSupportEnabled bool,
-	pcsSupportEnabled bool,
+	config StackSetConfig,
 ) (*StackSetController, error) {
 	metricsReporter, err := core.NewMetricsReporter(registry)
 	if err != nil {
@@ -112,25 +109,15 @@ func NewStackSetController(
 	}
 
 	return &StackSetController{
-		logger:                      log.WithFields(log.Fields{"controller": "stackset"}),
-		client:                      client,
-		namespace:                   namespace,
-		controllerID:                controllerID,
-		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
-		clusterDomains:              clusterDomains,
-		interval:                    interval,
-		stacksetEvents:              make(chan stacksetEvent, 1),
-		stacksetStore:               make(map[types.UID]zv1.StackSet),
-		recorder:                    recorder.CreateEventRecorder(client),
-		metricsReporter:             metricsReporter,
-		HealthReporter:              healthcheck.NewHandler(),
-		routeGroupSupportEnabled:    routeGroupSupportEnabled,
-		syncIngressAnnotations:      syncIngressAnnotations,
-		configMapSupportEnabled:     configMapSupportEnabled,
-		secretSupportEnabled:        secretSupportEnabled,
-		pcsSupportEnabled:           pcsSupportEnabled,
-		now:                         now,
-		reconcileWorkers:            parallelWork,
+		logger:          log.WithFields(log.Fields{"controller": "stackset"}),
+		client:          client,
+		config:          config,
+		stacksetEvents:  make(chan stacksetEvent, 1),
+		stacksetStore:   make(map[types.UID]zv1.StackSet),
+		recorder:        recorder.CreateEventRecorder(client),
+		metricsReporter: metricsReporter,
+		HealthReporter:  healthcheck.NewHandler(),
+		now:             now,
 	}, nil
 }
 
@@ -157,7 +144,7 @@ func (c *StackSetController) Run(ctx context.Context) error {
 
 	// We're not alive if nextCheck is too far in the past
 	c.HealthReporter.AddLivenessCheck("nextCheck", func() error {
-		if time.Since(nextCheck) > 5*c.interval {
+		if time.Since(nextCheck) > 5*c.config.Interval {
 			return fmt.Errorf("nextCheck too old")
 		}
 		return nil
@@ -170,13 +157,13 @@ func (c *StackSetController) Run(ctx context.Context) error {
 
 	http.HandleFunc("/healthz", c.HealthReporter.LiveEndpoint)
 
-	nextCheck = time.Now().Add(-c.interval)
+	nextCheck = time.Now().Add(-c.config.Interval)
 
 	for {
 		select {
 		case <-time.After(time.Until(nextCheck)):
 
-			nextCheck = time.Now().Add(c.interval)
+			nextCheck = time.Now().Add(c.config.Interval)
 
 			stackSetContainers, err := c.collectResources(ctx)
 			if err != nil {
@@ -185,7 +172,7 @@ func (c *StackSetController) Run(ctx context.Context) error {
 			}
 
 			var reconcileGroup errgroup.Group
-			reconcileGroup.SetLimit(c.reconcileWorkers)
+			reconcileGroup.SetLimit(c.config.ReconcileWorkers)
 			for stackset, container := range stackSetContainers {
 				container := container
 				stackset := stackset
@@ -263,9 +250,9 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		stacksetContainer := core.NewContainer(
 			&stackset,
 			reconciler,
-			c.backendWeightsAnnotationKey,
-			c.clusterDomains,
-			c.syncIngressAnnotations,
+			c.config.BackendWeightsAnnotationKey,
+			c.config.ClusterDomains,
+			c.config.SyncIngressAnnotations,
 		)
 		stacksets[uid] = stacksetContainer
 	}
@@ -280,7 +267,7 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		return nil, err
 	}
 
-	if c.routeGroupSupportEnabled {
+	if c.config.RouteGroupSupportEnabled {
 		err = c.collectRouteGroups(ctx, stacksets)
 		if err != nil {
 			return nil, err
@@ -302,21 +289,21 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 		return nil, err
 	}
 
-	if c.configMapSupportEnabled {
+	if c.config.ConfigMapSupportEnabled {
 		err = c.collectConfigMaps(ctx, stacksets)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if c.secretSupportEnabled {
+	if c.config.SecretSupportEnabled {
 		err = c.collectSecrets(ctx, stacksets)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if c.pcsSupportEnabled {
+	if c.config.PcsSupportEnabled {
 		err = c.collectPlatformCredentialsSet(ctx, stacksets)
 		if err != nil {
 			return nil, err
@@ -327,7 +314,7 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 }
 
 func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	ingresses, err := c.client.NetworkingV1().Ingresses(c.namespace).List(ctx, metav1.ListOptions{})
+	ingresses, err := c.client.NetworkingV1().Ingresses(c.config.Namespace).List(ctx, metav1.ListOptions{})
 
 	if err != nil {
 		return fmt.Errorf("failed to list Ingresses: %v", err)
@@ -363,7 +350,7 @@ func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map
 }
 
 func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	rgs, err := c.client.RouteGroupV1().RouteGroups(c.namespace).List(
+	rgs, err := c.client.RouteGroupV1().RouteGroups(c.config.Namespace).List(
 		ctx,
 		metav1.ListOptions{},
 	)
@@ -401,7 +388,7 @@ func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets m
 }
 
 func (c *StackSetController) collectStacks(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	stacks, err := c.client.ZalandoV1().Stacks(c.namespace).List(ctx, metav1.ListOptions{})
+	stacks, err := c.client.ZalandoV1().Stacks(c.config.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Stacks: %v", err)
 	}
@@ -423,7 +410,7 @@ func (c *StackSetController) collectStacks(ctx context.Context, stacksets map[ty
 }
 
 func (c *StackSetController) collectDeployments(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	deployments, err := c.client.AppsV1().Deployments(c.namespace).List(ctx, metav1.ListOptions{})
+	deployments, err := c.client.AppsV1().Deployments(c.config.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Deployments: %v", err)
 	}
@@ -443,7 +430,7 @@ func (c *StackSetController) collectDeployments(ctx context.Context, stacksets m
 }
 
 func (c *StackSetController) collectServices(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	services, err := c.client.CoreV1().Services(c.namespace).List(ctx, metav1.ListOptions{})
+	services, err := c.client.CoreV1().Services(c.config.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Services: %v", err)
 	}
@@ -472,7 +459,7 @@ Items:
 }
 
 func (c *StackSetController) collectHPAs(ctx context.Context, stacksets map[types.UID]*core.StackSetContainer) error {
-	hpas, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(c.namespace).List(ctx, metav1.ListOptions{})
+	hpas, err := c.client.AutoscalingV2().HorizontalPodAutoscalers(c.config.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list HPAs: %v", err)
 	}
@@ -504,7 +491,7 @@ func (c *StackSetController) collectConfigMaps(
 	ctx context.Context,
 	stacksets map[types.UID]*core.StackSetContainer,
 ) error {
-	configMaps, err := c.client.CoreV1().ConfigMaps(c.namespace).List(ctx, metav1.ListOptions{})
+	configMaps, err := c.client.CoreV1().ConfigMaps(c.config.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list ConfigMaps: %v", err)
 	}
@@ -527,7 +514,7 @@ func (c *StackSetController) collectSecrets(
 	ctx context.Context,
 	stacksets map[types.UID]*core.StackSetContainer,
 ) error {
-	secrets, err := c.client.CoreV1().Secrets(c.namespace).List(ctx, metav1.ListOptions{})
+	secrets, err := c.client.CoreV1().Secrets(c.config.Namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list Secrets: %v", err)
 	}
@@ -550,7 +537,7 @@ func (c *StackSetController) collectPlatformCredentialsSet(
 	ctx context.Context,
 	stacksets map[types.UID]*core.StackSetContainer,
 ) error {
-	platformCredentialsSets, err := c.client.ZalandoV1().PlatformCredentialsSets(c.namespace).
+	platformCredentialsSets, err := c.client.ZalandoV1().PlatformCredentialsSets(c.config.Namespace).
 		List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("failed to list PlatformCredentialsSet: %v", err)
@@ -603,15 +590,15 @@ func (c *StackSetController) errorEventf(object runtime.Object, reason string, e
 func (c *StackSetController) hasOwnership(stackset *zv1.StackSet) bool {
 	if stackset.Annotations != nil {
 		if owner, ok := stackset.Annotations[StacksetControllerControllerAnnotationKey]; ok {
-			return owner == c.controllerID
+			return owner == c.config.ControllerID
 		}
 	}
-	return c.controllerID == ""
+	return c.config.ControllerID == ""
 }
 
 func (c *StackSetController) startWatch(ctx context.Context) error {
 	informer := cache.NewSharedIndexInformer(
-		cache.NewListWatchFromClient(c.client.ZalandoV1().RESTClient(), "stacksets", c.namespace, fields.Everything()),
+		cache.NewListWatchFromClient(c.client.ZalandoV1().RESTClient(), "stacksets", c.config.Namespace, fields.Everything()),
 		&zv1.StackSet{},
 		0, // skip resync
 		cache.Indexers{},
@@ -770,7 +757,7 @@ func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.S
 		return nil
 	}
 
-	if c.configMapSupportEnabled || c.secretSupportEnabled {
+	if c.config.ConfigMapSupportEnabled || c.config.SecretSupportEnabled {
 		// ensure that ConfigurationResources are prefixed by Stack name.
 		if err := validateAllConfigurationResourcesNames(newStack.Stack); err != nil {
 			return err
@@ -1022,7 +1009,7 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		return c.errorEventf(sc.Stack, "FailedManageIngressSegment", err)
 	}
 
-	if c.routeGroupSupportEnabled {
+	if c.config.RouteGroupSupportEnabled {
 		err = c.ReconcileStackRouteGroup(ctx, sc.Stack, sc.Resources.RouteGroup, sc.GenerateRouteGroup)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageRouteGroup", err)
@@ -1043,21 +1030,21 @@ func (c *StackSetController) ReconcileStackResources(ctx context.Context, ssc *c
 		}
 	}
 
-	if c.configMapSupportEnabled {
+	if c.config.ConfigMapSupportEnabled {
 		err := c.ReconcileStackConfigMapRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageConfigMapRefs", err)
 		}
 	}
 
-	if c.secretSupportEnabled {
+	if c.config.SecretSupportEnabled {
 		err := c.ReconcileStackSecretRefs(ctx, sc.Stack, sc.UpdateObjectMeta)
 		if err != nil {
 			return c.errorEventf(sc.Stack, "FailedManageSecretRefs", err)
 		}
 	}
 
-	if c.pcsSupportEnabled {
+	if c.config.PcsSupportEnabled {
 		err = c.ReconcileStackPlatformCredentialsSets(
 			ctx,
 			sc.Stack,

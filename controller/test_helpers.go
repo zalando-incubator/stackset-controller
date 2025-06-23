@@ -55,20 +55,27 @@ func NewTestEnvironment() *testEnvironment {
 		rgClient:  rgfake.NewSimpleClientset(),
 	}
 
+	config := StackSetConfig{
+		Namespace:    v1.NamespaceAll,
+		ControllerID: "",
+
+		ClusterDomains:              nil,
+		BackendWeightsAnnotationKey: "",
+		SyncIngressAnnotations:      nil,
+
+		ReconcileWorkers: 10,
+		Interval:         time.Minute,
+
+		RouteGroupSupportEnabled: true,
+		ConfigMapSupportEnabled:  true,
+		SecretSupportEnabled:     true,
+		PcsSupportEnabled:        true,
+	}
+
 	controller, err := NewStackSetController(
 		client,
-		v1.NamespaceAll,
-		"",
-		10,
-		"",
-		nil,
 		prometheus.NewPedanticRegistry(),
-		time.Minute,
-		true,
-		nil,
-		true,
-		true,
-		true,
+		config,
 	)
 
 	if err != nil {
