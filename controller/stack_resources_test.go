@@ -788,7 +788,7 @@ func TestReconcileStackIngress(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			err = env.controller.ReconcileStackIngress(context.Background(), &tc.stack, tc.existing, func() (*networking.Ingress, error) {
+			err = env.controller.ReconcileStackIngress(context.Background(), &tc.stack, tc.existing, func(bool) (*networking.Ingress, error) {
 				return tc.updated, nil
 			})
 			require.NoError(t, err)

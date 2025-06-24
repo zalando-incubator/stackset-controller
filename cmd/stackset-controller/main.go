@@ -47,6 +47,7 @@ var (
 		ConfigMapSupportEnabled     bool
 		SecretSupportEnabled        bool
 		PCSSupportEnabled           bool
+		PerStackHostnameEnabled     bool
 	}
 )
 
@@ -70,6 +71,7 @@ func main() {
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
 	kingpin.Flag("enable-secret-support", "Enable support for Secrets on StackSets.").Default("false").BoolVar(&config.SecretSupportEnabled)
 	kingpin.Flag("enable-pcs-support", "Enable support for PlatformCredentialsSet on StackSets.").Default("false").BoolVar(&config.PCSSupportEnabled)
+	kingpin.Flag("enable-per-stack-hostname", "Enable support for per-stack hostnames.").Default("false").BoolVar(&config.PerStackHostnameEnabled)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -91,6 +93,7 @@ func main() {
 		ConfigMapSupportEnabled:  config.ConfigMapSupportEnabled,
 		SecretSupportEnabled:     config.SecretSupportEnabled,
 		PcsSupportEnabled:        config.PCSSupportEnabled,
+		PerStackHostnameEnabled:  config.PerStackHostnameEnabled,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

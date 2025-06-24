@@ -322,7 +322,7 @@ func TestStackGenerateIngress(t *testing.T) {
 				backendPort:    &intStrBackendPort,
 				clusterDomains: []string{"example.org"},
 			}
-			ingress, err := c.GenerateIngress()
+			ingress, err := c.GenerateIngress(true)
 
 			if tc.expectError {
 				require.Error(t, err)
@@ -461,7 +461,7 @@ func TestStackGenerateIngressSegment(t *testing.T) {
 			segmentUpperLimit: tc.upperLimit,
 			backendPort:       &backendPort,
 		}
-		ingress, err := c.GenerateIngressSegment()
+		ingress, err := c.GenerateIngressSegment(true)
 
 		if (err != nil) != tc.expectError {
 			t.Errorf("expected error: %t , got %v", tc.expectError, err)
@@ -570,7 +570,7 @@ func TestGenerateIngressSegmentWithSyncAnnotations(t *testing.T) {
 			ingressAnnotationsToSync: tc.ingresssAnnotationsToSync,
 			syncAnnotationsInIngress: tc.syncAnnotationsInIngress,
 		}
-		res, _ := c.GenerateIngressSegment()
+		res, _ := c.GenerateIngressSegment(true)
 
 		delete(
 			res.Annotations,

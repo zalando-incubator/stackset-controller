@@ -342,15 +342,15 @@ func (sc *StackContainer) stackHostnames(
 	return result.List(), nil
 }
 
-func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
-	return sc.generateIngress(false)
+func (sc *StackContainer) GenerateIngress(perStackHostnameEnabled bool) (*networking.Ingress, error) {
+	return sc.generateIngress(false, perStackHostnameEnabled)
 }
 
-func (sc *StackContainer) GenerateIngressSegment() (
+func (sc *StackContainer) GenerateIngressSegment(perStackHostnameEnabled bool) (
 	*networking.Ingress,
 	error,
 ) {
-	res, err := sc.generateIngress(true)
+	res, err := sc.generateIngress(true, perStackHostnameEnabled)
 	if err != nil || res == nil {
 		return res, err
 	}
@@ -379,11 +379,15 @@ func (sc *StackContainer) GenerateIngressSegment() (
 	return res, nil
 }
 
-func (sc *StackContainer) generateIngress(segment bool) (
+func (sc *StackContainer) generateIngress(segment bool, perStackHostnameEnabled bool) (
 	*networking.Ingress,
 	error,
 ) {
 
+	// If Per-stack Hostnames are disabled, no need to generate per stack ingresses
+	if !perStackHostnameEnabled {
+		return nil, nil
+	}
 	if !sc.HasBackendPort() || sc.ingressSpec == nil {
 		return nil, nil
 	}

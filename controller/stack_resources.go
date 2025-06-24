@@ -188,8 +188,8 @@ func (c *StackSetController) ReconcileStackService(ctx context.Context, stack *z
 	return nil
 }
 
-func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *zv1.Stack, existing *networking.Ingress, generateUpdated func() (*networking.Ingress, error)) error {
-	ingress, err := generateUpdated()
+func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *zv1.Stack, existing *networking.Ingress, generateUpdated func(bool) (*networking.Ingress, error)) error {
+	ingress, err := generateUpdated(c.config.PerStackHostnameEnabled)
 	if err != nil {
 		return err
 	}

@@ -77,6 +77,7 @@ type StackSetConfig struct {
 	ConfigMapSupportEnabled  bool
 	SecretSupportEnabled     bool
 	PcsSupportEnabled        bool
+	PerStackHostnameEnabled  bool
 }
 
 type stacksetEvent struct {
