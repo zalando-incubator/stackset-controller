@@ -320,7 +320,7 @@ func TestStackGenerateIngress(t *testing.T) {
 				stacksetName:   "foo",
 				ingressSpec:    tc.ingressSpec,
 				backendPort:    &intStrBackendPort,
-				clusterDomains: []string{"example.org"},
+				perStackDomain: "example.org",
 			}
 			ingress, err := c.GenerateIngress()
 
@@ -648,7 +648,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				stacksetName:   "foo",
 				routeGroupSpec: tc.routeGroupSpec,
 				backendPort:    &intStrBackendPort,
-				clusterDomains: []string{"example.org"},
+				perStackDomain: "example.org",
 			}
 			rg, err := c.GenerateRouteGroup()
 			if tc.expectError {

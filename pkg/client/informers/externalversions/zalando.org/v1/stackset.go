@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	apiszalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	versioned "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/client/listers/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/client/listers/zalando.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // StackSets.
 type StackSetInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.StackSetLister
+	Lister() zalandoorgv1.StackSetLister
 }
 
 type stackSetInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredStackSetInformer(client versioned.Interface, namespace string, r
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().StackSets(namespace).List(context.TODO(), options)
+				return client.ZalandoV1().StackSets(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().StackSets(namespace).Watch(context.TODO(), options)
+				return client.ZalandoV1().StackSets(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ZalandoV1().StackSets(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ZalandoV1().StackSets(namespace).Watch(ctx, options)
 			},
 		},
-		&zalandoorgv1.StackSet{},
+		&apiszalandoorgv1.StackSet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *stackSetInformer) defaultInformer(client versioned.Interface, resyncPer
 }
 
 func (f *stackSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&zalandoorgv1.StackSet{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiszalandoorgv1.StackSet{}, f.defaultInformer)
 }
 
-func (f *stackSetInformer) Lister() v1.StackSetLister {
-	return v1.NewStackSetLister(f.Informer().GetIndexer())
+func (f *stackSetInformer) Lister() zalandoorgv1.StackSetLister {
+	return zalandoorgv1.NewStackSetLister(f.Informer().GetIndexer())
 }

@@ -67,6 +67,7 @@ type StackSetConfig struct {
 	ControllerID string
 
 	ClusterDomains              []string
+	PerStackDomain              string
 	BackendWeightsAnnotationKey string
 	SyncIngressAnnotations      []string
 
@@ -252,6 +253,7 @@ func (c *StackSetController) collectResources(ctx context.Context) (map[types.UI
 			reconciler,
 			c.config.BackendWeightsAnnotationKey,
 			c.config.ClusterDomains,
+			c.config.PerStackDomain,
 			c.config.SyncIngressAnnotations,
 		)
 		stacksets[uid] = stacksetContainer

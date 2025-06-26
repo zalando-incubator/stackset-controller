@@ -19,9 +19,9 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	scheme "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type StacksGetter interface {
 
 // StackInterface has methods to work with Stack resources.
 type StackInterface interface {
-	Create(ctx context.Context, stack *v1.Stack, opts metav1.CreateOptions) (*v1.Stack, error)
-	Update(ctx context.Context, stack *v1.Stack, opts metav1.UpdateOptions) (*v1.Stack, error)
+	Create(ctx context.Context, stack *zalandoorgv1.Stack, opts metav1.CreateOptions) (*zalandoorgv1.Stack, error)
+	Update(ctx context.Context, stack *zalandoorgv1.Stack, opts metav1.UpdateOptions) (*zalandoorgv1.Stack, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, stack *v1.Stack, opts metav1.UpdateOptions) (*v1.Stack, error)
+	UpdateStatus(ctx context.Context, stack *zalandoorgv1.Stack, opts metav1.UpdateOptions) (*zalandoorgv1.Stack, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.Stack, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.StackList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*zalandoorgv1.Stack, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*zalandoorgv1.StackList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.Stack, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *zalandoorgv1.Stack, err error)
 	StackExpansion
 }
 
 // stacks implements StackInterface
 type stacks struct {
-	*gentype.ClientWithList[*v1.Stack, *v1.StackList]
+	*gentype.ClientWithList[*zalandoorgv1.Stack, *zalandoorgv1.StackList]
 }
 
 // newStacks returns a Stacks
 func newStacks(c *ZalandoV1Client, namespace string) *stacks {
 	return &stacks{
-		gentype.NewClientWithList[*v1.Stack, *v1.StackList](
+		gentype.NewClientWithList[*zalandoorgv1.Stack, *zalandoorgv1.StackList](
 			"stacks",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.Stack { return &v1.Stack{} },
-			func() *v1.StackList { return &v1.StackList{} }),
+			func() *zalandoorgv1.Stack { return &zalandoorgv1.Stack{} },
+			func() *zalandoorgv1.StackList { return &zalandoorgv1.StackList{} },
+		),
 	}
 }

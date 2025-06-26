@@ -28,6 +28,7 @@ const (
 	defaultMetricsAddress         = ":7979"
 	defaultClientGOTimeout        = 30 * time.Second
 	defaultReconcileWorkers       = "10"
+	defaultPerStackDomain         = ".ingress.cluster.local"
 )
 
 var (
@@ -38,6 +39,7 @@ var (
 		Namespace                   string
 		MetricsAddress              string
 		ClusterDomains              []string
+		PerStackDomain              string
 		NoTrafficScaledownTTL       time.Duration
 		ControllerID                string
 		BackendWeightsAnnotationKey string
@@ -61,7 +63,8 @@ func main() {
 	kingpin.Flag("reconcile-workers", "The amount of stacksets to reconcile in parallel at a time.").
 		Default(defaultReconcileWorkers).IntVar(&config.ReconcileWorkers)
 	kingpin.Flag("backend-weights-key", "Backend weights annotation key the controller will use to set current traffic values").Default(traffic.DefaultBackendWeightsAnnotationKey).StringVar(&config.BackendWeightsAnnotationKey)
-	kingpin.Flag("cluster-domain", "Main domains of the cluster, used for generating Stack Ingress hostnames").Envar("CLUSTER_DOMAIN").Required().StringsVar(&config.ClusterDomains)
+	kingpin.Flag("cluster-domain", "Main domains of the cluster, used for generating StackSet Ingress hostnames").Envar("CLUSTER_DOMAIN").Required().StringsVar(&config.ClusterDomains)
+	kingpin.Flag("per-stack-domain", "Domain used for generating per-stack Ingress hostnames").Default(defaultPerStackDomain).StringVar(&config.PerStackDomain)
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
 	kingpin.Flag(
 		"sync-ingress-annotation",
@@ -81,6 +84,7 @@ func main() {
 		ControllerID: config.ControllerID,
 
 		ClusterDomains:              config.ClusterDomains,
+		PerStackDomain:              config.PerStackDomain,
 		BackendWeightsAnnotationKey: config.BackendWeightsAnnotationKey,
 		SyncIngressAnnotations:      config.SyncIngressAnnotations,
 

@@ -576,15 +576,15 @@ func TestStackSetUpdateFromResourcesScaleDown(t *testing.T) {
 	}
 }
 
-func TestStackSetUpdateFromResourcesClusterDomain(t *testing.T) {
+func TestStackSetUpdateFromResourcesPerStackDomain(t *testing.T) {
 	c := dummyStacksetContainer()
-	c.clusterDomains = []string{"foo.example.org"}
+	c.perStackDomain = "foo.example.org"
 
 	err := c.UpdateFromResources()
 	require.NoError(t, err)
 
 	for _, sc := range c.StackContainers {
-		require.Equal(t, c.clusterDomains, sc.clusterDomains)
+		require.Equal(t, c.perStackDomain, sc.perStackDomain)
 	}
 }
 
