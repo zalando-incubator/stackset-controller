@@ -89,6 +89,7 @@ type StackContainer struct {
 	// Fields from the parent stackset
 	stacksetName   string
 	scaledownTTL   time.Duration
+	clusterDomains []string
 	perStackDomain string
 
 	// Ingress annotations to synchronize
@@ -354,6 +355,7 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		sc.syncAnnotationsInRouteGroup = syncAnnotationsInRouteGroup
 		sc.backendPort = backendPort
 		sc.scaledownTTL = scaledownTTL
+		sc.clusterDomains = ssc.clusterDomains
 		sc.perStackDomain = ssc.perStackDomain
 		err := sc.updateStackResources()
 		if err != nil {
