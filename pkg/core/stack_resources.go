@@ -384,8 +384,8 @@ func (sc *StackContainer) generateIngress(segment bool, perStackHostnameEnabled 
 	error,
 ) {
 
-	// If Per-stack Hostnames are disabled, no need to generate per stack ingresses
-	if !perStackHostnameEnabled {
+	// If Per-stack Hostnames and segments are disabled, no need to generate per stack ingresses
+	if !perStackHostnameEnabled && !segment {
 		return nil, nil
 	}
 	if !sc.HasBackendPort() || sc.ingressSpec == nil {
