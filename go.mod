@@ -17,7 +17,7 @@ require (
 	k8s.io/client-go v0.33.2
 	k8s.io/code-generator v0.33.2
 	sigs.k8s.io/controller-tools v0.18.0
-	sigs.k8s.io/yaml v1.4.0
+	sigs.k8s.io/yaml v1.5.0
 )
 
 require (
@@ -55,6 +55,7 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xhit/go-str2duration/v2 v2.1.0 // indirect
+	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/mod v0.24.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
