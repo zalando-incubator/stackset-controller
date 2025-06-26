@@ -28,7 +28,7 @@ const (
 	defaultMetricsAddress         = ":7979"
 	defaultClientGOTimeout        = 30 * time.Second
 	defaultReconcileWorkers       = "10"
-	defaultPerStackDomain         = ".ingress.cluster.local"
+	defaultPerStackDomain         = "ingress.cluster.local"
 )
 
 var (
