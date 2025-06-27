@@ -26,6 +26,7 @@ var (
 	clusterDomain                                      = requiredEnvar("CLUSTER_DOMAIN")
 	clusterDomainInternal                              = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
 	clusterDomains                                     = []string{clusterDomain, clusterDomainInternal}
+	perStackDomains                                    = []string{"ingress.cluster.local"}
 	controllerId                                       = os.Getenv("CONTROLLER_ID")
 	waitTimeout                                        time.Duration
 	trafficSwitchWaitTimeout                           time.Duration

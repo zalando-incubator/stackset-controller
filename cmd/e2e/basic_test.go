@@ -489,7 +489,7 @@ func verifyStackIngressSources(
 	}
 
 	if stack.Spec.Ingress != nil {
-		for _, domain := range clusterDomains {
+		for _, domain := range perStackDomains {
 			domains = append(
 				domains,
 				fmt.Sprintf("%s.%s", resourceName, domain),

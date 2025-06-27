@@ -29,15 +29,15 @@ type FakeZalandoV1 struct {
 }
 
 func (c *FakeZalandoV1) PlatformCredentialsSets(namespace string) v1.PlatformCredentialsSetInterface {
-	return &FakePlatformCredentialsSets{c, namespace}
+	return newFakePlatformCredentialsSets(c, namespace)
 }
 
 func (c *FakeZalandoV1) Stacks(namespace string) v1.StackInterface {
-	return &FakeStacks{c, namespace}
+	return newFakeStacks(c, namespace)
 }
 
 func (c *FakeZalandoV1) StackSets(namespace string) v1.StackSetInterface {
-	return &FakeStackSets{c, namespace}
+	return newFakeStackSets(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

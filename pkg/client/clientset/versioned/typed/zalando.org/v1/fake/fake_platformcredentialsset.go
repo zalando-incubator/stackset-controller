@@ -19,129 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakePlatformCredentialsSets implements PlatformCredentialsSetInterface
-type FakePlatformCredentialsSets struct {
+// fakePlatformCredentialsSets implements PlatformCredentialsSetInterface
+type fakePlatformCredentialsSets struct {
+	*gentype.FakeClientWithList[*v1.PlatformCredentialsSet, *v1.PlatformCredentialsSetList]
 	Fake *FakeZalandoV1
-	ns   string
 }
 
-var platformcredentialssetsResource = v1.SchemeGroupVersion.WithResource("platformcredentialssets")
-
-var platformcredentialssetsKind = v1.SchemeGroupVersion.WithKind("PlatformCredentialsSet")
-
-// Get takes name of the platformCredentialsSet, and returns the corresponding platformCredentialsSet object, and an error if there is any.
-func (c *FakePlatformCredentialsSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.PlatformCredentialsSet, err error) {
-	emptyResult := &v1.PlatformCredentialsSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(platformcredentialssetsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakePlatformCredentialsSets(fake *FakeZalandoV1, namespace string) zalandoorgv1.PlatformCredentialsSetInterface {
+	return &fakePlatformCredentialsSets{
+		gentype.NewFakeClientWithList[*v1.PlatformCredentialsSet, *v1.PlatformCredentialsSetList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("platformcredentialssets"),
+			v1.SchemeGroupVersion.WithKind("PlatformCredentialsSet"),
+			func() *v1.PlatformCredentialsSet { return &v1.PlatformCredentialsSet{} },
+			func() *v1.PlatformCredentialsSetList { return &v1.PlatformCredentialsSetList{} },
+			func(dst, src *v1.PlatformCredentialsSetList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.PlatformCredentialsSetList) []*v1.PlatformCredentialsSet {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1.PlatformCredentialsSetList, items []*v1.PlatformCredentialsSet) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1.PlatformCredentialsSet), err
-}
-
-// List takes label and field selectors, and returns the list of PlatformCredentialsSets that match those selectors.
-func (c *FakePlatformCredentialsSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.PlatformCredentialsSetList, err error) {
-	emptyResult := &v1.PlatformCredentialsSetList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(platformcredentialssetsResource, platformcredentialssetsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.PlatformCredentialsSetList{ListMeta: obj.(*v1.PlatformCredentialsSetList).ListMeta}
-	for _, item := range obj.(*v1.PlatformCredentialsSetList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested platformCredentialsSets.
-func (c *FakePlatformCredentialsSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(platformcredentialssetsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a platformCredentialsSet and creates it.  Returns the server's representation of the platformCredentialsSet, and an error, if there is any.
-func (c *FakePlatformCredentialsSets) Create(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.CreateOptions) (result *v1.PlatformCredentialsSet, err error) {
-	emptyResult := &v1.PlatformCredentialsSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(platformcredentialssetsResource, c.ns, platformCredentialsSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.PlatformCredentialsSet), err
-}
-
-// Update takes the representation of a platformCredentialsSet and updates it. Returns the server's representation of the platformCredentialsSet, and an error, if there is any.
-func (c *FakePlatformCredentialsSets) Update(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (result *v1.PlatformCredentialsSet, err error) {
-	emptyResult := &v1.PlatformCredentialsSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(platformcredentialssetsResource, c.ns, platformCredentialsSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.PlatformCredentialsSet), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakePlatformCredentialsSets) UpdateStatus(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (result *v1.PlatformCredentialsSet, err error) {
-	emptyResult := &v1.PlatformCredentialsSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(platformcredentialssetsResource, "status", c.ns, platformCredentialsSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.PlatformCredentialsSet), err
-}
-
-// Delete takes name of the platformCredentialsSet and deletes it. Returns an error if one occurs.
-func (c *FakePlatformCredentialsSets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(platformcredentialssetsResource, c.ns, name, opts), &v1.PlatformCredentialsSet{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakePlatformCredentialsSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(platformcredentialssetsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.PlatformCredentialsSetList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched platformCredentialsSet.
-func (c *FakePlatformCredentialsSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.PlatformCredentialsSet, err error) {
-	emptyResult := &v1.PlatformCredentialsSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(platformcredentialssetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.PlatformCredentialsSet), err
 }

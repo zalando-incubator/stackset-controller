@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // PlatformCredentialsSetLister helps list PlatformCredentialsSets.
@@ -30,7 +30,7 @@ import (
 type PlatformCredentialsSetLister interface {
 	// List lists all PlatformCredentialsSets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.PlatformCredentialsSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.PlatformCredentialsSet, err error)
 	// PlatformCredentialsSets returns an object that can list and get PlatformCredentialsSets.
 	PlatformCredentialsSets(namespace string) PlatformCredentialsSetNamespaceLister
 	PlatformCredentialsSetListerExpansion
@@ -38,17 +38,17 @@ type PlatformCredentialsSetLister interface {
 
 // platformCredentialsSetLister implements the PlatformCredentialsSetLister interface.
 type platformCredentialsSetLister struct {
-	listers.ResourceIndexer[*v1.PlatformCredentialsSet]
+	listers.ResourceIndexer[*zalandoorgv1.PlatformCredentialsSet]
 }
 
 // NewPlatformCredentialsSetLister returns a new PlatformCredentialsSetLister.
 func NewPlatformCredentialsSetLister(indexer cache.Indexer) PlatformCredentialsSetLister {
-	return &platformCredentialsSetLister{listers.New[*v1.PlatformCredentialsSet](indexer, v1.Resource("platformcredentialsset"))}
+	return &platformCredentialsSetLister{listers.New[*zalandoorgv1.PlatformCredentialsSet](indexer, zalandoorgv1.Resource("platformcredentialsset"))}
 }
 
 // PlatformCredentialsSets returns an object that can list and get PlatformCredentialsSets.
 func (s *platformCredentialsSetLister) PlatformCredentialsSets(namespace string) PlatformCredentialsSetNamespaceLister {
-	return platformCredentialsSetNamespaceLister{listers.NewNamespaced[*v1.PlatformCredentialsSet](s.ResourceIndexer, namespace)}
+	return platformCredentialsSetNamespaceLister{listers.NewNamespaced[*zalandoorgv1.PlatformCredentialsSet](s.ResourceIndexer, namespace)}
 }
 
 // PlatformCredentialsSetNamespaceLister helps list and get PlatformCredentialsSets.
@@ -56,15 +56,15 @@ func (s *platformCredentialsSetLister) PlatformCredentialsSets(namespace string)
 type PlatformCredentialsSetNamespaceLister interface {
 	// List lists all PlatformCredentialsSets in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.PlatformCredentialsSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.PlatformCredentialsSet, err error)
 	// Get retrieves the PlatformCredentialsSet from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.PlatformCredentialsSet, error)
+	Get(name string) (*zalandoorgv1.PlatformCredentialsSet, error)
 	PlatformCredentialsSetNamespaceListerExpansion
 }
 
 // platformCredentialsSetNamespaceLister implements the PlatformCredentialsSetNamespaceLister
 // interface.
 type platformCredentialsSetNamespaceLister struct {
-	listers.ResourceIndexer[*v1.PlatformCredentialsSet]
+	listers.ResourceIndexer[*zalandoorgv1.PlatformCredentialsSet]
 }
