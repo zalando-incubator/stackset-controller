@@ -506,7 +506,7 @@ func verifyStackIngressSources(
 			require.Contains(t, stackIngress.Annotations, k)
 			require.Equal(t, v, stackIngress.Annotations[k])
 		}
-		stackIngressRules := make([]v1.IngressRule, 0, len(clusterDomains))
+		stackIngressRules := make([]v1.IngressRule, 0, len(perStackDomains))
 		for _, domain := range domains {
 			stackIngressRules = append(stackIngressRules, v1.IngressRule{
 				Host: domain,
@@ -544,7 +544,7 @@ func verifyStackIngressSources(
 			require.Contains(t, stackRG.Annotations, k)
 			require.Equal(t, v, stackRG.Annotations[k])
 		}
-		for _, domain := range clusterDomains {
+		for _, domain := range perStackDomains {
 			domains = append(
 				domains,
 				fmt.Sprintf("%s.%s", stack.Name, domain),
