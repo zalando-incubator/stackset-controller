@@ -19,129 +19,30 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
 	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/typed/zalando.org/v1"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeStackSets implements StackSetInterface
-type FakeStackSets struct {
+// fakeStackSets implements StackSetInterface
+type fakeStackSets struct {
+	*gentype.FakeClientWithList[*v1.StackSet, *v1.StackSetList]
 	Fake *FakeZalandoV1
-	ns   string
 }
 
-var stacksetsResource = v1.SchemeGroupVersion.WithResource("stacksets")
-
-var stacksetsKind = v1.SchemeGroupVersion.WithKind("StackSet")
-
-// Get takes name of the stackSet, and returns the corresponding stackSet object, and an error if there is any.
-func (c *FakeStackSets) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.StackSet, err error) {
-	emptyResult := &v1.StackSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewGetActionWithOptions(stacksetsResource, c.ns, name, options), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
+func newFakeStackSets(fake *FakeZalandoV1, namespace string) zalandoorgv1.StackSetInterface {
+	return &fakeStackSets{
+		gentype.NewFakeClientWithList[*v1.StackSet, *v1.StackSetList](
+			fake.Fake,
+			namespace,
+			v1.SchemeGroupVersion.WithResource("stacksets"),
+			v1.SchemeGroupVersion.WithKind("StackSet"),
+			func() *v1.StackSet { return &v1.StackSet{} },
+			func() *v1.StackSetList { return &v1.StackSetList{} },
+			func(dst, src *v1.StackSetList) { dst.ListMeta = src.ListMeta },
+			func(list *v1.StackSetList) []*v1.StackSet { return gentype.ToPointerSlice(list.Items) },
+			func(list *v1.StackSetList, items []*v1.StackSet) { list.Items = gentype.FromPointerSlice(items) },
+		),
+		fake,
 	}
-	return obj.(*v1.StackSet), err
-}
-
-// List takes label and field selectors, and returns the list of StackSets that match those selectors.
-func (c *FakeStackSets) List(ctx context.Context, opts metav1.ListOptions) (result *v1.StackSetList, err error) {
-	emptyResult := &v1.StackSetList{}
-	obj, err := c.Fake.
-		Invokes(testing.NewListActionWithOptions(stacksetsResource, stacksetsKind, c.ns, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1.StackSetList{ListMeta: obj.(*v1.StackSetList).ListMeta}
-	for _, item := range obj.(*v1.StackSetList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested stackSets.
-func (c *FakeStackSets) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchActionWithOptions(stacksetsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a stackSet and creates it.  Returns the server's representation of the stackSet, and an error, if there is any.
-func (c *FakeStackSets) Create(ctx context.Context, stackSet *v1.StackSet, opts metav1.CreateOptions) (result *v1.StackSet, err error) {
-	emptyResult := &v1.StackSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateActionWithOptions(stacksetsResource, c.ns, stackSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.StackSet), err
-}
-
-// Update takes the representation of a stackSet and updates it. Returns the server's representation of the stackSet, and an error, if there is any.
-func (c *FakeStackSets) Update(ctx context.Context, stackSet *v1.StackSet, opts metav1.UpdateOptions) (result *v1.StackSet, err error) {
-	emptyResult := &v1.StackSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateActionWithOptions(stacksetsResource, c.ns, stackSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.StackSet), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeStackSets) UpdateStatus(ctx context.Context, stackSet *v1.StackSet, opts metav1.UpdateOptions) (result *v1.StackSet, err error) {
-	emptyResult := &v1.StackSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceActionWithOptions(stacksetsResource, "status", c.ns, stackSet, opts), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.StackSet), err
-}
-
-// Delete takes name of the stackSet and deletes it. Returns an error if one occurs.
-func (c *FakeStackSets) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(stacksetsResource, c.ns, name, opts), &v1.StackSet{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeStackSets) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error {
-	action := testing.NewDeleteCollectionActionWithOptions(stacksetsResource, c.ns, opts, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1.StackSetList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched stackSet.
-func (c *FakeStackSets) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.StackSet, err error) {
-	emptyResult := &v1.StackSet{}
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceActionWithOptions(stacksetsResource, c.ns, name, pt, data, opts, subresources...), emptyResult)
-
-	if obj == nil {
-		return emptyResult, err
-	}
-	return obj.(*v1.StackSet), err
 }

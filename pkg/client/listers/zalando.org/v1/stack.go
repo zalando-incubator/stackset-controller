@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // StackLister helps list Stacks.
@@ -30,7 +30,7 @@ import (
 type StackLister interface {
 	// List lists all Stacks in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.Stack, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.Stack, err error)
 	// Stacks returns an object that can list and get Stacks.
 	Stacks(namespace string) StackNamespaceLister
 	StackListerExpansion
@@ -38,17 +38,17 @@ type StackLister interface {
 
 // stackLister implements the StackLister interface.
 type stackLister struct {
-	listers.ResourceIndexer[*v1.Stack]
+	listers.ResourceIndexer[*zalandoorgv1.Stack]
 }
 
 // NewStackLister returns a new StackLister.
 func NewStackLister(indexer cache.Indexer) StackLister {
-	return &stackLister{listers.New[*v1.Stack](indexer, v1.Resource("stack"))}
+	return &stackLister{listers.New[*zalandoorgv1.Stack](indexer, zalandoorgv1.Resource("stack"))}
 }
 
 // Stacks returns an object that can list and get Stacks.
 func (s *stackLister) Stacks(namespace string) StackNamespaceLister {
-	return stackNamespaceLister{listers.NewNamespaced[*v1.Stack](s.ResourceIndexer, namespace)}
+	return stackNamespaceLister{listers.NewNamespaced[*zalandoorgv1.Stack](s.ResourceIndexer, namespace)}
 }
 
 // StackNamespaceLister helps list and get Stacks.
@@ -56,15 +56,15 @@ func (s *stackLister) Stacks(namespace string) StackNamespaceLister {
 type StackNamespaceLister interface {
 	// List lists all Stacks in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.Stack, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.Stack, err error)
 	// Get retrieves the Stack from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.Stack, error)
+	Get(name string) (*zalandoorgv1.Stack, error)
 	StackNamespaceListerExpansion
 }
 
 // stackNamespaceLister implements the StackNamespaceLister
 // interface.
 type stackNamespaceLister struct {
-	listers.ResourceIndexer[*v1.Stack]
+	listers.ResourceIndexer[*zalandoorgv1.Stack]
 }
