@@ -23,13 +23,15 @@ import (
 var (
 	kubernetesClient, stacksetClient, routegroupClient = createClients()
 	namespace                                          = requiredEnvar("E2E_NAMESPACE")
-	clusterDomain                                      = requiredEnvar("CLUSTER_DOMAIN")
-	clusterDomainInternal                              = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
-	clusterDomains                                     = []string{clusterDomain, clusterDomainInternal}
-	perStackDomains                                    = []string{"ingress.cluster.local"}
-	controllerId                                       = os.Getenv("CONTROLLER_ID")
-	waitTimeout                                        time.Duration
-	trafficSwitchWaitTimeout                           time.Duration
+	// Domains used to generate hostnames for the main Stackset Ingresses.
+	clusterDomain         = requiredEnvar("CLUSTER_DOMAIN")
+	clusterDomainInternal = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
+	clusterDomains        = []string{clusterDomain, clusterDomainInternal}
+	// Domains used to generate hostnames for the per Stackset Ingresses.
+	perStackDomains          = []string{"ingress.cluster.local"}
+	controllerId             = os.Getenv("CONTROLLER_ID")
+	waitTimeout              time.Duration
+	trafficSwitchWaitTimeout time.Duration
 )
 
 func init() {

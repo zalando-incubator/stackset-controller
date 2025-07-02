@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"slices"
 	"strconv"
@@ -312,9 +311,7 @@ func TestStackGenerateIngress(t *testing.T) {
 				stackGenerationAnnotationKey: "11",
 				"ingress":                    "annotation",
 			},
-			expectedHosts: []string{
-				fmt.Sprintf("foo-v1.%s", perStackDomain),
-			},
+			expectedHosts: []string{"foo-v1.ingress.cluster.local"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -626,9 +623,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				stackGenerationAnnotationKey: "11",
 				"routegroup":                 "annotation",
 			},
-			expectedHosts: []string{
-				fmt.Sprintf("foo-v1.%s", perStackDomain),
-			},
+			expectedHosts: []string{"foo-v1.ingress.cluster.local"},
 		},
 		{
 			name: "custom load balancer",
@@ -645,9 +640,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				stackGenerationAnnotationKey: "11",
 			},
-			expectedHosts: []string{
-				fmt.Sprintf("foo-v1.%s", perStackDomain),
-			},
+			expectedHosts: []string{"foo-v1.ingress.cluster.local"},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
