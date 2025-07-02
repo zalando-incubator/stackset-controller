@@ -19,13 +19,13 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 	time "time"
 
-	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	apiszalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	versioned "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned"
 	internalinterfaces "github.com/zalando-incubator/stackset-controller/pkg/client/informers/externalversions/internalinterfaces"
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/client/listers/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/client/listers/zalando.org/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // PlatformCredentialsSets.
 type PlatformCredentialsSetInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1.PlatformCredentialsSetLister
+	Lister() zalandoorgv1.PlatformCredentialsSetLister
 }
 
 type platformCredentialsSetInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredPlatformCredentialsSetInformer(client versioned.Interface, names
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().PlatformCredentialsSets(namespace).List(context.TODO(), options)
+				return client.ZalandoV1().PlatformCredentialsSets(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.ZalandoV1().PlatformCredentialsSets(namespace).Watch(context.TODO(), options)
+				return client.ZalandoV1().PlatformCredentialsSets(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options metav1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ZalandoV1().PlatformCredentialsSets(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options metav1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.ZalandoV1().PlatformCredentialsSets(namespace).Watch(ctx, options)
 			},
 		},
-		&zalandoorgv1.PlatformCredentialsSet{},
+		&apiszalandoorgv1.PlatformCredentialsSet{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *platformCredentialsSetInformer) defaultInformer(client versioned.Interf
 }
 
 func (f *platformCredentialsSetInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&zalandoorgv1.PlatformCredentialsSet{}, f.defaultInformer)
+	return f.factory.InformerFor(&apiszalandoorgv1.PlatformCredentialsSet{}, f.defaultInformer)
 }
 
-func (f *platformCredentialsSetInformer) Lister() v1.PlatformCredentialsSetLister {
-	return v1.NewPlatformCredentialsSetLister(f.Informer().GetIndexer())
+func (f *platformCredentialsSetInformer) Lister() zalandoorgv1.PlatformCredentialsSetLister {
+	return zalandoorgv1.NewPlatformCredentialsSetLister(f.Informer().GetIndexer())
 }

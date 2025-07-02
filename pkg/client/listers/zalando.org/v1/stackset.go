@@ -19,10 +19,10 @@ limitations under the License.
 package v1
 
 import (
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/listers"
-	"k8s.io/client-go/tools/cache"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // StackSetLister helps list StackSets.
@@ -30,7 +30,7 @@ import (
 type StackSetLister interface {
 	// List lists all StackSets in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.StackSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.StackSet, err error)
 	// StackSets returns an object that can list and get StackSets.
 	StackSets(namespace string) StackSetNamespaceLister
 	StackSetListerExpansion
@@ -38,17 +38,17 @@ type StackSetLister interface {
 
 // stackSetLister implements the StackSetLister interface.
 type stackSetLister struct {
-	listers.ResourceIndexer[*v1.StackSet]
+	listers.ResourceIndexer[*zalandoorgv1.StackSet]
 }
 
 // NewStackSetLister returns a new StackSetLister.
 func NewStackSetLister(indexer cache.Indexer) StackSetLister {
-	return &stackSetLister{listers.New[*v1.StackSet](indexer, v1.Resource("stackset"))}
+	return &stackSetLister{listers.New[*zalandoorgv1.StackSet](indexer, zalandoorgv1.Resource("stackset"))}
 }
 
 // StackSets returns an object that can list and get StackSets.
 func (s *stackSetLister) StackSets(namespace string) StackSetNamespaceLister {
-	return stackSetNamespaceLister{listers.NewNamespaced[*v1.StackSet](s.ResourceIndexer, namespace)}
+	return stackSetNamespaceLister{listers.NewNamespaced[*zalandoorgv1.StackSet](s.ResourceIndexer, namespace)}
 }
 
 // StackSetNamespaceLister helps list and get StackSets.
@@ -56,15 +56,15 @@ func (s *stackSetLister) StackSets(namespace string) StackSetNamespaceLister {
 type StackSetNamespaceLister interface {
 	// List lists all StackSets in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1.StackSet, err error)
+	List(selector labels.Selector) (ret []*zalandoorgv1.StackSet, err error)
 	// Get retrieves the StackSet from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1.StackSet, error)
+	Get(name string) (*zalandoorgv1.StackSet, error)
 	StackSetNamespaceListerExpansion
 }
 
 // stackSetNamespaceLister implements the StackSetNamespaceLister
 // interface.
 type stackSetNamespaceLister struct {
-	listers.ResourceIndexer[*v1.StackSet]
+	listers.ResourceIndexer[*zalandoorgv1.StackSet]
 }

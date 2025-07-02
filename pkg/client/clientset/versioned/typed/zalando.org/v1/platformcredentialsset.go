@@ -19,9 +19,9 @@ limitations under the License.
 package v1
 
 import (
-	"context"
+	context "context"
 
-	v1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
+	zalandoorgv1 "github.com/zalando-incubator/stackset-controller/pkg/apis/zalando.org/v1"
 	scheme "github.com/zalando-incubator/stackset-controller/pkg/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -37,33 +37,34 @@ type PlatformCredentialsSetsGetter interface {
 
 // PlatformCredentialsSetInterface has methods to work with PlatformCredentialsSet resources.
 type PlatformCredentialsSetInterface interface {
-	Create(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.CreateOptions) (*v1.PlatformCredentialsSet, error)
-	Update(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (*v1.PlatformCredentialsSet, error)
+	Create(ctx context.Context, platformCredentialsSet *zalandoorgv1.PlatformCredentialsSet, opts metav1.CreateOptions) (*zalandoorgv1.PlatformCredentialsSet, error)
+	Update(ctx context.Context, platformCredentialsSet *zalandoorgv1.PlatformCredentialsSet, opts metav1.UpdateOptions) (*zalandoorgv1.PlatformCredentialsSet, error)
 	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-	UpdateStatus(ctx context.Context, platformCredentialsSet *v1.PlatformCredentialsSet, opts metav1.UpdateOptions) (*v1.PlatformCredentialsSet, error)
+	UpdateStatus(ctx context.Context, platformCredentialsSet *zalandoorgv1.PlatformCredentialsSet, opts metav1.UpdateOptions) (*zalandoorgv1.PlatformCredentialsSet, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
-	Get(ctx context.Context, name string, opts metav1.GetOptions) (*v1.PlatformCredentialsSet, error)
-	List(ctx context.Context, opts metav1.ListOptions) (*v1.PlatformCredentialsSetList, error)
+	Get(ctx context.Context, name string, opts metav1.GetOptions) (*zalandoorgv1.PlatformCredentialsSet, error)
+	List(ctx context.Context, opts metav1.ListOptions) (*zalandoorgv1.PlatformCredentialsSetList, error)
 	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.PlatformCredentialsSet, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *zalandoorgv1.PlatformCredentialsSet, err error)
 	PlatformCredentialsSetExpansion
 }
 
 // platformCredentialsSets implements PlatformCredentialsSetInterface
 type platformCredentialsSets struct {
-	*gentype.ClientWithList[*v1.PlatformCredentialsSet, *v1.PlatformCredentialsSetList]
+	*gentype.ClientWithList[*zalandoorgv1.PlatformCredentialsSet, *zalandoorgv1.PlatformCredentialsSetList]
 }
 
 // newPlatformCredentialsSets returns a PlatformCredentialsSets
 func newPlatformCredentialsSets(c *ZalandoV1Client, namespace string) *platformCredentialsSets {
 	return &platformCredentialsSets{
-		gentype.NewClientWithList[*v1.PlatformCredentialsSet, *v1.PlatformCredentialsSetList](
+		gentype.NewClientWithList[*zalandoorgv1.PlatformCredentialsSet, *zalandoorgv1.PlatformCredentialsSetList](
 			"platformcredentialssets",
 			c.RESTClient(),
 			scheme.ParameterCodec,
 			namespace,
-			func() *v1.PlatformCredentialsSet { return &v1.PlatformCredentialsSet{} },
-			func() *v1.PlatformCredentialsSetList { return &v1.PlatformCredentialsSetList{} }),
+			func() *zalandoorgv1.PlatformCredentialsSet { return &zalandoorgv1.PlatformCredentialsSet{} },
+			func() *zalandoorgv1.PlatformCredentialsSetList { return &zalandoorgv1.PlatformCredentialsSetList{} },
+		),
 	}
 }
