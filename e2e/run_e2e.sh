@@ -4,7 +4,6 @@ set -euf -o pipefail
 shopt -s nullglob
 
 CLUSTER_DOMAIN=${CLUSTER_DOMAIN:-""}
-CLUSTER_DOMAIN_INTERNAL=${CLUSTER_DOMAIN_INTERNAL:-""}
 CLUSTER_NAME=${CLUSTER_NAME:-""}
 # Set TEST_NAME to run a single test
 # eg.: TEST_NAME=TestIngressToRouteGroupSwitch ./e2e/run_e2e.sh
@@ -14,11 +13,6 @@ CONTROLLER_ID="ssc-e2e-$(dd if=/dev/urandom bs=8 count=1 2>/dev/null | hexdump -
 
 if [[ -z "${CLUSTER_DOMAIN}" ]]; then
   echo "Please specify the cluster domain via CLUSTER_DOMAIN."
-  exit 0
-fi
-
-if [[ -z "${CLUSTER_DOMAIN_INTERNAL}" ]]; then
-  echo "Please specify the cluster domain via CLUSTER_DOMAIN_INTERNAL."
   exit 0
 fi
 
@@ -57,7 +51,6 @@ command $sscPath --apiserver=http://127.0.0.1:8001 \
   --enable-pcs-support \
   --enable-routegroup-support \
   --cluster-domain=${CLUSTER_DOMAIN} \
-  --cluster-domain=${CLUSTER_DOMAIN_INTERNAL} \
   --controller-id=$CONTROLLER_ID 2>$controllerLog&
 
 # Create the Kubernetes namespace to be used for this test run.
