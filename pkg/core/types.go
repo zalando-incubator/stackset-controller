@@ -64,7 +64,9 @@ type StackSetContainer struct {
 
 	// clusterDomains stores the main domain names of the cluster;
 	// per-stack ingress hostnames are not generated for names outside of them
-	clusterDomains []string
+	clusterDomains              []string
+	clusterInternalDomains      []string
+	ignorePublicDomainsOnStacks bool
 
 	// ingressAnnotationsToSync is a list of ingress annotations that should be
 	// synchronized across all existing stacks.
@@ -214,6 +216,8 @@ func NewContainer(
 	reconciler TrafficReconciler,
 	backendWeightsAnnotationKey string,
 	clusterDomains []string,
+	clusterInternalDomains []string,
+	ignorePublicDomainsOnStacks bool,
 	syncIngressAnnotations []string,
 ) *StackSetContainer {
 	return &StackSetContainer{
@@ -222,6 +226,8 @@ func NewContainer(
 		TrafficReconciler:           reconciler,
 		backendWeightsAnnotationKey: backendWeightsAnnotationKey,
 		clusterDomains:              clusterDomains,
+		clusterInternalDomains:      clusterInternalDomains,
+		ignorePublicDomainsOnStacks: ignorePublicDomainsOnStacks,
 		ingressAnnotationsToSync:    syncIngressAnnotations,
 	}
 }
@@ -350,7 +356,10 @@ func (ssc *StackSetContainer) UpdateFromResources() error {
 		sc.syncAnnotationsInRouteGroup = syncAnnotationsInRouteGroup
 		sc.backendPort = backendPort
 		sc.scaledownTTL = scaledownTTL
-		sc.clusterDomains = ssc.clusterDomains
+		sc.clusterDomains = ssc.clusterInternalDomains
+		if !ssc.ignorePublicDomainsOnStacks {
+			sc.clusterDomains = append(sc.clusterDomains, ssc.clusterDomains...)
+		}
 		err := sc.updateStackResources()
 		if err != nil {
 			return err

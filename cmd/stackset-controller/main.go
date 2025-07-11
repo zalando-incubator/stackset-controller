@@ -38,6 +38,8 @@ var (
 		Namespace                   string
 		MetricsAddress              string
 		ClusterDomains              []string
+		ClusterInternalDomains      []string
+		IgnorePublicDomainsOnStacks bool
 		NoTrafficScaledownTTL       time.Duration
 		ControllerID                string
 		BackendWeightsAnnotationKey string
@@ -62,6 +64,8 @@ func main() {
 		Default(defaultReconcileWorkers).IntVar(&config.ReconcileWorkers)
 	kingpin.Flag("backend-weights-key", "Backend weights annotation key the controller will use to set current traffic values").Default(traffic.DefaultBackendWeightsAnnotationKey).StringVar(&config.BackendWeightsAnnotationKey)
 	kingpin.Flag("cluster-domain", "Main domains of the cluster, used for generating Stack Ingress hostnames").Envar("CLUSTER_DOMAIN").Required().StringsVar(&config.ClusterDomains)
+	kingpin.Flag("cluster-internal-domain", "Main internal domains of the cluster, used for generating Stack Ingress hostnames").Envar("CLUSTER_INTERNAL_DOMAIN").StringsVar(&config.ClusterInternalDomains)
+	kingpin.Flag("ignore-public-domains-on-stacks", "If true, only --cluster-internal-domain is considered on Stack Ingresses and RouteGroups").Default("false").BoolVar(&config.IgnorePublicDomainsOnStacks)
 	kingpin.Flag("enable-routegroup-support", "Enable support for RouteGroups on StackSets.").Default("false").BoolVar(&config.RouteGroupSupportEnabled)
 	kingpin.Flag(
 		"sync-ingress-annotation",
@@ -81,6 +85,8 @@ func main() {
 		ControllerID: config.ControllerID,
 
 		ClusterDomains:              config.ClusterDomains,
+		ClusterInternalDomains:      config.ClusterInternalDomains,
+		IgnorePublicDomainsOnStacks: config.IgnorePublicDomainsOnStacks,
 		BackendWeightsAnnotationKey: config.BackendWeightsAnnotationKey,
 		SyncIngressAnnotations:      config.SyncIngressAnnotations,
 
