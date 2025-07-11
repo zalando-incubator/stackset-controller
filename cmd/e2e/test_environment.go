@@ -24,8 +24,7 @@ var (
 	kubernetesClient, stacksetClient, routegroupClient = createClients()
 	namespace                                          = requiredEnvar("E2E_NAMESPACE")
 	clusterDomain                                      = requiredEnvar("CLUSTER_DOMAIN")
-	clusterDomainInternal                              = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
-	clusterDomains                                     = []string{clusterDomain, clusterDomainInternal}
+	clusterDomains                                     = []string{clusterDomain}
 	controllerId                                       = os.Getenv("CONTROLLER_ID")
 	waitTimeout                                        time.Duration
 	trafficSwitchWaitTimeout                           time.Duration
