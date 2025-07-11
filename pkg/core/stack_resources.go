@@ -329,7 +329,8 @@ func (sc *StackContainer) stackHostnames(
 	for _, host := range spec.GetHosts() {
 		for _, domain := range sc.clusterDomains {
 			if strings.HasSuffix(host, domain) {
-				result.Insert(fmt.Sprintf("%s.%s", sc.Name(), domain))
+				// generate the per-stack hostname using the per-stack domain suffix
+				result.Insert(fmt.Sprintf("%s.%s", sc.Name(), sc.perStackDomain))
 			} else {
 				log.Debugf(
 					"Ingress host: %s suffix did not match cluster-domain %s",
