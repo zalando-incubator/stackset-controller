@@ -40,5 +40,5 @@ make
 4. rebuild e2e test and run e2e tests in `foo` namespace
 ```
 rm -f build/e2e; make build/e2e
-CLUSTER_DOMAIN=example.org CLUSTER_NAME=example E2E_NAMESPACE=foo CONTROLLER_ID=foo KUBECONFIG=$HOME/.kube/config ./build/e2e -test.v #-test.run=TestTrafficSwitch
+CLUSTER_DOMAIN=stups-test.zalan.do CLUSTER_NAME=example E2E_NAMESPACE=foo CONTROLLER_ID=foo KUBECONFIG=$HOME/.kube/config ./build/e2e -test.v #-test.run=TestTrafficSwitch
 ```

@@ -55,7 +55,7 @@ pipeline:
       - name: CONTROLLER_ID
         value: "#{CDP_BUILD_VERSION}"
       - name: CLUSTER_DOMAIN
-        value: ingress.cluster.local
+        value: stups-test.zalan.do
     end2end_tests:
       metadata:
         name: e2e
@@ -72,7 +72,7 @@ pipeline:
               - name: "CONTROLLER_ID"
                 value: "#{CDP_BUILD_VERSION}"
               - name: CLUSTER_DOMAIN
-                value: ingress.cluster.local
+                value: stups-test.zalan.do
               - name: "E2E_NAMESPACE"
                 valueFrom:
                   fieldRef:
