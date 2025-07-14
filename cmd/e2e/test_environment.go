@@ -24,8 +24,8 @@ var (
 	kubernetesClient, stacksetClient, routegroupClient = createClients()
 	namespace                                          = requiredEnvar("E2E_NAMESPACE")
 	clusterDomain                                      = requiredEnvar("CLUSTER_DOMAIN")
-	clusterDomainInternal                              = requiredEnvar("CLUSTER_DOMAIN_INTERNAL")
-	clusterDomains                                     = []string{clusterDomain, clusterDomainInternal}
+	clusterDomainInternal                              = os.Getenv("CLUSTER_DOMAIN_INTERNAL")
+	clusterDomains                                     = []string{clusterDomain}
 	controllerId                                       = os.Getenv("CONTROLLER_ID")
 	waitTimeout                                        time.Duration
 	trafficSwitchWaitTimeout                           time.Duration
@@ -35,6 +35,10 @@ func init() {
 	flag.DurationVar(&waitTimeout, "wait-timeout", 60*time.Second, "Waiting interval before getting the resource")
 	flag.DurationVar(&trafficSwitchWaitTimeout, "traffic-switch-wait-timeout", 150*time.Second, "Waiting interval before getting the checking stackset new traffic")
 	logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
+
+	if clusterDomainInternal != "" {
+		clusterDomains = append(clusterDomains, clusterDomainInternal)
+	}
 }
 
 func createClients() (kubernetes.Interface, clientset.Interface, rg.Interface) {
