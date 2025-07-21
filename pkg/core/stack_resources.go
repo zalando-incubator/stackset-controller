@@ -318,10 +318,10 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 func (sc *StackContainer) stackHostnames(
 	spec ingressOrRouteGroupSpec,
 	segment bool,
-) ([]string, error) {
+) []string {
 	// The Ingress segment uses the original hostnames
 	if segment {
-		return spec.GetHosts(), nil
+		return spec.GetHosts()
 	}
 	result := sets.NewString()
 
@@ -339,7 +339,7 @@ func (sc *StackContainer) stackHostnames(
 			}
 		}
 	}
-	return result.List(), nil
+	return result.List()
 }
 
 func (sc *StackContainer) GenerateIngress() (*networking.Ingress, error) {
@@ -388,10 +388,7 @@ func (sc *StackContainer) generateIngress(segment bool) (
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(sc.ingressSpec, segment)
-	if err != nil {
-		return nil, err
-	}
+	hostnames := sc.stackHostnames(sc.ingressSpec, segment)
 	if len(hostnames) == 0 {
 		return nil, nil
 	}
@@ -481,10 +478,7 @@ func (sc *StackContainer) generateRouteGroup(segment bool) (
 		return nil, nil
 	}
 
-	hostnames, err := sc.stackHostnames(sc.routeGroupSpec, segment)
-	if err != nil {
-		return nil, err
-	}
+	hostnames := sc.stackHostnames(sc.routeGroupSpec, segment)
 	if len(hostnames) == 0 {
 		return nil, nil
 	}

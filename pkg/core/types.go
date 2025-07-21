@@ -439,18 +439,20 @@ func (sc *StackContainer) updateFromResources() {
 
 	// ingress: ignore if ingress is not set or check if we are up to date
 	if sc.ingressSpec != nil {
-		ingressUpdated = sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
+		hostnames := sc.stackHostnames(sc.ingressSpec, false)
+		ingressUpdated = len(hostnames) == 0 || sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
 		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
 			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
-		ingressSegmentUpdated = sc.Resources.Ingress == nil
+		ingressSegmentUpdated = sc.Resources.IngressSegment == nil
 	}
 
 	// routegroup: ignore if routegroup is not set or check if we are up to date
 	if sc.routeGroupSpec != nil {
-		routeGroupUpdated = sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
+		hostnames := sc.stackHostnames(sc.routeGroupSpec, false)
+		routeGroupUpdated = len(hostnames) == 0 || sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
 		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
 			IsResourceUpToDate(
 				sc.Stack,
@@ -459,7 +461,7 @@ func (sc *StackContainer) updateFromResources() {
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
-		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment == nil
 	}
 
 	// hpa
