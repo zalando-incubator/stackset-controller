@@ -875,7 +875,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.ingressSpec = &zv1.StackSetIngressSpec{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
-		container.Resources.Ingress = ingress(10)
+		container.Resources.Ingress = nil
 		container.Resources.IngressSegment = ingress(11)
 		container.updateFromResources()
 		require.EqualValues(t, true, container.resourcesUpdated)
@@ -923,7 +923,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.routeGroupSpec = &zv1.RouteGroupSpec{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
-		container.Resources.RouteGroup = routegroup(10)
+		container.Resources.RouteGroup = nil
 		container.Resources.RouteGroupSegment = routegroup(11)
 		container.updateFromResources()
 		require.EqualValues(t, true, container.resourcesUpdated)

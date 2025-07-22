@@ -439,8 +439,11 @@ func (sc *StackContainer) updateFromResources() {
 
 	// ingress: ignore if ingress is not set or check if we are up to date
 	if sc.ingressSpec != nil {
+		// the per-stack ingress must either be present and up-to-date, or not present and not expected.
+		// the per-stack ingress is not expected if the stack has no hostnames matching the cluster domain.
 		hostnames := sc.stackHostnames(sc.ingressSpec, false)
-		ingressUpdated = len(hostnames) == 0 || sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
+		ingressNotExpected := len(hostnames) == 0
+		ingressUpdated = sc.Resources.Ingress == nil && ingressNotExpected || sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
 		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
 			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
 	} else {
@@ -451,8 +454,11 @@ func (sc *StackContainer) updateFromResources() {
 
 	// routegroup: ignore if routegroup is not set or check if we are up to date
 	if sc.routeGroupSpec != nil {
+		// the per-stack route group must either be present and up-to-date, or not present and not expected.
+		// the per-stack route group is not expected if the stack has no hostnames matching the cluster domain.
 		hostnames := sc.stackHostnames(sc.routeGroupSpec, false)
-		routeGroupUpdated = len(hostnames) == 0 || sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
+		routeGroupNotExpected := len(hostnames) == 0
+		routeGroupUpdated = sc.Resources.RouteGroup == nil && routeGroupNotExpected || sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
 		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
 			IsResourceUpToDate(
 				sc.Stack,
