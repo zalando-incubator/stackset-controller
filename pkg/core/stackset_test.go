@@ -864,14 +864,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.Ingress = ingress(10)
-		container.updateFromResources()
-		require.EqualValues(t, false, container.resourcesUpdated)
-	})
-	runTest("ingress isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
-		container.Stack.Generation = 11
-		container.Resources.Deployment = deployment(11, 5, 5)
-		container.Resources.Service = service(11)
-		container.Resources.Ingress = ingress(11)
+		container.Resources.IngressSegment = ingress(11)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})
@@ -880,14 +873,16 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.ingressSpec = &zv1.StackSetIngressSpec{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
+		container.Resources.Ingress = ingress(11)
 		container.Resources.IngressSegment = ingress(10)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})
-	runTest("ingress segment isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
+	runTest("ingress/ingress segment isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
+		container.Resources.Ingress = ingress(11)
 		container.Resources.IngressSegment = ingress(11)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
@@ -898,14 +893,7 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
 		container.Resources.RouteGroup = routegroup(10)
-		container.updateFromResources()
-		require.EqualValues(t, false, container.resourcesUpdated)
-	})
-	runTest("routegroup isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
-		container.Stack.Generation = 11
-		container.Resources.Deployment = deployment(11, 5, 5)
-		container.Resources.Service = service(11)
-		container.Resources.RouteGroup = routegroup(11)
+		container.Resources.RouteGroupSegment = routegroup(11)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})
@@ -914,14 +902,16 @@ func TestStackUpdateFromResources(t *testing.T) {
 		container.routeGroupSpec = &zv1.RouteGroupSpec{}
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
+		container.Resources.RouteGroup = routegroup(11)
 		container.Resources.RouteGroupSegment = routegroup(10)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
 	})
-	runTest("routegroup segment isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
+	runTest("routegroup/routegroup segment isn't considered updated if it should be gone", func(t *testing.T, container *StackContainer) {
 		container.Stack.Generation = 11
 		container.Resources.Deployment = deployment(11, 5, 5)
 		container.Resources.Service = service(11)
+		container.Resources.RouteGroup = routegroup(11)
 		container.Resources.RouteGroupSegment = routegroup(11)
 		container.updateFromResources()
 		require.EqualValues(t, false, container.resourcesUpdated)
