@@ -22,7 +22,8 @@ type testStackFactory struct {
 func testStack(name string) *testStackFactory {
 	return &testStackFactory{
 		container: &StackContainer{
-			backendPort: &intStrTestPort,
+			clusterDomains: []string{"example.org"},
+			backendPort:    &intStrTestPort,
 			Stack: &zv1.Stack{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:              name,
