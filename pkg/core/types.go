@@ -445,7 +445,7 @@ func (sc *StackContainer) updateFromResources() {
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
-		ingressSegmentUpdated = sc.Resources.Ingress == nil
+		ingressSegmentUpdated = sc.Resources.IngressSegment == nil
 	}
 
 	// routegroup: ignore if routegroup is not set or check if we are up to date
@@ -459,7 +459,7 @@ func (sc *StackContainer) updateFromResources() {
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
-		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment == nil
 	}
 
 	// hpa
