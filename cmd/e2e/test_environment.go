@@ -34,10 +34,6 @@ func init() {
 	flag.DurationVar(&waitTimeout, "wait-timeout", 60*time.Second, "Waiting interval before getting the resource")
 	flag.DurationVar(&trafficSwitchWaitTimeout, "traffic-switch-wait-timeout", 150*time.Second, "Waiting interval before getting the checking stackset new traffic")
 	logrus.SetFormatter(&logrus.TextFormatter{ForceColors: true})
-
-	if clusterDomainInternal != "" {
-		clusterDomains = append(clusterDomains, clusterDomainInternal)
-	}
 }
 
 func createClients() (kubernetes.Interface, clientset.Interface, rg.Interface) {
