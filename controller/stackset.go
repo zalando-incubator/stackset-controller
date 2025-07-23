@@ -108,8 +108,14 @@ func NewStackSetController(
 		return nil, err
 	}
 
+	logger := log.WithField("controller", "stackset")
+
+	if config.ControllerID != "" {
+		logger = logger.WithField("controller_id", config.ControllerID)
+	}
+
 	return &StackSetController{
-		logger:          log.WithFields(log.Fields{"controller": "stackset"}),
+		logger:          logger,
 		client:          client,
 		config:          config,
 		stacksetEvents:  make(chan stacksetEvent, 1),

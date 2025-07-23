@@ -439,18 +439,32 @@ func (sc *StackContainer) updateFromResources() {
 
 	// ingress: ignore if ingress is not set or check if we are up to date
 	if sc.ingressSpec != nil {
-		ingressUpdated = sc.Resources.Ingress != nil && IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
+		// the per-stack ingress must either be present and up-to-date, or not present and not expected.
+		// the per-stack ingress is not expected if the stack has no hostnames matching the cluster domain.
+		if sc.Resources.Ingress != nil {
+			ingressUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
+		} else {
+			hostnames := sc.stackHostnames(sc.ingressSpec, false)
+			ingressUpdated = len(hostnames) == 0
+		}
 		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
 			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
-		ingressSegmentUpdated = sc.Resources.Ingress == nil
+		ingressSegmentUpdated = sc.Resources.IngressSegment == nil
 	}
 
 	// routegroup: ignore if routegroup is not set or check if we are up to date
 	if sc.routeGroupSpec != nil {
-		routeGroupUpdated = sc.Resources.RouteGroup != nil && IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
+		// the per-stack route group must either be present and up-to-date, or not present and not expected.
+		// the per-stack route group is not expected if the stack has no hostnames matching the cluster domain.
+		if sc.Resources.RouteGroup != nil {
+			routeGroupUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
+		} else {
+			hostnames := sc.stackHostnames(sc.routeGroupSpec, false)
+			routeGroupUpdated = len(hostnames) == 0
+		}
 		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
 			IsResourceUpToDate(
 				sc.Stack,
@@ -459,7 +473,7 @@ func (sc *StackContainer) updateFromResources() {
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
-		routeGroupSegmentUpdated = sc.Resources.RouteGroup == nil
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment == nil
 	}
 
 	// hpa
