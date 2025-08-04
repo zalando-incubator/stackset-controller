@@ -21,14 +21,12 @@ spec:
     spec:
       version: v1
       replicas: 3
-      horizontalPodAutoscaler:
+      autoscaler:
         minReplicas: 3
         maxReplicas: 10
         metrics:
-        - type: Resource
-          resource:
-            name: cpu
-            targetAverageUtilization: 50
+        - type: CPU
+          averageUtilization: 50
       podTemplate:
         spec:
           containers:
