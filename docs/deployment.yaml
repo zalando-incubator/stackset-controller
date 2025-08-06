@@ -20,7 +20,7 @@ spec:
       serviceAccountName: stackset-controller
       containers:
       - name: stackset-controller
-        image: registry.opensource.zalan.do/teapot/stackset-controller:v1.3.37
+        image: registry.opensource.zalan.do/teapot/stackset-controller:v1.4.113
         # please adjust this for your environment
         # the cluster-domain must match the application domain suffix
         # Example application domain: my-app.example.org
