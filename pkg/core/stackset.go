@@ -17,6 +17,8 @@ const (
 	StackVersionLabelKey     = "stack-version"
 
 	ingressTrafficAuthoritativeAnnotation = "zalando.org/traffic-authoritative"
+	forwardBackendAnnotation              = "zalando.org/forward-backend"
+	forwardBackendName                    = "fwd"
 )
 
 var (
@@ -50,8 +52,25 @@ func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
 	return service
 }
 
+func patchForwardBackend(rg *zv1.RouteGroupSpec) {
+	rg.AdditionalBackends = []rgv1.RouteGroupBackend{
+		{
+			Name: forwardBackendName,
+			Type: rgv1.ForwardRouteGroupBackend,
+		},
+	}
+	for _, route := range rg.Routes {
+		route.Backends = []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: forwardBackendName,
+			},
+		}
+	}
+}
+
 // NewStack returns an (optional) stack that should be created
 func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
+	_, forwardMigration := ssc.StackSet.ObjectMeta.Annotations[forwardBackendAnnotation]
 	observedStackVersion := ssc.StackSet.Status.ObservedStackVersion
 	stackVersion := currentStackVersion(ssc.StackSet)
 	stackName := generateStackName(ssc.StackSet, stackVersion)
@@ -70,6 +89,9 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 
 		if ssc.StackSet.Spec.Ingress != nil {
 			spec.Ingress = ssc.StackSet.Spec.Ingress.DeepCopy()
+			if forwardMigration {
+				spec.Ingress.EmbeddedObjectMetaWithAnnotations.Annotations["zalando.org/skipper-backend"] = "forward"
+			}
 		}
 
 		if ssc.StackSet.Spec.ExternalIngress != nil {
@@ -78,6 +100,9 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 
 		if ssc.StackSet.Spec.RouteGroup != nil {
 			spec.RouteGroup = ssc.StackSet.Spec.RouteGroup.DeepCopy()
+			if forwardMigration {
+				patchForwardBackend(spec.RouteGroup)
+			}
 		}
 
 		return &StackContainer{
