@@ -419,7 +419,14 @@ func (sc *StackContainer) updateStackResources() error {
 }
 
 func (sc *StackContainer) updateFromResources() {
-	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
+	_, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]
+
+	if clusterMigration {
+		// we do not use these so reduce wasted resources!
+		sc.stackReplicas = 1
+	} else {
+		sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
+	}
 
 	var deploymentUpdated, serviceUpdated, ingressUpdated, routeGroupUpdated, hpaUpdated bool
 	var ingressSegmentUpdated, routeGroupSegmentUpdated bool
@@ -427,10 +434,19 @@ func (sc *StackContainer) updateFromResources() {
 	// deployment
 	if sc.Resources.Deployment != nil {
 		deployment := sc.Resources.Deployment
-		sc.deploymentReplicas = effectiveReplicas(deployment.Spec.Replicas)
-		sc.createdReplicas = deployment.Status.Replicas
-		sc.readyReplicas = deployment.Status.ReadyReplicas
-		sc.updatedReplicas = deployment.Status.UpdatedReplicas
+
+		if clusterMigration {
+			// we do not use these so reduce wasted resources!
+			sc.deploymentReplicas = 1
+			sc.createdReplicas = 1
+			sc.readyReplicas = 1
+			sc.updatedReplicas = 1
+		} else {
+			sc.deploymentReplicas = effectiveReplicas(deployment.Spec.Replicas)
+			sc.createdReplicas = deployment.Status.Replicas
+			sc.readyReplicas = deployment.Status.ReadyReplicas
+			sc.updatedReplicas = deployment.Status.UpdatedReplicas
+		}
 		deploymentUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.Deployment.ObjectMeta) && deployment.Status.ObservedGeneration == deployment.Generation
 	}
 
@@ -442,13 +458,20 @@ func (sc *StackContainer) updateFromResources() {
 		// the per-stack ingress must either be present and up-to-date, or not present and not expected.
 		// the per-stack ingress is not expected if the stack has no hostnames matching the cluster domain.
 		if sc.Resources.Ingress != nil {
+			if clusterMigration {
+				sc.Resources.Ingress.Annotations["zalando.org/skipper-backend"] = "forward"
+			}
 			ingressUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.Ingress.ObjectMeta)
 		} else {
 			hostnames := sc.stackHostnames(sc.ingressSpec, false)
 			ingressUpdated = len(hostnames) == 0
 		}
-		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
-			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
+		if sc.Resources.IngressSegment != nil {
+			if clusterMigration {
+				sc.Resources.IngressSegment.Annotations["zalando.org/skipper-backend"] = "forward"
+			}
+			ingressSegmentUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
+		}
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
@@ -460,24 +483,33 @@ func (sc *StackContainer) updateFromResources() {
 		// the per-stack route group must either be present and up-to-date, or not present and not expected.
 		// the per-stack route group is not expected if the stack has no hostnames matching the cluster domain.
 		if sc.Resources.RouteGroup != nil {
+			if clusterMigration {
+				patchForwardBackend(&sc.Resources.RouteGroup.Spec)
+			}
 			routeGroupUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.RouteGroup.ObjectMeta)
 		} else {
 			hostnames := sc.stackHostnames(sc.routeGroupSpec, false)
 			routeGroupUpdated = len(hostnames) == 0
 		}
-		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
-			IsResourceUpToDate(
+
+		if sc.Resources.RouteGroupSegment != nil {
+			if clusterMigration {
+				patchForwardBackend(&sc.Resources.RouteGroupSegment.Spec)
+			}
+
+			routeGroupSegmentUpdated = IsResourceUpToDate(
 				sc.Stack,
 				sc.Resources.RouteGroupSegment.ObjectMeta,
 			)
+		}
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
 		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment == nil
 	}
 
-	// hpa
-	if sc.IsAutoscaled() {
+	// hpa not used if we migrate cluster to reduce wasted resources
+	if sc.IsAutoscaled() && !clusterMigration {
 		hpaUpdated = sc.Resources.HPA != nil && IsResourceUpToDate(sc.Stack, sc.Resources.HPA.ObjectMeta)
 	} else {
 		hpaUpdated = sc.Resources.HPA == nil
@@ -494,10 +526,27 @@ func (sc *StackContainer) updateFromResources() {
 
 	status := sc.Stack.Status
 	sc.noTrafficSince = unwrapTime(status.NoTrafficSince)
-	if status.Prescaling.Active {
+	// do not prescale on cluste rmigration to reduce wasted resources
+	if status.Prescaling.Active && !clusterMigration {
 		sc.prescalingActive = true
 		sc.prescalingReplicas = status.Prescaling.Replicas
 		sc.prescalingDesiredTrafficWeight = status.Prescaling.DesiredTrafficWeight
 		sc.prescalingLastTrafficIncrease = unwrapTime(status.Prescaling.LastTrafficIncrease)
+	}
+}
+
+func patchForwardBackend(rg *rgv1.RouteGroupSpec) {
+	rg.Backends = []rgv1.RouteGroupBackend{
+		{
+			Name: forwardBackendName,
+			Type: rgv1.ForwardRouteGroupBackend,
+		},
+	}
+	for _, route := range rg.Routes {
+		route.Backends = []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: forwardBackendName,
+			},
+		}
 	}
 }
