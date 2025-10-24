@@ -475,6 +475,22 @@ spec:
                     - type: integer
                     - type: string
                     x-kubernetes-int-or-string: true
+                  metadata:
+                    description: |-
+                      EmbeddedObjectMetaWithAnnotations defines the metadata which can be attached
+                      to a resource. It's a slimmed down version of metav1.ObjectMeta only
+                      containing annotations.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        type: object
+                    type: object
                 required:
                 - backendPort
                 type: object
