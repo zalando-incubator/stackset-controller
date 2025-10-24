@@ -52,22 +52,6 @@ func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
 	return service
 }
 
-func patchForwardBackend(rg *zv1.RouteGroupSpec) {
-	rg.AdditionalBackends = []rgv1.RouteGroupBackend{
-		{
-			Name: forwardBackendName,
-			Type: rgv1.ForwardRouteGroupBackend,
-		},
-	}
-	for _, route := range rg.Routes {
-		route.Backends = []rgv1.RouteGroupBackendReference{
-			{
-				BackendName: forwardBackendName,
-			},
-		}
-	}
-}
-
 // NewStack returns an (optional) stack that should be created
 func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 	_, forwardMigration := ssc.StackSet.ObjectMeta.Annotations[forwardBackendAnnotation]
@@ -89,9 +73,6 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 
 		if ssc.StackSet.Spec.Ingress != nil {
 			spec.Ingress = ssc.StackSet.Spec.Ingress.DeepCopy()
-			if forwardMigration {
-				spec.Ingress.EmbeddedObjectMetaWithAnnotations.Annotations["zalando.org/skipper-backend"] = "forward"
-			}
 		}
 
 		if ssc.StackSet.Spec.ExternalIngress != nil {
@@ -100,9 +81,11 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 
 		if ssc.StackSet.Spec.RouteGroup != nil {
 			spec.RouteGroup = ssc.StackSet.Spec.RouteGroup.DeepCopy()
-			if forwardMigration {
-				patchForwardBackend(spec.RouteGroup)
-			}
+		}
+
+		stackAnnotations := ssc.StackSet.Spec.StackTemplate.Annotations
+		if forwardMigration {
+			stackAnnotations[forwardBackendAnnotation] = forwardBackendName
 		}
 
 		return &StackContainer{
@@ -125,7 +108,7 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 						ssc.StackSet.Labels,
 						map[string]string{StackVersionLabelKey: stackVersion},
 					),
-					Annotations: ssc.StackSet.Spec.StackTemplate.Annotations,
+					Annotations: stackAnnotations,
 				},
 				Spec: *spec,
 			},
