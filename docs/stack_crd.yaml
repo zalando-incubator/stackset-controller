@@ -475,6 +475,22 @@ spec:
                     - type: integer
                     - type: string
                     x-kubernetes-int-or-string: true
+                  metadata:
+                    description: |-
+                      EmbeddedObjectMetaWithAnnotations defines the metadata which can be attached
+                      to a resource. It's a slimmed down version of metav1.ObjectMeta only
+                      containing annotations.
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: |-
+                          Annotations is an unstructured key value map stored with a resource that may be
+                          set by external tools to store and retrieve arbitrary metadata. They are not
+                          queryable and should be preserved when modifying objects.
+                          More info: http://kubernetes.io/docs/user-guide/annotations
+                        type: object
+                    type: object
                 required:
                 - backendPort
                 type: object
@@ -1096,11 +1112,6 @@ spec:
                                       type: object
                                       x-kubernetes-map-type: atomic
                                     namespaces:
-                                      description: |-
-                                        namespaces specifies a static list of namespace names that the term applies to.
-                                        The term is applied to the union of the namespaces listed in this field
-                                        and the ones selected by namespaceSelector.
-                                        null or empty namespaces list and null namespaceSelector means "this pod's namespace".
                                       items:
                                         type: string
                                       type: array
@@ -6625,12 +6636,6 @@ spec:
                                   properties:
                                     name:
                                       default: ""
-                                      description: |-
-                                        Name of the referent.
-                                        This field is effectively required, but due to backwards compatibility is
-                                        allowed to be empty. Instances of this type with an empty value here are
-                                        almost certainly wrong.
-                                        More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                                       type: string
                                   type: object
                                   x-kubernetes-map-type: atomic
