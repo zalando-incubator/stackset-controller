@@ -418,11 +418,20 @@ func (sc *StackContainer) updateStackResources() error {
 	return nil
 }
 
+// updateFromResources updates stack from all the containing
+// resources. On cluster migrations we do traffic switching to the
+// other cluster, so all the new pods from this stack will not receive
+// any traffic. Therefore we can set replicas to 1 and remove hpa
+// whatever was configured. Ingress and ExternaIngress will have an
+// annotation set that it will send traffic to the other
+// cluster. RouteGroup will get a patched backend, such that it does
+// the same as ingress.
 func (sc *StackContainer) updateFromResources() {
-	_, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]
+	fwdVal, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]
 
 	if clusterMigration {
-		// we do not use these so reduce wasted resources!
+		sc.Stack.Spec.ExternalIngress.Annotations[forwardBackendAnnotation] = fwdVal
+		// we do not use these pods so reduce wasted resources!
 		sc.stackReplicas = 1
 	} else {
 		sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
@@ -436,7 +445,7 @@ func (sc *StackContainer) updateFromResources() {
 		deployment := sc.Resources.Deployment
 
 		if clusterMigration {
-			// we do not use these so reduce wasted resources!
+			// we do not use these pods so reduce wasted resources!
 			sc.deploymentReplicas = 1
 			sc.createdReplicas = 1
 			sc.readyReplicas = 1
@@ -526,7 +535,7 @@ func (sc *StackContainer) updateFromResources() {
 
 	status := sc.Stack.Status
 	sc.noTrafficSince = unwrapTime(status.NoTrafficSince)
-	// do not prescale on cluste rmigration to reduce wasted resources
+	// do not prescale on cluster migration to reduce wasted resources
 	if status.Prescaling.Active && !clusterMigration {
 		sc.prescalingActive = true
 		sc.prescalingReplicas = status.Prescaling.Replicas
