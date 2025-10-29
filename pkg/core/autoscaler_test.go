@@ -1244,3 +1244,16 @@ func TestStackSetController_ReconcileHPA(t *testing.T) {
 	require.Equal(t, int32(1), *hpa.Spec.MinReplicas, "min replicas not generated correctly")
 	require.Equal(t, int32(10), hpa.Spec.MaxReplicas, "max replicas generated incorrectly")
 }
+
+func TestStackSetController_ReconcileHPA_MinReplicasNotLessThanStackReplicas(t *testing.T) {
+	ssc := generateHPA(1, 10)
+
+	stackReplicas := int32(5)
+	ssc.Stack.Spec.Replicas = &stackReplicas
+
+	hpa, err := ssc.GenerateHPA()
+	require.NoError(t, err, "failed to create an HPA")
+	require.NotNil(t, hpa, "hpa not generated")
+
+	require.Equal(t, int32(5), *hpa.Spec.MinReplicas, "min replicas does not match stack replicas")
+}
