@@ -447,9 +447,8 @@ func (sc *StackContainer) updateFromResources() {
 			hostnames := sc.stackHostnames(sc.ingressSpec, false)
 			ingressUpdated = len(hostnames) == 0
 		}
-		if sc.Resources.IngressSegment != nil {
-			ingressSegmentUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
-		}
+		ingressSegmentUpdated = sc.Resources.IngressSegment != nil &&
+			IsResourceUpToDate(sc.Stack, sc.Resources.IngressSegment.ObjectMeta)
 	} else {
 		// ignore if ingress is not set
 		ingressUpdated = sc.Resources.Ingress == nil
@@ -466,22 +465,22 @@ func (sc *StackContainer) updateFromResources() {
 			hostnames := sc.stackHostnames(sc.routeGroupSpec, false)
 			routeGroupUpdated = len(hostnames) == 0
 		}
-
-		if sc.Resources.RouteGroupSegment != nil {
-			routeGroupSegmentUpdated = IsResourceUpToDate(
+		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment != nil &&
+			IsResourceUpToDate(
 				sc.Stack,
 				sc.Resources.RouteGroupSegment.ObjectMeta,
 			)
-		}
 	} else {
 		// ignore if route group is not set
 		routeGroupUpdated = sc.Resources.RouteGroup == nil
 		routeGroupSegmentUpdated = sc.Resources.RouteGroupSegment == nil
 	}
 
-	// hpa not used if we migrate cluster to reduce wasted resources
+	// hpa
 	if sc.IsAutoscaled() {
 		hpaUpdated = sc.Resources.HPA != nil && IsResourceUpToDate(sc.Stack, sc.Resources.HPA.ObjectMeta)
+	} else {
+		hpaUpdated = sc.Resources.HPA == nil
 	}
 
 	// aggregated 'resources updated' for the readiness
@@ -495,7 +494,6 @@ func (sc *StackContainer) updateFromResources() {
 
 	status := sc.Stack.Status
 	sc.noTrafficSince = unwrapTime(status.NoTrafficSince)
-
 	if status.Prescaling.Active {
 		sc.prescalingActive = true
 		sc.prescalingReplicas = status.Prescaling.Replicas
