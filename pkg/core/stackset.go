@@ -77,6 +77,9 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 
 		if ssc.StackSet.Spec.ExternalIngress != nil {
 			spec.ExternalIngress = ssc.StackSet.Spec.ExternalIngress.DeepCopy()
+			if forwardMigration {
+				spec.ExternalIngress.Annotations[forwardBackendAnnotation] = forwardBackendName
+			}
 		}
 
 		if ssc.StackSet.Spec.RouteGroup != nil {

@@ -76,6 +76,23 @@ func objectMetaInjectLabels(objectMeta metav1.ObjectMeta, labels map[string]stri
 	return objectMeta
 }
 
+// patchForwardBackend rewrites a RouteGroupSpec to send all traffic to another cluster chosen by the operator of skipper
+func patchForwardBackend(rg *rgv1.RouteGroupSpec) {
+	rg.Backends = []rgv1.RouteGroupBackend{
+		{
+			Name: forwardBackendName,
+			Type: rgv1.ForwardRouteGroupBackend,
+		},
+	}
+	for _, route := range rg.Routes {
+		route.Backends = []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: forwardBackendName,
+			},
+		}
+	}
+}
+
 func (sc *StackContainer) objectMeta(segment bool) metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 
@@ -224,6 +241,12 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	if strategy != nil {
 		deployment.Spec.Strategy = *strategy
 	}
+
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		i := int32(1)
+		deployment.Spec.Replicas = &i
+	}
+
 	return deployment
 }
 
@@ -279,6 +302,12 @@ func (sc *StackContainer) GenerateHPA() (
 	if sc.prescalingActive && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < sc.prescalingReplicas) {
 		pr := sc.prescalingReplicas
 		result.Spec.MinReplicas = &pr
+	}
+
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		i := int32(1)
+		result.Spec.MinReplicas = &i
+		result.Spec.MaxReplicas = i
 	}
 
 	return result, nil
@@ -430,6 +459,9 @@ func (sc *StackContainer) generateIngress(segment bool) (
 			Rules: rules,
 		},
 	}
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		result.Annotations["zalando.org/skipper-backend"] = "forward"
+	}
 
 	// insert annotations
 	result.Annotations = mergeLabels(
@@ -528,6 +560,10 @@ func (sc *StackContainer) generateRouteGroup(segment bool) (
 		result.Annotations,
 		sc.routeGroupSpec.GetAnnotations(),
 	)
+
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		patchForwardBackend(&result.Spec)
+	}
 
 	return result, nil
 }
