@@ -186,6 +186,10 @@ func (sc *StackContainer) selector() map[string]string {
 	return limitLabels(sc.Stack.Labels, selectorLabels)
 }
 
+// GenerateDeployment generates a deployment as configured in the
+// stack.  On cluster migrations set by stackset annotation
+// "zalando.org/forward-backend", the deployment will be set to
+// replicas 1.
 func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	stack := sc.Stack
 
@@ -250,6 +254,10 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	return deployment
 }
 
+// GenerateHPA generates a hpa as configured in the
+// stack.  On cluster migrations set by stackset annotation
+// "zalando.org/forward-backend", the hpa will be set to
+// minReplicas = maxReplicass = 1.
 func (sc *StackContainer) GenerateHPA() (
 	*autoscaling.HorizontalPodAutoscaler,
 	error,
@@ -408,6 +416,10 @@ func (sc *StackContainer) GenerateIngressSegment() (
 	return res, nil
 }
 
+// generateIngress generates an ingress as configured in the stack.
+// On cluster migrations set by stackset annotation
+// "zalando.org/forward-backend", the annotation will be copied to the
+// ingress.
 func (sc *StackContainer) generateIngress(segment bool) (
 	*networking.Ingress,
 	error,
@@ -502,6 +514,10 @@ func (sc *StackContainer) GenerateRouteGroupSegment() (
 	return res, nil
 }
 
+// generateRouteGroup generates an RouteGroup as configured in the
+// stack.  On cluster migrations set by stackset annotation
+// "zalando.org/forward-backend", the RouteGroup will be patched by
+// patchForwardBackend() to execute the migration.
 func (sc *StackContainer) generateRouteGroup(segment bool) (
 	*rgv1.RouteGroup,
 	error,

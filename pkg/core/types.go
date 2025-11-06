@@ -418,14 +418,6 @@ func (sc *StackContainer) updateStackResources() error {
 	return nil
 }
 
-// updateFromResources updates stack from all the containing
-// resources. On cluster migrations we do traffic switching to the
-// other cluster, so all the new pods from this stack will not receive
-// any traffic. Therefore we can set replicas to 1 and remove hpa
-// whatever was configured. Ingress and ExternaIngress will have an
-// annotation set that it will send traffic to the other
-// cluster. RouteGroup will get a patched backend, such that it does
-// the same as ingress.
 func (sc *StackContainer) updateFromResources() {
 	sc.stackReplicas = effectiveReplicas(sc.Stack.Spec.StackSpec.Replicas)
 
@@ -435,12 +427,10 @@ func (sc *StackContainer) updateFromResources() {
 	// deployment
 	if sc.Resources.Deployment != nil {
 		deployment := sc.Resources.Deployment
-
 		sc.deploymentReplicas = effectiveReplicas(deployment.Spec.Replicas)
 		sc.createdReplicas = deployment.Status.Replicas
 		sc.readyReplicas = deployment.Status.ReadyReplicas
 		sc.updatedReplicas = deployment.Status.UpdatedReplicas
-
 		deploymentUpdated = IsResourceUpToDate(sc.Stack, sc.Resources.Deployment.ObjectMeta) && deployment.Status.ObservedGeneration == deployment.Generation
 	}
 
