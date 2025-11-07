@@ -282,8 +282,9 @@ func TestLimitLabels(t *testing.T) {
 
 func TestStackGenerateIngress(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		ingressSpec *zv1.StackSetIngressSpec
+		name             string
+		ingressSpec      *zv1.StackSetIngressSpec
+		stackAnnotations map[string]string
 
 		expectDisabled      bool
 		expectError         bool
@@ -310,6 +311,25 @@ func TestStackGenerateIngress(t *testing.T) {
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
+		{
+			name: "cluster migration",
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"ingress": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Path:  "example",
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd-ingress",
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey:  "11",
+				"ingress":                     "annotation",
+				"zalando.org/skipper-backend": "forward",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			backendPort := int32(80)
@@ -323,6 +343,10 @@ func TestStackGenerateIngress(t *testing.T) {
 				backendPort:    &intStrBackendPort,
 				clusterDomains: []string{"example.org"},
 			}
+			if tc.stackAnnotations != nil {
+				c.Stack.Annotations = tc.stackAnnotations
+			}
+
 			ingress, err := c.GenerateIngress()
 
 			if tc.expectError {
@@ -592,10 +616,12 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		routeGroupSpec      *zv1.RouteGroupSpec
+		stackAnnotations    map[string]string
 		expectDisabled      bool
 		expectError         bool
 		expectedAnnotations map[string]string
 		expectedHosts       []string
+		expectedBackend     []rgv1.RouteGroupBackend
 	}{
 		{
 			name:           "no route group spec",
@@ -638,6 +664,34 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
+		{
+			name: "cluster migration",
+			routeGroupSpec: &zv1.RouteGroupSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"routegroup": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						PathSubtree: "/example",
+					},
+				},
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd-routegroup",
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"routegroup":                 "annotation",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
+			expectedBackend: []rgv1.RouteGroupBackend{
+				{
+					Name: "fwd",
+					Type: rgv1.ForwardRouteGroupBackend,
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			backendPort := int32(80)
@@ -650,6 +704,13 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				routeGroupSpec: tc.routeGroupSpec,
 				backendPort:    &intStrBackendPort,
 				clusterDomains: []string{"example.org"},
+			}
+			if tc.stackAnnotations != nil {
+				if c.Stack.Annotations != nil {
+					maps.Copy(c.Stack.Annotations, tc.stackAnnotations)
+				} else {
+					c.Stack.Annotations = tc.stackAnnotations
+				}
 			}
 			rg, err := c.GenerateRouteGroup()
 			if tc.expectError {
@@ -692,6 +753,21 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 						},
 					},
 				},
+			}
+			if tc.expectedBackend != nil {
+				expected.Spec.Backends = tc.expectedBackend
+			}
+			for _, be := range tc.expectedBackend {
+				found := false
+				for _, specBE := range rg.Spec.Backends {
+					if be.Type == specBE.Type {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Fatalf("Failed to find backend %v, got %v", be, rg.Spec.Backends)
+				}
 			}
 			require.Equal(t, expected, rg)
 		})
@@ -1236,7 +1312,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 			deploymentReplicas: 3,
 			expectedReplicas:   1,
 			stackAnnotations: map[string]string{
-				forwardBackendAnnotation: "fwd1",
+				forwardBackendAnnotation: "fwd-deployment",
 			},
 		},
 	} {
@@ -1357,6 +1433,7 @@ func TestGenerateHPA(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		autoscaler          *zv1.Autoscaler
+		stackAnnotations    map[string]string
 		expectedMinReplicas *int32
 		expectedMaxReplicas int32
 		noTrafficSince      time.Time
@@ -1411,6 +1488,39 @@ func TestGenerateHPA(t *testing.T) {
 			expectedMetrics:  nil,
 			expectedBehavior: nil,
 		},
+		{
+			name: "HPA when cluster migration should be scaled down",
+			autoscaler: &zv1.Autoscaler{
+				MinReplicas: &min,
+				MaxReplicas: max,
+
+				Metrics: []zv1.AutoscalerMetrics{
+					{
+						Type:               zv1.CPUAutoscalerMetric,
+						AverageUtilization: &utilization,
+					},
+				},
+				Behavior: exampleBehavior,
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd-hpa",
+			},
+			expectedMetrics: []autoscaling.MetricSpec{
+				{
+					Type: autoscaling.ResourceMetricSourceType,
+					Resource: &autoscaling.ResourceMetricSource{
+						Name: v1.ResourceCPU,
+						Target: autoscaling.MetricTarget{
+							Type:               autoscaling.UtilizationMetricType,
+							AverageUtilization: &utilization,
+						},
+					},
+				},
+			},
+			expectedBehavior:    exampleBehavior,
+			expectedMinReplicas: &min,
+			expectedMaxReplicas: 1,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			podTemplate := zv1.PodTemplateSpec{
@@ -1440,6 +1550,13 @@ func TestGenerateHPA(t *testing.T) {
 				},
 				noTrafficSince: tc.noTrafficSince,
 				scaledownTTL:   time.Minute,
+			}
+			if tc.stackAnnotations != nil {
+				if autoscalerContainer.Stack.Annotations != nil {
+					maps.Copy(autoscalerContainer.Stack.Annotations, tc.stackAnnotations)
+				} else {
+					autoscalerContainer.Stack.Annotations = tc.stackAnnotations
+				}
 			}
 
 			hpa, err := autoscalerContainer.GenerateHPA()
