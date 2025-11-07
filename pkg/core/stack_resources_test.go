@@ -830,15 +830,7 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 		}
 
 		for _, r := range rg.Spec.Routes {
-			found := false
-			for _, p := range r.Predicates {
-				if p == tc.expectedPredicate {
-					found = true
-					break
-				}
-			}
-
-			if !found {
+			if !slices.Contains(r.Predicates, tc.expectedPredicate) {
 				t.Errorf("predicate %q not found in route %v",
 					tc.expectedPredicate,
 					r,
