@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"maps"
 	"reflect"
 	"slices"
 	"strconv"
@@ -1095,6 +1096,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 		expectedReplicas   int32
 		maxUnavailable     int
 		maxSurge           int
+		stackAnnotations   map[string]string
 	}{
 		{
 			name:               "stack scaled down to zero, deployment still running",
@@ -1228,6 +1230,15 @@ func TestStackGenerateDeployment(t *testing.T) {
 			name:            "minReadySeconds should be set",
 			minReadySeconds: 5,
 		},
+		{
+			name:               "cluster migration should scale down deployment",
+			stackReplicas:      3,
+			deploymentReplicas: 3,
+			expectedReplicas:   1,
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd1",
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var strategy *apps.DeploymentStrategy
@@ -1279,6 +1290,13 @@ func TestStackGenerateDeployment(t *testing.T) {
 			}
 			if tc.hpaEnabled {
 				c.Stack.Spec.StackSpec.Autoscaler = &zv1.Autoscaler{}
+			}
+			if tc.stackAnnotations != nil {
+				if c.Stack.Annotations != nil {
+					maps.Copy(c.Stack.Annotations, tc.stackAnnotations)
+				} else {
+					c.Stack.Annotations = tc.stackAnnotations
+				}
 			}
 			deployment := c.GenerateDeployment()
 			expected := &apps.Deployment{
