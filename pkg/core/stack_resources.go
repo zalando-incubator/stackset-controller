@@ -472,6 +472,7 @@ func (sc *StackContainer) generateIngress(segment bool) (
 		},
 	}
 	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		// see https://opensource.zalando.com/skipper/kubernetes/ingress-usage/#skipper-ingress-annotations
 		result.Annotations["zalando.org/skipper-backend"] = "forward"
 	}
 
