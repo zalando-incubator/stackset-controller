@@ -622,6 +622,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 		expectedAnnotations map[string]string
 		expectedHosts       []string
 		expectedBackend     []rgv1.RouteGroupBackend
+		expectedRouteGroup  *rgv1.RouteGroup
 	}{
 		{
 			name:           "no route group spec",
@@ -691,6 +692,53 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 					Type: rgv1.ForwardRouteGroupBackend,
 				},
 			},
+			expectedRouteGroup: &rgv1.RouteGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-v1",
+					Namespace: "bar",
+					Annotations: map[string]string{
+						stackGenerationAnnotationKey: "11",
+						"routegroup":                 "annotation",
+					},
+					Labels: map[string]string{
+						StacksetHeritageLabelKey: "foo",
+						StackVersionLabelKey:     "v1",
+						"stack-label":            "foobar",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: APIVersion,
+							Kind:       KindStack,
+							Name:       "foo-v1",
+							UID:        "abc-123",
+						},
+					},
+				},
+				Spec: rgv1.RouteGroupSpec{
+					Hosts: []string{"foo-v1.example.org"},
+					Backends: []rgv1.RouteGroupBackend{
+						{
+							Name: "fwd",
+							Type: rgv1.ForwardRouteGroupBackend,
+						},
+					},
+					DefaultBackends: []rgv1.RouteGroupBackendReference{
+						{
+							BackendName: "fwd",
+						},
+					},
+					Routes: []rgv1.RouteGroupRouteSpec{
+						{
+							Backends: []rgv1.RouteGroupBackendReference{
+								{
+									BackendName: "fwd",
+								},
+							},
+							PathSubtree: "/example",
+						},
+					},
+				},
+			},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -754,21 +802,25 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 					},
 				},
 			}
-			if tc.expectedBackend != nil {
-				expected.Spec.Backends = tc.expectedBackend
+
+			if tc.expectedRouteGroup != nil {
+				expected = tc.expectedRouteGroup
 			}
-			for _, be := range tc.expectedBackend {
-				found := false
-				for _, specBE := range rg.Spec.Backends {
-					if be.Type == specBE.Type {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Fatalf("Failed to find backend %v, got %v", be, rg.Spec.Backends)
-				}
-			}
+			// if tc.expectedBackend != nil {
+			// 	expected.Spec.Backends = tc.expectedBackend
+			// }
+			// for _, be := range tc.expectedBackend {
+			// 	found := false
+			// 	for _, specBE := range rg.Spec.Backends {
+			// 		if be.Type == specBE.Type {
+			// 			found = true
+			// 			break
+			// 		}
+			// 	}
+			// 	if !found {
+			// 		t.Fatalf("Failed to find backend %v, got %v", be, rg.Spec.Backends)
+			// 	}
+			// }
 			require.Equal(t, expected, rg)
 		})
 	}
