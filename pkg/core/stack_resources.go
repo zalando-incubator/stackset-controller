@@ -84,8 +84,8 @@ func patchForwardBackend(rg *rgv1.RouteGroupSpec) {
 			Type: rgv1.ForwardRouteGroupBackend,
 		},
 	}
-	for _, route := range rg.Routes {
-		route.Backends = []rgv1.RouteGroupBackendReference{
+	for i := range rg.Routes {
+		rg.Routes[i].Backends = []rgv1.RouteGroupBackendReference{
 			{
 				BackendName: forwardBackendName,
 			},
