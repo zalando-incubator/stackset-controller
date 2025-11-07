@@ -191,6 +191,10 @@ func (sc *StackContainer) selector() map[string]string {
 // "zalando.org/forward-backend", the deployment will be set to
 // replicas 1.
 func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		return nil
+	}
+
 	stack := sc.Stack
 
 	desiredReplicas := sc.stackReplicas
@@ -246,11 +250,6 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		deployment.Spec.Strategy = *strategy
 	}
 
-	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
-		i := int32(1)
-		deployment.Spec.Replicas = &i
-	}
-
 	return deployment
 }
 
@@ -262,6 +261,10 @@ func (sc *StackContainer) GenerateHPA() (
 	*autoscaling.HorizontalPodAutoscaler,
 	error,
 ) {
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		return nil, nil
+	}
+
 	autoscalerSpec := sc.Stack.Spec.StackSpec.Autoscaler
 	trafficWeight := sc.actualTrafficWeight
 
@@ -310,12 +313,6 @@ func (sc *StackContainer) GenerateHPA() (
 	if sc.prescalingActive && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < sc.prescalingReplicas) {
 		pr := sc.prescalingReplicas
 		result.Spec.MinReplicas = &pr
-	}
-
-	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
-		i := int32(1)
-		result.Spec.MinReplicas = &i
-		result.Spec.MaxReplicas = i
 	}
 
 	return result, nil

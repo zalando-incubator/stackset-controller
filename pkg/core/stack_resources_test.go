@@ -1161,18 +1161,19 @@ func TestStackGenerateService(t *testing.T) {
 
 func TestStackGenerateDeployment(t *testing.T) {
 	for _, tc := range []struct {
-		name               string
-		hpaEnabled         bool
-		stackReplicas      int32
-		minReadySeconds    int32
-		prescalingActive   bool
-		prescalingReplicas int32
-		deploymentReplicas int32
-		noTrafficSince     time.Time
-		expectedReplicas   int32
-		maxUnavailable     int
-		maxSurge           int
-		stackAnnotations   map[string]string
+		name                  string
+		hpaEnabled            bool
+		stackReplicas         int32
+		minReadySeconds       int32
+		prescalingActive      bool
+		prescalingReplicas    int32
+		deploymentReplicas    int32
+		noTrafficSince        time.Time
+		expectedReplicas      int32
+		maxUnavailable        int
+		maxSurge              int
+		stackAnnotations      map[string]string
+		expectedDeploymentNil bool
 	}{
 		{
 			name:               "stack scaled down to zero, deployment still running",
@@ -1310,10 +1311,10 @@ func TestStackGenerateDeployment(t *testing.T) {
 			name:               "cluster migration should scale down deployment",
 			stackReplicas:      3,
 			deploymentReplicas: 3,
-			expectedReplicas:   1,
 			stackAnnotations: map[string]string{
 				forwardBackendAnnotation: "fwd-deployment",
 			},
+			expectedDeploymentNil: true,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1375,6 +1376,10 @@ func TestStackGenerateDeployment(t *testing.T) {
 				}
 			}
 			deployment := c.GenerateDeployment()
+			if tc.expectedDeploymentNil {
+				require.Nil(t, deployment, "Failed to generate nil deployment")
+				return
+			}
 			expected := &apps.Deployment{
 				ObjectMeta: testResourceMeta,
 				Spec: apps.DeploymentSpec{
@@ -1517,9 +1522,7 @@ func TestGenerateHPA(t *testing.T) {
 					},
 				},
 			},
-			expectedBehavior:    exampleBehavior,
-			expectedMinReplicas: &min,
-			expectedMaxReplicas: 1,
+			expectedBehavior: nil,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
