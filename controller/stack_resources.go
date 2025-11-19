@@ -44,10 +44,6 @@ func isOwned(ownerReferences []metav1.OwnerReference) (bool, types.UID) {
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
 	deployment := generateUpdated()
 
-	if deployment == nil {
-		return nil
-	}
-
 	// Create new deployment
 	if existing == nil {
 		_, err := c.client.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})

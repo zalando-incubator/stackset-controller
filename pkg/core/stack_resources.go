@@ -196,9 +196,6 @@ func (sc *StackContainer) selector() map[string]string {
 // "zalando.org/forward-backend", the deployment will be set to
 // replicas 1.
 func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
-	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
-		return nil
-	}
 
 	stack := sc.Stack
 
@@ -235,6 +232,12 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	templateObjectMeta := metav1.ObjectMeta{
 		Annotations: embeddedCopy.Annotations,
 		Labels:      embeddedCopy.Labels,
+	}
+
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration && *updatedReplicas != 0 {
+		updatedReplicas = wrapReplicas(1)
+		sc.deploymentReplicas = 1
+		sc.stackReplicas = 1
 	}
 
 	deployment := &appsv1.Deployment{
