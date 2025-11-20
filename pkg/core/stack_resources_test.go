@@ -808,6 +808,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 func TestStackGenerateRouteGroupSegment(t *testing.T) {
 	for _, tc := range []struct {
 		rgSpec            *zv1.RouteGroupSpec
+		stackAnnotations  map[string]string
 		lowerLimit        float64
 		upperLimit        float64
 		expectNil         bool
@@ -900,6 +901,23 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 				"example.teapot.zalan.do",
 			},
 		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts:  []string{"example.teapot.zalan.do"},
+				Routes: []rgv1.RouteGroupRouteSpec{{}},
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: forwardBackendName,
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30)",
+			expectedHosts: []string{
+				"example.teapot.zalan.do",
+			},
+		},
 	} {
 		backendPort := intstr.FromInt(int(80))
 		c := &StackContainer{
@@ -910,6 +928,13 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 			segmentLowerLimit: tc.lowerLimit,
 			segmentUpperLimit: tc.upperLimit,
 			backendPort:       &backendPort,
+		}
+		if tc.stackAnnotations != nil {
+			if c.Stack.Annotations != nil {
+				maps.Copy(c.Stack.Annotations, tc.stackAnnotations)
+			} else {
+				c.Stack.Annotations = tc.stackAnnotations
+			}
 		}
 		rg, err := c.GenerateRouteGroupSegment()
 
