@@ -621,7 +621,6 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 		expectError         bool
 		expectedAnnotations map[string]string
 		expectedHosts       []string
-		expectedBackend     []rgv1.RouteGroupBackend
 		expectedRouteGroup  *rgv1.RouteGroup
 	}{
 		{
@@ -686,12 +685,6 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				"routegroup":                 "annotation",
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
-			expectedBackend: []rgv1.RouteGroupBackend{
-				{
-					Name: "fwd",
-					Type: rgv1.ForwardRouteGroupBackend,
-				},
-			},
 			expectedRouteGroup: &rgv1.RouteGroup{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-v1",
@@ -806,21 +799,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			if tc.expectedRouteGroup != nil {
 				expected = tc.expectedRouteGroup
 			}
-			// if tc.expectedBackend != nil {
-			// 	expected.Spec.Backends = tc.expectedBackend
-			// }
-			// for _, be := range tc.expectedBackend {
-			// 	found := false
-			// 	for _, specBE := range rg.Spec.Backends {
-			// 		if be.Type == specBE.Type {
-			// 			found = true
-			// 			break
-			// 		}
-			// 	}
-			// 	if !found {
-			// 		t.Fatalf("Failed to find backend %v, got %v", be, rg.Spec.Backends)
-			// 	}
-			// }
+
 			require.Equal(t, expected, rg)
 		})
 	}
@@ -891,7 +870,7 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 				Hosts: []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{
 					{
-						Predicates: []string{"Method(\"GET\")"},
+						Predicates: []string{`Method("GET")`},
 					},
 				},
 			},
@@ -908,8 +887,8 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 			rgSpec: &zv1.RouteGroupSpec{
 				Hosts: []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{
-					{Predicates: []string{"Method(\"GET\")"}},
-					{Predicates: []string{"Method(\"PUT\")"}},
+					{Predicates: []string{`Method("GET")`}},
+					{Predicates: []string{`Method("PUT")`}},
 				},
 			},
 			lowerLimit:        0.1,
