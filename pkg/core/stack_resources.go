@@ -261,10 +261,11 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	return deployment
 }
 
-// GenerateHPA generates a hpa as configured in the
-// stack.  On cluster migrations set by stackset annotation
-// "zalando.org/forward-backend", the hpa will be set to
-// minReplicas = maxReplicass = 1.
+// GenerateHPA generates a hpa as configured in the stack.  On cluster
+// migrations set by stackset annotation
+// "zalando.org/forward-backend", the hpa will be set to nil, because
+// we do not use the backend deployment from the new stack to receive
+// traffic.
 func (sc *StackContainer) GenerateHPA() (
 	*autoscaling.HorizontalPodAutoscaler,
 	error,
@@ -317,7 +318,7 @@ func (sc *StackContainer) GenerateHPA() (
 	result.Annotations = mergeLabels(result.Annotations, annotations)
 	result.Spec.Behavior = autoscalerSpec.Behavior
 
-	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
+	// If prescaling is enabled, ensure we have at least `prescalingReplicas` pods
 	if sc.prescalingActive && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < sc.prescalingReplicas) {
 		pr := sc.prescalingReplicas
 		result.Spec.MinReplicas = &pr
