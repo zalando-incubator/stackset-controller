@@ -83,16 +83,11 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 			spec.RouteGroup = ssc.StackSet.Spec.RouteGroup.DeepCopy()
 		}
 
-		stackAnnotations := make(map[string]string)
-		if a := ssc.StackSet.Spec.StackTemplate.Annotations; a != nil {
-			stackAnnotations = a
-		}
-
 		if forwardMigration {
-			stackAnnotations[forwardBackendAnnotation] = forwardBackendName
-		}
-		if len(stackAnnotations) == 0 {
-			stackAnnotations = nil
+			if ssc.StackSet.Spec.StackTemplate.Annotations == nil {
+				ssc.StackSet.Spec.StackTemplate.Annotations = make(map[string]string)
+			}
+			ssc.StackSet.Spec.StackTemplate.Annotations[forwardBackendAnnotation] = forwardBackendName
 		}
 
 		return &StackContainer{
@@ -115,7 +110,7 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 						ssc.StackSet.Labels,
 						map[string]string{StackVersionLabelKey: stackVersion},
 					),
-					Annotations: stackAnnotations,
+					Annotations: ssc.StackSet.Spec.StackTemplate.Annotations,
 				},
 				Spec: *spec,
 			},
