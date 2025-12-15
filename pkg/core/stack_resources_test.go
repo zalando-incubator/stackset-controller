@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"maps"
 	"reflect"
 	"slices"
 	"strconv"
@@ -281,8 +282,9 @@ func TestLimitLabels(t *testing.T) {
 
 func TestStackGenerateIngress(t *testing.T) {
 	for _, tc := range []struct {
-		name        string
-		ingressSpec *zv1.StackSetIngressSpec
+		name             string
+		ingressSpec      *zv1.StackSetIngressSpec
+		stackAnnotations map[string]string
 
 		expectDisabled      bool
 		expectError         bool
@@ -309,6 +311,25 @@ func TestStackGenerateIngress(t *testing.T) {
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
+		{
+			name: "cluster migration",
+			ingressSpec: &zv1.StackSetIngressSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"ingress": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Path:  "example",
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd-ingress",
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey:  "11",
+				"ingress":                     "annotation",
+				"zalando.org/skipper-backend": "forward",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			backendPort := int32(80)
@@ -322,6 +343,10 @@ func TestStackGenerateIngress(t *testing.T) {
 				backendPort:    &intStrBackendPort,
 				clusterDomains: []string{"example.org"},
 			}
+			if tc.stackAnnotations != nil {
+				c.Stack.Annotations = tc.stackAnnotations
+			}
+
 			ingress, err := c.GenerateIngress()
 
 			if tc.expectError {
@@ -591,10 +616,12 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		routeGroupSpec      *zv1.RouteGroupSpec
+		stackAnnotations    map[string]string
 		expectDisabled      bool
 		expectError         bool
 		expectedAnnotations map[string]string
 		expectedHosts       []string
+		expectedRouteGroup  *rgv1.RouteGroup
 	}{
 		{
 			name:           "no route group spec",
@@ -637,6 +664,75 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 			},
 			expectedHosts: []string{"foo-v1.example.org"},
 		},
+		{
+			name: "cluster migration",
+			routeGroupSpec: &zv1.RouteGroupSpec{
+				EmbeddedObjectMetaWithAnnotations: zv1.EmbeddedObjectMetaWithAnnotations{
+					Annotations: map[string]string{"routegroup": "annotation"},
+				},
+				Hosts: []string{"foo.example.org", "foo.example.com"},
+				Routes: []rgv1.RouteGroupRouteSpec{
+					{
+						PathSubtree: "/example",
+					},
+				},
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd-routegroup",
+			},
+			expectedAnnotations: map[string]string{
+				stackGenerationAnnotationKey: "11",
+				"routegroup":                 "annotation",
+			},
+			expectedHosts: []string{"foo-v1.example.org"},
+			expectedRouteGroup: &rgv1.RouteGroup{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo-v1",
+					Namespace: "bar",
+					Annotations: map[string]string{
+						stackGenerationAnnotationKey: "11",
+						"routegroup":                 "annotation",
+					},
+					Labels: map[string]string{
+						StacksetHeritageLabelKey: "foo",
+						StackVersionLabelKey:     "v1",
+						"stack-label":            "foobar",
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{
+							APIVersion: APIVersion,
+							Kind:       KindStack,
+							Name:       "foo-v1",
+							UID:        "abc-123",
+						},
+					},
+				},
+				Spec: rgv1.RouteGroupSpec{
+					Hosts: []string{"foo-v1.example.org"},
+					Backends: []rgv1.RouteGroupBackend{
+						{
+							Name: "fwd",
+							Type: rgv1.ForwardRouteGroupBackend,
+						},
+					},
+					DefaultBackends: []rgv1.RouteGroupBackendReference{
+						{
+							BackendName: "fwd",
+						},
+					},
+					Routes: []rgv1.RouteGroupRouteSpec{
+						{
+							Backends: []rgv1.RouteGroupBackendReference{
+								{
+									BackendName: "fwd",
+								},
+							},
+							PathSubtree: "/example",
+						},
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			backendPort := int32(80)
@@ -649,6 +745,13 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 				routeGroupSpec: tc.routeGroupSpec,
 				backendPort:    &intStrBackendPort,
 				clusterDomains: []string{"example.org"},
+			}
+			if tc.stackAnnotations != nil {
+				if c.Stack.Annotations != nil {
+					maps.Copy(c.Stack.Annotations, tc.stackAnnotations)
+				} else {
+					c.Stack.Annotations = tc.stackAnnotations
+				}
 			}
 			rg, err := c.GenerateRouteGroup()
 			if tc.expectError {
@@ -692,6 +795,11 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 					},
 				},
 			}
+
+			if tc.expectedRouteGroup != nil {
+				expected = tc.expectedRouteGroup
+			}
+
 			require.Equal(t, expected, rg)
 		})
 	}
@@ -700,6 +808,7 @@ func TestStackGenerateRouteGroup(t *testing.T) {
 func TestStackGenerateRouteGroupSegment(t *testing.T) {
 	for _, tc := range []struct {
 		rgSpec            *zv1.RouteGroupSpec
+		stackAnnotations  map[string]string
 		lowerLimit        float64
 		upperLimit        float64
 		expectNil         bool
@@ -762,7 +871,7 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 				Hosts: []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{
 					{
-						Predicates: []string{"Method(\"GET\")"},
+						Predicates: []string{`Method("GET")`},
 					},
 				},
 			},
@@ -779,9 +888,26 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 			rgSpec: &zv1.RouteGroupSpec{
 				Hosts: []string{"example.teapot.zalan.do"},
 				Routes: []rgv1.RouteGroupRouteSpec{
-					{Predicates: []string{"Method(\"GET\")"}},
-					{Predicates: []string{"Method(\"PUT\")"}},
+					{Predicates: []string{`Method("GET")`}},
+					{Predicates: []string{`Method("PUT")`}},
 				},
+			},
+			lowerLimit:        0.1,
+			upperLimit:        0.3,
+			expectNil:         false,
+			expectError:       false,
+			expectedPredicate: "TrafficSegment(0.10, 0.30)",
+			expectedHosts: []string{
+				"example.teapot.zalan.do",
+			},
+		},
+		{
+			rgSpec: &zv1.RouteGroupSpec{
+				Hosts:  []string{"example.teapot.zalan.do"},
+				Routes: []rgv1.RouteGroupRouteSpec{{}},
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: forwardBackendName,
 			},
 			lowerLimit:        0.1,
 			upperLimit:        0.3,
@@ -802,6 +928,13 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 			segmentLowerLimit: tc.lowerLimit,
 			segmentUpperLimit: tc.upperLimit,
 			backendPort:       &backendPort,
+		}
+		if tc.stackAnnotations != nil {
+			if c.Stack.Annotations != nil {
+				maps.Copy(c.Stack.Annotations, tc.stackAnnotations)
+			} else {
+				c.Stack.Annotations = tc.stackAnnotations
+			}
 		}
 		rg, err := c.GenerateRouteGroupSegment()
 
@@ -830,15 +963,7 @@ func TestStackGenerateRouteGroupSegment(t *testing.T) {
 		}
 
 		for _, r := range rg.Spec.Routes {
-			found := false
-			for _, p := range r.Predicates {
-				if p == tc.expectedPredicate {
-					found = true
-					break
-				}
-			}
-
-			if !found {
+			if !slices.Contains(r.Predicates, tc.expectedPredicate) {
 				t.Errorf("predicate %q not found in route %v",
 					tc.expectedPredicate,
 					r,
@@ -1103,6 +1228,7 @@ func TestStackGenerateDeployment(t *testing.T) {
 		expectedReplicas   int32
 		maxUnavailable     int
 		maxSurge           int
+		stackAnnotations   map[string]string
 	}{
 		{
 			name:               "stack scaled down to zero, deployment still running",
@@ -1236,6 +1362,15 @@ func TestStackGenerateDeployment(t *testing.T) {
 			name:            "minReadySeconds should be set",
 			minReadySeconds: 5,
 		},
+		{
+			name:               "cluster migration should scale down deployment to 1",
+			stackReplicas:      3,
+			deploymentReplicas: 3,
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd-deployment",
+			},
+			expectedReplicas: 1,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var strategy *apps.DeploymentStrategy
@@ -1287,6 +1422,13 @@ func TestStackGenerateDeployment(t *testing.T) {
 			}
 			if tc.hpaEnabled {
 				c.Stack.Spec.StackSpec.Autoscaler = &zv1.Autoscaler{}
+			}
+			if tc.stackAnnotations != nil {
+				if c.Stack.Annotations != nil {
+					maps.Copy(c.Stack.Annotations, tc.stackAnnotations)
+				} else {
+					c.Stack.Annotations = tc.stackAnnotations
+				}
 			}
 			deployment := c.GenerateDeployment()
 			expected := &apps.Deployment{
@@ -1347,6 +1489,7 @@ func TestGenerateHPA(t *testing.T) {
 	for _, tc := range []struct {
 		name                string
 		autoscaler          *zv1.Autoscaler
+		stackAnnotations    map[string]string
 		expectedMinReplicas *int32
 		expectedMaxReplicas int32
 		noTrafficSince      time.Time
@@ -1401,6 +1544,37 @@ func TestGenerateHPA(t *testing.T) {
 			expectedMetrics:  nil,
 			expectedBehavior: nil,
 		},
+		{
+			name: "HPA when cluster migration should be scaled down",
+			autoscaler: &zv1.Autoscaler{
+				MinReplicas: &min,
+				MaxReplicas: max,
+
+				Metrics: []zv1.AutoscalerMetrics{
+					{
+						Type:               zv1.CPUAutoscalerMetric,
+						AverageUtilization: &utilization,
+					},
+				},
+				Behavior: exampleBehavior,
+			},
+			stackAnnotations: map[string]string{
+				forwardBackendAnnotation: "fwd-hpa",
+			},
+			expectedMetrics: []autoscaling.MetricSpec{
+				{
+					Type: autoscaling.ResourceMetricSourceType,
+					Resource: &autoscaling.ResourceMetricSource{
+						Name: v1.ResourceCPU,
+						Target: autoscaling.MetricTarget{
+							Type:               autoscaling.UtilizationMetricType,
+							AverageUtilization: &utilization,
+						},
+					},
+				},
+			},
+			expectedBehavior: nil,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			podTemplate := zv1.PodTemplateSpec{
@@ -1430,6 +1604,13 @@ func TestGenerateHPA(t *testing.T) {
 				},
 				noTrafficSince: tc.noTrafficSince,
 				scaledownTTL:   time.Minute,
+			}
+			if tc.stackAnnotations != nil {
+				if autoscalerContainer.Stack.Annotations != nil {
+					maps.Copy(autoscalerContainer.Stack.Annotations, tc.stackAnnotations)
+				} else {
+					autoscalerContainer.Stack.Annotations = tc.stackAnnotations
+				}
 			}
 
 			hpa, err := autoscalerContainer.GenerateHPA()

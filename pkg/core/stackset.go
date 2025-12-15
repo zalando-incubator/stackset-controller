@@ -17,6 +17,8 @@ const (
 	StackVersionLabelKey     = "stack-version"
 
 	ingressTrafficAuthoritativeAnnotation = "zalando.org/traffic-authoritative"
+	forwardBackendAnnotation              = "zalando.org/forward-backend"
+	forwardBackendName                    = "fwd"
 )
 
 var (
@@ -52,6 +54,7 @@ func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
 
 // NewStack returns an (optional) stack that should be created
 func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
+	_, forwardMigration := ssc.StackSet.ObjectMeta.Annotations[forwardBackendAnnotation]
 	observedStackVersion := ssc.StackSet.Status.ObservedStackVersion
 	stackVersion := currentStackVersion(ssc.StackSet)
 	stackName := generateStackName(ssc.StackSet, stackVersion)
@@ -78,6 +81,13 @@ func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
 
 		if ssc.StackSet.Spec.RouteGroup != nil {
 			spec.RouteGroup = ssc.StackSet.Spec.RouteGroup.DeepCopy()
+		}
+
+		if forwardMigration {
+			if ssc.StackSet.Spec.StackTemplate.Annotations == nil {
+				ssc.StackSet.Spec.StackTemplate.Annotations = make(map[string]string)
+			}
+			ssc.StackSet.Spec.StackTemplate.Annotations[forwardBackendAnnotation] = forwardBackendName
 		}
 
 		return &StackContainer{

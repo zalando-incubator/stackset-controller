@@ -76,6 +76,28 @@ func objectMetaInjectLabels(objectMeta metav1.ObjectMeta, labels map[string]stri
 	return objectMeta
 }
 
+// patchForwardBackend rewrites a RouteGroupSpec to send all traffic to another cluster chosen by the operator of skipper
+func patchForwardBackend(rg *rgv1.RouteGroupSpec) {
+	rg.Backends = []rgv1.RouteGroupBackend{
+		{
+			Name: forwardBackendName,
+			Type: rgv1.ForwardRouteGroupBackend,
+		},
+	}
+	rg.DefaultBackends = []rgv1.RouteGroupBackendReference{
+		{
+			BackendName: forwardBackendName,
+		},
+	}
+	for i := range rg.Routes {
+		rg.Routes[i].Backends = []rgv1.RouteGroupBackendReference{
+			{
+				BackendName: forwardBackendName,
+			},
+		}
+	}
+}
+
 func (sc *StackContainer) objectMeta(segment bool) metav1.ObjectMeta {
 	resourceLabels := mapCopy(sc.Stack.Labels)
 
@@ -169,7 +191,12 @@ func (sc *StackContainer) selector() map[string]string {
 	return limitLabels(sc.Stack.Labels, selectorLabels)
 }
 
+// GenerateDeployment generates a deployment as configured in the
+// stack.  On cluster migrations set by stackset annotation
+// "zalando.org/forward-backend", the deployment will be set to
+// replicas 1.
 func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
+
 	stack := sc.Stack
 
 	desiredReplicas := sc.stackReplicas
@@ -207,6 +234,12 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		Labels:      embeddedCopy.Labels,
 	}
 
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration && *updatedReplicas != 0 {
+		updatedReplicas = wrapReplicas(1)
+		sc.deploymentReplicas = 1
+		sc.stackReplicas = 1
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
@@ -224,13 +257,23 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	if strategy != nil {
 		deployment.Spec.Strategy = *strategy
 	}
+
 	return deployment
 }
 
+// GenerateHPA generates a hpa as configured in the stack.  On cluster
+// migrations set by stackset annotation
+// "zalando.org/forward-backend", the hpa will be set to nil, because
+// we do not use the backend deployment from the new stack to receive
+// traffic.
 func (sc *StackContainer) GenerateHPA() (
 	*autoscaling.HorizontalPodAutoscaler,
 	error,
 ) {
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		return nil, nil
+	}
+
 	autoscalerSpec := sc.Stack.Spec.StackSpec.Autoscaler
 	trafficWeight := sc.actualTrafficWeight
 
@@ -275,7 +318,7 @@ func (sc *StackContainer) GenerateHPA() (
 	result.Annotations = mergeLabels(result.Annotations, annotations)
 	result.Spec.Behavior = autoscalerSpec.Behavior
 
-	// If prescaling is enabled, ensure we have at least `precalingReplicas` pods
+	// If prescaling is enabled, ensure we have at least `prescalingReplicas` pods
 	if sc.prescalingActive && (result.Spec.MinReplicas == nil || *result.Spec.MinReplicas < sc.prescalingReplicas) {
 		pr := sc.prescalingReplicas
 		result.Spec.MinReplicas = &pr
@@ -379,6 +422,10 @@ func (sc *StackContainer) GenerateIngressSegment() (
 	return res, nil
 }
 
+// generateIngress generates an ingress as configured in the stack.
+// On cluster migrations set by stackset annotation
+// "zalando.org/forward-backend", the annotation will be copied to the
+// ingress.
 func (sc *StackContainer) generateIngress(segment bool) (
 	*networking.Ingress,
 	error,
@@ -430,6 +477,10 @@ func (sc *StackContainer) generateIngress(segment bool) (
 			Rules: rules,
 		},
 	}
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		// see https://opensource.zalando.com/skipper/kubernetes/ingress-usage/#skipper-ingress-annotations
+		result.Annotations["zalando.org/skipper-backend"] = "forward"
+	}
 
 	// insert annotations
 	result.Annotations = mergeLabels(
@@ -470,6 +521,10 @@ func (sc *StackContainer) GenerateRouteGroupSegment() (
 	return res, nil
 }
 
+// generateRouteGroup generates an RouteGroup as configured in the
+// stack.  On cluster migrations set by stackset annotation
+// "zalando.org/forward-backend", the RouteGroup will be patched by
+// patchForwardBackend() to execute the migration.
 func (sc *StackContainer) generateRouteGroup(segment bool) (
 	*rgv1.RouteGroup,
 	error,
@@ -528,6 +583,10 @@ func (sc *StackContainer) generateRouteGroup(segment bool) (
 		result.Annotations,
 		sc.routeGroupSpec.GetAnnotations(),
 	)
+
+	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+		patchForwardBackend(&result.Spec)
+	}
 
 	return result, nil
 }
