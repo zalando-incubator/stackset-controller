@@ -124,8 +124,7 @@ func (s *StackSetIngressSpec) GetAnnotations() map[string]string {
 // backendport for ingress managed outside of stackset.
 // +k8s:deepcopy-gen=true
 type StackSetExternalIngressSpec struct {
-	EmbeddedObjectMetaWithAnnotations `json:"metadata,omitempty"`
-	BackendPort                       intstr.IntOrString `json:"backendPort"`
+	BackendPort intstr.IntOrString `json:"backendPort"`
 }
 
 // RouteGroupSpec defines the specification for defining a RouteGroup attached
