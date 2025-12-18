@@ -196,6 +196,10 @@ func (sc *StackContainer) selector() map[string]string {
 // "zalando.org/forward-backend", the deployment will be set to
 // replicas 1.
 func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
+	if sc.TrafficForward() {
+		// during traffic forwarding we do not need a deployment
+		return nil
+	}
 
 	stack := sc.Stack
 
@@ -234,12 +238,6 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		Labels:      embeddedCopy.Labels,
 	}
 
-	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration && *updatedReplicas != 0 {
-		updatedReplicas = wrapReplicas(1)
-		sc.deploymentReplicas = 1
-		sc.stackReplicas = 1
-	}
-
 	deployment := &appsv1.Deployment{
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
@@ -270,7 +268,7 @@ func (sc *StackContainer) GenerateHPA() (
 	*autoscaling.HorizontalPodAutoscaler,
 	error,
 ) {
-	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+	if sc.TrafficForward() {
 		return nil, nil
 	}
 
@@ -477,7 +475,7 @@ func (sc *StackContainer) generateIngress(segment bool) (
 			Rules: rules,
 		},
 	}
-	if _, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]; clusterMigration {
+	if sc.TrafficForward() {
 		// see https://opensource.zalando.com/skipper/kubernetes/ingress-usage/#skipper-ingress-annotations
 		result.Annotations["zalando.org/skipper-backend"] = "forward"
 	}

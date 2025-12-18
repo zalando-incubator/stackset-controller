@@ -44,6 +44,23 @@ func isOwned(ownerReferences []metav1.OwnerReference) (bool, types.UID) {
 func (c *StackSetController) ReconcileStackDeployment(ctx context.Context, stack *zv1.Stack, existing *apps.Deployment, generateUpdated func() *apps.Deployment) error {
 	deployment := generateUpdated()
 
+	// no deployment
+	if deployment == nil {
+		if existing != nil {
+			err := c.client.AppsV1().Deployments(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
+			if err != nil {
+				return err
+			}
+			c.recorder.Eventf(
+				stack,
+				apiv1.EventTypeNormal,
+				"DeletedDeployment",
+				"Deleted Deployment %s",
+				existing.Name)
+		}
+		return nil
+	}
+
 	// Create new deployment
 	if existing == nil {
 		_, err := c.client.AppsV1().Deployments(deployment.Namespace).Create(ctx, deployment, metav1.CreateOptions{})
@@ -88,7 +105,7 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 		return err
 	}
 
-	// HPA removed
+	// no HPA
 	if hpa == nil {
 		if existing != nil {
 			err := c.client.AutoscalingV2().HorizontalPodAutoscalers(existing.Namespace).Delete(ctx, existing.Name, metav1.DeleteOptions{})
@@ -100,7 +117,7 @@ func (c *StackSetController) ReconcileStackHPA(ctx context.Context, stack *zv1.S
 				apiv1.EventTypeNormal,
 				"DeletedHPA",
 				"Deleted HPA %s",
-				existing.Namespace)
+				existing.Name)
 		}
 		return nil
 	}
