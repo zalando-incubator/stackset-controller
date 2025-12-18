@@ -19,6 +19,7 @@ import (
 	"github.com/zalando-incubator/stackset-controller/pkg/traffic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/transport"
 )
 
@@ -170,7 +171,16 @@ func configureKubeConfig(apiServerURL *url.URL, timeout time.Duration, stopCh <-
 		}, nil
 	}
 
+	// Try in-cluster config
 	config, err := rest.InClusterConfig()
+	if err == rest.ErrNotInCluster {
+		// fall back to kubeconfig
+		kubeconfig := os.Getenv("KUBECONFIG")
+		if kubeconfig == "" {
+			kubeconfig = os.ExpandEnv("${HOME}/.kube/config")
+		}
+		return clientcmd.BuildConfigFromFlags("", kubeconfig)
+	}
 	if err != nil {
 		return nil, err
 	}
