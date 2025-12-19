@@ -48,6 +48,7 @@ var (
 		ConfigMapSupportEnabled     bool
 		SecretSupportEnabled        bool
 		PCSSupportEnabled           bool
+		ForwardSupportEnabled       bool
 	}
 )
 
@@ -71,6 +72,7 @@ func main() {
 	kingpin.Flag("enable-configmap-support", "Enable support for ConfigMaps on StackSets.").Default("false").BoolVar(&config.ConfigMapSupportEnabled)
 	kingpin.Flag("enable-secret-support", "Enable support for Secrets on StackSets.").Default("false").BoolVar(&config.SecretSupportEnabled)
 	kingpin.Flag("enable-pcs-support", "Enable support for PlatformCredentialsSet on StackSets.").Default("false").BoolVar(&config.PCSSupportEnabled)
+	kingpin.Flag("enable-forward-support", "Enable support for skipper traffic forwarding.").Default("false").BoolVar(&config.ForwardSupportEnabled)
 	kingpin.Parse()
 
 	if config.Debug {
@@ -92,6 +94,7 @@ func main() {
 		ConfigMapSupportEnabled:  config.ConfigMapSupportEnabled,
 		SecretSupportEnabled:     config.SecretSupportEnabled,
 		PcsSupportEnabled:        config.PCSSupportEnabled,
+		ForwardSupportEnabled:    config.ForwardSupportEnabled,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

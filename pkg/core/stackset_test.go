@@ -371,7 +371,7 @@ func TestStackSetNewStack(t *testing.T) {
 				StackContainers:             tc.stacks,
 				backendWeightsAnnotationKey: traffic.DefaultBackendWeightsAnnotationKey,
 			}
-			newStack, newStackName := stackset.NewStack()
+			newStack, newStackName := stackset.NewStack(false)
 			require.EqualValues(t, tc.expectedStack, newStack)
 			require.EqualValues(t, tc.expectedStackName, newStackName)
 		})

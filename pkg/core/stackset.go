@@ -53,8 +53,11 @@ func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
 }
 
 // NewStack returns an (optional) stack that should be created
-func (ssc *StackSetContainer) NewStack() (*StackContainer, string) {
+func (ssc *StackSetContainer) NewStack(forwardSupportEnabled bool) (*StackContainer, string) {
 	_, forwardMigration := ssc.StackSet.ObjectMeta.Annotations[forwardBackendAnnotation]
+	if !forwardSupportEnabled {
+		forwardMigration = false
+	}
 	observedStackVersion := ssc.StackSet.Status.ObservedStackVersion
 	stackVersion := currentStackVersion(ssc.StackSet)
 	stackName := generateStackName(ssc.StackSet, stackVersion)

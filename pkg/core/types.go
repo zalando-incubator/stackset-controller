@@ -159,6 +159,12 @@ func (sc *StackContainer) HasTraffic() bool {
 }
 
 func (sc *StackContainer) IsReady() bool {
+	if sc.TrafficForward() {
+		// if stack is configured to forward traffic, consider it
+		// ready.
+		return true
+	}
+
 	// Calculate minimum required replicas for the Deployment to be considered ready
 	minRequiredReplicas := int32(math.Ceil(float64(sc.deploymentReplicas) * sc.minReadyPercent))
 
@@ -185,6 +191,11 @@ func (sc *StackContainer) ScaledDown() bool {
 		return false
 	}
 	return !sc.noTrafficSince.IsZero() && time.Since(sc.noTrafficSince) > sc.scaledownTTL
+}
+
+func (sc *StackContainer) TrafficForward() bool {
+	_, clusterMigration := sc.Stack.Annotations[forwardBackendAnnotation]
+	return clusterMigration
 }
 
 func (sc *StackContainer) Name() string {

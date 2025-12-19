@@ -77,6 +77,7 @@ type StackSetConfig struct {
 	ConfigMapSupportEnabled  bool
 	SecretSupportEnabled     bool
 	PcsSupportEnabled        bool
+	ForwardSupportEnabled    bool
 }
 
 type stacksetEvent struct {
@@ -758,7 +759,7 @@ func (c *StackSetController) ReconcileTrafficSegments(
 
 // CreateCurrentStack creates a new Stack object for the current stack, if needed
 func (c *StackSetController) CreateCurrentStack(ctx context.Context, ssc *core.StackSetContainer) error {
-	newStack, newStackVersion := ssc.NewStack()
+	newStack, newStackVersion := ssc.NewStack(c.config.ForwardSupportEnabled)
 	if newStack == nil {
 		return nil
 	}
