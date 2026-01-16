@@ -223,7 +223,7 @@ func (c *StackSetController) ReconcileStackIngress(ctx context.Context, stack *z
 				apiv1.EventTypeNormal,
 				"DeletedIngress",
 				"Deleted Ingress %s",
-				existing.Namespace)
+				existing.Name)
 		}
 		return nil
 	}
