@@ -18,7 +18,7 @@ type Interface interface {
 type Clientset struct {
 	kubernetes.Interface
 	stackset   stackset.Interface
-	routegroup rg.Interface
+	RouteGroup rg.Interface
 }
 
 func NewClientset(kubernetes kubernetes.Interface, stackset stackset.Interface, routegroup rg.Interface) *Clientset {
@@ -53,5 +53,5 @@ func (c *Clientset) ZalandoV1() zalandov1.ZalandoV1Interface {
 }
 
 func (c *Clientset) RouteGroupV1() rgv1.ZalandoV1Interface {
-	return c.routegroup.ZalandoV1()
+	return c.RouteGroup.ZalandoV1()
 }

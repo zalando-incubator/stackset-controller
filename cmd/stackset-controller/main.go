@@ -119,7 +119,7 @@ func main() {
 
 	go handleSigterm(cancel)
 	go serveMetrics(config.MetricsAddress)
-	err = controller.Run(ctx)
+	err = controller.Run2(ctx)
 	if err != nil {
 		cancel()
 		log.Fatalf("Failed to run controller: %v", err)
