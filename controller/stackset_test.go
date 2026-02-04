@@ -336,7 +336,7 @@ func TestCreateCurrentStack(t *testing.T) {
 		Version: "v1",
 		StackSpec: zv1.StackSpec{
 			Replicas: &replicas,
-			PodTemplate: zv1.PodTemplateSpec{
+			PodTemplate: v1.PodTemplateSpec{
 				Spec: v1.PodSpec{
 					Containers: []v1.Container{
 						{

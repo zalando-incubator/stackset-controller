@@ -231,7 +231,7 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		strategy = stack.Spec.StackSpec.Strategy.DeepCopy()
 	}
 
-	embeddedCopy := stack.Spec.StackSpec.PodTemplate.EmbeddedObjectMeta.DeepCopy()
+	embeddedCopy := stack.Spec.StackSpec.PodTemplate.ObjectMeta.DeepCopy()
 
 	templateObjectMeta := metav1.ObjectMeta{
 		Annotations: embeddedCopy.Annotations,

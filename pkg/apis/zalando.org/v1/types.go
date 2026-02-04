@@ -396,19 +396,6 @@ type Stack struct {
 	Status StackStatus `json:"status"`
 }
 
-// PodTemplateSpec describes the data a pod should have when created from a template
-// +k8s:deepcopy-gen=true
-type PodTemplateSpec struct {
-	// Object's metadata.
-	// +optional
-	EmbeddedObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	// Specification of the desired behavior of the pod.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	// +optional
-	Spec v1.PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-}
-
 // StackSpec is the spec part of the Stack.
 // +k8s:deepcopy-gen=true
 type StackSpec struct {
@@ -426,7 +413,7 @@ type StackSpec struct {
 	// container port and ingress backendport.
 	Service *StackServiceSpec `json:"service,omitempty"`
 	// PodTemplate describes the pods that will be created.
-	PodTemplate PodTemplateSpec `json:"podTemplate"`
+	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
 
 	Autoscaler *Autoscaler `json:"autoscaler,omitempty"`
 
