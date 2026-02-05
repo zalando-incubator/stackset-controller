@@ -14,13 +14,13 @@ import (
 	apps "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/networking/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 var (
-	pathType              = v1.PathTypeImplementationSpecific
+	pathType              = networkingv1.PathTypeImplementationSpecific
 	testAnnotationsCreate = map[string]string{
 		"user-test-annotation": "create",
 	}
@@ -179,7 +179,7 @@ func (f *TestStacksetSpecFactory) Create(t *testing.T, stackVersion string) zv1.
 			Spec: zv1.StackSpecTemplate{
 				StackSpec: zv1.StackSpec{
 					Replicas: pint32(f.replicas),
-					PodTemplate: zv1.PodTemplateSpec{
+					PodTemplate: corev1.PodTemplateSpec{
 						Spec: skipperPod,
 					},
 					Service: &zv1.StackServiceSpec{
@@ -506,19 +506,19 @@ func verifyStackIngressSources(
 			require.Contains(t, stackIngress.Annotations, k)
 			require.Equal(t, v, stackIngress.Annotations[k])
 		}
-		stackIngressRules := make([]v1.IngressRule, 0, len(clusterDomains))
+		stackIngressRules := make([]networkingv1.IngressRule, 0, len(clusterDomains))
 		for _, domain := range domains {
-			stackIngressRules = append(stackIngressRules, v1.IngressRule{
+			stackIngressRules = append(stackIngressRules, networkingv1.IngressRule{
 				Host: domain,
-				IngressRuleValue: v1.IngressRuleValue{
-					HTTP: &v1.HTTPIngressRuleValue{
-						Paths: []v1.HTTPIngressPath{
+				IngressRuleValue: networkingv1.IngressRuleValue{
+					HTTP: &networkingv1.HTTPIngressRuleValue{
+						Paths: []networkingv1.HTTPIngressPath{
 							{
 								PathType: &pathType,
-								Backend: v1.IngressBackend{
-									Service: &v1.IngressServiceBackend{
+								Backend: networkingv1.IngressBackend{
+									Service: &networkingv1.IngressServiceBackend{
 										Name: stack.Name,
-										Port: v1.ServiceBackendPort{
+										Port: networkingv1.ServiceBackendPort{
 											Number: 80,
 										},
 									},

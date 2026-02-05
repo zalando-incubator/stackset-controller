@@ -72,7 +72,7 @@ func TestGetServicePorts(tt *testing.T) {
 			stackSpec: zv1.StackSpecInternal{
 				StackSpec: zv1.StackSpec{
 					Service: nil,
-					PodTemplate: zv1.PodTemplateSpec{
+					PodTemplate: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -115,7 +115,7 @@ func TestGetServicePorts(tt *testing.T) {
 			stackSpec: zv1.StackSpecInternal{
 				StackSpec: zv1.StackSpec{
 					Service: nil,
-					PodTemplate: zv1.PodTemplateSpec{
+					PodTemplate: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -145,7 +145,7 @@ func TestGetServicePorts(tt *testing.T) {
 			stackSpec: zv1.StackSpecInternal{
 				StackSpec: zv1.StackSpec{
 					Service: nil,
-					PodTemplate: zv1.PodTemplateSpec{
+					PodTemplate: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -176,7 +176,7 @@ func TestGetServicePorts(tt *testing.T) {
 			stackSpec: zv1.StackSpecInternal{
 				StackSpec: zv1.StackSpec{
 					Service: nil,
-					PodTemplate: zv1.PodTemplateSpec{
+					PodTemplate: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -217,7 +217,7 @@ func TestGetServicePorts(tt *testing.T) {
 							},
 						},
 					},
-					PodTemplate: zv1.PodTemplateSpec{
+					PodTemplate: v1.PodTemplateSpec{
 						Spec: v1.PodSpec{
 							Containers: []v1.Container{
 								{
@@ -1166,7 +1166,7 @@ func TestStackGenerateService(t *testing.T) {
 					Spec: zv1.StackSpecInternal{
 						StackSpec: zv1.StackSpec{
 							Service: nil,
-							PodTemplate: zv1.PodTemplateSpec{
+							PodTemplate: v1.PodTemplateSpec{
 								Spec: v1.PodSpec{
 									Containers: []v1.Container{
 										{
@@ -1415,8 +1415,8 @@ func TestStackGenerateDeployment(t *testing.T) {
 						StackSpec: zv1.StackSpec{
 							MinReadySeconds: tc.minReadySeconds,
 							Strategy:        strategy,
-							PodTemplate: zv1.PodTemplateSpec{
-								EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
+							PodTemplate: v1.PodTemplateSpec{
+								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{
 										"pod-label": "pod-foo",
 									},
@@ -1603,8 +1603,8 @@ func TestGenerateHPA(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			podTemplate := zv1.PodTemplateSpec{
-				EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
+			podTemplate := v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"pod-label": "pod-foo",
 					},
@@ -1679,8 +1679,8 @@ func TestGenerateHPAToSegment(t *testing.T) {
 					ObjectMeta: testStackMeta,
 					Spec: zv1.StackSpecInternal{
 						StackSpec: zv1.StackSpec{
-							PodTemplate: zv1.PodTemplateSpec{
-								EmbeddedObjectMeta: zv1.EmbeddedObjectMeta{
+							PodTemplate: v1.PodTemplateSpec{
+								ObjectMeta: metav1.ObjectMeta{
 									Labels: map[string]string{
 										"pod-label": "pod-foo",
 									},
