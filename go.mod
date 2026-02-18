@@ -12,9 +12,9 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/szuecs/routegroup-client v0.34.1
 	golang.org/x/sync v0.19.0
-	k8s.io/api v0.34.3
-	k8s.io/apimachinery v0.34.3
-	k8s.io/client-go v0.34.3
+	k8s.io/api v0.34.4
+	k8s.io/apimachinery v0.34.4
+	k8s.io/client-go v0.34.4
 	sigs.k8s.io/yaml v1.6.0
 )
 
