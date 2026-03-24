@@ -411,8 +411,8 @@ spec:
                                       and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
                                       triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
 
-                                      This is an alpha field and requires enabling the HPAConfigurableTolerance
-                                      feature gate.
+                                      This is an beta field and requires the HPAConfigurableTolerance feature
+                                      gate to be enabled.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                 type: object
@@ -487,8 +487,8 @@ spec:
                                       and scale-down and scale-up tolerances of 5% and 1% respectively, scaling will be
                                       triggered when the actual consumption falls below 95Mi or exceeds 101Mi.
 
-                                      This is an alpha field and requires enabling the HPAConfigurableTolerance
-                                      feature gate.
+                                      This is an beta field and requires the HPAConfigurableTolerance feature
+                                      gate to be enabled.
                                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                     x-kubernetes-int-or-string: true
                                 type: object
@@ -2051,8 +2051,9 @@ spec:
                                           type: integer
                                       type: object
                                     resizePolicy:
-                                      description: Resources resize policy for the
-                                        container.
+                                      description: |-
+                                        Resources resize policy for the container.
+                                        This field cannot be set on ephemeral containers.
                                       items:
                                         description: ContainerResizePolicy represents
                                           resource resize policy for the container.
@@ -2212,19 +2213,8 @@ spec:
                                             Note that this field cannot be set when spec.os.name is windows.
                                           properties:
                                             localhostProfile:
-                                              description: |-
-                                                localhostProfile indicates a profile loaded on the node that should be used.
-                                                The profile must be preconfigured on the node to work.
-                                                Must match the loaded name of the profile.
-                                                Must be set if and only if type is "Localhost".
                                               type: string
                                             type:
-                                              description: |-
-                                                type indicates which kind of AppArmor profile will be applied.
-                                                Valid options are:
-                                                  Localhost - a profile pre-loaded on the node.
-                                                  RuntimeDefault - the container runtime's default profile.
-                                                  Unconfined - no AppArmor enforcement.
                                               type: string
                                           required:
                                           - type
@@ -3320,11 +3310,6 @@ spec:
                                               type: integer
                                             service:
                                               default: ""
-                                              description: |-
-                                                Service is the name of the service to place in the gRPC HealthCheckRequest
-                                                (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
-                                                If this is not specified, the default behavior is defined by gRPC.
                                               type: string
                                           required:
                                           - port
@@ -3575,19 +3560,8 @@ spec:
                                             Note that this field cannot be set when spec.os.name is windows.
                                           properties:
                                             localhostProfile:
-                                              description: |-
-                                                localhostProfile indicates a profile loaded on the node that should be used.
-                                                The profile must be preconfigured on the node to work.
-                                                Must match the loaded name of the profile.
-                                                Must be set if and only if type is "Localhost".
                                               type: string
                                             type:
-                                              description: |-
-                                                type indicates which kind of AppArmor profile will be applied.
-                                                Valid options are:
-                                                  Localhost - a profile pre-loaded on the node.
-                                                  RuntimeDefault - the container runtime's default profile.
-                                                  Unconfined - no AppArmor enforcement.
                                               type: string
                                           required:
                                           - type
@@ -4856,8 +4830,9 @@ spec:
                                           type: integer
                                       type: object
                                     resizePolicy:
-                                      description: Resources resize policy for the
-                                        container.
+                                      description: |-
+                                        Resources resize policy for the container.
+                                        This field cannot be set on ephemeral containers.
                                       items:
                                         description: ContainerResizePolicy represents
                                           resource resize policy for the container.
@@ -5017,19 +4992,8 @@ spec:
                                             Note that this field cannot be set when spec.os.name is windows.
                                           properties:
                                             localhostProfile:
-                                              description: |-
-                                                localhostProfile indicates a profile loaded on the node that should be used.
-                                                The profile must be preconfigured on the node to work.
-                                                Must match the loaded name of the profile.
-                                                Must be set if and only if type is "Localhost".
                                               type: string
                                             type:
-                                              description: |-
-                                                type indicates which kind of AppArmor profile will be applied.
-                                                Valid options are:
-                                                  Localhost - a profile pre-loaded on the node.
-                                                  RuntimeDefault - the container runtime's default profile.
-                                                  Unconfined - no AppArmor enforcement.
                                               type: string
                                           required:
                                           - type
@@ -5136,13 +5100,6 @@ spec:
                                             localhostProfile:
                                               type: string
                                             type:
-                                              description: |-
-                                                type indicates which kind of seccomp profile will be applied.
-                                                Valid options are:
-
-                                                Localhost - a profile defined in a file on the node should be used.
-                                                RuntimeDefault - the container runtime default profile should be used.
-                                                Unconfined - no profile should be applied.
                                               type: string
                                           required:
                                           - type
@@ -5601,8 +5558,8 @@ spec:
                                   will be made available to those containers which consume them
                                   by name.
 
-                                  This is an alpha field and requires enabling the
-                                  DynamicResourceAllocation feature gate.
+                                  This is a stable field but requires that the
+                                  DynamicResourceAllocation feature gate is enabled.
 
                                   This field is immutable.
                                 items:
@@ -6062,9 +6019,10 @@ spec:
                                     operator:
                                       description: |-
                                         Operator represents a key's relationship to the value.
-                                        Valid operators are Exists and Equal. Defaults to Equal.
+                                        Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                         Exists is equivalent to wildcard for value, so that a pod can
                                         tolerate all taints of a particular category.
+                                        Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                       type: string
                                     tolerationSeconds:
                                       description: |-
@@ -7361,6 +7319,10 @@ spec:
                                                     type: integer
                                                   signerName:
                                                     type: string
+                                                  userAnnotations:
+                                                    additionalProperties:
+                                                      type: string
+                                                    type: object
                                                 required:
                                                 - keyType
                                                 - signerName
@@ -7709,6 +7671,42 @@ spec:
                                 x-kubernetes-list-map-keys:
                                 - name
                                 x-kubernetes-list-type: map
+                              workloadRef:
+                                description: |-
+                                  WorkloadRef provides a reference to the Workload object that this Pod belongs to.
+                                  This field is used by the scheduler to identify the PodGroup and apply the
+                                  correct group scheduling policies. The Workload object referenced
+                                  by this field may not exist at the time the Pod is created.
+                                  This field is immutable, but a Workload object with the same name
+                                  may be recreated with different policies. Doing this during pod scheduling
+                                  may result in the placement not conforming to the expected policies.
+                                properties:
+                                  name:
+                                    description: |-
+                                      Name defines the name of the Workload object this Pod belongs to.
+                                      Workload must be in the same namespace as the Pod.
+                                      If it doesn't match any existing Workload, the Pod will remain unschedulable
+                                      until a Workload object is created and observed by the kube-scheduler.
+                                      It must be a DNS subdomain.
+                                    type: string
+                                  podGroup:
+                                    description: |-
+                                      PodGroup is the name of the PodGroup within the Workload that this Pod
+                                      belongs to. If it doesn't match any existing PodGroup within the Workload,
+                                      the Pod will remain unschedulable until the Workload object is recreated
+                                      and observed by the kube-scheduler. It must be a DNS label.
+                                    type: string
+                                  podGroupReplicaKey:
+                                    description: |-
+                                      PodGroupReplicaKey specifies the replica key of the PodGroup to which this
+                                      Pod belongs. It is used to distinguish pods belonging to different replicas
+                                      of the same pod group. The pod group policy is applied separately to each replica.
+                                      When set, it must be a DNS label.
+                                    type: string
+                                required:
+                                - name
+                                - podGroup
+                                type: object
                             required:
                             - containers
                             type: object
