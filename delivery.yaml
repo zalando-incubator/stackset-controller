@@ -22,13 +22,6 @@ pipeline:
       fi
       make check
       make test
-  - desc: build
-    cmd: |
-      make build.docker
-  - desc: push
-    cmd: |
-      IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller-test
-      IMAGE=$IMAGE VERSION=$CDP_BUILD_VERSION make build.push
   - desc: Build and push image to Zalando's registry
     cmd: |
       IMAGE=container-registry-test.zalando.net/teapot/stackset-controller
@@ -108,10 +101,7 @@ pipeline:
       echo "Creating release for tag: ${VERSION}"
       git gh-tag $VERSION
       echo "create and push docker container"
-      IMAGE=registry-write.opensource.zalan.do/teapot/stackset-controller
-      IMAGE=$IMAGE VERSION=$VERSION make build.docker
       git diff --stat --exit-code
-      IMAGE=$IMAGE VERSION=$VERSION make build.push
 
       # Build and push image to Zalando's registry
       IMAGE=container-registry-test.zalando.net/teapot/stackset-controller
@@ -126,9 +116,9 @@ pipeline:
       echo -e "### Changes\n" >$tf
       git log -1 --pretty=%B | grep -v 'Signed-off-by:' | grep -v -E '^\s*$' | grep -vE '^\*' >>$tf
       echo -e "\n### Docker image\n" >>$tf
-      echo -e "Docker image is available in Zalando's Open Source registry:\n" >>$tf
+      echo -e "Docker image is available in Github Container Registry:\n" >>$tf
       echo -e '```' >>$tf
-      echo -e "docker run -it registry.opensource.zalan.do/teapot/stackset-controller:${VERSION} --help" >>$tf
+      echo -e "docker run -it ghrc.io/zalando-incubator/stackset-controller:${VERSION} --help" >>$tf
       echo -e '```' >>$tf
       echo "################################"
       cat $tf
