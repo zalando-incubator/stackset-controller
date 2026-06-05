@@ -256,8 +256,22 @@ type MetricsRequestsPerSecond struct {
 	Hostnames []string `json:"hostnames"`
 }
 
+// MetricsPrometheus specifies an arbitrary PromQL query whose scalar result
+// drives scaling. It is served via kube-metrics-adapter's Prometheus
+// collector as an External metric. This is the generic escape hatch for any
+// metric that lives in Prometheus but has no dedicated metric type above,
+// e.g. GPU utilization from DCGM (DCGM_FI_DEV_GPU_UTIL) or NVIDIA Triton
+// inference metrics (nv_inference_pending_request_count,
+// nv_inference_queue_duration_us). The query must return a scalar or a
+// single-element vector; wrap it in scalar(...) when in doubt.
+// +k8s:deepcopy-gen=true
+type MetricsPrometheus struct {
+	// Query is the PromQL query to execute. Required.
+	Query string `json:"query"`
+}
+
 // AutoscalerMetricType is the type of the metric used for scaling.
-// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule;RequestsPerSecond
+// +kubebuilder:validation:Enum=CPU;Memory;AmazonSQS;PodJSON;Ingress;RouteGroup;ZMON;ScalingSchedule;ClusterScalingSchedule;RequestsPerSecond;Prometheus
 type AutoscalerMetricType string
 
 const (
@@ -271,6 +285,7 @@ const (
 	ClusterScalingScheduleMetric AutoscalerMetricType = "ClusterScalingSchedule"
 	ScalingScheduleMetric        AutoscalerMetricType = "ScalingSchedule"
 	ExternalRPSMetric            AutoscalerMetricType = "RequestsPerSecond"
+	PrometheusAutoscalerMetric   AutoscalerMetricType = "Prometheus"
 )
 
 // AutoscalerMetrics is the type of metric to be be used for autoscaling.
@@ -285,6 +300,7 @@ type AutoscalerMetrics struct {
 	ScalingSchedule        *MetricsScalingSchedule        `json:"scalingSchedule,omitempty"`
 	ClusterScalingSchedule *MetricsClusterScalingSchedule `json:"clusterScalingSchedule,omitempty"`
 	RequestsPerSecond      *MetricsRequestsPerSecond      `json:"requestsPerSecond,omitempty"`
+	Prometheus             *MetricsPrometheus             `json:"prometheus,omitempty"`
 	// optional container name that can be used to scale based on CPU or
 	// Memory metrics of a specific container as opposed to an average of
 	// all containers in a pod.
