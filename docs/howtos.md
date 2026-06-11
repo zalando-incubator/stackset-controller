@@ -175,6 +175,7 @@ metrics:
 8. `ZMON`
 9. `ScalingSchedule`
 10. `ClusterScalingSchedule`
+11. `Prometheus`
 
 _Note:_ Based on the metrics type specified you may need to also deploy the [kube-metrics-adapter](https://github.com/zalando-incubator/kube-metrics-adapter)
 in your cluster.
@@ -315,6 +316,46 @@ autoscaler:
       # The name of the deployed ScalingSchedule object
       name: "namespaced-scheduling-event"
 ```
+
+Scaling on an arbitrary metric stored in Prometheus is supported via the
+`Prometheus` type. It relies on the [`prometheus`
+collector](https://github.com/zalando-incubator/kube-metrics-adapter#prometheus-collector)
+of the kube-metrics-adapter: the controller emits an `External` HPA metric with
+the `type: prometheus` selector label and a
+`metric-config.external.<name>.prometheus/query` annotation carrying your PromQL
+query. The query must return a scalar or a single-element vector (wrap it in
+`scalar(...)` when in doubt).
+
+This is the generic escape hatch for any metric that lives in Prometheus but
+has no dedicated metric type above. It is the recommended way to autoscale GPU
+workloads — there is no native GPU metric type, but GPU signals are available in
+Prometheus via the [DCGM
+exporter](https://github.com/NVIDIA/dcgm-exporter) (e.g. `DCGM_FI_DEV_GPU_UTIL`)
+and, for NVIDIA Triton Inference Server, via Triton's own metrics endpoint
+(e.g. `nv_inference_pending_request_count`, `nv_inference_queue_duration_us`).
+
+The following example scales a GPU inference deployment on two Prometheus
+signals at once — average GPU utilization and Triton's pending-request backlog:
+
+```yaml
+autoscaler:
+  minReplicas: 1
+  maxReplicas: 8
+  metrics:
+  # Scale up when average GPU utilization across the stack's pods exceeds 70%.
+  - type: Prometheus
+    average: "70"
+    prometheus:
+      query: scalar(avg(DCGM_FI_DEV_GPU_UTIL{container="triton"}))
+  # Scale up when Triton's pending inference requests exceed 5 per pod.
+  - type: Prometheus
+    average: "5"
+    prometheus:
+      query: scalar(sum(nv_inference_pending_request_count))
+```
+
+Each `Prometheus` metric gets a unique generated name (`<stack>-prometheus-<i>`),
+so a stack can declare multiple Prometheus metrics without collisions.
 
 ## Enable stack prescaling
 

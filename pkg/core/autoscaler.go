@@ -35,6 +35,9 @@ const (
 	sqsQueueNameTag                    = "queue-name"
 	sqsQueueRegionTag                  = "region"
 	scalingScheduleAPIVersion          = "zalando.org/v1"
+	prometheusMetricType               = "prometheus"
+	prometheusMetricName               = "prometheus"
+	prometheusQueryAnnotationFormat    = "metric-config.external.%s.prometheus/query"
 )
 
 var (
@@ -116,6 +119,11 @@ func (l autoscalerMetricsList) Less(i, j int) bool {
 		return l[i].ScalingSchedule.Name < l[j].ScalingSchedule.Name
 	}
 
+	// PrometheusAutoscalerMetric
+	if l[i].Prometheus != nil && l[j].Prometheus != nil {
+		return l[i].Prometheus.Query < l[j].Prometheus.Query
+	}
+
 	// IngressAutoscalerMetric, RouteGroupAutoscalerMetric are both
 	// checked just by the Average value.
 
@@ -160,6 +168,8 @@ func convertCustomMetrics(
 			generated, err = memoryMetric(m)
 		case zv1.ExternalRPSMetric:
 			generated, annotations, err = externalRPSMetric(m, stackName, trafficWeight)
+		case zv1.PrometheusAutoscalerMetric:
+			generated, annotations, err = prometheusMetric(m, stackName, i)
 		default:
 			err = fmt.Errorf("metric type %s not supported", m.Type)
 		}
@@ -398,6 +408,44 @@ func externalRPSMetric(metrics zv1.AutoscalerMetrics, stackname string, weight f
 	annotations := map[string]string{
 		hostKey:   strings.Join(metrics.RequestsPerSecond.Hostnames, ","),
 		weightKey: fmt.Sprintf("%d", int(weight)), // weight should be always between 0 and 100 with no decimal points
+	}
+
+	return generated, annotations, nil
+}
+
+func prometheusMetric(metrics zv1.AutoscalerMetrics, stackName string, position int) (*autoscaling.MetricSpec, map[string]string, error) {
+	if metrics.Average == nil {
+		return nil, nil, fmt.Errorf("average value not specified for metric")
+	}
+
+	if metrics.Prometheus == nil || metrics.Prometheus.Query == "" {
+		return nil, nil, fmt.Errorf("prometheus query not specified for metric")
+	}
+
+	// Unique per stack and per metric position so a stack can declare more
+	// than one Prometheus metric (e.g. GPU utilization and Triton queue
+	// depth) without annotation/name collisions.
+	name := fmt.Sprintf("%s-%s-%d", stackName, prometheusMetricName, position)
+
+	average := metrics.Average.DeepCopy()
+	generated := &autoscaling.MetricSpec{
+		Type: autoscaling.ExternalMetricSourceType,
+		External: &autoscaling.ExternalMetricSource{
+			Metric: autoscaling.MetricIdentifier{
+				Name: name,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{metricsTypeLabel: prometheusMetricType},
+				},
+			},
+			Target: autoscaling.MetricTarget{
+				Type:         autoscaling.AverageValueMetricType,
+				AverageValue: &average,
+			},
+		},
+	}
+
+	annotations := map[string]string{
+		fmt.Sprintf(prometheusQueryAnnotationFormat, name): metrics.Prometheus.Query,
 	}
 
 	return generated, annotations, nil

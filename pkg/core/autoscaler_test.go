@@ -185,6 +185,18 @@ func generateAutoscalerExternalRPS(minReplicas, maxReplicas, utilization int32, 
 	return container
 }
 
+func generateAutoscalerPrometheus(minReplicas, maxReplicas, average int32, query string) StackContainer {
+	container := generateAutoscalerStub(minReplicas, maxReplicas)
+	container.Stack.Spec.StackSpec.Autoscaler.Metrics = append(
+		container.Stack.Spec.StackSpec.Autoscaler.Metrics, zv1.AutoscalerMetrics{
+			Type:       zv1.PrometheusAutoscalerMetric,
+			Prometheus: &zv1.MetricsPrometheus{Query: query},
+			Average:    resource.NewQuantity(int64(average), resource.DecimalSI),
+		},
+	)
+	return container
+}
+
 func TestStackSetController_ReconcileAutoscalersCPU(t *testing.T) {
 	ssc := generateAutoscalerCPU(1, 10, 80, "")
 	hpa, err := ssc.GenerateHPA()
@@ -436,6 +448,61 @@ func TestCPUMetricValid(t *testing.T) {
 	metric, err := cpuMetric(metrics)
 	require.NoError(t, err, "could not create hpa metric")
 	require.Equal(t, metric.Resource.Name, corev1.ResourceCPU)
+}
+
+func TestStackSetController_ReconcileAutoscalersPrometheus(t *testing.T) {
+	// GPU autoscaling use case: scale on average GPU utilization from DCGM.
+	query := "scalar(avg(DCGM_FI_DEV_GPU_UTIL{pod=~\"triton-.*\"}))"
+	ssc := generateAutoscalerPrometheus(1, 10, 70, query)
+	hpa, err := ssc.GenerateHPA()
+	require.NoError(t, err, "failed to create an HPA")
+	require.NotNil(t, hpa, "hpa not generated")
+	require.Len(t, hpa.Spec.Metrics, 1, "expected HPA to have 1 metric. instead got %d", len(hpa.Spec.Metrics))
+	externalMetric := hpa.Spec.Metrics[0]
+	require.Equal(t, autoscaling.ExternalMetricSourceType, externalMetric.Type)
+	require.Equal(t, "prometheus", externalMetric.External.Metric.Selector.MatchLabels["type"])
+	require.Equal(t, autoscaling.AverageValueMetricType, externalMetric.External.Target.Type)
+	require.Equal(t, int64(70), externalMetric.External.Target.AverageValue.Value())
+
+	metricName := externalMetric.External.Metric.Name
+	require.Equal(t, "stackset-v1-prometheus-0", metricName)
+	require.Equal(t, query, hpa.Annotations["metric-config.external.stackset-v1-prometheus-0.prometheus/query"])
+}
+
+func TestPrometheusMetricInvalid(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		m    zv1.AutoscalerMetrics
+	}{
+		{
+			desc: "No average value",
+			m: zv1.AutoscalerMetrics{
+				Type:       zv1.PrometheusAutoscalerMetric,
+				Prometheus: &zv1.MetricsPrometheus{Query: "scalar(vector(1))"},
+				Average:    nil,
+			},
+		},
+		{
+			desc: "No Prometheus value",
+			m: zv1.AutoscalerMetrics{
+				Type:    zv1.PrometheusAutoscalerMetric,
+				Average: resource.NewQuantity(80, resource.DecimalSI),
+			},
+		},
+		{
+			desc: "Empty Prometheus query",
+			m: zv1.AutoscalerMetrics{
+				Type:       zv1.PrometheusAutoscalerMetric,
+				Prometheus: &zv1.MetricsPrometheus{Query: ""},
+				Average:    resource.NewQuantity(80, resource.DecimalSI),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(tt *testing.T) {
+			_, _, err := prometheusMetric(tc.m, "stackset-v1", 0)
+			require.Error(tt, err)
+		})
+	}
 }
 
 func TestExternalRPSMetricInvalid(t *testing.T) {

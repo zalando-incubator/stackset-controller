@@ -291,6 +291,23 @@ spec:
                           - path
                           - port
                           type: object
+                        prometheus:
+                          description: |-
+                            MetricsPrometheus specifies an arbitrary PromQL query whose scalar result
+                            drives scaling. It is served via kube-metrics-adapter's Prometheus
+                            collector as an External metric. This is the generic escape hatch for any
+                            metric that lives in Prometheus but has no dedicated metric type above,
+                            e.g. GPU utilization from DCGM (DCGM_FI_DEV_GPU_UTIL) or NVIDIA Triton
+                            inference metrics (nv_inference_pending_request_count,
+                            nv_inference_queue_duration_us). The query must return a scalar or a
+                            single-element vector; wrap it in scalar(...) when in doubt.
+                          properties:
+                            query:
+                              description: Query is the PromQL query to execute. Required.
+                              type: string
+                          required:
+                          - query
+                          type: object
                         queue:
                           description: |-
                             MetricsQueue specifies the SQS queue whose length should be used for
@@ -343,6 +360,7 @@ spec:
                           - ScalingSchedule
                           - ClusterScalingSchedule
                           - RequestsPerSecond
+                          - Prometheus
                           type: string
                         zmon:
                           description: MetricsZMON specifies the ZMON check which
