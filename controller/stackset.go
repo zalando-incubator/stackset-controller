@@ -340,7 +340,7 @@ func (c *StackSetController) collectIngresses(ctx context.Context, stacksets map
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					if strings.HasSuffix(
-						ingress.ObjectMeta.Name,
+						ingress.Name,
 						core.SegmentSuffix,
 					) {
 						// Traffic Segment
@@ -378,7 +378,7 @@ func (c *StackSetController) collectRouteGroups(ctx context.Context, stacksets m
 			for _, stackset := range stacksets {
 				if s, ok := stackset.StackContainers[uid]; ok {
 					if strings.HasSuffix(
-						routegroup.ObjectMeta.Name,
+						routegroup.Name,
 						core.SegmentSuffix,
 					) {
 						// Traffic Segment
@@ -584,6 +584,7 @@ func (c *StackSetController) errorEventf(object runtime.Object, reason string, e
 			object,
 			v1.EventTypeWarning,
 			reason,
+			"%s",
 			err.Error())
 		return &eventedError{err: err}
 	}
@@ -1113,7 +1114,8 @@ func (c *StackSetController) ReconcileStackSet(ctx context.Context, container *c
 			container.StackSet,
 			v1.EventTypeWarning,
 			"TrafficNotSwitched",
-			"Failed to switch traffic: "+err.Error())
+			"Failed to switch traffic: %s",
+			err.Error())
 	}
 
 	// Mark stacks that should be removed

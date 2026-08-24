@@ -60,7 +60,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		printTrafficTable(stacks)
+		if err := printTrafficTable(stacks); err != nil {
+			log.Fatal(err)
+		}
 		return
 	}
 
@@ -68,23 +70,29 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	printTrafficTable(stacks)
+	if err := printTrafficTable(stacks); err != nil {
+		log.Fatal(err)
+	}
 }
 
-func printTrafficTable(stacks []traffic.StackTrafficWeight) {
+func printTrafficTable(stacks []traffic.StackTrafficWeight) error {
 	w := tabwriter.NewWriter(os.Stdout, 8, 8, 4, ' ', 0)
-	fmt.Fprintf(w, "%s\t%s\t%s\n", "STACK", "DESIRED TRAFFIC", "ACTUAL TRAFFIC")
+	if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", "STACK", "DESIRED TRAFFIC", "ACTUAL TRAFFIC"); err != nil {
+		return err
+	}
 
 	for _, stack := range stacks {
-		fmt.Fprintf(w,
+		if _, err := fmt.Fprintf(w,
 			"%s\t%s\t%s\n",
 			stack.Name,
 			fmt.Sprintf("%.1f%%", stack.Weight),
 			fmt.Sprintf("%.1f%%", stack.ActualWeight),
-		)
+		); err != nil {
+			return err
+		}
 	}
 
-	w.Flush()
+	return w.Flush()
 }
 
 func newKubeConfig() (*rest.Config, error) {

@@ -330,7 +330,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	require.EqualValues(t, stackResourceLabels, deployment.Labels)
 	require.EqualValues(
 		t, replicas(deployment.Spec.Replicas),
-		replicas(stack.Spec.StackSpec.Replicas),
+		replicas(stack.Spec.Replicas),
 	)
 	require.EqualValues(t, stackResourceLabels, deployment.Spec.Template.Labels)
 	if stacksetSpec.StackTemplate.Spec.Strategy != nil {

@@ -3331,11 +3331,6 @@ spec:
                                     Note that this field cannot be set when spec.os.name is windows.
                                   properties:
                                     localhostProfile:
-                                      description: |-
-                                        localhostProfile indicates a profile loaded on the node that should be used.
-                                        The profile must be preconfigured on the node to work.
-                                        Must match the loaded name of the profile.
-                                        Must be set if and only if type is "Localhost".
                                       type: string
                                     type:
                                       type: string
@@ -4753,6 +4748,11 @@ spec:
                                     Note that this field cannot be set when spec.os.name is windows.
                                   properties:
                                     localhostProfile:
+                                      description: |-
+                                        localhostProfile indicates a profile loaded on the node that should be used.
+                                        The profile must be preconfigured on the node to work.
+                                        Must match the loaded name of the profile.
+                                        Must be set if and only if type is "Localhost".
                                       type: string
                                     type:
                                       type: string
