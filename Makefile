@@ -16,6 +16,7 @@ GENERATED      = pkg/apis/zalando.org/v1/zz_generated.deepcopy.go
 GOPKGS         = $(shell go list ./... | grep -v /e2e)
 BUILD_FLAGS    ?= -v
 LDFLAGS        ?= -X main.version=$(VERSION) -w -s
+GOLANGCI_LINT  ?= golangci-lint-v2
 
 default: build.local
 
@@ -29,7 +30,7 @@ test: $(GENERATED)
 
 check: $(GENERATED)
 	go mod download
-	golangci-lint run --timeout=2m ./...
+	$(GOLANGCI_LINT) run --timeout=2m ./...
 
 $(GENERATED): go.mod $(CRD_TYPE_SOURCE)
 	./hack/update-codegen.sh
