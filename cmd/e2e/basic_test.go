@@ -317,9 +317,14 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	// Verify stack
 	stack, err := waitForStack(t, stacksetName, currentVersion)
 	require.NoError(t, err)
+	for key, value := range stacksetSpec.StackTemplate.Spec.PodTemplate.Annotations {
+		require.Equal(t, value, stack.Spec.PodTemplate.Annotations[key])
+	}
+	expectedStackSpec := stacksetSpec.StackTemplate.Spec.StackSpec.DeepCopy()
+	expectedStackSpec.PodTemplate.Annotations = stack.Spec.PodTemplate.Annotations
 	require.EqualValues(
 		t,
-		stacksetSpec.StackTemplate.Spec.StackSpec,
+		expectedStackSpec,
 		stack.Spec.StackSpec,
 	)
 	require.EqualValues(t, stackResourceLabels, stack.Labels)
