@@ -324,7 +324,7 @@ func verifyStack(t *testing.T, stacksetName, currentVersion string, stacksetSpec
 	expectedStackSpec.PodTemplate.Annotations = stack.Spec.PodTemplate.Annotations
 	require.EqualValues(
 		t,
-		expectedStackSpec,
+		*expectedStackSpec,
 		stack.Spec.StackSpec,
 	)
 	require.EqualValues(t, stackResourceLabels, stack.Labels)
