@@ -131,14 +131,14 @@ func (sc *StackContainer) resourceMeta() metav1.ObjectMeta {
 // getServicePorts gets the service ports to be used for the stack service.
 func getServicePorts(stackSpec zv1.StackSpecInternal, backendPort *intstr.IntOrString) ([]v1.ServicePort, error) {
 	var servicePorts []v1.ServicePort
-	if stackSpec.StackSpec.Service == nil ||
-		len(stackSpec.StackSpec.Service.Ports) == 0 {
+	if stackSpec.Service == nil ||
+		len(stackSpec.Service.Ports) == 0 {
 
 		servicePorts = servicePortsFromContainers(
-			stackSpec.StackSpec.PodTemplate.Spec.Containers,
+			stackSpec.PodTemplate.Spec.Containers,
 		)
 	} else {
-		servicePorts = stackSpec.StackSpec.Service.Ports
+		servicePorts = stackSpec.Service.Ports
 	}
 
 	// validate that one port in the list maps to the backendPort.
@@ -227,11 +227,11 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 	}
 
 	var strategy *appsv1.DeploymentStrategy
-	if stack.Spec.StackSpec.Strategy != nil {
-		strategy = stack.Spec.StackSpec.Strategy.DeepCopy()
+	if stack.Spec.Strategy != nil {
+		strategy = stack.Spec.Strategy.DeepCopy()
 	}
 
-	embeddedCopy := stack.Spec.StackSpec.PodTemplate.ObjectMeta.DeepCopy()
+	embeddedCopy := stack.Spec.PodTemplate.ObjectMeta.DeepCopy()
 
 	templateObjectMeta := metav1.ObjectMeta{
 		Annotations: embeddedCopy.Annotations,
@@ -242,13 +242,13 @@ func (sc *StackContainer) GenerateDeployment() *appsv1.Deployment {
 		ObjectMeta: sc.resourceMeta(),
 		Spec: appsv1.DeploymentSpec{
 			Replicas:        updatedReplicas,
-			MinReadySeconds: sc.Stack.Spec.StackSpec.MinReadySeconds,
+			MinReadySeconds: sc.Stack.Spec.MinReadySeconds,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: sc.selector(),
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: objectMetaInjectLabels(templateObjectMeta, stack.Labels),
-				Spec:       *stack.Spec.StackSpec.PodTemplate.Spec.DeepCopy(),
+				Spec:       *stack.Spec.PodTemplate.Spec.DeepCopy(),
 			},
 		},
 	}
@@ -272,7 +272,7 @@ func (sc *StackContainer) GenerateHPA() (
 		return nil, nil
 	}
 
-	autoscalerSpec := sc.Stack.Spec.StackSpec.Autoscaler
+	autoscalerSpec := sc.Stack.Spec.Autoscaler
 	trafficWeight := sc.actualTrafficWeight
 
 	if autoscalerSpec == nil {
@@ -340,10 +340,10 @@ func (sc *StackContainer) GenerateService() (*v1.Service, error) {
 
 	metaObj := sc.resourceMeta()
 	stackSpec := sc.Stack.Spec
-	if stackSpec.StackSpec.Service != nil {
+	if stackSpec.Service != nil {
 		metaObj.Annotations = mergeLabels(
 			metaObj.Annotations,
-			stackSpec.StackSpec.Service.Annotations,
+			stackSpec.Service.Annotations,
 		)
 	}
 	return &v1.Service{

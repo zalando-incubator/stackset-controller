@@ -54,7 +54,7 @@ func sanitizeServicePorts(service *zv1.StackServiceSpec) *zv1.StackServiceSpec {
 
 // NewStack returns an (optional) stack that should be created
 func (ssc *StackSetContainer) NewStack(forwardSupportEnabled bool) (*StackContainer, string) {
-	_, forwardMigration := ssc.StackSet.ObjectMeta.Annotations[forwardBackendAnnotation]
+	_, forwardMigration := ssc.StackSet.Annotations[forwardBackendAnnotation]
 	if !forwardSupportEnabled {
 		forwardMigration = false
 	}
@@ -290,7 +290,7 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 		if sc.actualTrafficWeight > 0 {
 			actualWeights[sc.Name()] = sc.actualTrafficWeight
 
-			rule.IngressRuleValue.HTTP.Paths = append(rule.IngressRuleValue.HTTP.Paths, networking.HTTPIngressPath{
+			rule.HTTP.Paths = append(rule.HTTP.Paths, networking.HTTPIngressPath{
 				Path:     stackset.Spec.Ingress.Path,
 				PathType: &PathTypeImplementationSpecific,
 				Backend: networking.IngressBackend{
@@ -306,13 +306,13 @@ func (ssc *StackSetContainer) GenerateIngress() (*networking.Ingress, error) {
 		}
 	}
 
-	if len(rule.IngressRuleValue.HTTP.Paths) == 0 {
+	if len(rule.HTTP.Paths) == 0 {
 		return nil, errNoPaths
 	}
 
 	// sort backends by name to have a consistent generated ingress resource.
-	sort.Slice(rule.IngressRuleValue.HTTP.Paths, func(i, j int) bool {
-		return rule.IngressRuleValue.HTTP.Paths[i].Backend.Service.Name < rule.IngressRuleValue.HTTP.Paths[j].Backend.Service.Name
+	sort.Slice(rule.HTTP.Paths, func(i, j int) bool {
+		return rule.HTTP.Paths[i].Backend.Service.Name < rule.HTTP.Paths[j].Backend.Service.Name
 	})
 
 	// create rule per hostname

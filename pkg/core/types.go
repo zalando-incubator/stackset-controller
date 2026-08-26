@@ -176,7 +176,7 @@ func (sc *StackContainer) IsReady() bool {
 }
 
 func (sc *StackContainer) MaxReplicas() int32 {
-	if sc.Stack.Spec.StackSpec.Autoscaler != nil {
+	if sc.Stack.Spec.Autoscaler != nil {
 		return sc.Stack.Spec.StackSpec.Autoscaler.MaxReplicas
 	}
 	return math.MaxInt32

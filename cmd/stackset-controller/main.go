@@ -141,7 +141,6 @@ func configureKubeConfig(apiServerURL *url.URL, timeout time.Duration, stopCh <-
 		DialContext: (&net.Dialer{
 			Timeout:   timeout,
 			KeepAlive: 30 * time.Second,
-			DualStack: false, // K8s do not work well with IPv6
 		}).DialContext,
 		TLSHandshakeTimeout:   timeout,
 		ResponseHeaderTimeout: 10 * time.Second,

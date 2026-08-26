@@ -797,7 +797,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 		},
 	}
 
-	metricsHash, _ := metricHash(container.Stack.ObjectMeta.Namespace, container.Stack.ObjectMeta.Name)
+	metricsHash, _ := metricHash(container.Stack.Namespace, container.Stack.Name)
 
 	expectedMetrics := []autoscaling.MetricSpec{
 		{
@@ -935,7 +935,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 			Type: autoscaling.ObjectMetricSourceType,
 			Object: &autoscaling.ObjectMetricSource{
 				Metric: autoscaling.MetricIdentifier{
-					Name: fmt.Sprintf("%s,%s", requestsPerSecondName, container.Stack.ObjectMeta.Name),
+					Name: fmt.Sprintf("%s,%s", requestsPerSecondName, container.Stack.Name),
 				},
 				DescribedObject: autoscaling.CrossVersionObjectReference{
 					APIVersion: "networking.k8s.io/v1",
@@ -952,7 +952,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 			Type: autoscaling.ObjectMetricSourceType,
 			Object: &autoscaling.ObjectMetricSource{
 				Metric: autoscaling.MetricIdentifier{
-					Name: fmt.Sprintf("%s,%s", requestsPerSecondName, container.Stack.ObjectMeta.Name),
+					Name: fmt.Sprintf("%s,%s", requestsPerSecondName, container.Stack.Name),
 				},
 				DescribedObject: autoscaling.CrossVersionObjectReference{
 					APIVersion: "networking.k8s.io/v1",
@@ -1050,7 +1050,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 					Name: requestsPerSecondName,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							"backend": container.Stack.ObjectMeta.Name,
+							"backend": container.Stack.Name,
 						},
 					},
 				},
@@ -1072,7 +1072,7 @@ func TestSortingDuplicatedMetrics(t *testing.T) {
 					Name: requestsPerSecondName,
 					Selector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
-							"backend": container.Stack.ObjectMeta.Name,
+							"backend": container.Stack.Name,
 						},
 					},
 				},
