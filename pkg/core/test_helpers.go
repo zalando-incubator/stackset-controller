@@ -99,6 +99,14 @@ func (f *testStackFactory) pendingRemoval() *testStackFactory {
 	return f
 }
 
+func (f *testStackFactory) trafficForward() *testStackFactory {
+	if f.container.Stack.Annotations == nil {
+		f.container.Stack.Annotations = map[string]string{}
+	}
+	f.container.Stack.Annotations[forwardBackendAnnotation] = forwardBackendName
+	return f
+}
+
 func (f *testStackFactory) prescaling(replicas int32, desiredTrafficWeight float64, lastTrafficIncrease time.Time) *testStackFactory {
 	f.container.prescalingActive = true
 	f.container.prescalingReplicas = replicas
