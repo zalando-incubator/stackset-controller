@@ -874,6 +874,21 @@ func TestTrafficSwitchPrescaling(t *testing.T) {
 			},
 			expectedError: "stacks not ready: foo-v1, foo-v3",
 		},
+		{
+			name: "forwarded stacks are not subject to prescaling readiness checks",
+			stacks: map[types.UID]*StackContainer{
+				"foo-v1": testStack("foo-v1").traffic(0, 100).ready(3).stack(),
+				"foo-v2": testStack("foo-v2").traffic(100, 0).trafficForward().stack(),
+			},
+			expectedDesiredWeights: map[string]float64{
+				"foo-v1": 0,
+				"foo-v2": 100,
+			},
+			expectedActualWeights: map[string]float64{
+				"foo-v1": 0,
+				"foo-v2": 100,
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			c := StackSetContainer{

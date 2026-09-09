@@ -41,6 +41,13 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 
 	// Prescale stacks if needed
 	for _, stack := range stacks {
+		// Stacks configured to forward traffic to another cluster don't
+		// have a deployment of their own, so prescaling doesn't apply
+		// to them.
+		if stack.TrafficForward() {
+			continue
+		}
+
 		// If traffic needs to be increased
 		if stack.desiredTrafficWeight > stack.actualTrafficWeight {
 			// If prescaling is not active, or desired weight changed since the last prescaling attempt, update
@@ -86,7 +93,11 @@ func (r PrescalingTrafficReconciler) Reconcile(stacks map[string]*StackContainer
 	actualWeights := make(map[string]float64, len(stacks))
 	for stackName, stack := range stacks {
 		// Check if we're increasing traffic but the stack is not ready
-		if stack.desiredTrafficWeight > stack.actualTrafficWeight {
+		if stack.desiredTrafficWeight > stack.actualTrafficWeight && !stack.TrafficForward() {
+			// Stacks configured to forward traffic to another cluster
+			// don't have a deployment of their own here, so replica
+			// based readiness/prescaling checks don't apply to them
+			// (see stack.IsReady() for the same exception).
 			var desiredReplicas = stack.deploymentReplicas
 			if stack.prescalingActive {
 				desiredReplicas = stack.prescalingReplicas
