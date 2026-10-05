@@ -118,7 +118,7 @@ pipeline:
       echo -e "\n### Docker image\n" >>$tf
       echo -e "Docker image is available in Github Container Registry:\n" >>$tf
       echo -e '```' >>$tf
-      echo -e "docker run -it ghrc.io/zalando-incubator/stackset-controller:${VERSION} --help" >>$tf
+      echo -e "docker run -it ghcr.io/zalando-incubator/stackset-controller:${VERSION} --help" >>$tf
       echo -e '```' >>$tf
       echo "################################"
       cat $tf
