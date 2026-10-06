@@ -35,6 +35,7 @@ const (
 	sqsQueueNameTag                    = "queue-name"
 	sqsQueueRegionTag                  = "region"
 	scalingScheduleAPIVersion          = "zalando.org/v1"
+	scheduleGroupLabel                 = "schedule-group"
 )
 
 var (
@@ -496,7 +497,18 @@ func clusterScalingScheduleMetric(metrics zv1.AutoscalerMetrics, stackName, name
 		return nil, errMissingClusterScalingScheduleName
 	}
 
-	return generateScalingScheduleMetricSpec("ClusterScalingSchedule", name, average), nil
+	metric := generateScalingScheduleMetricSpec("ClusterScalingSchedule", name, average)
+	if len(metrics.ClusterScalingSchedule.ScheduleGroups) > 0 {
+		values := append([]string(nil), metrics.ClusterScalingSchedule.ScheduleGroups...)
+		metric.Object.Metric.Selector = &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{{
+				Key:      scheduleGroupLabel,
+				Operator: metav1.LabelSelectorOpIn,
+				Values:   values,
+			}},
+		}
+	}
+	return metric, nil
 }
 
 func generateScalingScheduleMetricSpec(kind, name string, average resource.Quantity) *autoscaling.MetricSpec {
