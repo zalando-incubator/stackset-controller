@@ -366,6 +366,22 @@ func TestStackSetController_ReconcileAutoscalersScalingSchedule(t *testing.T) {
 		validateHpa(t, "ClusterScalingSchedule", ssc)
 	})
 
+	t.Run("generate ClusterScalingSchedule HPA with schedule groups", func(t *testing.T) {
+		ssc.Stack.Spec.StackSpec.Autoscaler.Metrics[0].ClusterScalingSchedule.ScheduleGroups = []string{
+			"load-test",
+			"cyber-week",
+		}
+		hpa, err := ssc.GenerateHPA()
+		require.NoError(t, err)
+		require.Len(t, hpa.Spec.Metrics, 1)
+		selector := hpa.Spec.Metrics[0].Object.Metric.Selector
+		require.NotNil(t, selector)
+		require.Equal(t, []metav1.LabelSelectorRequirement{{
+			Key: scheduleGroupLabel, Operator: metav1.LabelSelectorOpIn,
+			Values: []string{"load-test", "cyber-week"},
+		}}, selector.MatchExpressions)
+	})
+
 }
 
 func TestStackSetController_ReconcileAutoscalersExternalRPS(t *testing.T) {

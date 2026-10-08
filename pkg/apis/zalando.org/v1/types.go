@@ -247,6 +247,10 @@ type MetricsClusterScalingSchedule struct {
 	// The name of the referenced ClusterScalingSchedule object.
 	// +kubebuilder:validation:Pattern:=^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
 	Name string `json:"name"`
+	// ScheduleGroups limits the schedule metric to the specified groups.
+	// An empty list matches all groups for backwards compatibility.
+	// +optional
+	ScheduleGroups []string `json:"scheduleGroups,omitempty"`
 }
 
 // MetricRequestsPerSecond specifies basic information to scale based on
